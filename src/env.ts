@@ -24,9 +24,7 @@ if (!parsed.success) {
   const detalle = parsed.error.issues
     .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
     .join('\n');
-  throw new Error(
-    `Configuracion invalida. Copia .env.example como .env y completalo:\n${detalle}`,
-  );
+  throw new Error(`Configuracion invalida. Copia .env.example como .env y completalo:\n${detalle}`);
 }
 
 export const env = parsed.data;

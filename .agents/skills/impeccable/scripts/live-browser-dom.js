@@ -49,10 +49,14 @@
       const r = el.getBoundingClientRect();
       if (!rectIsUsableAnchor(r)) return null;
       const rect = {
-        x: r.x, y: r.y,
-        top: r.top, left: r.left,
-        right: r.right, bottom: r.bottom,
-        width: r.width, height: r.height,
+        x: r.x,
+        y: r.y,
+        top: r.top,
+        left: r.left,
+        right: r.right,
+        bottom: r.bottom,
+        width: r.width,
+        height: r.height,
       };
       return {
         __impeccableFrozenAnchor: true,
@@ -67,17 +71,22 @@
     function hasFrameworkHmrOwnership(el) {
       for (let node = el; node; node = node.parentElement) {
         let keys = [];
-        try { keys = Object.getOwnPropertyNames(node); } catch {}
-        if (keys.some((key) => (
-          key.startsWith('__reactFiber$')
-          || key.startsWith('__reactProps$')
-          || key.startsWith('__reactContainer$')
-          || key === '_reactRootContainer'
-          || key === '__vueParentComponent'
-          || key === '__vue_app__'
-          || key === '__vnode'
-          || key === '__svelte_meta'
-        ))) {
+        try {
+          keys = Object.getOwnPropertyNames(node);
+        } catch {}
+        if (
+          keys.some(
+            (key) =>
+              key.startsWith('__reactFiber$') ||
+              key.startsWith('__reactProps$') ||
+              key.startsWith('__reactContainer$') ||
+              key === '_reactRootContainer' ||
+              key === '__vueParentComponent' ||
+              key === '__vue_app__' ||
+              key === '__vnode' ||
+              key === '__svelte_meta',
+          )
+        ) {
           return true;
         }
       }

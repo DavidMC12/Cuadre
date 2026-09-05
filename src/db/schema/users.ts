@@ -39,7 +39,10 @@ export const users = pgTable(
 
     // Normalizamos el correo en la base, no solo por convencion en el codigo.
     check('users_email_lowercase', sql`${t.email} = lower(${t.email})`),
-    check('users_email_shape', sql`${t.email} ~ '^[^@[:space:]]+@[^@[:space:]]+[.][^@[:space:]]+$'`),
+    check(
+      'users_email_shape',
+      sql`${t.email} ~ '^[^@[:space:]]+@[^@[:space:]]+[.][^@[:space:]]+$'`,
+    ),
     check('users_display_name_not_blank', sql`length(btrim(${t.displayName})) > 0`),
     // O ambos campos de identidad, o ninguno.
     check(

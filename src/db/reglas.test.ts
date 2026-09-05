@@ -407,15 +407,7 @@ describe('el saldo es la suma de los movimientos', () => {
   });
 
   it('la vista coincide con la suma calculada en codigo', async () => {
-    const montos = [
-      '1500000',
-      '-249.99',
-      '-1200.50',
-      '0.0001',
-      '-0.0002',
-      '89999.9999',
-      '-3.3333',
-    ];
+    const montos = ['1500000', '-249.99', '-1200.50', '0.0001', '-0.0002', '89999.9999', '-3.3333'];
 
     const resultado = await conSemilla(async (tx, s) => {
       await registrar(tx, s.usuarioA, { cuenta: s.bancoCop, monto: montos[0]!, tipo: 'opening' });
