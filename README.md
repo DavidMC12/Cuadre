@@ -31,6 +31,7 @@ perder nada.
 | Comando               | Qué hace                                                      |
 | --------------------- | ------------------------------------------------------------- |
 | `npm test`            | Corre todas las pruebas                                       |
+| `npm run test:list`   | Lista qué garantiza cada prueba, sin correrlas                |
 | `npm run db:generate` | Escribe una migración nueva a partir de cambios en el esquema |
 | `npm run db:migrate`  | Aplica a la base las migraciones que falten                   |
 | `npm run db:studio`   | Abre un visor para mirar los datos                            |
@@ -67,6 +68,23 @@ divisa distinta a la de su cuenta.
 
 Las 42 pruebas de `npm test` existen justamente para intentar romper cada una
 de estas reglas y comprobar que la base no lo permite.
+
+## Las pruebas son la documentación
+
+No hay un documento aparte que liste qué está garantizado, y es a propósito: un
+documento así se desactualiza en silencio. Alguien borra una prueba y el
+documento sigue jurando que existe.
+
+En vez de eso, las pruebas se llaman como frases en español —"exige el monto
+opuesto", "no deja anular una anulación", "el saldo de un usuario no se
+contamina con el de otro"— y se leen todas de un tirón con:
+
+```bash
+npm run test:list
+```
+
+Esa lista sale del código que de verdad corre, así que no puede mentir. Si una
+garantía desaparece, desaparece de la lista sola.
 
 ## Estructura
 
