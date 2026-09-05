@@ -9,6 +9,9 @@ export default defineConfig({
   dbCredentials: {
     url: process.env['DATABASE_URL'] ?? '',
   },
+  // Solo administramos nuestro esquema. Si activas Neon Auth, sus tablas viven
+  // en el esquema `neon_auth` y las migraciones nunca las van a tocar.
+  schemaFilter: ['public'],
   strict: true,
   verbose: true,
 });
