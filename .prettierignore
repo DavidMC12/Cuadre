@@ -2,3 +2,9 @@ node_modules/
 drizzle/
 coverage/
 dist/
+package-lock.json
+
+# Skills instaladas: son de terceros, no se reformatean.
+.agents/
+.claude/
+skills-lock.json
