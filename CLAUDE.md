@@ -19,6 +19,8 @@ Este proyecto puede tener varios agentes trabajando al mismo tiempo, cada uno en
   2. El agente principal ya revisó y le confirmó al usuario que el cambio no choca ni con otras ramas activas ni con trabajo en curso de otros agentes.
 - Cada funcionalidad se desarrolla en su propia copia/worktree separada del proyecto — nunca dos agentes comparten la misma carpeta de trabajo al mismo tiempo.
 - Para que el perfil de GitHub del usuario se vea activo, se debe comitear seguido: cada vez que una parte pequeña y completa del trabajo esté lista (una función, una corrección, un ajuste), en vez de acumular varios cambios en un solo commit grande al final. No se deben crear commits vacíos o sin cambios reales solo para inflar el conteo.
+- **Cada commit se sube (`push`) a su rama de inmediato**, en la misma acción, no al final de la sesión. Un commit que se queda en la máquina no existe para nadie más y no aparece en el perfil de GitHub. La primera vez en una rama nueva: `git push -u origin <rama>`; después, `git push` a secas. Si el push falla (por ejemplo, sin red), se avisa al usuario en vez de seguir acumulando commits en silencio.
+- Esa regla de subir siempre aplica **solo a la rama propia**. `main` sigue intocable sin permiso explícito, según las dos condiciones de arriba.
 
 ## Principio rector
 
@@ -27,14 +29,14 @@ mal diseñada. Entre lo potente y lo obvio, gana lo obvio.
 
 ## Fases
 
-| # | Alcance |
-|---|---|
-| 0 | Esquema multi-tenant + migraciones |
-| 1 | CRUD de movimientos, auth, dashboard |
-| 2 | Importación de extractos (CSV) |
-| 3 | Workers + patrón outbox |
-| 4 | Integraciones con APIs externas |
-| 5 | Apertura a usuarios reales |
+| #   | Alcance                              |
+| --- | ------------------------------------ |
+| 0   | Esquema multi-tenant + migraciones   |
+| 1   | CRUD de movimientos, auth, dashboard |
+| 2   | Importación de extractos (CSV)       |
+| 3   | Workers + patrón outbox              |
+| 4   | Integraciones con APIs externas      |
+| 5   | Apertura a usuarios reales           |
 
 El esquema es multi-tenant desde la Fase 0, aunque los usuarios lleguen en la 5.
 
@@ -82,13 +84,11 @@ reports/ dashboard y gráficas
 budgets/ límites por categoría
 integrations/ conectores externos y webhooks
 
-
 Tres capas por módulo:
 
 routes.ts HTTP: recibe, valida (Zod), responde
 service.ts lógica de negocio. No conoce HTTP.
 repository.ts SQL. Nada más.
-
 
 **Regla:** un módulo nunca llama al repository de otro. Solo al service.
 
@@ -100,15 +100,18 @@ Outbox (eventos a tabla en la misma transacción, worker los procesa después).
 ## Reglas no negociables
 
 **Dinero**
+
 - `NUMERIC(19,4)`, nunca float
 - Movimientos inmutables: se corrige creando otro, jamás con `UPDATE`
 - Los saldos se derivan, no se almacenan
 
 **Multi-tenancy**
+
 - `user_id` en toda tabla del núcleo
 - `user_id` obligatorio en cada método del repository, nunca implícito
 
 **Integraciones**
+
 - Toda escritura acepta `Idempotency-Key`
 - Webhooks: verificar firma HMAC, persistir crudo antes de procesar,
   deduplicar por `event_id` del proveedor
@@ -117,6 +120,7 @@ Outbox (eventos a tabla en la misma transacción, worker los procesa después).
 **API** — versionada desde el primer endpoint: `/api/v1/`
 
 **Seguridad**
+
 - Secretos solo en variables de entorno
 - CORS con lista blanca, nunca `*`
 - Rate limiting, agresivo en login
@@ -125,16 +129,16 @@ Outbox (eventos a tabla en la misma transacción, worker los procesa después).
 
 ## Testing
 
-| Tipo | Framework | Desde |
-|---|---|---|
-| Unitaria | Vitest | F0 |
-| Consistencia de datos | Vitest | F0 |
-| Integración API | Vitest + `fastify.inject()` | F1 |
-| Integración BD | Testcontainers | F1 |
-| Concurrencia | Vitest | F1 |
-| Componente | Testing Library | F2 |
-| E2E | Playwright | F3 |
-| Contrato | MSW | F4 |
+| Tipo                  | Framework                   | Desde |
+| --------------------- | --------------------------- | ----- |
+| Unitaria              | Vitest                      | F0    |
+| Consistencia de datos | Vitest                      | F0    |
+| Integración API       | Vitest + `fastify.inject()` | F1    |
+| Integración BD        | Testcontainers              | F1    |
+| Concurrencia          | Vitest                      | F1    |
+| Componente            | Testing Library             | F2    |
+| E2E                   | Playwright                  | F3    |
+| Contrato              | MSW                         | F4    |
 
 - **Consistencia:** el ledger cuadra contra los saldos calculados. En CI y
   como job diario en producción.

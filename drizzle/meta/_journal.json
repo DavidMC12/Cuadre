@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1788639099158,
+      "tag": "0000_esquema_nucleo",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788639179010,
+      "tag": "0001_reglas_de_dinero",
+      "breakpoints": true
+    }
+  ]
+}
