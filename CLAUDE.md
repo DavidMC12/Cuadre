@@ -134,7 +134,7 @@ Outbox (eventos a tabla en la misma transacción, worker los procesa después).
 | Unitaria              | Vitest                      | F0    |
 | Consistencia de datos | Vitest                      | F0    |
 | Integración API       | Vitest + `fastify.inject()` | F1    |
-| Integración BD        | Testcontainers              | F1    |
+| Integración BD        | Rama efímera de Neon        | F1    |
 | Concurrencia          | Vitest                      | F1    |
 | Componente            | Testing Library             | F2    |
 | E2E                   | Playwright                  | F3    |
@@ -144,6 +144,10 @@ Outbox (eventos a tabla en la misma transacción, worker los procesa después).
   como job diario en producción.
 - **Concurrencia:** escrituras simultáneas sobre la misma cuenta sin perder
   actualizaciones.
+- **Integración BD:** cada tanda de pruebas trabaja sobre una rama efímera de
+  Neon, creada al empezar y borrada al terminar. Se descartó Testcontainers
+  porque exige Docker en la máquina de desarrollo y porque una rama de Neon
+  prueba contra el mismo Postgres exacto que corre en producción.
 
 Cobertura alta en dinero e integraciones, laxa en handlers y UI. No perseguir
 un porcentaje global.
