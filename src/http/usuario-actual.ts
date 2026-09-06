@@ -18,6 +18,7 @@ import fp from 'fastify-plugin';
 import { db } from '../db/client.js';
 import { users } from '../db/schema/index.js';
 import { env } from '../env.js';
+import { sembrarCategoriasPorDefecto } from '../modules/categories/service.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -47,6 +48,12 @@ async function resolverUsuarioDeDesarrollo(): Promise<string> {
     .limit(1);
 
   if (!usuario) throw new Error('No se pudo crear el usuario de desarrollo.');
+
+  // Un catálogo vacío obliga a inventarse quince categorías antes de registrar
+  // el primer gasto. Es idempotente, así que pasar por aquí de nuevo no duplica
+  // nada; en la Fase 1c esta llamada se muda a donde el proveedor de identidad
+  // dé de alta al usuario.
+  await sembrarCategoriasPorDefecto(db, usuario.id);
 
   idEnCache = usuario.id;
   return idEnCache;
