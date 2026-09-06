@@ -48,3 +48,34 @@ export function inputAIso(fechaInput: string): string {
   // Mediodía local: evita que, al pasar a UTC, la fecha "se corra" un día.
   return new Date(`${fechaInput}T12:00:00`).toISOString();
 }
+
+/** "YYYY-MM" del mes en curso, para prellenar el dashboard. */
+export function mesActual(): string {
+  const hoy = new Date();
+  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Suma (o resta) meses a un "YYYY-MM" y devuelve otro "YYYY-MM". */
+export function sumarMeses(mes: string, delta: number): string {
+  const [anio, mesNumero] = mes.split("-").map(Number);
+  const fecha = new Date(anio, mesNumero - 1 + delta, 1);
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** "YYYY-MM" -> "Septiembre 2026". */
+export function etiquetaMes(mes: string): string {
+  const [anio, mesNumero] = mes.split("-").map(Number);
+  const texto = new Intl.DateTimeFormat("es-CO", { month: "long", year: "numeric" }).format(
+    new Date(anio, mesNumero - 1, 1)
+  );
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+/** "YYYY-MM" -> "Sep" (para los ejes de la gráfica de tendencia). */
+export function etiquetaMesCorta(mes: string): string {
+  const [anio, mesNumero] = mes.split("-").map(Number);
+  const texto = new Intl.DateTimeFormat("es-CO", { month: "short" }).format(
+    new Date(anio, mesNumero - 1, 1)
+  );
+  return texto.replace(".", "").charAt(0).toUpperCase() + texto.replace(".", "").slice(1);
+}
