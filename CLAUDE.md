@@ -35,18 +35,18 @@ mal diseñada. Entre lo potente y lo obvio, gana lo obvio.
 | 1   | CRUD de movimientos, categorías, dashboard | hecha  |
 | 2   | Autenticación y despliegue                 | activa |
 | 3   | Uso real y ajustes de diseño               |        |
-| 4   | Importación de extractos (CSV)             |        |
-| 5   | Workers + patrón outbox                    |        |
-| 6   | Integraciones con APIs externas            |        |
-| 7   | Apertura a usuarios reales                 |        |
-| 8   | Pruebas de punta a punta (Playwright)      |        |
+| 4   | Workers + patrón outbox                    |        |
+| 5   | Pruebas de punta a punta (Playwright)      |        |
+| 6   | Apertura a usuarios reales                 |        |
+| 7   | Integraciones con APIs externas            |        |
 
-El esquema es multi-tenant desde la Fase 0, aunque los usuarios lleguen en la 7.
+El esquema es multi-tenant desde la Fase 0, aunque los usuarios lleguen en la 6.
 
 El orden no es caprichoso: la app se despliega y se usa de verdad (2 y 3) antes
-de construir nada más. Qué tanto hacen falta los extractos, los trabajos en
-segundo plano o las integraciones se decide con la experiencia de haberla usado,
-no suponiéndolo antes.
+de construir nada más. Qué tanta falta hacen los trabajos en segundo plano o las
+integraciones se decide con la experiencia de haberla usado, no suponiéndolo
+antes. La importación de extractos CSV se sacó del plan por la misma razón:
+vuelve solo si usar la app demuestra que hace falta.
 
 ## Protocolo de fase
 
@@ -148,8 +148,8 @@ Outbox (eventos a tabla en la misma transacción, worker los procesa después).
 | Integración BD        | Rama efímera de Neon        | F1    |
 | Concurrencia          | Vitest                      | F1    |
 | Componente            | Testing Library             | F3    |
-| E2E                   | Playwright                  | F8    |
-| Contrato              | MSW                         | F6    |
+| E2E                   | Playwright                  | F5    |
+| Contrato              | MSW                         | F7    |
 
 - **Consistencia:** el ledger cuadra contra los saldos calculados. En CI y
   como job diario en producción.
