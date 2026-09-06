@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, Wallet } from "lucide-react";
+import { ArrowLeftRight, ChartPie, Wallet } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const ELEMENTOS_NAV = [
+  { href: "/", etiqueta: "Resumen", Icono: ChartPie },
   { href: "/cuentas", etiqueta: "Cuentas", Icono: Wallet },
   { href: "/movimientos", etiqueta: "Movimientos", Icono: ArrowLeftRight },
 ] as const;
