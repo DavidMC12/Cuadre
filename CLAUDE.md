@@ -29,16 +29,24 @@ mal diseñada. Entre lo potente y lo obvio, gana lo obvio.
 
 ## Fases
 
-| #   | Alcance                              |
-| --- | ------------------------------------ |
-| 0   | Esquema multi-tenant + migraciones   |
-| 1   | CRUD de movimientos, auth, dashboard |
-| 2   | Importación de extractos (CSV)       |
-| 3   | Workers + patrón outbox              |
-| 4   | Integraciones con APIs externas      |
-| 5   | Apertura a usuarios reales           |
+| #   | Alcance                                    | Estado |
+| --- | ------------------------------------------ | ------ |
+| 0   | Esquema multi-tenant + migraciones         | hecha  |
+| 1   | CRUD de movimientos, categorías, dashboard | hecha  |
+| 2   | Autenticación y despliegue                 | activa |
+| 3   | Uso real y ajustes de diseño               |        |
+| 4   | Importación de extractos (CSV)             |        |
+| 5   | Workers + patrón outbox                    |        |
+| 6   | Integraciones con APIs externas            |        |
+| 7   | Apertura a usuarios reales                 |        |
+| 8   | Pruebas de punta a punta (Playwright)      |        |
 
-El esquema es multi-tenant desde la Fase 0, aunque los usuarios lleguen en la 5.
+El esquema es multi-tenant desde la Fase 0, aunque los usuarios lleguen en la 7.
+
+El orden no es caprichoso: la app se despliega y se usa de verdad (2 y 3) antes
+de construir nada más. Qué tanto hacen falta los extractos, los trabajos en
+segundo plano o las integraciones se decide con la experiencia de haberla usado,
+no suponiéndolo antes.
 
 ## Protocolo de fase
 
@@ -68,7 +76,10 @@ confirmación:
 - **Auth:** Neon Auth / Auth.js — no construir autenticación propia
 - **Jobs:** worker en el mismo proceso; se separa cuando compita con las requests
 - **Móvil:** PWA responsive. No hay app nativa.
-- **Infra:** Render Free + Neon Free + Vercel Hobby = $0/mes.
+- **Infra:** Vercel Hobby (pantallas y API) + Neon Free (base) = $0/mes.
+  Todo vive en la misma dirección, y eso quita de raíz tres problemas: CORS
+  entre dominios, la sesión viajando entre dos servidores, y un servidor que se
+  duerme por inactividad y tarda casi un minuto en despertar.
   Vercel Hobby es no comercial: al monetizar, migrar a Cloudflare Pages.
 
 ## Arquitectura
@@ -136,9 +147,9 @@ Outbox (eventos a tabla en la misma transacción, worker los procesa después).
 | Integración API       | Vitest + `fastify.inject()` | F1    |
 | Integración BD        | Rama efímera de Neon        | F1    |
 | Concurrencia          | Vitest                      | F1    |
-| Componente            | Testing Library             | F2    |
-| E2E                   | Playwright                  | F3    |
-| Contrato              | MSW                         | F4    |
+| Componente            | Testing Library             | F3    |
+| E2E                   | Playwright                  | F8    |
+| Contrato              | MSW                         | F6    |
 
 - **Consistencia:** el ledger cuadra contra los saldos calculados. En CI y
   como job diario en producción.
