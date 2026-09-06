@@ -82,6 +82,15 @@ export function simboloMoneda(moneda: string): string {
   return SIMBOLOS_MONEDA[moneda] ?? `${moneda} `;
 }
 
+/**
+ * "$820.000" — un monto como texto plano, sin JSX ni colores. Para
+ * etiquetas y tooltips de las gráficas, donde no se puede usar `<Monto>`.
+ */
+export function textoMonto(monto: string, moneda: string): string {
+  const { negativo, entero, decimales } = formatearMonto(monto, moneda);
+  return `${negativo ? "-" : ""}${simboloMoneda(moneda)}${entero}${decimales ? `,${decimales}` : ""}`;
+}
+
 const PATRON_MONTO_POSITIVO = /^\d+([.,]\d{1,4})?$/;
 const PATRON_MONTO_CON_SIGNO = /^-?\d+([.,]\d{1,4})?$/;
 

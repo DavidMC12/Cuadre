@@ -23,3 +23,15 @@ export function createTransaction(input: NuevoMovimiento): Promise<{ data: Movim
 export function reverseTransaction(id: string): Promise<{ data: Movimiento }> {
   return pedir(`/transactions/${id}/reversal`, { metodo: "POST" });
 }
+
+/**
+ * La categoría es lo único que se puede corregir de un movimiento ya
+ * registrado: el monto, la fecha y la cuenta quedan intocables.
+ * `categoryId: null` lo deja sin categoría.
+ */
+export function updateTransactionCategory(
+  id: string,
+  categoryId: string | null
+): Promise<{ data: Movimiento }> {
+  return pedir(`/transactions/${id}/category`, { metodo: "PATCH", cuerpo: { categoryId } });
+}

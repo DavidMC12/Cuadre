@@ -15,6 +15,13 @@
       "when": 1788639179010,
       "tag": "0001_reglas_de_dinero",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788722662294,
+      "tag": "0002_categoria_editable",
+      "breakpoints": true
     }
   ]
 }

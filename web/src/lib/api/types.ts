@@ -66,3 +66,42 @@ export interface PaginaMovimientos {
   data: Movimiento[];
   nextCursor: string | null;
 }
+
+export type TipoCategoria = "income" | "expense";
+
+export interface Categoria {
+  id: string;
+  name: string;
+  kind: TipoCategoria;
+  archivedAt: string | null;
+}
+
+export interface NuevaCategoria {
+  name: string;
+  kind: TipoCategoria;
+}
+
+/** Resumen de ingresos/gastos de un mes, en una sola moneda. */
+export interface ResumenMes {
+  month: string;
+  currency: string;
+  /** Siempre positivo. */
+  income: string;
+  /** Siempre positivo, aunque en la base los gastos sean negativos. */
+  expense: string;
+  net: string;
+}
+
+/** Un renglón del desglose por categoría. `categoryId: null` es "sin categoría". */
+export interface CategoriaTotal {
+  categoryId: string | null;
+  categoryName: string | null;
+  /** Siempre positivo. */
+  total: string;
+}
+
+export interface TendenciaMes {
+  month: string;
+  income: string;
+  expense: string;
+}

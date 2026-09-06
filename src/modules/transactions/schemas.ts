@@ -31,6 +31,9 @@ export const ListarMovimientosSchema = z.object({
 
 export const IdEnRutaSchema = z.object({ id: z.uuid() });
 
+/** Lo unico corregible de un movimiento. `null` lo deja sin categoria. */
+export const RecategorizarSchema = z.object({ categoryId: z.uuid().nullable() });
+
 export const CrearTransferenciaSchema = z
   .object({
     fromAccountId: z.uuid(),
@@ -82,3 +85,4 @@ export type RegistrarMovimiento = z.infer<typeof RegistrarMovimientoSchema>;
 export type ListarMovimientos = z.infer<typeof ListarMovimientosSchema>;
 export type CrearTransferencia = z.infer<typeof CrearTransferenciaSchema>;
 export type Movimiento = z.infer<typeof MovimientoSchema>;
+export type Recategorizar = z.infer<typeof RecategorizarSchema>;

@@ -16,6 +16,8 @@ import { env } from './env.js';
 import { registrarManejoDeErrores } from './http/errores.js';
 import { usuarioActual } from './http/usuario-actual.js';
 import { rutasDeCuentas } from './modules/accounts/routes.js';
+import { rutasDeCategorias } from './modules/categories/routes.js';
+import { rutasDeReportes } from './modules/reports/routes.js';
 import { rutasDeMovimientos } from './modules/transactions/routes.js';
 import { configurarMensajesEnEspanol } from './shared/mensajes-zod.js';
 
@@ -70,7 +72,9 @@ export async function construirApp(opciones: OpcionesDeApp = {}): Promise<Fastif
   await app.register(
     async (api) => {
       await api.register(rutasDeCuentas);
+      await api.register(rutasDeCategorias);
       await api.register(rutasDeMovimientos);
+      await api.register(rutasDeReportes);
     },
     { prefix: '/api/v1' },
   );

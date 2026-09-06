@@ -46,7 +46,7 @@ export class ApiError extends Error {
 }
 
 interface Opciones {
-  metodo?: "GET" | "POST";
+  metodo?: "GET" | "POST" | "PATCH";
   cuerpo?: unknown;
   /** Parámetros de consulta; los `undefined` se omiten. */
   parametros?: Record<string, string | number | undefined>;

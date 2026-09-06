@@ -12,6 +12,7 @@ import { MovimientoItem } from "@/components/movimientos/movimiento-item";
 import { FormularioMovimiento } from "@/components/movimientos/formulario-movimiento";
 import { ConfirmarAnulacion } from "@/components/movimientos/confirmar-anulacion";
 import { useCuentas } from "@/hooks/use-cuentas";
+import { useCategorias } from "@/hooks/use-categorias";
 import { useAnularMovimiento, useMovimientos } from "@/hooks/use-movimientos";
 import { ApiError } from "@/lib/api/client";
 import type { Movimiento } from "@/lib/api/types";
@@ -24,6 +25,7 @@ export default function PaginaMovimientos() {
   const [movimientoAConfirmar, setMovimientoAConfirmar] = useState<Movimiento | null>(null);
 
   const { data: cuentas } = useCuentas();
+  const { data: categorias } = useCategorias();
   const { data: movimientos, isLoading } = useMovimientos(
     cuentaFiltro === TODAS_LAS_CUENTAS ? {} : { accountId: cuentaFiltro }
   );
@@ -32,6 +34,11 @@ export default function PaginaMovimientos() {
   const cuentasPorId = useMemo(
     () => new Map((cuentas ?? []).map((cuenta) => [cuenta.id, cuenta])),
     [cuentas]
+  );
+
+  const categoriasPorId = useMemo(
+    () => new Map((categorias ?? []).map((categoria) => [categoria.id, categoria])),
+    [categorias]
   );
 
   const grupos = useMemo(() => {
@@ -88,7 +95,16 @@ export default function PaginaMovimientos() {
           onValueChange={(valor) => setCuentaFiltro(valor ?? TODAS_LAS_CUENTAS)}
         >
           <SelectTrigger className="w-full">
-            <SelectValue />
+            {/* El popup de opciones vive en un portal que no está montado
+                mientras el selector está cerrado: hay que resolver el nombre
+                a mano, no asumir que lo encuentra solo. */}
+            <SelectValue>
+              {(valor: string) =>
+                valor === TODAS_LAS_CUENTAS
+                  ? "Todas las cuentas"
+                  : (cuentasPorId.get(valor)?.name ?? valor)
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={TODAS_LAS_CUENTAS}>Todas las cuentas</SelectItem>
@@ -144,6 +160,9 @@ export default function PaginaMovimientos() {
                     key={movimiento.id}
                     movimiento={movimiento}
                     cuenta={cuentasPorId.get(movimiento.accountId)}
+                    categoria={
+                      movimiento.categoryId ? categoriasPorId.get(movimiento.categoryId) : undefined
+                    }
                     mostrarCuenta={cuentaFiltro === TODAS_LAS_CUENTAS}
                     onSolicitarAnular={setMovimientoAConfirmar}
                   />

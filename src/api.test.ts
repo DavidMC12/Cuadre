@@ -10,8 +10,9 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { construirApp } from './app.js';
+import { sql } from 'drizzle-orm';
 import { closeDb, db } from './db/client.js';
-import { users } from './db/schema/index.js';
+import { categories, users } from './db/schema/index.js';
 
 let app: FastifyInstance;
 let usuarioId: string;
@@ -41,7 +42,11 @@ interface Respuesta<T = any> {
   cuerpo: T;
 }
 
-async function pedir(metodo: 'GET' | 'POST', url: string, cuerpo?: unknown): Promise<Respuesta> {
+async function pedir(
+  metodo: 'GET' | 'POST' | 'PATCH',
+  url: string,
+  cuerpo?: unknown,
+): Promise<Respuesta> {
   const respuesta = await app.inject({
     method: metodo,
     url,
@@ -524,5 +529,166 @@ describe('los errores hablan español', () => {
     });
 
     expect(cuerpo.error.details[0].problema).toMatch(/bank, card, cash/);
+  });
+});
+
+// -----------------------------------------------------------------------------
+
+describe('corregir la categoría de un movimiento', () => {
+  /**
+   * Las categorías se siembran directo en la base y no por la API a propósito:
+   * el módulo de categorías lo está construyendo otro agente en paralelo, y
+   * estas pruebas son del libro de movimientos, no de aquel catálogo.
+   */
+  async function crearCategoria(nombre: string, kind: 'income' | 'expense' = 'expense') {
+    const [fila] = await db
+      .insert(categories)
+      .values({ userId: usuarioId, name: `${nombre} ${randomUUID().slice(0, 8)}`, kind })
+      .returning({ id: categories.id });
+    return fila!.id;
+  }
+
+  it('cambia la categoría de un gasto', async () => {
+    const cuenta = await crearCuenta();
+    const gasto = await registrarGasto(cuenta.id, '-50000');
+    const comida = await crearCategoria('Comida');
+
+    const { estado, cuerpo } = await pedir(
+      'PATCH',
+      `/api/v1/transactions/${gasto.id}/category`,
+      { categoryId: comida },
+    );
+
+    expect(estado, JSON.stringify(cuerpo)).toBe(200);
+    expect(cuerpo.data.categoryId).toBe(comida);
+    expect(cuerpo.data.amount).toBe(gasto.amount);
+    expect(cuerpo.data.occurredAt).toBe(gasto.occurredAt);
+  });
+
+  it('deja quitar la categoría', async () => {
+    const cuenta = await crearCuenta();
+    const salud = await crearCategoria('Salud');
+    const gasto = await registrarGasto(cuenta.id, '-9000', { categoryId: salud });
+
+    const { estado, cuerpo } = await pedir(
+      'PATCH',
+      `/api/v1/transactions/${gasto.id}/category`,
+      { categoryId: null },
+    );
+
+    expect(estado, JSON.stringify(cuerpo)).toBe(200);
+    expect(cuerpo.data.categoryId).toBeNull();
+  });
+
+  /**
+   * La razón de ser de toda esta función. Si la anulación se quedara en la
+   * categoría vieja, el par dejaría -50.000 en la nueva y +50.000 en la vieja,
+   * y las dos gráficas mentirían a la vez.
+   */
+  it('arrastra la anulación a la categoría nueva', async () => {
+    const cuenta = await crearCuenta();
+    const vieja = await crearCategoria('Ocio');
+    const nueva = await crearCategoria('Salud');
+
+    const gasto = await registrarGasto(cuenta.id, '-50000', { categoryId: vieja });
+    const { cuerpo: anulado } = await pedir('POST', `/api/v1/transactions/${gasto.id}/reversal`);
+    expect(anulado.data.categoryId).toBe(vieja);
+
+    await pedir('PATCH', `/api/v1/transactions/${gasto.id}/category`, { categoryId: nueva });
+
+    const { cuerpo: revisada } = await pedir('GET', `/api/v1/transactions/${anulado.data.id}`);
+    expect(revisada.data.categoryId).toBe(nueva);
+  });
+
+  it('no deja recategorizar una anulación por su cuenta', async () => {
+    const cuenta = await crearCuenta();
+    const gasto = await registrarGasto(cuenta.id, '-1000');
+    const { cuerpo: anulado } = await pedir('POST', `/api/v1/transactions/${gasto.id}/reversal`);
+    const otra = await crearCategoria('Otros');
+
+    const { estado, cuerpo } = await pedir(
+      'PATCH',
+      `/api/v1/transactions/${anulado.data.id}/category`,
+      { categoryId: otra },
+    );
+
+    expect(estado).toBe(422);
+    expect(cuerpo.error.message).toMatch(/anulaci/i);
+  });
+
+  it('no le pone categoría a un saldo inicial', async () => {
+    const cuenta = await crearCuenta({ openingBalance: '100000' });
+    const { cuerpo: lista } = await pedir('GET', `/api/v1/transactions?accountId=${cuenta.id}`);
+    const apertura = lista.data.find((m: any) => m.kind === 'opening');
+    const alguna = await crearCategoria('Otros');
+
+    const { estado, cuerpo } = await pedir(
+      'PATCH',
+      `/api/v1/transactions/${apertura.id}/category`,
+      { categoryId: alguna },
+    );
+
+    expect(estado).toBe(422);
+    expect(cuerpo.error.message).toMatch(/saldo inicial/i);
+  });
+
+  it('no le pone categoría a una transferencia', async () => {
+    const origen = await crearCuenta();
+    const destino = await crearCuenta();
+    await pedir('POST', '/api/v1/accounts', {});
+
+    const { cuerpo: transferencia } = await pedir('POST', '/api/v1/transfers', {
+      fromAccountId: origen.id,
+      toAccountId: destino.id,
+      amount: '20000',
+      occurredAt: HOY,
+    });
+    const alguna = await crearCategoria('Otros');
+
+    const { estado, cuerpo } = await pedir(
+      'PATCH',
+      `/api/v1/transactions/${transferencia.data.legs[0].id}/category`,
+      { categoryId: alguna },
+    );
+
+    expect(estado).toBe(422);
+    expect(cuerpo.error.message).toMatch(/transferencia/i);
+  });
+
+  it('no toca un movimiento que no existe', async () => {
+    const { estado } = await pedir(
+      'PATCH',
+      `/api/v1/transactions/${randomUUID()}/category`,
+      { categoryId: null },
+    );
+    expect(estado).toBe(404);
+  });
+
+  /**
+   * La prueba que de verdad importa: la rendija que abrió la migración 0002 es
+   * SOLO para la categoría. Aunque alguien entre con un cliente de SQL y
+   * escriba a mano, el monto sigue siendo intocable.
+   */
+  it('la base sigue rechazando cambiar el monto a mano', async () => {
+    const cuenta = await crearCuenta();
+    const gasto = await registrarGasto(cuenta.id, '-7000');
+
+    // Drizzle envuelve el error de Postgres: su mensaje solo dice 'Failed
+    // query' y el de verdad queda en `.cause`. Hay que ir a buscarlo, igual
+    // que hace `buscarErrorDePostgres` en src/http/errores.ts.
+    const fallo = await db
+      .execute(sql`update transactions set amount = -1 where id = ${gasto.id}::uuid`)
+      .then(() => null, (error: unknown) => error);
+
+    expect(fallo, 'la base tenia que rechazar el cambio de monto').not.toBeNull();
+
+    let mensajes = '';
+    for (let e: any = fallo, saltos = 0; e && saltos < 5; e = e.cause, saltos += 1) {
+      mensajes += ` ${e.message ?? ''}`;
+    }
+    expect(mensajes).toMatch(/inmutables/i);
+
+    const { cuerpo } = await pedir('GET', `/api/v1/transactions/${gasto.id}`);
+    expect(cuerpo.data.amount).toBe(gasto.amount);
   });
 });
