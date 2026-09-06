@@ -19,3 +19,10 @@ export type Db = typeof db;
 export async function closeDb(): Promise<void> {
   await client.end();
 }
+
+/**
+ * Quien ejecuta una consulta: la conexion normal o una transaccion abierta.
+ * Los repositorios lo reciben para poder participar en una transaccion mas
+ * grande sin saber nada de quien la abrio.
+ */
+export type Ejecutor = Db | Parameters<Parameters<Db['transaction']>[0]>[0];

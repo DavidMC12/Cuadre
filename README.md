@@ -4,8 +4,9 @@
 
 App web de finanzas personales.
 
-**Estado: Fase 0 terminada.** La base de datos existe, con sus reglas puestas.
-Todavía no hay pantallas ni API: eso es la Fase 1.
+**Estado: Fase 1a terminada.** Ya puedes registrar un gasto y ver tu saldo,
+desde el celular. Falta el inicio de sesión: por ahora todo corre en tu
+máquina y los datos son de un único usuario de desarrollo.
 
 ## Qué necesitas
 
@@ -22,6 +23,16 @@ npm run db:migrate        # crea las tablas y las reglas
 npm test                  # comprueba que todo quedó bien
 ```
 
+Para usarlo hacen falta dos cosas encendidas, cada una en su terminal:
+
+```bash
+npm run dev               # la API, en localhost:3001
+cd web && npm run dev     # las pantallas, en localhost:3000
+```
+
+Abre `localhost:3000` y ya está. Está pensado para el celular, así que si lo
+miras en el computador vale la pena angostar la ventana.
+
 El archivo `.env` guarda la contraseña de tu base de datos y **nunca se sube a
 Git**. Si alguna vez se te escapa, la puedes cambiar desde el panel de Neon sin
 perder nada.
@@ -30,6 +41,7 @@ perder nada.
 
 | Comando               | Qué hace                                                      |
 | --------------------- | ------------------------------------------------------------- |
+| `npm run dev`         | Levanta la API en localhost:3001                              |
 | `npm test`            | Corre todas las pruebas                                       |
 | `npm run test:list`   | Lista qué garantiza cada prueba, sin correrlas                |
 | `npm run db:generate` | Escribe una migración nueva a partir de cambios en el esquema |
@@ -66,7 +78,7 @@ impide que un movimiento apunte a la cuenta o la categoría de otra persona.
 La de cuenta incluye también la moneda: un movimiento no puede quedar en una
 divisa distinta a la de su cuenta.
 
-Las 42 pruebas de `npm test` existen justamente para intentar romper cada una
+Las pruebas de `npm test` existen justamente para intentar romper cada una
 de estas reglas y comprobar que la base no lo permite.
 
 ## Las pruebas son la documentación
@@ -94,6 +106,9 @@ src/db/schema/      definición de las tablas
 src/db/reglas.test  pruebas de consistencia contra la base real
 src/shared/money    aritmética de dinero exacta, sin coma flotante
 src/env.ts          variables de entorno, validadas al arrancar
+src/http/           esqueleto HTTP y traduccion de errores
+src/modules/        cuentas y movimientos, en tres capas cada uno
+web/                las pantallas (Next.js)
 ```
 
 Las decisiones de arquitectura y el plan por fases están en

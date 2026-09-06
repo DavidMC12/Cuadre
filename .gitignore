@@ -23,3 +23,6 @@ Thumbs.db
 
 # Cobertura de pruebas
 coverage/
+
+# Copias de trabajo de los subagentes: nunca se versionan.
+.claude/worktrees/

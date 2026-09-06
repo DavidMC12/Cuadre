@@ -16,6 +16,26 @@ const EnvSchema = z.object({
       message: 'debe empezar con postgres:// o postgresql://',
     }),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+
+  PORT: z.coerce.number().int().positive().max(65535).default(3001),
+
+  /**
+   * Lista blanca de sitios que pueden llamar a la API, separados por comas.
+   * Nunca `*`: eso dejaría que cualquier página web hiciera peticiones con la
+   * sesión de la persona.
+   */
+  CORS_ORIGINS: z
+    .string()
+    .default('http://localhost:3000')
+    .transform((valor) =>
+      valor
+        .split(',')
+        .map((origen) => origen.trim())
+        .filter(Boolean),
+    )
+    .refine((origenes) => origenes.length > 0 && !origenes.includes('*'), {
+      message: 'debe listar al menos un sitio concreto, y nunca "*"',
+    }),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
