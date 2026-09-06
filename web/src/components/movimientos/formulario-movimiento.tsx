@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { SelectorCategoria } from "@/components/movimientos/selector-categoria";
 import { useCrearMovimiento } from "@/hooks/use-movimientos";
 import { ApiError } from "@/lib/api/client";
 import type { Cuenta } from "@/lib/api/types";
@@ -42,6 +43,7 @@ export function FormularioMovimiento({
   const [monto, setMonto] = useState("");
   const [fecha, setFecha] = useState(hoyInput);
   const [descripcion, setDescripcion] = useState("");
+  const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
   const [errores, setErrores] = useState<{ cuenta?: string; monto?: string }>({});
 
   const crearMovimiento = useCrearMovimiento();
@@ -53,6 +55,7 @@ export function FormularioMovimiento({
     setMonto("");
     setFecha(hoyInput());
     setDescripcion("");
+    setCategoryId(undefined);
     setErrores({});
   }
 
@@ -78,6 +81,7 @@ export function FormularioMovimiento({
         amount: montoConSigno,
         occurredAt: inputAIso(fecha),
         description: descripcion.trim() || undefined,
+        categoryId,
       },
       {
         onSuccess: () => {
@@ -101,7 +105,13 @@ export function FormularioMovimiento({
       open={abierto}
       onOpenChange={(valor) => {
         setAbierto(valor);
-        if (!valor) reiniciar();
+        if (!valor) {
+          reiniciar();
+        } else if (!cuentaId) {
+          // Si el drawer se montó antes de que `cuentas` terminara de cargar,
+          // la cuenta por defecto se quedó vacía; al abrir ya hay datos.
+          setCuentaId(cuentaIdPorDefecto ?? cuentas[0]?.id ?? "");
+        }
       }}
     >
       <DrawerTrigger render={children as React.ReactElement} />
@@ -136,7 +146,12 @@ export function FormularioMovimiento({
                     className="w-full"
                     aria-invalid={Boolean(errores.cuenta)}
                   >
-                    <SelectValue placeholder="Elige una cuenta" />
+                    {/* El popup de opciones vive en un portal que no está
+                        montado mientras el selector está cerrado: hay que
+                        resolver el nombre a mano, no asumir que lo encuentra solo. */}
+                    <SelectValue placeholder="Elige una cuenta">
+                      {(valor: string) => cuentas.find((cuenta) => cuenta.id === valor)?.name ?? valor}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {cuentas.map((cuenta) => (
@@ -154,7 +169,12 @@ export function FormularioMovimiento({
                 <ToggleGroup
                   value={[tipoMonto]}
                   onValueChange={(valores) => {
-                    if (valores.length > 0) setTipoMonto(valores[0] as TipoMonto);
+                    if (valores.length > 0) {
+                      setTipoMonto(valores[0] as TipoMonto);
+                      // Gasto e ingreso tienen categorías distintas: la que
+                      // estaba elegida ya no aplica.
+                      setCategoryId(undefined);
+                    }
                   }}
                   variant="outline"
                   className="w-full"
@@ -200,6 +220,16 @@ export function FormularioMovimiento({
                   placeholder="Ej. Mercado de la semana"
                   value={descripcion}
                   onChange={(evento) => setDescripcion(evento.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="categoria-movimiento">Categoría (opcional)</Label>
+                <SelectorCategoria
+                  id="categoria-movimiento"
+                  kind={tipoMonto === "gasto" ? "expense" : "income"}
+                  value={categoryId}
+                  onChange={setCategoryId}
                 />
               </div>
             </div>
