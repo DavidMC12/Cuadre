@@ -85,8 +85,10 @@ export function GraficaPorCategoria({
     // descuadra nada.
     const totalResto = resto.reduce((acumulado, fila) => acumulado + Number(fila.total), 0);
     datos.push({
-      id: "otros",
-      nombre: "Otros",
+      id: "otras-categorias",
+      // "Otras categorías" y no "Otros": el catálogo por defecto ya trae una
+      // categoría de verdad llamada "Otros" y las dos no deben confundirse.
+      nombre: "Otras categorías",
       total: String(totalResto),
       valorNumerico: totalResto,
       color: COLOR_NEUTRO.claro,
