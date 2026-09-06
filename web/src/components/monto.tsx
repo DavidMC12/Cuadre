@@ -13,7 +13,7 @@ export function Monto({
   /** "ambos" muestra +/-, como en un movimiento. "negativo" solo marca lo negativo, útil para saldos. */
   signo?: "ambos" | "negativo";
 }) {
-  const { negativo, entero, decimales } = formatearMonto(valor);
+  const { negativo, entero, decimales } = formatearMonto(valor, moneda);
   const mostrarSigno = signo === "ambos" || negativo;
 
   return (
@@ -27,7 +27,7 @@ export function Monto({
       {mostrarSigno && (negativo ? "-" : "+")}
       {simboloMoneda(moneda)}
       {entero}
-      <span className="text-[0.85em] opacity-70">,{decimales}</span>
+      {decimales && <span className="text-[0.85em] opacity-70">,{decimales}</span>}
     </span>
   );
 }

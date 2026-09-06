@@ -11,17 +11,65 @@ export interface MontoFormateado {
   negativo: boolean;
   /** Parte entera, ya con separador de miles. */
   entero: string;
-  /** Siempre 2 dígitos. Se recorta el resto: no se redondea. */
+  /** Cadena vacía cuando la moneda no usa decimales y no hay nada que mostrar. */
   decimales: string;
 }
 
-export function formatearMonto(monto: string): MontoFormateado {
+/**
+ * Cuántos decimales se muestran de cada moneda.
+ *
+ * El peso colombiano tiene centavos en el papel, pero nadie los usa: un ",00"
+ * en cada línea es ruido. Los montos siguen guardándose con cuatro decimales;
+ * esto es solo cómo se ven.
+ */
+const DECIMALES_POR_MONEDA: Record<string, number> = {
+  COP: 0,
+  CLP: 0,
+  JPY: 0,
+  KRW: 0,
+  PYG: 0,
+  VND: 0,
+  ISK: 0,
+};
+
+const DECIMALES_POR_DEFECTO = 2;
+
+export function decimalesDe(moneda: string): number {
+  return DECIMALES_POR_MONEDA[moneda.toUpperCase()] ?? DECIMALES_POR_DEFECTO;
+}
+
+/**
+ * "2500000" -> "2.500.000".
+ *
+ * A mano y no con una expresion regular: la version con regex ya se rompio
+ * una vez al pasar por un script, y un separador de miles perdido hace que
+ * dos millones y medio se lean como veinticinco millones.
+ */
+function agruparMiles(digitos: string): string {
+  let salida = "";
+  for (let i = 0; i < digitos.length; i += 1) {
+    if (i > 0 && (digitos.length - i) % 3 === 0) salida += ".";
+    salida += digitos[i];
+  }
+  return salida;
+}
+
+export function formatearMonto(monto: string, moneda: string): MontoFormateado {
   const texto = monto.trim();
   const negativo = texto.startsWith("-");
   const sinSigno = texto.replace(/^[-+]/, "");
   const [parteEntera = "0", parteDecimal = ""] = sinSigno.split(".");
-  const decimales = (parteDecimal + "00").slice(0, 2);
-  const entero = (parteEntera || "0").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const entero = agruparMiles(parteEntera || "0");
+
+  const deseados = decimalesDe(moneda);
+
+  // En monedas sin centavos igual se muestran si el monto trae algo distinto de
+  // cero: es preferible que se vea raro a esconder plata.
+  const decimales =
+    deseados === 0
+      ? parteDecimal.replace(/0+$/, "")
+      : (parteDecimal + "0".repeat(deseados)).slice(0, deseados);
+
   return { negativo, entero, decimales };
 }
 

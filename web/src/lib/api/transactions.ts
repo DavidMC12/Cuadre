@@ -1,26 +1,25 @@
+/** Llamadas a la API de movimientos. */
+
+import { pedir } from "./client";
+import type {
+  FiltrosMovimientos,
+  Movimiento,
+  NuevoMovimiento,
+  PaginaMovimientos,
+} from "./types";
+
+export function fetchTransactions(filtros: FiltrosMovimientos = {}): Promise<PaginaMovimientos> {
+  return pedir("/transactions", { parametros: { ...filtros } });
+}
+
+export function createTransaction(input: NuevoMovimiento): Promise<{ data: Movimiento }> {
+  return pedir("/transactions", { metodo: "POST", cuerpo: input });
+}
+
 /**
- * Funciones que la interfaz llama para hablar con "la API de movimientos".
- * Mismo trato que `accounts.ts`: hoy es `mock-db`, mañana un `fetch` real.
+ * Anular, no borrar. Devuelve el movimiento de anulación que se creó; el
+ * original sigue existiendo y queda marcado como anulado.
  */
-
-import { retrasoDeRed } from "./client";
-import * as db from "./mock-db";
-import type { FiltrosMovimientos, Movimiento, NuevoMovimiento, PaginaMovimientos } from "./types";
-
-// GET /api/v1/transactions?accountId=&from=&to=&limit=&cursor=
-export async function fetchTransactions(filtros: FiltrosMovimientos = {}): Promise<PaginaMovimientos> {
-  await retrasoDeRed();
-  return db.listarMovimientos(filtros);
-}
-
-// POST /api/v1/transactions
-export async function createTransaction(input: NuevoMovimiento): Promise<{ data: Movimiento }> {
-  await retrasoDeRed();
-  return { data: db.crearMovimiento(input) };
-}
-
-// POST /api/v1/transactions/:id/reversal
-export async function reverseTransaction(id: string): Promise<{ data: Movimiento }> {
-  await retrasoDeRed();
-  return { data: db.anularMovimiento(id) };
+export function reverseTransaction(id: string): Promise<{ data: Movimiento }> {
+  return pedir(`/transactions/${id}/reversal`, { metodo: "POST" });
 }
