@@ -31,8 +31,14 @@ export const MonedaSchema = z
   .string()
   .regex(/^[A-Z]{3}$/, 'debe ser un código de tres letras en mayúsculas, como COP o USD');
 
-/** Acepta una fecha suelta ("2026-01-31") o un instante completo con zona. */
-export const FechaSchema = z.iso.datetime({ offset: true }).or(z.iso.date());
+/**
+ * Acepta una fecha suelta ("2026-01-31") o un instante completo con zona.
+ * Lleva mensaje propio porque, al ser una unión, Zod diría solo "Entrada
+ * inválida" y eso no le dice nada a nadie.
+ */
+export const FechaSchema = z.union([z.iso.datetime({ offset: true }), z.iso.date()], {
+  error: 'no es una fecha válida. Usa "2026-01-31" o "2026-01-31T14:30:00Z"',
+});
 
 /** true si el monto es cero, escrito como sea. */
 export const esCero = (monto: string): boolean => /^-?0(\.0{1,4})?$/.test(monto);

@@ -485,3 +485,44 @@ describe('archivar cuentas', () => {
     expect(activas.cuerpo.data.find((c: any) => c.id === cuenta.id)).toBeDefined();
   });
 });
+
+describe('los errores hablan español', () => {
+  it('un identificador mal formado no dice "Invalid UUID"', async () => {
+    const { estado, cuerpo } = await pedir('POST', '/api/v1/transactions', {
+      accountId: 'esto-no-es-un-uuid',
+      amount: '-100',
+      occurredAt: HOY,
+    });
+
+    expect(estado).toBe(400);
+    expect(cuerpo.error.details[0].problema).toBe('no es un identificador válido');
+  });
+
+  it('una fecha inventada se explica en español', async () => {
+    const cuenta = await crearCuenta();
+    const { cuerpo } = await pedir('POST', '/api/v1/transactions', {
+      accountId: cuenta.id,
+      amount: '-100',
+      occurredAt: 'el martes pasado',
+    });
+
+    expect(cuerpo.error.details[0].problema).toMatch(/fecha válida/);
+  });
+
+  it('un campo que falta se nombra, no se adivina', async () => {
+    const { cuerpo } = await pedir('POST', '/api/v1/accounts', { type: 'bank', currency: 'COP' });
+
+    expect(cuerpo.error.details[0].campo).toBe('name');
+    expect(cuerpo.error.details[0].problema).toBe('hace falta');
+  });
+
+  it('un tipo de cuenta inventado lista las opciones que sí valen', async () => {
+    const { cuerpo } = await pedir('POST', '/api/v1/accounts', {
+      name: 'Cripto',
+      type: 'bitcoin',
+      currency: 'COP',
+    });
+
+    expect(cuerpo.error.details[0].problema).toMatch(/bank, card, cash/);
+  });
+});

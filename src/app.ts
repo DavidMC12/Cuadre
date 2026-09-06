@@ -17,6 +17,7 @@ import { registrarManejoDeErrores } from './http/errores.js';
 import { usuarioActual } from './http/usuario-actual.js';
 import { rutasDeCuentas } from './modules/accounts/routes.js';
 import { rutasDeMovimientos } from './modules/transactions/routes.js';
+import { configurarMensajesEnEspanol } from './shared/mensajes-zod.js';
 
 export interface OpcionesDeApp {
   /** Silencia el registro de actividad; las pruebas lo agradecen. */
@@ -26,6 +27,9 @@ export interface OpcionesDeApp {
 }
 
 export async function construirApp(opciones: OpcionesDeApp = {}): Promise<FastifyInstance> {
+  // Antes de cualquier validacion: los errores de Zod salen en espanol.
+  configurarMensajesEnEspanol();
+
   const app = Fastify({
     logger: opciones.silencioso
       ? false
