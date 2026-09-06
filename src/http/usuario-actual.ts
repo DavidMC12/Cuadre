@@ -57,7 +57,18 @@ export function limpiarCacheDeUsuario(): void {
   idEnCache = null;
 }
 
-async function plugin(app: FastifyInstance): Promise<void> {
+export interface OpcionesDeUsuario {
+  /**
+   * De dónde sale el usuario de la petición. Las pruebas pasan el suyo para
+   * que cada tanda trabaje con datos propios y no se pisen entre sí.
+   * En Fase 1c aquí entra Neon Auth y este parámetro deja de tener sentido.
+   */
+  resolver?: () => Promise<string>;
+}
+
+async function plugin(app: FastifyInstance, opciones: OpcionesDeUsuario): Promise<void> {
+  const resolver = opciones.resolver ?? resolverUsuarioDeDesarrollo;
+
   if (env.NODE_ENV === 'production') {
     throw new Error(
       'El usuario de desarrollo no puede usarse en producción. Falta implementar la autenticación (Fase 1c).',
@@ -67,7 +78,7 @@ async function plugin(app: FastifyInstance): Promise<void> {
   app.decorateRequest('usuarioId', '');
 
   app.addHook('onRequest', async (peticion) => {
-    peticion.usuarioId = await resolverUsuarioDeDesarrollo();
+    peticion.usuarioId = await resolver();
   });
 }
 

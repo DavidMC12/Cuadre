@@ -165,16 +165,49 @@ interface ErrorDePostgres {
   message?: string;
 }
 
-function esErrorDePostgres(error: unknown): error is ErrorDePostgres {
-  return typeof error === 'object' && error !== null && 'code' in error;
+/**
+ * Drizzle envuelve los errores de Postgres en un `DrizzleQueryError` y deja el
+ * original en `cause`. Aquí se destapa hasta encontrar el de verdad.
+ */
+function buscarErrorDePostgres(error: unknown, saltos = 5): ErrorDePostgres | null {
+  if (saltos < 0 || typeof error !== 'object' || error === null) return null;
+
+  const candidato = error as ErrorDePostgres & { cause?: unknown };
+  if (typeof candidato.code === 'string' && /^[0-9A-Z]{5}$/.test(candidato.code)) {
+    return candidato;
+  }
+
+  return buscarErrorDePostgres(candidato.cause, saltos - 1);
+}
+
+/**
+ * Lo único de un error que se puede escribir en el registro.
+ *
+ * IMPORTANTE: el `DrizzleQueryError` trae `query` y `params`, y en `params` van
+ * los montos. Volcar el error entero al log rompería la regla de nunca
+ * registrar cifras. Por eso aquí se eligen los campos a mano en vez de pasar
+ * el objeto completo.
+ */
+export function paraRegistro(error: unknown): Record<string, unknown> {
+  const postgres = buscarErrorDePostgres(error);
+  const base = error as { name?: string; message?: string; stack?: string };
+
+  return {
+    tipo: base?.name ?? typeof error,
+    mensaje: base?.message,
+    sqlstate: postgres?.code,
+    restriccion: postgres?.constraint_name ?? postgres?.constraint,
+    stack: base?.stack,
+  };
 }
 
 /**
  * Convierte un error de Postgres en una respuesta con sentido, o devuelve null
  * si no lo reconoce (y entonces es un fallo de verdad, no una regla rota).
  */
-export function traducirErrorDePostgres(error: unknown): Traduccion | null {
-  if (!esErrorDePostgres(error) || typeof error.code !== 'string') return null;
+export function traducirErrorDePostgres(errorOriginal: unknown): Traduccion | null {
+  const error = buscarErrorDePostgres(errorOriginal);
+  if (!error || typeof error.code !== 'string') return null;
 
   // Los disparadores de dinero ya lanzan mensajes en español, escritos para que
   // los lea una persona y sin cifras adentro. Se pasan tal cual.
@@ -212,13 +245,12 @@ export function registrarManejoDeErrores(app: FastifyInstance): void {
         error: {
           code: 'VALIDATION_ERROR',
           message: 'Los datos enviados no son válidos.',
-          details: error.validation.map((v) => {
-            const problema = v.params.issue as { path?: unknown[]; message?: string };
-            return {
-              campo: v.instancePath.replace(/^\//, '') || (problema.path ?? []).join('.'),
-              problema: problema.message ?? 'valor inválido',
-            };
-          }),
+          // instancePath viene como "/accountId" o "/datos/monto"; se deja en
+          // "accountId" y "datos.monto", que es como lo espera un formulario.
+          details: error.validation.map((problema) => ({
+            campo: problema.instancePath.replace(/^\//, '').replaceAll('/', '.'),
+            problema: problema.message ?? 'valor inválido',
+          })),
         },
       });
     }
@@ -233,10 +265,7 @@ export function registrarManejoDeErrores(app: FastifyInstance): void {
     // 3. Una regla del dinero que rechazó la base de datos.
     const traduccion = traducirErrorDePostgres(error);
     if (traduccion) {
-      peticion.log.info(
-        { restriccion: (error as ErrorDePostgres).constraint_name, sqlstate: fallo.code },
-        'regla rechazada por la base',
-      );
+      peticion.log.info(paraRegistro(error), 'regla rechazada por la base');
       return respuesta
         .code(traduccion.estado)
         .send({ error: { code: traduccion.codigo, message: traduccion.mensaje } });
@@ -251,7 +280,7 @@ export function registrarManejoDeErrores(app: FastifyInstance): void {
 
     // 5. Cualquier otra cosa es un fallo nuestro: se registra completo en el
     //    servidor y hacia afuera no se cuenta nada.
-    peticion.log.error({ err: error }, 'error no previsto');
+    peticion.log.error(paraRegistro(error), 'error no previsto');
     const estado = fallo.statusCode && fallo.statusCode < 500 ? fallo.statusCode : 500;
     return respuesta.code(estado).send({
       error: { code: 'INTERNAL', message: 'Algo falló de nuestro lado. Inténtalo otra vez.' },

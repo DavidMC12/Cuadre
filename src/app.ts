@@ -21,6 +21,8 @@ import { rutasDeMovimientos } from './modules/transactions/routes.js';
 export interface OpcionesDeApp {
   /** Silencia el registro de actividad; las pruebas lo agradecen. */
   silencioso?: boolean;
+  /** De donde sale el usuario de la peticion. Solo lo usan las pruebas. */
+  resolverUsuario?: () => Promise<string>;
 }
 
 export async function construirApp(opciones: OpcionesDeApp = {}): Promise<FastifyInstance> {
@@ -32,7 +34,6 @@ export async function construirApp(opciones: OpcionesDeApp = {}): Promise<Fastif
           // El cuerpo de las peticiones NO se registra: lleva montos.
           redact: ['req.headers.authorization', 'req.headers.cookie'],
         },
-    disableRequestLogging: false,
     trustProxy: true,
   }).withTypeProvider<ZodTypeProvider>();
 
@@ -54,7 +55,7 @@ export async function construirApp(opciones: OpcionesDeApp = {}): Promise<Fastif
     timeWindow: '1 minute',
   });
 
-  await app.register(usuarioActual);
+  await app.register(usuarioActual, { resolver: opciones.resolverUsuario });
 
   app.get('/salud', { logLevel: 'warn' }, async () => ({
     estado: 'vivo',
