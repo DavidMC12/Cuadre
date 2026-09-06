@@ -245,3 +245,58 @@ export async function registrarApertura(
   if (!apertura) throw noEncontrado('Esa cuenta no existe o esta archivada.');
   return apertura;
 }
+
+// -----------------------------------------------------------------------------
+
+/**
+ * Cambiar la categoria es la unica correccion que admite un movimiento.
+ *
+ * El monto, la fecha y la cuenta son historia y no se reescriben. La categoria
+ * no: es una etiqueta que le ponemos encima para poder decir "esto fue
+ * comida". Equivocarse ahi no descuadra ninguna cuenta, y obligar a anular y
+ * recrear por un error de dedo dejaria tres filas de basura cada vez.
+ *
+ * Si el movimiento ya estaba anulado, su anulacion se mueve con el. Si no, la
+ * pareja quedaria repartida entre dos categorias: -100 en la nueva y +100 en la
+ * vieja, y las dos graficas mentirian a la vez.
+ */
+export async function recategorizarMovimiento(
+  usuarioId: string,
+  movimientoId: string,
+  categoriaId: string | null,
+): Promise<Movimiento> {
+  return db.transaction(async (tx) => {
+    const original = await repositorio.obtener(tx, usuarioId, movimientoId);
+    if (!original) throw noEncontrado('Ese movimiento no existe.');
+
+    if (original.kind === 'opening') {
+      throw reglaViolada(
+        'El saldo inicial no lleva categoria: no es un gasto ni un ingreso, es la plata con la que arranco la cuenta.',
+      );
+    }
+
+    if (original.kind === 'transfer') {
+      throw reglaViolada(
+        'Una transferencia no lleva categoria: mover plata entre tus cuentas no es gastar ni recibir.',
+      );
+    }
+
+    if (original.reversesTransactionId) {
+      throw reglaViolada(
+        'Ese movimiento es una anulacion. Cambia la categoria del movimiento original y la anulacion lo sigue sola.',
+      );
+    }
+
+    const aMover = [original.id];
+    if (original.reversedByTransactionId) aMover.push(original.reversedByTransactionId);
+
+    for (const id of aMover) {
+      const movido = await repositorio.recategorizar(tx, usuarioId, id, categoriaId);
+      if (!movido) throw noEncontrado('Ese movimiento no existe.');
+    }
+
+    const actualizado = await repositorio.obtener(tx, usuarioId, movimientoId);
+    if (!actualizado) throw noEncontrado('Ese movimiento no existe.');
+    return actualizado;
+  });
+}

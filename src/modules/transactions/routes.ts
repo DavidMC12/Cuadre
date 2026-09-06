@@ -9,6 +9,7 @@ import {
   IdEnRutaSchema,
   ListaDeMovimientosSchema,
   ListarMovimientosSchema,
+  RecategorizarSchema,
   RegistrarMovimientoSchema,
   TransferenciaSchema,
   UnMovimientoSchema,
@@ -75,5 +76,27 @@ export const rutasDeMovimientos: FastifyPluginAsyncZod = async (app) => {
       const anulacion = await servicio.anularTransferencia(peticion.usuarioId, peticion.params.id);
       return respuesta.code(201).send({ data: anulacion });
     },
+  );
+
+  /**
+   * Lo unico que se puede corregir de un movimiento. El monto, la fecha y la
+   * cuenta no: para eso se anula y se registra de nuevo.
+   */
+  app.patch(
+    '/transactions/:id/category',
+    {
+      schema: {
+        params: IdEnRutaSchema,
+        body: RecategorizarSchema,
+        response: { 200: UnMovimientoSchema },
+      },
+    },
+    async (peticion) => ({
+      data: await servicio.recategorizarMovimiento(
+        peticion.usuarioId,
+        peticion.params.id,
+        peticion.body.categoryId,
+      ),
+    }),
   );
 };

@@ -259,3 +259,27 @@ export async function obtenerPatasDeTransferencia(
 
   return filas.map((fila) => aMovimiento(fila));
 }
+
+/**
+ * Corrige la categoria de un movimiento. Es lo UNICO que se puede cambiar de
+ * una fila del libro: el monto, la fecha y la cuenta los protege un disparador
+ * en la base (ver la migracion 0002).
+ *
+ * Devuelve null si el movimiento no existe o no es de esta persona.
+ */
+export async function recategorizar(
+  ejecutor: Ejecutor,
+  usuarioId: string,
+  movimientoId: string,
+  categoriaId: string | null,
+): Promise<boolean> {
+  const filas = (await ejecutor.execute(sql`
+    update transactions
+       set category_id = ${categoriaId}::uuid
+     where id = ${movimientoId}::uuid
+       and user_id = ${usuarioId}::uuid
+    returning id
+  `)) as unknown as { id: string }[];
+
+  return filas.length > 0;
+}
