@@ -9,7 +9,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { construirApp } from './app.js';
+import { construirApp } from './aplicacion.js';
 import { sql } from 'drizzle-orm';
 import { closeDb, db } from './db/client.js';
 import { categories, users } from './db/schema/index.js';

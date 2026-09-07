@@ -5,7 +5,7 @@
  */
 import type { FastifyInstance } from 'fastify';
 import { afterAll, describe, expect, it } from 'vitest';
-import { construirApp } from './app.js';
+import { construirApp } from './aplicacion.js';
 import { closeDb } from './db/client.js';
 
 let app: FastifyInstance;

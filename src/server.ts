@@ -1,5 +1,5 @@
 /** Arranque del servidor. Lo unico que hace es levantar lo que construye app.ts. */
-import { construirApp } from './app.js';
+import { construirApp } from './aplicacion.js';
 import { closeDb } from './db/client.js';
 import { env } from './env.js';
 

@@ -48,7 +48,15 @@ siempre que el archivo que arranca el servidor tenga uno de un puñado de
 nombres reconocidos (`src/server.ts` entre ellos) y llame a `app.listen(...)`
 — exactamente lo que `src/server.ts` ya hace hoy. Los detalles están en la
 [guía de Vercel para Fastify](https://vercel.com/docs/frameworks/backend/fastify).
-No toqué `src/app.ts`, `src/server.ts` ni ningún módulo.
+
+Un detalle no tan obvio: esa detección busca, en este orden, `src/app.*`,
+`src/index.*`, `src/server.*` (y las mismas tres en la raíz). Como el
+proyecto ya tenía un `src/app.ts` —que exporta `construirApp`, no un
+servidor arrancado— Vercel lo tomaba a **él** como entrypoint en vez de
+`src/server.ts`, y fallaba con "Invalid export found... The default export
+must be a function or server". Por eso ese archivo pasó a llamarse
+`src/aplicacion.ts`: mismo contenido, solo para que no calce con ninguno de
+los nombres que Vercel reconoce.
 
 ### El pool de conexiones a Postgres
 

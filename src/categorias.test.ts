@@ -7,7 +7,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { construirApp } from './app.js';
+import { construirApp } from './aplicacion.js';
 import { closeDb, db } from './db/client.js';
 import { users } from './db/schema/index.js';
 import { sembrarCategoriasPorDefecto } from './modules/categories/service.js';
