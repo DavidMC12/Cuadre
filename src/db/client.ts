@@ -6,9 +6,17 @@ import * as schema from './schema/index.js';
 /**
  * `prepare: false` es obligatorio contra el conector agrupado de Neon
  * (pgbouncer), que no soporta sentencias preparadas.
+ *
+ * `max: 5` (antes 10): en Vercel esta app corre sobre Fluid Compute, que
+ * reutiliza el mismo proceso (y este mismo pool) entre pedidos concurrentes
+ * en vez de crear un proceso por pedido como el serverless clasico. Aun asi,
+ * cada instancia que Vercel levanta abre su propio pool contra el conector
+ * de Neon (el host `-pooler`), y con uso personal no hace falta que cada una
+ * reserve 10 conexiones. Si el uso real (Fase 3) pide mas, se sube con
+ * datos en la mano, no de antemano.
  */
 const client = postgres(env.DATABASE_URL, {
-  max: 10,
+  max: 5,
   prepare: false,
 });
 
