@@ -13,7 +13,13 @@ import type { FastifyInstance } from 'fastify';
 import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod';
 
 export type CodigoError =
-  'VALIDATION_ERROR' | 'NOT_FOUND' | 'CONFLICT' | 'RULE_VIOLATION' | 'RATE_LIMITED' | 'INTERNAL';
+  | 'VALIDATION_ERROR'
+  | 'NOT_FOUND'
+  | 'CONFLICT'
+  | 'RULE_VIOLATION'
+  | 'RATE_LIMITED'
+  | 'UNAUTHORIZED'
+  | 'INTERNAL';
 
 export class ErrorDeApp extends Error {
   constructor(
@@ -29,6 +35,14 @@ export class ErrorDeApp extends Error {
 
 export const noEncontrado = (mensaje: string): ErrorDeApp =>
   new ErrorDeApp('NOT_FOUND', mensaje, 404);
+
+/**
+ * Sin sesión, o con una que ya no es válida. El mensaje nunca dice el motivo
+ * (expiró, no existe, el token es de otro proyecto): eso le daría pistas a
+ * quien intenta adivinar una sesión ajena.
+ */
+export const sinAutorizar = (mensaje = 'Inicia sesión para continuar.'): ErrorDeApp =>
+  new ErrorDeApp('UNAUTHORIZED', mensaje, 401);
 
 export const conflicto = (mensaje: string): ErrorDeApp => new ErrorDeApp('CONFLICT', mensaje, 409);
 

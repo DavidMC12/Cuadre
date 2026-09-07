@@ -1,24 +1,22 @@
 /**
  * Quién está haciendo la petición.
  *
- * TEMPORAL — Fase 1a. Todavía no hay inicio de sesión (llega en la Fase 1c con
- * Neon Auth), así que por ahora todas las peticiones son del mismo usuario de
- * desarrollo, que se crea solo la primera vez.
+ * La autenticación de verdad la hace Neon Auth (ver `neon-auth.ts`): aquí solo
+ * se traduce esa identidad externa a un usuario de ESTA app. La tabla `users`
+ * ya traía las columnas para esto desde la Fase 0 (`auth_provider`,
+ * `auth_subject`) — este archivo es el que finalmente las usa.
  *
- * Esto existe como un punto de conexión, no como un atajo: cuando llegue la
- * autenticación de verdad, lo único que cambia es cómo se resuelve
- * `peticion.usuarioId`. Ni los servicios ni los repositorios se enteran, porque
- * ya reciben el usuario como parámetro explícito.
- *
- * Se niega a funcionar en producción, a propósito.
+ * Ni los servicios ni los repositorios se enteran de nada de esto: reciben
+ * `peticion.usuarioId`, que ya es el id de la fila de `users`, igual que
+ * siempre.
  */
-import { eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 import { db } from '../db/client.js';
 import { users } from '../db/schema/index.js';
-import { env } from '../env.js';
-import { sembrarCategoriasPorDefecto } from '../modules/categories/service.js';
+import { sinAutorizar } from './errores.js';
+import { verificarSesion } from './neon-auth.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -27,65 +25,85 @@ declare module 'fastify' {
   }
 }
 
-const CORREO_DE_DESARROLLO = 'dev@cuadre.local';
+const PROVEEDOR = 'neon-auth';
 
-let idEnCache: string | null = null;
+/**
+ * Rutas donde no hace falta sesión. `/salud` la consultan cosas como el
+ * monitor de Vercel, que no van a mandar una cookie de sesión.
+ */
+const RUTAS_PUBLICAS = new Set(['/salud']);
 
-async function resolverUsuarioDeDesarrollo(): Promise<string> {
-  if (idEnCache) return idEnCache;
-
-  // onConflictDoNothing evita que dos peticiones simultáneas la primera vez se
-  // pisen: la segunda no falla, simplemente no inserta.
-  await db
-    .insert(users)
-    .values({ email: CORREO_DE_DESARROLLO, displayName: 'Usuario de desarrollo' })
-    .onConflictDoNothing();
-
-  const [usuario] = await db
+/**
+ * Encuentra el usuario de esta app para una identidad de Neon Auth, o lo crea
+ * la primera vez que esa persona hace una petición.
+ *
+ * `onConflictDoNothing` cubre la carrera de dos peticiones simultáneas de
+ * alguien que entra por primera vez (dos pestañas, por ejemplo): la segunda
+ * no falla, simplemente no inserta, y ambas terminan leyendo la misma fila.
+ */
+async function encontrarOCrearUsuario(identidad: {
+  id: string;
+  email: string;
+  displayName: string | null;
+}): Promise<string> {
+  const [existente] = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.email, CORREO_DE_DESARROLLO))
+    .where(and(eq(users.authProvider, PROVEEDOR), eq(users.authSubject, identidad.id)))
     .limit(1);
 
-  if (!usuario) throw new Error('No se pudo crear el usuario de desarrollo.');
+  if (existente) return existente.id;
 
-  // Un catálogo vacío obliga a inventarse quince categorías antes de registrar
-  // el primer gasto. Es idempotente, así que pasar por aquí de nuevo no duplica
-  // nada; en la Fase 1c esta llamada se muda a donde el proveedor de identidad
-  // dé de alta al usuario.
-  await sembrarCategoriasPorDefecto(db, usuario.id);
+  await db
+    .insert(users)
+    .values({
+      email: identidad.email.toLowerCase(),
+      displayName: identidad.displayName?.trim() || identidad.email,
+      authProvider: PROVEEDOR,
+      authSubject: identidad.id,
+    })
+    // El indice unico es PARCIAL (`where auth_subject is not null`, ver
+    // schema/users.ts): sin repetir aqui esa condicion, Postgres no la
+    // reconoce como blanco valido y el insert falla con 42P10.
+    .onConflictDoNothing({
+      target: [users.authProvider, users.authSubject],
+      where: isNotNull(users.authSubject),
+    });
 
-  idEnCache = usuario.id;
-  return idEnCache;
-}
+  const [creado] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.authProvider, PROVEEDOR), eq(users.authSubject, identidad.id)))
+    .limit(1);
 
-/** Solo para pruebas: olvida el usuario recordado. */
-export function limpiarCacheDeUsuario(): void {
-  idEnCache = null;
+  if (!creado) throw new Error('No se pudo crear el usuario a partir de la sesion de Neon Auth.');
+  return creado.id;
 }
 
 export interface OpcionesDeUsuario {
   /**
-   * De dónde sale el usuario de la petición. Las pruebas pasan el suyo para
-   * que cada tanda trabaje con datos propios y no se pisen entre sí.
-   * En Fase 1c aquí entra Neon Auth y este parámetro deja de tener sentido.
+   * De dónde sale el usuario de la petición. Solo lo usan las pruebas, para
+   * que cada tanda trabaje con su propio usuario sin pasar por una sesión de
+   * verdad. Cuando se da, la verificación de Neon Auth ni se intenta.
    */
   resolver?: () => Promise<string>;
 }
 
 async function plugin(app: FastifyInstance, opciones: OpcionesDeUsuario): Promise<void> {
-  const resolver = opciones.resolver ?? resolverUsuarioDeDesarrollo;
-
-  if (env.NODE_ENV === 'production') {
-    throw new Error(
-      'El usuario de desarrollo no puede usarse en producción. Falta implementar la autenticación (Fase 1c).',
-    );
-  }
-
   app.decorateRequest('usuarioId', '');
 
-  app.addHook('onRequest', async (peticion) => {
-    peticion.usuarioId = await resolver();
+  app.addHook('onRequest', async (peticion, respuesta) => {
+    if (RUTAS_PUBLICAS.has(peticion.url)) return;
+
+    if (opciones.resolver) {
+      peticion.usuarioId = await opciones.resolver();
+      return;
+    }
+
+    const identidad = await verificarSesion(peticion, respuesta);
+    if (!identidad) throw sinAutorizar();
+
+    peticion.usuarioId = await encontrarOCrearUsuario(identidad);
   });
 }
 

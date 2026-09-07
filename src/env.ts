@@ -36,6 +36,15 @@ const EnvSchema = z.object({
     .refine((origenes) => origenes.length > 0 && !origenes.includes('*'), {
       message: 'debe listar al menos un sitio concreto, y nunca "*"',
     }),
+
+  /** Dirección del servidor de Neon Auth para este proyecto. Sale de la consola de Neon. */
+  NEON_AUTH_BASE_URL: z
+    .string()
+    .min(1, 'es obligatoria')
+    .refine((v) => v.startsWith('https://'), { message: 'debe empezar con https://' }),
+
+  /** Firma la cookie de sesión. Mínimo 32 caracteres: `openssl rand -base64 32`. */
+  NEON_AUTH_COOKIE_SECRET: z.string().min(32, 'necesita al menos 32 caracteres'),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
