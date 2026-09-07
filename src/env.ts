@@ -17,7 +17,13 @@ const EnvSchema = z.object({
     }),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
-  PORT: z.coerce.number().int().positive().max(65535).default(3001),
+  // Vercel decide el puerto por su cuenta y a veces manda la variable
+  // presente pero vacia en vez de no mandarla: sin este preprocess, una
+  // cadena vacia se convierte en 0 y tumba el arranque.
+  PORT: z.preprocess(
+    (valor) => (valor === '' ? undefined : valor),
+    z.coerce.number().int().positive().max(65535).default(3001),
+  ),
 
   /**
    * Lista blanca de sitios que pueden llamar a la API, separados por comas.
