@@ -35,18 +35,21 @@ mal diseñada. Entre lo potente y lo obvio, gana lo obvio.
 | 1   | CRUD de movimientos, categorías, dashboard | hecha  |
 | 2   | Autenticación y despliegue                 | activa |
 | 3   | Uso real y ajustes de diseño               |        |
-| 4   | Workers + patrón outbox                    |        |
-| 5   | Pruebas de punta a punta (Playwright)      |        |
-| 6   | Apertura a usuarios reales                 |        |
-| 7   | Integraciones con APIs externas            |        |
+| 4   | Pruebas de punta a punta (Playwright)      |        |
+| 5   | Apertura a usuarios reales                 |        |
+| 6   | Integraciones externas + workers y outbox  |        |
 
-El esquema es multi-tenant desde la Fase 0, aunque los usuarios lleguen en la 6.
+El esquema es multi-tenant desde la Fase 0, aunque los usuarios lleguen en la 5.
 
 El orden no es caprichoso: la app se despliega y se usa de verdad (2 y 3) antes
 de construir nada más. Qué tanta falta hacen los trabajos en segundo plano o las
 integraciones se decide con la experiencia de haberla usado, no suponiéndolo
 antes. La importación de extractos CSV se sacó del plan por la misma razón:
 vuelve solo si usar la app demuestra que hace falta.
+
+Los workers y el outbox viven dentro de la fase de integraciones y no antes:
+son la plomería que las hace seguras, y construirlos sin nada externo que
+llamar sería una fase entera sin nada que mostrar.
 
 ## Protocolo de fase
 
@@ -148,8 +151,8 @@ Outbox (eventos a tabla en la misma transacción, worker los procesa después).
 | Integración BD        | Rama efímera de Neon        | F1    |
 | Concurrencia          | Vitest                      | F1    |
 | Componente            | Testing Library             | F3    |
-| E2E                   | Playwright                  | F5    |
-| Contrato              | MSW                         | F7    |
+| E2E                   | Playwright                  | F4    |
+| Contrato              | MSW                         | F6    |
 
 - **Consistencia:** el ledger cuadra contra los saldos calculados. En CI y
   como job diario en producción.
