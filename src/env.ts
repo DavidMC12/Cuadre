@@ -18,10 +18,10 @@ const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
   // Vercel decide el puerto por su cuenta y a veces manda la variable
-  // presente pero vacia en vez de no mandarla: sin este preprocess, una
-  // cadena vacia se convierte en 0 y tumba el arranque.
+  // presente pero en blanco (vacia, o solo espacios) en vez de no mandarla:
+  // sin este preprocess, Number('') o Number(' ') dan 0 y tumban el arranque.
   PORT: z.preprocess(
-    (valor) => (valor === '' ? undefined : valor),
+    (valor) => (typeof valor === 'string' && valor.trim() === '' ? undefined : valor),
     z.coerce.number().int().positive().max(65535).default(3001),
   ),
 
