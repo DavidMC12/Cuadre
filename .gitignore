@@ -26,3 +26,5 @@ coverage/
 
 # Copias de trabajo de los subagentes: nunca se versionan.
 .claude/worktrees/
+.vercel
+.env*

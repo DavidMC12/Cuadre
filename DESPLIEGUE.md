@@ -12,8 +12,8 @@ vean como un solo sitio:
 
 - El proyecto de las **pantallas** (`web/` como Root Directory) es el que la
   gente visita. Su propio `web/vercel.json` reenvía (`rewrites`) todo lo que
-  empiece en `/api/...` o sea exactamente `/salud` hacia el proyecto de la
-  API, manteniendo la ruta.
+  empiece en `/api/v1/...`, y también `/salud` (hacia `/api/salud` del lado
+  de la API — ver la nota sobre esa ruta más abajo).
 - El proyecto de la **API** (Root Directory vacío, o sea la raíz del
   repositorio) no se ve nunca directamente: el navegador solo habla con el
   proyecto de las pantallas, que reenvía por dentro.
@@ -29,17 +29,35 @@ Vercel tiene una función llamada ["Services"](https://vercel.com/docs/services)
 pensada justo para este caso (varios servicios bajo un mismo proyecto). La
 probamos primero porque es más simple de administrar (un solo proyecto), pero
 en nuestro caso el servicio de la API fallaba en cada petición con
-`INTERNAL_FUNCTION_INVOCATION_FAILED`, sin ningún log de la aplicación —o sea
-que fallaba antes de que nuestro código corriera. La causa más probable: en
-todos los ejemplos de la documentación de Vercel, cada servicio vive en su
-propia subcarpeta separada; en nuestro caso la API vivía en la raíz del
-repositorio (`"root": "./"`), que **contiene** la carpeta `web/` del otro
-servicio adentro — una superposición que la documentación nunca muestra.
-Mover todo el código de la API a su propia subcarpeta lo hubiera solucionado
-manteniendo un solo proyecto, pero es un cambio grande (toca rutas de
-importación, configuración de pruebas, todo lo que hoy asume que `src/` está
-en la raíz). Dos proyectos separados evita ese problema de raíz sin tocar
-nada del código existente.
+`INTERNAL_FUNCTION_INVOCATION_FAILED`, sin ningún log de la aplicación. En su
+momento sospeché que era por la superposición de carpetas entre los dos
+servicios (la API usaba como raíz el repositorio completo, que contiene
+`web/` adentro) — esa sospecha resultó **equivocada**.
+
+La causa real, confirmada después corriendo `vercel build` en la máquina
+local e inspeccionando el archivo de rutas que genera: el builder de Fastify
+de Vercel arma automáticamente una regla que dice "todo lo que no empiece en
+`/api/` es un archivo estático, y si no existe, es un 404". Nuestra ruta de
+salud vivía en `/salud`, sin ese prefijo — caía en esa regla, y como no hay
+ningún archivo `404.html` en un proyecto que es puramente una API, Vercel no
+lograba resolver ni siquiera el 404, y eso se manifestaba como
+`INTERNAL_FUNCTION_INVOCATION_FAILED`. Esto habría fallado exactamente igual
+con "Services" — no tenía nada que ver con la superposición de carpetas. El
+arreglo real fue mover esa ruta a `/api/salud` (ver más abajo).
+
+Como el cambio a dos proyectos separados ya estaba hecho y funciona (y no
+depende de una función en beta), lo dejamos así en vez de volver a un solo
+proyecto con "Services" — pero vale la pena que quede claro que la causa
+original que se documentó acá estaba mal, para no repetir esa pista falsa si
+en el futuro se reconsidera.
+
+### La ruta de salud vive en `/api/salud`, no en `/salud`
+
+Por la misma razón de arriba: el código de Fastify (`src/aplicacion.ts`)
+registra el chequeo de salud como `/api/salud`, no como `/salud` a secas. El
+proyecto de pantallas sigue exponiendo `/salud` hacia afuera (es más simple
+de recordar para quien monitorea el sitio) y por dentro lo reenvía a
+`/api/salud` — ver `web/vercel.json`.
 
 ### Por qué no hizo falta escribir un "adaptador" para Fastify
 

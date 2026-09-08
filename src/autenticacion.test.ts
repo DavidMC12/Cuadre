@@ -16,11 +16,11 @@ afterAll(async () => {
 });
 
 describe('sin sesión', () => {
-  it('/salud responde sin pedir sesión', async () => {
+  it('/api/salud responde sin pedir sesión', async () => {
     app = await construirApp({ silencioso: true });
     await app.ready();
 
-    const respuesta = await app.inject({ method: 'GET', url: '/salud' });
+    const respuesta = await app.inject({ method: 'GET', url: '/api/salud' });
     expect(respuesta.statusCode).toBe(200);
   });
 

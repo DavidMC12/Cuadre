@@ -28,10 +28,10 @@ declare module 'fastify' {
 const PROVEEDOR = 'neon-auth';
 
 /**
- * Rutas donde no hace falta sesión. `/salud` la consultan cosas como el
+ * Rutas donde no hace falta sesión. `/api/salud` la consultan cosas como el
  * monitor de Vercel, que no van a mandar una cookie de sesión.
  */
-const RUTAS_PUBLICAS = new Set(['/salud']);
+const RUTAS_PUBLICAS = new Set(['/api/salud']);
 
 /**
  * Encuentra el usuario de esta app para una identidad de Neon Auth, o lo crea

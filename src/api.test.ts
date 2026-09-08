@@ -90,7 +90,7 @@ async function saldoDe(cuentaId: string): Promise<string> {
 
 describe('salud y rutas inexistentes', () => {
   it('responde que está vivo', async () => {
-    const { estado, cuerpo } = await pedir('GET', '/salud');
+    const { estado, cuerpo } = await pedir('GET', '/api/salud');
     expect(estado).toBe(200);
     expect(cuerpo.estado).toBe('vivo');
   });

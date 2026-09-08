@@ -63,7 +63,9 @@ export async function construirApp(opciones: OpcionesDeApp = {}): Promise<Fastif
 
   await app.register(usuarioActual, { resolver: opciones.resolverUsuario });
 
-  app.get('/salud', { logLevel: 'warn' }, async () => ({
+  // Bajo /api: en Vercel, todo lo que no empieza en /api se trata como
+  // archivo estatico y nunca llega a esta funcion (ver DESPLIEGUE.md).
+  app.get('/api/salud', { logLevel: 'warn' }, async () => ({
     estado: 'vivo',
     entorno: env.NODE_ENV,
   }));
