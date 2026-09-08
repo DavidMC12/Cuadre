@@ -18,6 +18,11 @@ import * as schema from './schema/index.js';
 const client = postgres(env.DATABASE_URL, {
   max: 5,
   prepare: false,
+  // Sin esto, una conexion que no puede completarse (host mal, red
+  // bloqueada) se queda colgada con el timeout por defecto del sistema
+  // operativo (decenas de segundos) en vez de fallar rapido y con un error
+  // claro.
+  connect_timeout: 10,
 });
 
 export const db = drizzle(client, { schema, casing: 'snake_case' });

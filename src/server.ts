@@ -1,9 +1,10 @@
-/** Arranque del servidor. Lo unico que hace es levantar lo que construye aplicacion.ts. */
-// Vercel reconoce un proyecto de Fastify buscando, en este mismo archivo, un
-// import del paquete 'fastify'. La app de verdad se arma en aplicacion.ts
-// (separado para poder probarla con app.inject()), asi que este import no
-// se usa aca mas que para que el detector lo reconozca.
-import 'fastify';
+/**
+ * Arranque del servidor para desarrollo local (`npm run dev` / `npm start`).
+ * Lo unico que hace es levantar lo que construye aplicacion.ts.
+ *
+ * En Vercel esto NO se usa: ahi la funcion real es `api/backend.ts`, que
+ * arma la misma app pero sin abrir un puerto (ver ese archivo para el porque).
+ */
 import { construirApp } from './aplicacion.js';
 import { closeDb } from './db/client.js';
 import { env } from './env.js';
