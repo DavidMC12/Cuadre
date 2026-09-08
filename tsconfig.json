@@ -18,5 +18,5 @@
     "resolveJsonModule": true,
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "drizzle.config.ts", "vitest.config.ts"]
+  "include": ["src/**/*.ts", "api/**/*.ts", "drizzle.config.ts", "vitest.config.ts"]
 }
