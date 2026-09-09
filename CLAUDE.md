@@ -18,9 +18,35 @@ Este proyecto puede tener varios agentes trabajando al mismo tiempo, cada uno en
   1. El usuario dio permiso explícito para integrar esa rama/funcionalidad específica a `main`.
   2. El agente principal ya revisó y le confirmó al usuario que el cambio no choca ni con otras ramas activas ni con trabajo en curso de otros agentes.
 - Cada funcionalidad se desarrolla en su propia copia/worktree separada del proyecto — nunca dos agentes comparten la misma carpeta de trabajo al mismo tiempo.
+- **Los arreglos de errores también van en su propia rama**, por pequeños que parezcan. Nada se corrige escribiendo directo sobre `main`, ni siquiera un cambio de una línea: si vale la pena arreglarlo, vale la pena que quede revisado y con su historia aparte.
 - Para que el perfil de GitHub del usuario se vea activo, se debe comitear seguido: cada vez que una parte pequeña y completa del trabajo esté lista (una función, una corrección, un ajuste), en vez de acumular varios cambios en un solo commit grande al final. No se deben crear commits vacíos o sin cambios reales solo para inflar el conteo.
 - **Cada commit se sube (`push`) a su rama de inmediato**, en la misma acción, no al final de la sesión. Un commit que se queda en la máquina no existe para nadie más y no aparece en el perfil de GitHub. La primera vez en una rama nueva: `git push -u origin <rama>`; después, `git push` a secas. Si el push falla (por ejemplo, sin red), se avisa al usuario en vez de seguir acumulando commits en silencio.
 - Esa regla de subir siempre aplica **solo a la rama propia**. `main` sigue intocable sin permiso explícito, según las dos condiciones de arriba.
+
+## Revisión de código: nunca la hace quien escribió el código
+
+Ninguna rama se integra a `main` sin revisión, y **quien revisa jamás es quien
+escribió el cambio**. Un agente revisando su propio trabajo arrastra los mismos
+supuestos que lo llevaron al error: no está leyendo el código, está recordando
+lo que quiso escribir. Por eso la separación no es una formalidad, es de dónde
+sale todo el valor de la revisión.
+
+Cómo se hace, con las skills que ya están en el repositorio:
+
+- Quien implementa termina su rama y pide la revisión con la skill
+  **`requesting-code-review`**, que despacha un revisor aparte pasándole los SHA
+  a comparar y el contexto mínimo — **nunca** el historial de la conversación en
+  la que se escribió el código. Ese aislamiento es justamente el punto.
+- El revisor es un agente distinto y sin memoria del trabajo previo. Si el
+  cambio toca dinero o autenticación, se le pide con esfuerzo alto.
+- Quien recibe los comentarios los procesa con la skill
+  **`receiving-code-review`**: cada punto se verifica antes de aplicarlo. Ni se
+  acepta por cortesía ni se descarta por orgullo; si un comentario está
+  equivocado, se responde con el porqué.
+- La revisión ocurre **antes** de pedirle permiso al usuario para integrar a
+  `main`, no después. Lo que le llega al usuario ya viene revisado.
+- Para una mirada más honda existe además `/code-review` (la skill del propio
+  Claude Code), útil cuando el cambio es grande o el riesgo es alto.
 
 ## Principio rector
 
