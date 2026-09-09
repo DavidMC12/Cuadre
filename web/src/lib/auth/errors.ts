@@ -13,6 +13,10 @@ const MENSAJES_POR_CODIGO: Record<string, string> = {
     "Ya existe una cuenta con ese correo. Prueba entrar en vez de registrarte.",
   USER_NOT_FOUND: "No encontramos una cuenta con ese correo.",
   EMAIL_NOT_VERIFIED: "Todavía no verificaste tu correo.",
+  // Red de seguridad: el navegador ya valida el formulario antes de enviarlo,
+  // pero el servidor es la última palabra (por ejemplo, un cliente sin
+  // JavaScript, o una regla que el navegador no conoce).
+  VALIDATION_ERROR: "Revisa los datos del formulario.",
 };
 
 const MENSAJE_GENERICO = "Algo salió mal. Inténtalo de nuevo.";
