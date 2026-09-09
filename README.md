@@ -4,9 +4,9 @@
 
 App web de finanzas personales.
 
-**Estado: Fase 1a terminada.** Ya puedes registrar un gasto y ver tu saldo,
-desde el celular. Falta el inicio de sesión: por ahora todo corre en tu
-máquina y los datos son de un único usuario de desarrollo.
+**Estado: en uso.** Ya puedes registrar un gasto y ver tu saldo desde el
+celular, entrando con tu cuenta, sin encender nada en tu máquina. Lo que queda
+son los ajustes de diseño que salgan de usarla a diario.
 
 ## Qué necesitas
 

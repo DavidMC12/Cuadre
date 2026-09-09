@@ -29,23 +29,38 @@ mal diseñada. Entre lo potente y lo obvio, gana lo obvio.
 
 ## Fases
 
+**El proyecto está al 100% cuando la app le sirve a su dueño para llevar sus
+cuentas.** Ese es el alcance completo, no una versión recortada de algo más
+grande. Lo que viene después son pasos adicionales, opcionales, y ninguno se
+empieza sin que él lo pida explícitamente.
+
+### Hasta el 100%
+
 | #   | Alcance                                    | Estado |
 | --- | ------------------------------------------ | ------ |
 | 0   | Esquema multi-tenant + migraciones         | hecha  |
 | 1   | CRUD de movimientos, categorías, dashboard | hecha  |
-| 2   | Autenticación y despliegue                 | activa |
-| 3   | Uso real y ajustes de diseño               |        |
-| 4   | Pruebas de punta a punta (Playwright)      |        |
-| 5   | Apertura a usuarios reales                 |        |
-| 6   | Integraciones externas + workers y outbox  |        |
+| 2   | Autenticación y despliegue                 | hecha  |
+| 3   | Uso real y ajustes de diseño               | activa |
 
-El esquema es multi-tenant desde la Fase 0, aunque los usuarios lleguen en la 5.
+### Pasos adicionales, ya pasado el 100%
+
+Congelados. Que la fase anterior se vea terminada **no** es razón para
+arrancar ninguno de estos: hace falta que el dueño lo diga con todas las
+letras.
+
+| #   | Alcance                                   | Por qué está afuera                                                                                                          |
+| --- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 4   | Pruebas de punta a punta (Playwright)     | Las pruebas que ya existen cubren el dinero, que es lo que importa. Un navegador automatizado protege sobre todo del trabajo de otras personas sobre el mismo código, y aquí no hay otras personas. |
+| 5   | Apertura a usuarios reales                | Cambia el proyecto de cosa personal a servicio: soporte, privacidad y costos ajenos. Se decide aparte, nunca por inercia.     |
+| 6   | Integraciones externas + workers y outbox | Qué tanta falta hacen se sabe usando la app, no suponiéndolo antes.                                                          |
+
+El esquema es multi-tenant desde la Fase 0, aunque los usuarios de la Fase 5
+quizá no lleguen nunca. Ya está hecho y quitarlo costaría más que dejarlo.
 
 El orden no es caprichoso: la app se despliega y se usa de verdad (2 y 3) antes
-de construir nada más. Qué tanta falta hacen los trabajos en segundo plano o las
-integraciones se decide con la experiencia de haberla usado, no suponiéndolo
-antes. La importación de extractos CSV se sacó del plan por la misma razón:
-vuelve solo si usar la app demuestra que hace falta.
+de construir nada más. La importación de extractos CSV se sacó del plan por la
+misma razón que el resto: vuelve solo si usar la app demuestra que hace falta.
 
 Los workers y el outbox viven dentro de la fase de integraciones y no antes:
 son la plomería que las hace seguras, y construirlos sin nada externo que
