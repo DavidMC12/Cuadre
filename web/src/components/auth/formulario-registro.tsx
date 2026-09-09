@@ -72,6 +72,10 @@ export function FormularioRegistro() {
               onChange={(evento) => setNombre(evento.target.value)}
               aria-invalid={Boolean(error)}
               required
+              // `required` por sí solo acepta una cadena de solo espacios (no
+              // está vacía). El patrón exige al menos un carácter que no sea
+              // espacio en blanco, en cualquier posición.
+              pattern=".*\S.*"
               autoFocus
             />
           </div>
