@@ -59,7 +59,7 @@ export function FormularioEntrar() {
         <CardDescription>Entra con tu correo y tu contraseña.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={manejarEnvio} className="flex flex-col gap-4" noValidate>
+        <form onSubmit={manejarEnvio} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="correo">Correo</Label>
             <Input

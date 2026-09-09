@@ -61,9 +61,9 @@ export function FormularioRegistro() {
         <CardDescription>Un correo, una contraseña y listo.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={manejarEnvio} className="flex flex-col gap-4" noValidate>
+        <form onSubmit={manejarEnvio} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="nombre">Nombre</Label>
+            <Label htmlFor="nombre">Nombre completo</Label>
             <Input
               id="nombre"
               type="text"
