@@ -38,13 +38,17 @@ const ROL_ADMIN = 'admin';
 /**
  * Better Auth admite varios roles a la vez y los guarda separados por comas
  * ("admin,user"), así que comparar el texto completo contra 'admin' dejaría
- * fuera a un administrador de verdad. Falla cerrado —lo trataría como alguien
- * sin permisos—, pero eso basta para que Neon Auth y esta app no se pongan de
- * acuerdo sobre quién manda, y ahí es donde aparecen los agujeros raros.
+ * fuera a un administrador de verdad.
+ *
+ * La comparación es exacta —sin recortar espacios ni ignorar mayúsculas— a
+ * propósito: es literalmente lo que hace Neon Auth al decidir lo mismo. Ser
+ * más generoso aquí abriría la puerta al desacuerdo contrario, donde Cuadre te
+ * deja entrar al panel y Neon te rechaza a media operación. Que los dos digan
+ * lo mismo importa más que aceptar un " Admin " escrito a mano.
  */
 export function esRolAdmin(rol: string | null): boolean {
   if (!rol) return false;
-  return rol.split(',').some((parte) => parte.trim().toLowerCase() === ROL_ADMIN);
+  return rol.split(',').includes(ROL_ADMIN);
 }
 
 const PROVEEDOR = 'neon-auth';

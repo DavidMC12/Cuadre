@@ -11,6 +11,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { construirApp } from './aplicacion.js';
 import { closeDb, db } from './db/client.js';
 import { users } from './db/schema/index.js';
+import { leerSuplantadaPor } from './http/neon-auth.js';
 import { esRolAdmin } from './http/usuario-actual.js';
 
 let appAdmin: FastifyInstance;
@@ -236,8 +237,7 @@ describe('leer un rol', () => {
   it('lo reconoce aunque venga con otros roles al lado', () => {
     // Better Auth admite varios roles y los guarda separados por comas.
     expect(esRolAdmin('admin,user')).toBe(true);
-    expect(esRolAdmin('user, admin')).toBe(true);
-    expect(esRolAdmin('ADMIN')).toBe(true);
+    expect(esRolAdmin('user,admin')).toBe(true);
   });
 
   it('no confunde a quien no lo es', () => {
@@ -246,6 +246,39 @@ describe('leer un rol', () => {
     expect(esRolAdmin('superadmin')).toBe(false);
     expect(esRolAdmin('')).toBe(false);
     expect(esRolAdmin(null)).toBe(false);
+  });
+
+  it('compara igual que Neon Auth, sin recortar ni ignorar mayúsculas', () => {
+    // Si aquí se aceptara y allá no, Cuadre abriría el panel a alguien que el
+    // proveedor de identidad rechaza a media operación.
+    expect(esRolAdmin('ADMIN')).toBe(false);
+    expect(esRolAdmin('user, admin')).toBe(false);
+    expect(esRolAdmin(' admin')).toBe(false);
+  });
+});
+
+describe('leer quién inició la sesión', () => {
+  it('devuelve al administrador cuando la sesión es suplantada', () => {
+    expect(leerSuplantadaPor({ impersonatedBy: 'admin-123' })).toBe('admin-123');
+  });
+
+  it('en una sesión normal no devuelve a nadie', () => {
+    expect(leerSuplantadaPor({})).toBeNull();
+    expect(leerSuplantadaPor({ impersonatedBy: null })).toBeNull();
+    expect(leerSuplantadaPor(undefined)).toBeNull();
+    expect(leerSuplantadaPor(null)).toBeNull();
+  });
+
+  it('un texto vacío no identifica a nadie, así que no cuenta', () => {
+    expect(leerSuplantadaPor({ impersonatedBy: '' })).toBeNull();
+    expect(leerSuplantadaPor({ impersonatedBy: '   ' })).toBeNull();
+  });
+
+  it('si el campo cambiara de forma, se entera alguien', () => {
+    // Esta prueba existe para que renombrar el campo haga ruido: de él cuelgan
+    // el aviso de suplantación y el cierre del panel, las dos a la vez.
+    expect(leerSuplantadaPor({ impersonated_by: 'admin-123' })).toBeNull();
+    expect(leerSuplantadaPor({ impersonatedBy: 42 })).toBeNull();
   });
 });
 

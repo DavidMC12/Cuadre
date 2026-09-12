@@ -110,6 +110,25 @@ export interface IdentidadDeSesion {
 }
 
 /**
+ * Quién inició una sesión, leyendo lo que manda Neon Auth.
+ *
+ * Vive aparte y se prueba sola porque de este campo cuelgan dos garantías a la
+ * vez: el aviso de que estás viendo una cuenta ajena, y que suplantar no
+ * devuelva al panel de administración. Si el paquete —que está en beta—
+ * renombrara `impersonatedBy`, las dos se caerían calladas. Una prueba sobre
+ * esta función hace ruido cuando eso pase.
+ *
+ * Un texto vacío se trata como "no hay suplantación": no identifica a nadie.
+ */
+export function leerSuplantadaPor(sesion: unknown): string | null {
+  const quien = (sesion as { impersonatedBy?: unknown } | null | undefined)?.impersonatedBy;
+  if (typeof quien !== 'string') return null;
+
+  const limpio = quien.trim();
+  return limpio === '' ? null : limpio;
+}
+
+/**
  * Verifica la sesión de la petición actual contra Neon Auth.
  *
  * Devuelve `null` cuando no hay sesión, cuando expiró, o cuando el servidor
@@ -130,14 +149,12 @@ export async function verificarSesion(
 
     if (error || !data?.user) return null;
 
-    const sesion = data.session as { impersonatedBy?: string | null } | undefined;
-
     return {
       id: data.user.id,
       email: data.user.email,
       displayName: data.user.name ?? null,
       rol: (data.user as { role?: string | null }).role ?? null,
-      suplantadaPor: sesion?.impersonatedBy ?? null,
+      suplantadaPor: leerSuplantadaPor(data.session),
     };
   } catch (fallo) {
     request.log.warn(

@@ -110,7 +110,8 @@ export default function PaginaAdmin() {
                 <div className="flex min-w-0 flex-col">
                   <span className="flex items-center gap-1.5 text-sm font-medium">
                     <span className="truncate">{persona.name ?? persona.email}</span>
-                    {persona.role === "admin" && (
+                    {/* El hook junta varios roles en un texto ("admin, user"). */}
+                    {persona.role?.split(",").some((parte) => parte.trim() === "admin") && (
                       <Badge variant="secondary" className="shrink-0">
                         admin
                       </Badge>
