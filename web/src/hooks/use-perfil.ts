@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { fetchProfile, updateProfile } from "@/lib/api/profile";
 import type { CambiosDePerfil } from "@/lib/api/types";
+import { decidirInicio } from "@/lib/inicio";
 
 export const clavesPerfil = {
   todo: () => ["perfil"] as const,
@@ -32,17 +33,21 @@ export function useGuardarPerfil() {
     onSuccess: (respuesta) => {
       queryClient.setQueryData(clavesPerfil.todo(), respuesta);
     },
+    // Dos preferencias cambiadas casi a la vez son dos peticiones en paralelo,
+    // y la que responda de último dejaría en caché una foto anterior. Pedir el
+    // perfil de nuevo al final cierra ese hueco.
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: clavesPerfil.todo() });
+    },
   });
 }
 
 /**
  * Vive fuera del hook para que dure lo que dura la pestaña abierta, no lo que
- * dura un componente montado. Esa es justamente la diferencia entre "abrir la
- * app" y "volver al resumen desde el menú": lo primero pasa una sola vez, y si
- * el segundo también redirigiera, quien eligiera otra pantalla de inicio nunca
- * podría volver a ver el resumen.
+ * dura un componente montado: abrir la app pasa una sola vez, y volver al
+ * resumen desde el menú no es abrirla.
  */
-let yaSeFueAlInicioElegido = false;
+let yaSeAbrioLaApp = false;
 
 /**
  * Manda a la pantalla que la persona eligió para abrir la app.
@@ -53,16 +58,27 @@ let yaSeFueAlInicioElegido = false;
  */
 export function useIrAPantallaDeInicio(): boolean {
   const router = useRouter();
-  const { data: perfil, isLoading } = usePerfil();
+  const { data: perfil, isPending } = usePerfil();
 
-  const seVa = !yaSeFueAlInicioElegido && perfil !== undefined && perfil.startPage !== "resumen";
+  const decision = decidirInicio({
+    yaSeAbrio: yaSeAbrioLaApp,
+    buscandoPerfil: isPending,
+    pantalla: perfil?.startPage,
+  });
+
+  // Se sacan a variables sueltas para que el efecto dependa de valores y no de
+  // un objeto recién creado, que lo haría correr en cada renderizado.
+  const { accion } = decision;
+  const aDonde = decision.accion === "irse" ? decision.pantalla : null;
 
   useEffect(() => {
-    if (yaSeFueAlInicioElegido || !perfil) return;
+    if (accion === "esperar") return;
 
-    yaSeFueAlInicioElegido = true;
-    if (perfil.startPage !== "resumen") router.replace(`/${perfil.startPage}`);
-  }, [perfil, router]);
+    // Se gasta el momento de abrir la app aunque no haya a dónde ir: si no, un
+    // perfil que llegue tarde movería a la persona de pantalla en plena sesión.
+    yaSeAbrioLaApp = true;
+    if (aDonde) router.replace(`/${aDonde}`);
+  }, [accion, aDonde, router]);
 
-  return isLoading || seVa;
+  return accion !== "quedarse";
 }

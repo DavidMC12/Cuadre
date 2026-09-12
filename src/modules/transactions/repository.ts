@@ -261,13 +261,6 @@ export async function obtenerPatasDeTransferencia(
   return filas.map((fila) => aMovimiento(fila));
 }
 
-/**
- * Corrige la categoria de un movimiento. Es lo UNICO que se puede cambiar de
- * una fila del libro: el monto, la fecha y la cuenta los protege un disparador
- * en la base (ver la migracion 0002).
- *
- * Devuelve null si el movimiento no existe o no es de esta persona.
- */
 /** Una fila del archivo exportado, todavía sin traducir a palabras. */
 export interface FilaParaExportar {
   id: string;
@@ -353,6 +346,13 @@ export async function listarParaExportar(usuarioId: string): Promise<FilaParaExp
   }));
 }
 
+/**
+ * Corrige la categoria de un movimiento. Es lo UNICO que se puede cambiar de
+ * una fila del libro: el monto, la fecha y la cuenta los protege un disparador
+ * en la base (ver la migracion 0002).
+ *
+ * Devuelve null si el movimiento no existe o no es de esta persona.
+ */
 export async function recategorizar(
   ejecutor: Ejecutor,
   usuarioId: string,

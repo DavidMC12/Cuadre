@@ -5,8 +5,7 @@
  * nombre, sin enterarse de rutas ni de códigos de estado.
  */
 
-const BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ?? "http://localhost:3001";
+const BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ?? "http://localhost:3001";
 
 export type CodigoErrorApi =
   | "VALIDATION_ERROR"
@@ -85,10 +84,23 @@ export async function descargar(
   }
 
   if (!respuesta.ok) {
-    throw new ApiError({
-      code: "INTERNAL",
-      message: "No se pudo preparar el archivo. Inténtalo otra vez.",
-    });
+    // El servidor manda sus errores en JSON y ya en español, incluido el de
+    // sesión vencida. Decir siempre "no se pudo preparar el archivo" mandaría
+    // a revisar lo que no es.
+    const texto = await respuesta.text();
+    let json: { error?: CuerpoErrorApi } | null = null;
+    try {
+      json = texto ? JSON.parse(texto) : null;
+    } catch {
+      json = null;
+    }
+
+    throw new ApiError(
+      json?.error ?? {
+        code: "INTERNAL",
+        message: "No se pudo preparar el archivo. Inténtalo otra vez.",
+      }
+    );
   }
 
   const disposicion = respuesta.headers.get("content-disposition") ?? "";
@@ -130,7 +142,7 @@ export async function pedir<T>(ruta: string, opciones: Opciones = {}): Promise<T
       error ?? {
         code: "INTERNAL",
         message: "El servidor respondió algo que no supimos entender.",
-      },
+      }
     );
   }
 

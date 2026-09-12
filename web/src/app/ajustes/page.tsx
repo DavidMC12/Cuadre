@@ -8,19 +8,31 @@ import { OpcionGuardada } from "@/components/ajustes/opcion-guardada";
 import { Fila, FilaEnlace, Seccion, ValorFijo } from "@/components/ajustes/seccion";
 import { SelectorTema } from "@/components/ajustes/selector-tema";
 import { BotonSalir } from "@/components/auth/boton-salir";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePerfil } from "@/hooks/use-perfil";
-import { etiquetaMes } from "@/lib/fecha";
+import { etiquetaMesDeFecha } from "@/lib/fecha";
+import { MONEDAS } from "@/lib/labels";
 import type { PantallaDeInicio } from "@/lib/api/types";
 
 /** "Automática" no es una moneda: es dejar que la app la deduzca de tus cuentas. */
 const AUTOMATICA = "auto";
 
-const MONEDAS = [
-  { valor: AUTOMATICA, etiqueta: "Automática" },
-  { valor: "COP", etiqueta: "COP" },
-  { valor: "USD", etiqueta: "USD" },
-] as const;
+/**
+ * La lista incluye la moneda que ya está guardada aunque no sea de las que las
+ * pantallas ofrecen —la API acepta cualquier código de tres letras—. Si no,
+ * quien tuviera una moneda rara vería los tres botones apagados y no sabría
+ * qué tiene puesto.
+ */
+function opcionesDeMoneda(guardada: string | null) {
+  const codigos: string[] = [...MONEDAS];
+  if (guardada && !codigos.includes(guardada)) codigos.push(guardada);
+
+  return [
+    { valor: AUTOMATICA, etiqueta: "Automática" },
+    ...codigos.map((codigo) => ({ valor: codigo, etiqueta: codigo })),
+  ];
+}
 
 const PANTALLAS = [
   { valor: "resumen", etiqueta: "Resumen" },
@@ -29,17 +41,28 @@ const PANTALLAS = [
 ] as const;
 
 export default function PaginaAjustes() {
-  const { data: perfil, isLoading } = usePerfil();
+  const { data: perfil, isPending, isError, refetch } = usePerfil();
 
   return (
     <div className="flex flex-col gap-5 pb-4">
       <h1 className="text-xl font-semibold">Ajustes</h1>
 
-      {isLoading && (
+      {isPending && (
         <div className="flex flex-col gap-4">
           <Skeleton className="h-32 w-full rounded-lg" />
           <Skeleton className="h-24 w-full rounded-lg" />
           <Skeleton className="h-24 w-full rounded-lg" />
+        </div>
+      )}
+
+      {isError && (
+        <div className="flex flex-col items-start gap-3 rounded-lg border border-border p-4">
+          <p className="text-sm text-muted-foreground">
+            No pudimos cargar tus ajustes. Puede ser que el servidor esté dormido.
+          </p>
+          <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
+            Reintentar
+          </Button>
         </div>
       )}
 
@@ -65,7 +88,7 @@ export default function PaginaAjustes() {
             </Fila>
 
             <Fila etiqueta="Usas Cuadre desde">
-              <ValorFijo>{etiquetaMes(perfil.createdAt.slice(0, 7))}</ValorFijo>
+              <ValorFijo>{etiquetaMesDeFecha(perfil.createdAt)}</ValorFijo>
             </Fila>
           </Seccion>
 
@@ -78,12 +101,12 @@ export default function PaginaAjustes() {
 
             <Fila
               etiqueta="Moneda por defecto"
-              ayuda="La que se propone al registrar un movimiento."
+              ayuda="La que viene marcada al crear una cuenta."
               apilado
             >
               <OpcionGuardada
                 valor={perfil.defaultCurrency ?? AUTOMATICA}
-                opciones={MONEDAS}
+                opciones={opcionesDeMoneda(perfil.defaultCurrency)}
                 aCambio={(elegido) => ({
                   defaultCurrency: elegido === AUTOMATICA ? null : elegido,
                 })}
@@ -114,10 +137,13 @@ export default function PaginaAjustes() {
               <BotonExportar />
             </Fila>
           </Seccion>
-
-          <BotonSalir />
         </>
       )}
+
+      {/* Fuera del bloque de arriba a propósito: salir no necesita el perfil, y
+          si desapareciera cuando algo falla, esta pantalla —que es la única
+          que lleva el botón— dejaría a la persona sin forma de cerrar sesión. */}
+      <BotonSalir />
     </div>
   );
 }

@@ -17,28 +17,43 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useCrearCuenta } from "@/hooks/use-cuentas";
+import { usePerfil } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { TipoCuenta } from "@/lib/api/types";
-import { ETIQUETA_TIPO_CUENTA } from "@/lib/labels";
+import { ETIQUETA_TIPO_CUENTA, MONEDAS } from "@/lib/labels";
 import { normalizarMontoConSigno } from "@/lib/money";
 
 const TIPOS: TipoCuenta[] = ["bank", "card", "cash"];
-const MONEDAS = ["COP", "USD"] as const;
 
 export function FormularioCuenta({ children }: { children: React.ReactNode }) {
+  const { data: perfil } = usePerfil();
+
+  // La preferencia de los ajustes decide cuál viene marcada. Si no hay ninguna
+  // elegida —o el perfil todavía no llega— manda la primera de la lista.
+  const monedaPreferida = perfil?.defaultCurrency ?? MONEDAS[0];
+
   const [abierto, setAbierto] = useState(false);
   const [nombre, setNombre] = useState("");
   const [tipo, setTipo] = useState<TipoCuenta>("bank");
-  const [moneda, setMoneda] = useState<(typeof MONEDAS)[number]>("COP");
+  const [moneda, setMoneda] = useState<string | null>(null);
   const [saldoInicial, setSaldoInicial] = useState("");
   const [errores, setErrores] = useState<{ nombre?: string; saldoInicial?: string }>({});
 
   const crearCuenta = useCrearCuenta();
 
+  // Null significa "no la he tocado": así, si el perfil llega después de que se
+  // abrió el formulario, la marcada se corrige sola, pero una moneda ya elegida
+  // a mano no se pisa.
+  const monedaElegida = moneda ?? monedaPreferida;
+
+  const monedasOfrecidas: string[] = MONEDAS.includes(monedaPreferida as (typeof MONEDAS)[number])
+    ? [...MONEDAS]
+    : [...MONEDAS, monedaPreferida];
+
   function reiniciar() {
     setNombre("");
     setTipo("bank");
-    setMoneda("COP");
+    setMoneda(null);
     setSaldoInicial("");
     setErrores({});
   }
@@ -65,7 +80,12 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
     if (Object.keys(nuevosErrores).length > 0) return;
 
     crearCuenta.mutate(
-      { name: nombre.trim(), type: tipo, currency: moneda, openingBalance: saldoNormalizado },
+      {
+        name: nombre.trim(),
+        type: tipo,
+        currency: monedaElegida,
+        openingBalance: saldoNormalizado,
+      },
       {
         onSuccess: () => {
           toast.success("Cuenta creada.");
@@ -136,14 +156,14 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
             <div className="flex flex-col gap-1.5">
               <Label>Moneda</Label>
               <ToggleGroup
-                value={[moneda]}
+                value={[monedaElegida]}
                 onValueChange={(valores) => {
-                  if (valores.length > 0) setMoneda(valores[0] as (typeof MONEDAS)[number]);
+                  if (valores.length > 0) setMoneda(valores[0]!);
                 }}
                 variant="outline"
                 className="w-full"
               >
-                {MONEDAS.map((valor) => (
+                {monedasOfrecidas.map((valor) => (
                   <ToggleGroupItem key={valor} value={valor} className="flex-1">
                     {valor}
                   </ToggleGroupItem>

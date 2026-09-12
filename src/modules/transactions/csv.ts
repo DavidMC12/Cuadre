@@ -28,10 +28,9 @@ const FIN_DE_LINEA = '\r\n';
 export function escaparCampo(valor: string | null | undefined): string {
   if (valor === null || valor === undefined) return '';
 
-  const texto = String(valor);
-  if (!/[",\r\n]/.test(texto)) return texto;
+  if (!/[",\r\n]/.test(valor)) return valor;
 
-  return `"${texto.replaceAll('"', '""')}"`;
+  return `"${valor.replaceAll('"', '""')}"`;
 }
 
 /**

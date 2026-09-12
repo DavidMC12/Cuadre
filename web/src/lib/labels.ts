@@ -19,3 +19,10 @@ export const ETIQUETA_TIPO_CATEGORIA: Record<TipoCategoria, string> = {
 
 /** "Sin categoría": el balde que usan los reportes cuando `categoryId` es null. */
 export const SIN_CATEGORIA = "Sin categoría";
+
+/**
+ * Las monedas que ofrecen las pantallas. La API acepta cualquier código de tres
+ * letras; esta lista corta es la que se muestra, y vive aquí para que el
+ * formulario de cuentas y los ajustes no puedan ofrecer cosas distintas.
+ */
+export const MONEDAS = ["COP", "USD"] as const;
