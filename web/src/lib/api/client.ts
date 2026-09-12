@@ -62,6 +62,41 @@ function construirUrl(ruta: string, parametros?: Opciones["parametros"]): string
   return url.toString();
 }
 
+/**
+ * Para lo que no es JSON: trae un archivo del servidor con su nombre.
+ *
+ * El nombre lo decide el servidor y viaja en `Content-Disposition`. Si el
+ * navegador esconde esa cabecera —pasa cuando las pantallas y la API no
+ * comparten origen y el servidor no la expone— se usa el nombre de respaldo,
+ * porque un archivo con nombre feo sirve y uno sin nombre no.
+ */
+export async function descargar(
+  ruta: string,
+  nombreDeRespaldo: string
+): Promise<{ contenido: Blob; nombre: string }> {
+  let respuesta: Response;
+  try {
+    respuesta = await fetch(construirUrl(ruta), { credentials: "include" });
+  } catch {
+    throw new ApiError({
+      code: "SIN_CONEXION",
+      message: "No se pudo conectar con el servidor. Revisa que esté encendido.",
+    });
+  }
+
+  if (!respuesta.ok) {
+    throw new ApiError({
+      code: "INTERNAL",
+      message: "No se pudo preparar el archivo. Inténtalo otra vez.",
+    });
+  }
+
+  const disposicion = respuesta.headers.get("content-disposition") ?? "";
+  const encontrado = /filename="([^"]+)"/.exec(disposicion)?.[1];
+
+  return { contenido: await respuesta.blob(), nombre: encontrado ?? nombreDeRespaldo };
+}
+
 export async function pedir<T>(ruta: string, opciones: Opciones = {}): Promise<T> {
   const { metodo = "GET", cuerpo, parametros } = opciones;
 

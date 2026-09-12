@@ -105,3 +105,23 @@ export interface TendenciaMes {
   income: string;
   expense: string;
 }
+
+/** Las tres pantallas del menú de abajo, que son las que pueden abrir la app. */
+export type PantallaDeInicio = "resumen" | "cuentas" | "movimientos";
+
+export interface Perfil {
+  id: string;
+  email: string;
+  displayName: string;
+  createdAt: string;
+  /** Null si no ha elegido ninguna: entonces se deduce de las cuentas. */
+  defaultCurrency: string | null;
+  startPage: PantallaDeInicio;
+}
+
+/** Solo lo que se puede cambiar. El correo lo manda el proveedor de identidad. */
+export interface CambiosDePerfil {
+  displayName?: string;
+  defaultCurrency?: string | null;
+  startPage?: PantallaDeInicio;
+}

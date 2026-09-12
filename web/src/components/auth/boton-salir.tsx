@@ -27,14 +27,13 @@ export function BotonSalir() {
 
   return (
     <Button
-      variant="ghost"
-      size="icon-sm"
+      variant="outline"
       onClick={manejarClic}
       disabled={saliendo}
-      aria-label="Salir"
-      title="Salir"
+      className="w-full text-destructive"
     >
-      <LogOut />
+      <LogOut data-icon="inline-start" />
+      {saliendo ? "Saliendo…" : "Cerrar sesión"}
     </Button>
   );
 }

@@ -55,6 +55,10 @@ export async function construirApp(opciones: OpcionesDeApp = {}): Promise<Fastif
     origin: env.CORS_ORIGINS,
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    // Sin esto el navegador esconde la cabecera y el archivo exportado se
+    // descarga sin nombre cuando las pantallas y la API no comparten origen,
+    // que es justo lo que pasa en desarrollo.
+    exposedHeaders: ['content-disposition'],
   });
 
   await app.register(rateLimit, {

@@ -12,6 +12,7 @@ import { SelectorMes } from "@/components/dashboard/selector-mes";
 import { ResumenCards } from "@/components/dashboard/resumen-cards";
 import { GraficaPorCategoria } from "@/components/dashboard/grafica-por-categoria";
 import { GraficaTendencia } from "@/components/dashboard/grafica-tendencia";
+import { useIrAPantallaDeInicio } from "@/hooks/use-perfil";
 import { useMonedas, useResumenMes, useTendencia } from "@/hooks/use-reportes";
 import type { TipoCategoria } from "@/lib/api/types";
 import { mesActual } from "@/lib/fecha";
@@ -20,6 +21,9 @@ export default function PaginaResumen() {
   const [mes, setMes] = useState(mesActual);
   const [monedaElegida, setMonedaElegida] = useState<string | undefined>(undefined);
   const [tipoCategoria, setTipoCategoria] = useState<TipoCategoria>("expense");
+
+  // Quien eligió abrir en otra pantalla se va de aquí antes de que esto pinte.
+  const yendoseAOtraPantalla = useIrAPantallaDeInicio();
 
   const { data: monedas, isLoading: cargandoMonedas } = useMonedas();
   const moneda = monedaElegida ?? monedas?.[0];
@@ -33,7 +37,7 @@ export default function PaginaResumen() {
     currency: moneda ?? "",
   });
 
-  if (cargandoMonedas) {
+  if (cargandoMonedas || yendoseAOtraPantalla) {
     return (
       <div className="flex flex-col gap-4">
         <h1 className="text-xl font-semibold">Resumen</h1>
