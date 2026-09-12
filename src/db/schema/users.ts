@@ -1,5 +1,18 @@
 import { sql } from 'drizzle-orm';
-import { check, pgTable, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  char,
+  check,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
+
+/** Pantallas con las que puede abrir la app. Son las del menu de abajo. */
+export const START_PAGES = ['resumen', 'cuentas', 'movimientos'] as const;
+export type StartPage = (typeof START_PAGES)[number];
 
 /**
  * Duenos de los datos. Cada fila del nucleo cuelga de un usuario via `user_id`:
@@ -22,6 +35,16 @@ export const users = pgTable(
     authProvider: text('auth_provider'),
     /** Identificador del usuario dentro de ese proveedor. */
     authSubject: text('auth_subject'),
+
+    /**
+     * Moneda que se propone al registrar un movimiento. Nula a proposito: quien
+     * no ha elegido ninguna no tiene una preferencia equivocada, tiene una sin
+     * responder, y la app la deduce de las cuentas que ya existen.
+     */
+    defaultCurrency: char('default_currency', { length: 3 }),
+
+    /** Pantalla que se abre al entrar a la app. */
+    startPage: text('start_page').$type<StartPage>().notNull().default('resumen'),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
@@ -49,6 +72,13 @@ export const users = pgTable(
       'users_auth_identity_complete',
       sql`(${t.authProvider} is null) = (${t.authSubject} is null)`,
     ),
+
+    // Mismo formato que exigen las cuentas y los movimientos.
+    check(
+      'users_default_currency_format',
+      sql`${t.defaultCurrency} is null or ${t.defaultCurrency} ~ '^[A-Z]{3}$'`,
+    ),
+    check('users_start_page_valid', sql`${t.startPage} in ('resumen', 'cuentas', 'movimientos')`),
   ],
 );
 
