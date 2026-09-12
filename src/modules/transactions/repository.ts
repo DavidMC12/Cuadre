@@ -9,6 +9,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import type { Ejecutor } from '../../db/client.js';
 import { db } from '../../db/client.js';
 import { transactions } from '../../db/schema/index.js';
+import { ZONA_HORARIA } from '../../shared/zona-horaria.js';
 import type { Movimiento } from './schemas.js';
 
 /** Fila tal como sale de la base, antes de darle forma de respuesta. */
@@ -267,6 +268,91 @@ export async function obtenerPatasDeTransferencia(
  *
  * Devuelve null si el movimiento no existe o no es de esta persona.
  */
+/** Una fila del archivo exportado, todavía sin traducir a palabras. */
+export interface FilaParaExportar {
+  id: string;
+  fecha: string;
+  cuenta: string;
+  moneda: string;
+  tipo: string;
+  categoria: string | null;
+  descripcion: string | null;
+  monto: string;
+  anula: string | null;
+  anuladoPor: string | null;
+  grupoDeTransferencia: string | null;
+}
+
+/**
+ * Todo el historial de una persona, del movimiento más viejo al más nuevo, con
+ * los nombres de la cuenta y la categoría ya resueltos: el archivo tiene que
+ * poder leerse sin la base de datos al lado.
+ *
+ * La fecha sale en hora de Bogotá, la misma con la que el tablero arma los
+ * meses. Si aquí saliera en UTC, un gasto de las 11 de la noche aparecería en
+ * el archivo un día después del que muestra la app.
+ *
+ * Dos movimientos del mismo instante se desempatan por el orden en que se
+ * registraron. Sin ese desempate mandaría el id, que es aleatorio, y el mismo
+ * historial saldría en distinto orden en cada respaldo.
+ *
+ * No lleva paginación a propósito: es un respaldo, y un respaldo a la mitad no
+ * sirve de respaldo.
+ */
+export async function listarParaExportar(usuarioId: string): Promise<FilaParaExportar[]> {
+  const filas = (await db.execute(sql`
+    select m.id,
+           to_char(m.occurred_at at time zone ${ZONA_HORARIA}::text, 'YYYY-MM-DD') as fecha,
+           cuenta.name as cuenta,
+           m.currency as moneda,
+           m.kind as tipo,
+           categoria.name as categoria,
+           m.description as descripcion,
+           m.amount::text as monto,
+           m.reverses_transaction_id as anula,
+           anulacion.id as anulado_por,
+           m.transfer_group_id as grupo_de_transferencia
+      from transactions m
+      join accounts cuenta
+        on cuenta.id = m.account_id
+       and cuenta.user_id = m.user_id
+      left join categories categoria
+        on categoria.id = m.category_id
+       and categoria.user_id = m.user_id
+      left join transactions anulacion
+        on anulacion.reverses_transaction_id = m.id
+       and anulacion.user_id = m.user_id
+     where m.user_id = ${usuarioId}::uuid
+     order by m.occurred_at asc, m.created_at asc, m.id asc
+  `)) as unknown as {
+    id: string;
+    fecha: string;
+    cuenta: string;
+    moneda: string;
+    tipo: string;
+    categoria: string | null;
+    descripcion: string | null;
+    monto: string;
+    anula: string | null;
+    anulado_por: string | null;
+    grupo_de_transferencia: string | null;
+  }[];
+
+  return filas.map((fila) => ({
+    id: fila.id,
+    fecha: fila.fecha,
+    cuenta: fila.cuenta,
+    moneda: fila.moneda.trim(),
+    tipo: fila.tipo,
+    categoria: fila.categoria,
+    descripcion: fila.descripcion,
+    monto: fila.monto,
+    anula: fila.anula,
+    anuladoPor: fila.anulado_por,
+    grupoDeTransferencia: fila.grupo_de_transferencia,
+  }));
+}
+
 export async function recategorizar(
   ejecutor: Ejecutor,
   usuarioId: string,

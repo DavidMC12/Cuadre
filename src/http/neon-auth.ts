@@ -17,7 +17,11 @@
  * primero de este paquete antes que del resto del código.
  */
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { createAuthServer, serializeSetCookie, type NeonAuthServer } from '@neondatabase/auth/server';
+import {
+  createAuthServer,
+  serializeSetCookie,
+  type NeonAuthServer,
+} from '@neondatabase/auth/server';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { env } from '../env.js';
 
@@ -119,7 +123,10 @@ export async function verificarSesion(
     };
   } catch (fallo) {
     request.log.warn(
-      { tipo: fallo instanceof Error ? fallo.name : typeof fallo, mensaje: (fallo as Error)?.message },
+      {
+        tipo: fallo instanceof Error ? fallo.name : typeof fallo,
+        mensaje: (fallo as Error)?.message,
+      },
       'no se pudo verificar la sesion con Neon Auth',
     );
     return null;

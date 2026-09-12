@@ -553,11 +553,9 @@ describe('corregir la categoría de un movimiento', () => {
     const gasto = await registrarGasto(cuenta.id, '-50000');
     const comida = await crearCategoria('Comida');
 
-    const { estado, cuerpo } = await pedir(
-      'PATCH',
-      `/api/v1/transactions/${gasto.id}/category`,
-      { categoryId: comida },
-    );
+    const { estado, cuerpo } = await pedir('PATCH', `/api/v1/transactions/${gasto.id}/category`, {
+      categoryId: comida,
+    });
 
     expect(estado, JSON.stringify(cuerpo)).toBe(200);
     expect(cuerpo.data.categoryId).toBe(comida);
@@ -570,11 +568,9 @@ describe('corregir la categoría de un movimiento', () => {
     const salud = await crearCategoria('Salud');
     const gasto = await registrarGasto(cuenta.id, '-9000', { categoryId: salud });
 
-    const { estado, cuerpo } = await pedir(
-      'PATCH',
-      `/api/v1/transactions/${gasto.id}/category`,
-      { categoryId: null },
-    );
+    const { estado, cuerpo } = await pedir('PATCH', `/api/v1/transactions/${gasto.id}/category`, {
+      categoryId: null,
+    });
 
     expect(estado, JSON.stringify(cuerpo)).toBe(200);
     expect(cuerpo.data.categoryId).toBeNull();
@@ -656,11 +652,9 @@ describe('corregir la categoría de un movimiento', () => {
   });
 
   it('no toca un movimiento que no existe', async () => {
-    const { estado } = await pedir(
-      'PATCH',
-      `/api/v1/transactions/${randomUUID()}/category`,
-      { categoryId: null },
-    );
+    const { estado } = await pedir('PATCH', `/api/v1/transactions/${randomUUID()}/category`, {
+      categoryId: null,
+    });
     expect(estado).toBe(404);
   });
 
@@ -678,7 +672,10 @@ describe('corregir la categoría de un movimiento', () => {
     // que hace `buscarErrorDePostgres` en src/http/errores.ts.
     const fallo = await db
       .execute(sql`update transactions set amount = -1 where id = ${gasto.id}::uuid`)
-      .then(() => null, (error: unknown) => error);
+      .then(
+        () => null,
+        (error: unknown) => error,
+      );
 
     expect(fallo, 'la base tenia que rechazar el cambio de monto').not.toBeNull();
 

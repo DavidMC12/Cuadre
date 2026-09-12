@@ -11,8 +11,11 @@ import { sql } from 'drizzle-orm';
 import type { Ejecutor } from '../../db/client.js';
 import { db } from '../../db/client.js';
 import { conflicto, ErrorDeApp, noEncontrado, reglaViolada } from '../../http/errores.js';
-import { negate } from '../../shared/money.js';
+import { isNegative, negate } from '../../shared/money.js';
+import { ZONA_HORARIA } from '../../shared/zona-horaria.js';
+import { armarCsv } from './csv.js';
 import * as repositorio from './repository.js';
+import type { FilaParaExportar } from './repository.js';
 import type {
   CrearTransferencia,
   ListarMovimientos,
@@ -218,6 +221,74 @@ export async function anularTransferencia(
 
     return { transferGroupId: grupoNuevo, legs: anulaciones };
   });
+}
+
+// -----------------------------------------------------------------------------
+// Exportación
+
+const ENCABEZADOS = [
+  'Fecha',
+  'Cuenta',
+  'Moneda',
+  'Tipo',
+  'Categoría',
+  'Descripción',
+  'Monto',
+  'Estado',
+  'Id',
+  'Anula a',
+  'Transferencia',
+] as const;
+
+/**
+ * El `kind` de la base dicho en palabras. Un movimiento normal no sabe si es
+ * gasto o ingreso: lo dice el signo del monto, que es justamente lo que hace
+ * que el saldo sea la suma de los movimientos.
+ */
+function tipoEnPalabras(fila: FilaParaExportar): string {
+  if (fila.tipo === 'opening') return 'Saldo inicial';
+  if (fila.tipo === 'transfer') return 'Transferencia';
+  return isNegative(fila.monto) ? 'Gasto' : 'Ingreso';
+}
+
+/**
+ * Un movimiento y su anulación aparecen los dos en el archivo, marcados. Sacar
+ * el par escondería que hubo una corrección, y el archivo tiene que contar la
+ * historia completa, errores incluidos.
+ */
+function estadoEnPalabras(fila: FilaParaExportar): string {
+  if (fila.anula) return 'Anula otro movimiento';
+  if (fila.anuladoPor) return 'Anulado';
+  return '';
+}
+
+function hoyEnBogota(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_HORARIA }).format(new Date());
+}
+
+export async function exportarMovimientos(
+  usuarioId: string,
+): Promise<{ nombreDeArchivo: string; contenido: string }> {
+  const filas = await repositorio.listarParaExportar(usuarioId);
+
+  const contenido = armarCsv(
+    ENCABEZADOS,
+    filas.map((fila) => [
+      fila.fecha,
+      fila.cuenta,
+      fila.moneda,
+      tipoEnPalabras(fila),
+      fila.categoria,
+      fila.descripcion,
+      fila.monto,
+      estadoEnPalabras(fila),
+      fila.id,
+      fila.anula,
+      fila.grupoDeTransferencia,
+    ]),
+  );
+
+  return { nombreDeArchivo: `cuadre-movimientos-${hoyEnBogota()}.csv`, contenido };
 }
 
 // -----------------------------------------------------------------------------

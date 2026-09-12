@@ -25,6 +25,20 @@ export const rutasDeMovimientos: FastifyPluginAsyncZod = async (app) => {
     async (peticion) => servicio.listarMovimientos(peticion.usuarioId, peticion.query),
   );
 
+  /**
+   * El historial completo en un archivo, para abrirlo en Excel o guardarlo
+   * aparte. Va antes de `/transactions/:id` para que se lea de un vistazo que
+   * "export" es una ruta y no el id de un movimiento.
+   */
+  app.get('/transactions/export', async (peticion, respuesta) => {
+    const { nombreDeArchivo, contenido } = await servicio.exportarMovimientos(peticion.usuarioId);
+
+    return respuesta
+      .type('text/csv; charset=utf-8')
+      .header('content-disposition', `attachment; filename="${nombreDeArchivo}"`)
+      .send(contenido);
+  });
+
   app.get(
     '/transactions/:id',
     { schema: { params: IdEnRutaSchema, response: { 200: UnMovimientoSchema } } },
