@@ -123,6 +123,12 @@ export interface Perfil {
    * la de ella.
    */
   isAdmin: boolean;
+  /**
+   * Si un administrador está viendo esta cuenta ahora mismo. Viene junto al
+   * perfil, y no en una consulta aparte, para que el aviso de la pantalla y el
+   * correo que muestra salgan siempre del mismo dato.
+   */
+  isImpersonated: boolean;
 }
 
 /** Una fila del registro de quién entró a la cuenta de quién. */

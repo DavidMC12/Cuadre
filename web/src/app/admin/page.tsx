@@ -9,16 +9,22 @@ import { Seccion } from "@/components/ajustes/seccion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSuplantar, useUsuariosDelSistema, type UsuarioDelSistema } from "@/hooks/use-admin";
+import {
+  useRegistroDeSuplantaciones,
+  useSuplantar,
+  useUsuariosDelSistema,
+  type UsuarioDelSistema,
+} from "@/hooks/use-admin";
 import { usePerfil } from "@/hooks/use-perfil";
-import { etiquetaMesDeFecha } from "@/lib/fecha";
+import { etiquetaFecha, etiquetaMesDeFecha, horaCorta } from "@/lib/fecha";
 
 export default function PaginaAdmin() {
   const router = useRouter();
   const { data: perfil, isPending: cargandoPerfil } = usePerfil();
   const puedeAdministrar = perfil?.isAdmin ?? false;
 
-  const { data: personas, isPending, isError } = useUsuariosDelSistema();
+  const { data: personas, isPending, isError } = useUsuariosDelSistema(puedeAdministrar);
+  const { data: registro } = useRegistroDeSuplantaciones(puedeAdministrar);
   const suplantar = useSuplantar();
 
   function entrarComo(persona: UsuarioDelSistema) {
@@ -140,6 +146,22 @@ export default function PaginaAdmin() {
               </div>
             );
           })}
+        </Seccion>
+      )}
+
+      {/* El registro no sirve de nada si hay que abrir la base para leerlo:
+          existe justamente para poder responderle a alguien que pregunte
+          quién entró a sus cuentas. */}
+      {registro && registro.length > 0 && (
+        <Seccion titulo="Cuentas a las que has entrado">
+          {registro.map((entrada) => (
+            <div key={entrada.id} className="flex flex-col px-3 py-2.5">
+              <span className="truncate text-sm">{entrada.targetEmail}</span>
+              <span className="text-xs text-muted-foreground">
+                {etiquetaFecha(entrada.startedAt)} a las {horaCorta(entrada.startedAt)}
+              </span>
+            </div>
+          ))}
         </Seccion>
       )}
     </div>

@@ -101,6 +101,12 @@ export interface IdentidadDeSesion {
    * que uno querría.
    */
   rol: string | null;
+  /**
+   * Quién inició esta sesión, cuando no es de quien parece: el identificador
+   * del administrador que entró a ver la app como esta persona. `null` en una
+   * sesión normal.
+   */
+  suplantadaPor: string | null;
 }
 
 /**
@@ -124,11 +130,14 @@ export async function verificarSesion(
 
     if (error || !data?.user) return null;
 
+    const sesion = data.session as { impersonatedBy?: string | null } | undefined;
+
     return {
       id: data.user.id,
       email: data.user.email,
       displayName: data.user.name ?? null,
       rol: (data.user as { role?: string | null }).role ?? null,
+      suplantadaPor: sesion?.impersonatedBy ?? null,
     };
   } catch (fallo) {
     request.log.warn(

@@ -30,6 +30,8 @@ export interface OpcionesDeApp {
   resolverUsuario?: () => Promise<string>;
   /** Solo para pruebas: si ese usuario administra el sistema. */
   esAdmin?: boolean;
+  /** Solo para pruebas: si la sesión es una suplantación. */
+  suplantada?: boolean;
 }
 
 export async function construirApp(opciones: OpcionesDeApp = {}): Promise<FastifyInstance> {
@@ -72,6 +74,7 @@ export async function construirApp(opciones: OpcionesDeApp = {}): Promise<Fastif
   await app.register(usuarioActual, {
     resolver: opciones.resolverUsuario,
     esAdmin: opciones.esAdmin,
+    suplantada: opciones.suplantada,
   });
 
   // Bajo /api: en Vercel, todo lo que no empieza en /api se trata como

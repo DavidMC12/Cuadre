@@ -14,7 +14,11 @@
  */
 import postgres from 'postgres';
 
-process.loadEnvFile('.env');
+try {
+  process.loadEnvFile('.env');
+} catch {
+  // Sin .env se usan las variables del sistema; si tampoco están, se avisa abajo.
+}
 
 const [, , correo, rol] = process.argv;
 
@@ -23,7 +27,18 @@ if (!correo || (rol !== 'admin' && rol !== 'user')) {
   process.exit(1);
 }
 
-const sql = postgres(process.env['DATABASE_URL']!, { max: 1, prepare: false });
+const direccion = process.env['DATABASE_URL'];
+if (!direccion) {
+  console.error('Falta DATABASE_URL. Sin eso no se sabe a qué base conectarse.');
+  process.exit(1);
+}
+
+// Decir a qué servidor se va a escribir ANTES de escribir: este comando reparte
+// permiso sobre las cuentas de otras personas, y equivocarse de base es el tipo
+// de error que uno quiere ver venir.
+console.log(`Base: ${new URL(direccion).host}`);
+
+const sql = postgres(direccion, { max: 1, prepare: false });
 
 try {
   const cambiados = await sql`

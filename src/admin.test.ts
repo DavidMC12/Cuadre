@@ -11,6 +11,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { construirApp } from './aplicacion.js';
 import { closeDb, db } from './db/client.js';
 import { users } from './db/schema/index.js';
+import { esRolAdmin } from './http/usuario-actual.js';
 
 let appAdmin: FastifyInstance;
 let appNormal: FastifyInstance;
@@ -219,5 +220,61 @@ describe('el perfil dice si administras', () => {
   it('a todo el mundo más le dice que no', async () => {
     const { cuerpo } = await pedir(appNormal, 'GET', '/api/v1/profile');
     expect(cuerpo.data.isAdmin).toBe(false);
+  });
+
+  it('en una sesión normal dice que nadie te está viendo', async () => {
+    const { cuerpo } = await pedir(appNormal, 'GET', '/api/v1/profile');
+    expect(cuerpo.data.isImpersonated).toBe(false);
+  });
+});
+
+describe('leer un rol', () => {
+  it('reconoce al administrador', () => {
+    expect(esRolAdmin('admin')).toBe(true);
+  });
+
+  it('lo reconoce aunque venga con otros roles al lado', () => {
+    // Better Auth admite varios roles y los guarda separados por comas.
+    expect(esRolAdmin('admin,user')).toBe(true);
+    expect(esRolAdmin('user, admin')).toBe(true);
+    expect(esRolAdmin('ADMIN')).toBe(true);
+  });
+
+  it('no confunde a quien no lo es', () => {
+    expect(esRolAdmin('user')).toBe(false);
+    expect(esRolAdmin('administrador')).toBe(false);
+    expect(esRolAdmin('superadmin')).toBe(false);
+    expect(esRolAdmin('')).toBe(false);
+    expect(esRolAdmin(null)).toBe(false);
+  });
+});
+
+describe('suplantar no devuelve al panel', () => {
+  /**
+   * La regla que sostiene todo lo demás: mientras un administrador ve la app
+   * como otra persona, su sesión es la de ella. Si desde ahí pudiera volver al
+   * panel, podría saltar a una tercera cuenta sin que quedara registro.
+   */
+  it('una sesión suplantada no administra, por más que el rol diga admin', async () => {
+    const suplantadoId = await crearUsuario('suplantado');
+    const appSuplantando = await construirApp({
+      silencioso: true,
+      resolverUsuario: async () => suplantadoId,
+      esAdmin: true,
+      suplantada: true,
+    });
+    await appSuplantando.ready();
+
+    const perfil = await pedir(appSuplantando, 'GET', '/api/v1/profile');
+    expect(perfil.cuerpo.data.isAdmin).toBe(false);
+    expect(perfil.cuerpo.data.isImpersonated).toBe(true);
+
+    const lectura = await pedir(appSuplantando, 'GET', '/api/v1/admin/impersonations');
+    expect(lectura.estado).toBe(403);
+
+    const escritura = await pedir(appSuplantando, 'POST', '/api/v1/admin/impersonations', ALGUIEN);
+    expect(escritura.estado).toBe(403);
+
+    await appSuplantando.close();
   });
 });

@@ -104,8 +104,15 @@ creyendo que es tuyo.
 No hay pantallas que lean los datos de varias personas a la vez, y es a
 propósito: en vez de eso te *conviertes* en esa persona, así que cada consulta
 sigue pidiendo su identificador igual que siempre y la regla de que nadie ve lo
-ajeno queda intacta. Cada vez que entras a una cuenta queda un registro con
-quién, a quién y cuándo.
+ajeno queda intacta.
+
+Cada vez que entras desde el botón queda un registro con a quién y cuándo, y lo
+ves en esa misma pantalla. Conviene decir con precisión qué garantiza: el
+registro lo escribe la app antes de cambiar de cuenta, así que cubre el uso
+normal, pero no es un candado — quien administra también podría hablarle
+directo al servicio de identidad desde la consola del navegador y saltárselo.
+Sirve para responder "¿quién entró a mis cuentas?" de buena fe, no para
+atrapar a alguien que quiera esconderse.
 
 El primer administrador se nombra a mano, porque para entrar al panel hay que
 serlo ya:

@@ -8,7 +8,6 @@ import { authClient } from "@/lib/auth/client";
 export const clavesAdmin = {
   usuarios: () => ["admin", "usuarios"] as const,
   registro: () => ["admin", "registro"] as const,
-  suplantacion: () => ["suplantacion"] as const,
 };
 
 /** Una persona del sistema, tal como la conoce el proveedor de identidad. */
@@ -26,8 +25,9 @@ export interface UsuarioDelSistema {
  * puede entrar es el proveedor de identidad, y él ya comprueba por su cuenta
  * que quien pregunta sea administrador.
  */
-export function useUsuariosDelSistema() {
+export function useUsuariosDelSistema(activo: boolean) {
   return useQuery({
+    enabled: activo,
     queryKey: clavesAdmin.usuarios(),
     queryFn: async (): Promise<UsuarioDelSistema[]> => {
       const respuesta = await authClient.admin.listUsers({ query: { limit: 200 } });
@@ -55,6 +55,8 @@ export function useUsuariosDelSistema() {
  * registrara, que es exactamente lo que el registro existe para evitar.
  */
 export function useSuplantar() {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (persona: { id: string; email: string }) => {
       await registerImpersonation({
@@ -64,6 +66,14 @@ export function useSuplantar() {
 
       const respuesta = await authClient.admin.impersonateUser({ userId: persona.id });
       if (respuesta.error) throw new Error("No se pudo entrar como esa persona.");
+    },
+    onSuccess: () => {
+      // Sin esto, TODO lo que hay en caché sigue siendo del administrador: los
+      // saldos, los movimientos y —lo más grave— el perfil, que es de donde
+      // sale el aviso de que estás viendo una cuenta ajena. La pantalla se
+      // vería idéntica a siempre mientras cualquier cosa que escribas se va al
+      // libro de otra persona, y ese libro no se edita.
+      queryClient.clear();
     },
   });
 }
@@ -80,25 +90,6 @@ export function useDejarDeSuplantar() {
       // Todo lo que hay en caché es de la otra persona.
       queryClient.clear();
     },
-  });
-}
-
-/**
- * Quién inició esta sesión, si no es de quien parece.
- *
- * Devuelve el id del administrador cuando se está viendo la app como otra
- * persona, y `null` en una sesión normal.
- */
-export function useSuplantacionActiva() {
-  return useQuery({
-    queryKey: clavesAdmin.suplantacion(),
-    queryFn: async (): Promise<string | null> => {
-      const respuesta = await authClient.getSession();
-      const sesion = respuesta.data?.session as { impersonatedBy?: string | null } | undefined;
-      return sesion?.impersonatedBy ?? null;
-    },
-    // Sin reintentos: sin sesión esto responde vacío y está bien así.
-    retry: false,
   });
 }
 

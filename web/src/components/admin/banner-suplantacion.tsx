@@ -5,7 +5,7 @@ import { Eye } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { useDejarDeSuplantar, useSuplantacionActiva } from "@/hooks/use-admin";
+import { useDejarDeSuplantar } from "@/hooks/use-admin";
 import { usePerfil } from "@/hooks/use-perfil";
 
 /**
@@ -20,11 +20,15 @@ import { usePerfil } from "@/hooks/use-perfil";
  */
 export function BannerSuplantacion() {
   const router = useRouter();
-  const { data: suplantadoPor } = useSuplantacionActiva();
-  const { data: perfil } = usePerfil();
   const dejarDeSuplantar = useDejarDeSuplantar();
 
-  if (!suplantadoPor) return null;
+  // El aviso y el correo que muestra salen del MISMO dato. Con dos consultas
+  // separadas podrían desincronizarse, y el aviso llegaría a decir "estás
+  // viendo la cuenta de" seguido del correo de quien mira, no del de quien es
+  // mirado — peor que no decir nada.
+  const { data: perfil } = usePerfil();
+
+  if (!perfil?.isImpersonated) return null;
 
   function volver() {
     dejarDeSuplantar.mutate(undefined, {
@@ -42,9 +46,7 @@ export function BannerSuplantacion() {
       <div className="mx-auto flex w-full max-w-md items-center justify-between gap-2 px-4 py-2">
         <span className="flex min-w-0 items-center gap-2 text-xs font-medium">
           <Eye className="size-4 shrink-0" />
-          <span className="truncate">
-            Estás viendo la cuenta de {perfil?.email ?? "otra persona"}
-          </span>
+          <span className="truncate">Estás viendo la cuenta de {perfil.email}</span>
         </span>
 
         <Button
