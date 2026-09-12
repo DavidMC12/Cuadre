@@ -33,7 +33,9 @@ export function SelectorCategoria({
   const ingresos = (categorias ?? []).filter((categoria) => categoria.kind === "income");
   const filtradas = kind === "expense" ? gastos : kind === "income" ? ingresos : null;
 
-  const nombrePorId = new Map((categorias ?? []).map((categoria) => [categoria.id, categoria.name]));
+  const nombrePorId = new Map(
+    (categorias ?? []).map((categoria) => [categoria.id, categoria.name])
+  );
 
   return (
     <Select
@@ -46,7 +48,9 @@ export function SelectorCategoria({
             el nombre: hay que resolverlo a mano en vez de confiar en que el
             componente encuentre solo el texto del item elegido. */}
         <SelectValue placeholder="Sin categoría">
-          {(valor: string) => (valor && valor !== SIN_CATEGORIA ? (nombrePorId.get(valor) ?? valor) : "Sin categoría")}
+          {(valor: string) =>
+            valor && valor !== SIN_CATEGORIA ? (nombrePorId.get(valor) ?? valor) : "Sin categoría"
+          }
         </SelectValue>
       </SelectTrigger>
       <SelectContent>

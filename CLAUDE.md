@@ -185,6 +185,13 @@ Outbox (eventos a tabla en la misma transacción, worker los procesa después).
 - Suplantar no da acceso al panel: durante la suplantación la sesión es la de
   la otra persona, así que `esAdmin` vale `false`. Es a propósito — si no,
   desde la cuenta de alguien se podría saltar a una tercera sin dejar rastro.
+- **Desde la cuenta de otra persona solo se mira.** Cualquier método que
+  escriba (`POST`, `PATCH`, `PUT`, `DELETE`) responde 403 mientras la sesión
+  sea suplantada, y el corte está en el borde —por método, no ruta por ruta—
+  para que una ruta nueva nazca protegida en vez de acordarse de protegerla.
+  La razón es el libro de movimientos: no se edita, así que un gasto
+  registrado por error en la cuenta equivocada queda escrito para siempre.
+  Esa clase de error no se evita con cuidado, se evita haciéndolo imposible.
 
 **Integraciones**
 

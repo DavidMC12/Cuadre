@@ -26,7 +26,12 @@ export function CuentaCard({ cuenta }: { cuenta: Cuenta }) {
             {ETIQUETA_TIPO_CUENTA[cuenta.type]} · {cuenta.currency}
           </span>
         </div>
-        <Monto valor={cuenta.balance} moneda={cuenta.currency} signo="negativo" className="text-base" />
+        <Monto
+          valor={cuenta.balance}
+          moneda={cuenta.currency}
+          signo="negativo"
+          className="text-base"
+        />
       </CardContent>
     </Card>
   );

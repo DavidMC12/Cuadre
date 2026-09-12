@@ -46,7 +46,9 @@ export function BannerSuplantacion() {
       <div className="mx-auto flex w-full max-w-md items-center justify-between gap-2 px-4 py-2">
         <span className="flex min-w-0 items-center gap-2 text-xs font-medium">
           <Eye className="size-4 shrink-0" />
-          <span className="truncate">Estás viendo la cuenta de {perfil.email}</span>
+          {/* "Mirando" y no "viendo": desde aquí no se puede cambiar nada, y
+              esa palabra lo dice sin necesidad de una frase aparte. */}
+          <span className="truncate">Mirando la cuenta de {perfil.email}</span>
         </span>
 
         <Button

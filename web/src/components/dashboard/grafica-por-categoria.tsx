@@ -43,7 +43,11 @@ export function GraficaPorCategoria({
   // categoría que hoy ya está archivada, y necesita el mismo color de
   // siempre para que no "salte" de un mes a otro.
   const { data: catalogoCompleto } = useCategorias(true);
-  const { data: porCategoria, isLoading } = usePorCategoria({ month: mes, currency: moneda, kind: tipo });
+  const { data: porCategoria, isLoading } = usePorCategoria({
+    month: mes,
+    currency: moneda,
+    kind: tipo,
+  });
 
   const catalogoDelTipo = (catalogoCompleto ?? [])
     .filter((categoria) => categoria.kind === tipo)
@@ -58,7 +62,10 @@ export function GraficaPorCategoria({
   const filaSinCategoria = filas.find((fila) => fila.categoryId === null);
   const filasConCategoria = filas.filter((fila) => fila.categoryId !== null);
 
-  const visibles = filasConCategoria.length > CAPACIDAD ? filasConCategoria.slice(0, CAPACIDAD) : filasConCategoria;
+  const visibles =
+    filasConCategoria.length > CAPACIDAD
+      ? filasConCategoria.slice(0, CAPACIDAD)
+      : filasConCategoria;
   const resto = filasConCategoria.length > CAPACIDAD ? filasConCategoria.slice(CAPACIDAD) : [];
 
   const datos: FilaGrafica[] = visibles.map((fila) => ({
@@ -135,7 +142,10 @@ export function GraficaPorCategoria({
             const porcentaje = Math.max((fila.valorNumerico / valorMaximo) * 100, 4);
             return (
               <div key={fila.id} className="flex items-center gap-2">
-                <span className="w-20 shrink-0 truncate text-xs text-muted-foreground" title={fila.nombre}>
+                <span
+                  className="w-20 shrink-0 truncate text-xs text-muted-foreground"
+                  title={fila.nombre}
+                >
                   {fila.nombre}
                 </span>
                 <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">

@@ -34,8 +34,8 @@ export function ConfirmarAnulacion({
         <DialogHeader>
           <DialogTitle>¿Anular este movimiento?</DialogTitle>
           <DialogDescription>
-            No se borra: se crea un movimiento nuevo por el valor contrario, para que el
-            historial cuente lo que de verdad pasó. Esto no se puede deshacer.
+            No se borra: se crea un movimiento nuevo por el valor contrario, para que el historial
+            cuente lo que de verdad pasó. Esto no se puede deshacer.
           </DialogDescription>
         </DialogHeader>
 

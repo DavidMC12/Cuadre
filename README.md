@@ -98,8 +98,14 @@ qué pantalla abre, y el tema claro u oscuro.
 Si tu cuenta tiene permiso de administrador, en **Ajustes → Personas** ves
 quién usa Cuadre y puedes entrar a su cuenta para ayudarle: ves lo mismo que
 ve esa persona —sus movimientos, sus saldos, todo— con un aviso rojo
-permanente arriba que no se puede cerrar, para que nunca registres un gasto
-creyendo que es tuyo.
+permanente arriba que no se puede cerrar.
+
+**Adentro solo puedes mirar.** No aparecen los botones de registrar, anular ni
+cambiar nada, y si algo lo intentara de todos modos, el servidor lo rechaza.
+La razón es que el libro de movimientos no se edita: un gasto registrado por
+error en la cuenta de otra persona quedaría escrito ahí para siempre. Dar
+soporte es entender qué pasó; si hay que corregir algo, se lo dices a quien
+sea su dueño.
 
 No hay pantallas que lean los datos de varias personas a la vez, y es a
 propósito: en vez de eso te *conviertes* en esa persona, así que cada consulta

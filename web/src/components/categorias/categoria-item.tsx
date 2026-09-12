@@ -85,9 +85,7 @@ function RenombrarCategoria({
         <form onSubmit={manejarEnvio} className="flex min-h-0 flex-1 flex-col">
           <DrawerHeader>
             <DrawerTitle>Renombrar categoría</DrawerTitle>
-            <DrawerDescription>
-              El tipo (gasto o ingreso) no se puede cambiar.
-            </DrawerDescription>
+            <DrawerDescription>El tipo (gasto o ingreso) no se puede cambiar.</DrawerDescription>
           </DrawerHeader>
 
           <div className="flex flex-col gap-1.5 px-4 py-4">
@@ -146,7 +144,11 @@ export function CategoriaItem({ categoria }: { categoria: Categoria }) {
         onClick={alternarArchivo}
         disabled={enProceso}
       >
-        {archivada ? <ArchiveRestore data-icon="inline-start" /> : <Archive data-icon="inline-start" />}
+        {archivada ? (
+          <ArchiveRestore data-icon="inline-start" />
+        ) : (
+          <Archive data-icon="inline-start" />
+        )}
         {archivada ? "Restaurar" : "Archivar"}
       </Button>
     </div>

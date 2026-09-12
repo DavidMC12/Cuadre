@@ -7,7 +7,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { construirApp } from './aplicacion.js';
 import { closeDb, db } from './db/client.js';
 import { users } from './db/schema/index.js';
@@ -71,7 +71,7 @@ interface Respuesta<T = any> {
 
 async function pedir(
   app: FastifyInstance,
-  metodo: 'GET' | 'POST',
+  metodo: 'GET' | 'POST' | 'PATCH',
   url: string,
   cuerpo?: unknown,
 ): Promise<Respuesta> {
@@ -279,6 +279,107 @@ describe('leer quién inició la sesión', () => {
     // el aviso de suplantación y el cierre del panel, las dos a la vez.
     expect(leerSuplantadaPor({ impersonated_by: 'admin-123' })).toBeNull();
     expect(leerSuplantadaPor({ impersonatedBy: 42 })).toBeNull();
+  });
+});
+
+describe('desde una cuenta ajena solo se mira', () => {
+  let appSuplantando: FastifyInstance;
+  let cuentaAjenaId: string;
+
+  beforeEach(async () => {
+    // La misma persona, vista dos veces: una por ella misma y otra por quien
+    // la está suplantando. Así se compara qué puede hacer cada sesión.
+    cuentaAjenaId = await crearUsuario('ajeno');
+
+    appSuplantando = await construirApp({
+      silencioso: true,
+      resolverUsuario: async () => cuentaAjenaId,
+      esAdmin: true,
+      suplantada: true,
+    });
+    await appSuplantando.ready();
+  });
+
+  afterEach(async () => {
+    await appSuplantando.close();
+  });
+
+  it('mirar sí se puede: para eso se entra', async () => {
+    const cuentas = await pedir(appSuplantando, 'GET', '/api/v1/accounts');
+    expect(cuentas.estado).toBe(200);
+
+    const perfil = await pedir(appSuplantando, 'GET', '/api/v1/profile');
+    expect(perfil.estado).toBe(200);
+  });
+
+  it('no deja crear una cuenta', async () => {
+    const { estado, cuerpo } = await pedir(appSuplantando, 'POST', '/api/v1/accounts', {
+      name: 'Cuenta metida a la fuerza',
+      type: 'bank',
+      currency: 'COP',
+    });
+
+    expect(estado).toBe(403);
+    expect(cuerpo.error.code).toBe('FORBIDDEN');
+    expect(cuerpo.error.message).toMatch(/solo puedes mirar/i);
+  });
+
+  it('no deja registrar un movimiento, que es lo que no se podría deshacer', async () => {
+    const { estado } = await pedir(appSuplantando, 'POST', '/api/v1/transactions', {
+      accountId: randomUUID(),
+      amount: '-50000',
+      occurredAt: '2026-09-10T12:00:00Z',
+    });
+
+    expect(estado).toBe(403);
+  });
+
+  it('tampoco deja anular, crear categorías ni transferir', async () => {
+    const anular = await pedir(
+      appSuplantando,
+      'POST',
+      `/api/v1/transactions/${randomUUID()}/reversal`,
+    );
+    expect(anular.estado).toBe(403);
+
+    const categoria = await pedir(appSuplantando, 'POST', '/api/v1/categories', {
+      name: 'Metida',
+      kind: 'expense',
+    });
+    expect(categoria.estado).toBe(403);
+
+    const transferencia = await pedir(appSuplantando, 'POST', '/api/v1/transfers', {
+      fromAccountId: randomUUID(),
+      toAccountId: randomUUID(),
+      amount: '1000',
+      occurredAt: '2026-09-10T12:00:00Z',
+    });
+    expect(transferencia.estado).toBe(403);
+  });
+
+  it('no deja cambiarle las preferencias a esa persona', async () => {
+    const { estado } = await pedir(appSuplantando, 'PATCH', '/api/v1/profile', {
+      displayName: 'Nombre puesto por otro',
+    });
+
+    expect(estado).toBe(403);
+  });
+
+  it('esa misma persona, en su propia sesión, sí puede escribir', async () => {
+    const appPropia = await construirApp({
+      silencioso: true,
+      resolverUsuario: async () => cuentaAjenaId,
+    });
+    await appPropia.ready();
+
+    const { estado } = await pedir(appPropia, 'POST', '/api/v1/accounts', {
+      name: 'Mi cuenta',
+      type: 'cash',
+      currency: 'COP',
+    });
+    expect(estado).toBe(201);
+
+    await appPropia.close();
   });
 });
 
