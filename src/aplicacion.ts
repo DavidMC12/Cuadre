@@ -16,6 +16,7 @@ import { env } from './env.js';
 import { registrarManejoDeErrores } from './http/errores.js';
 import { usuarioActual } from './http/usuario-actual.js';
 import { rutasDeCuentas } from './modules/accounts/routes.js';
+import { rutasDeAdmin } from './modules/admin/routes.js';
 import { rutasDeCategorias } from './modules/categories/routes.js';
 import { rutasDePerfil } from './modules/profile/routes.js';
 import { rutasDeReportes } from './modules/reports/routes.js';
@@ -27,6 +28,10 @@ export interface OpcionesDeApp {
   silencioso?: boolean;
   /** De donde sale el usuario de la peticion. Solo lo usan las pruebas. */
   resolverUsuario?: () => Promise<string>;
+  /** Solo para pruebas: si ese usuario administra el sistema. */
+  esAdmin?: boolean;
+  /** Solo para pruebas: si la sesión es una suplantación. */
+  suplantada?: boolean;
 }
 
 export async function construirApp(opciones: OpcionesDeApp = {}): Promise<FastifyInstance> {
@@ -66,7 +71,11 @@ export async function construirApp(opciones: OpcionesDeApp = {}): Promise<Fastif
     timeWindow: '1 minute',
   });
 
-  await app.register(usuarioActual, { resolver: opciones.resolverUsuario });
+  await app.register(usuarioActual, {
+    resolver: opciones.resolverUsuario,
+    esAdmin: opciones.esAdmin,
+    suplantada: opciones.suplantada,
+  });
 
   // Bajo /api: en Vercel, todo lo que no empieza en /api se trata como
   // archivo estatico y nunca llega a esta funcion (ver DESPLIEGUE.md).
@@ -83,6 +92,7 @@ export async function construirApp(opciones: OpcionesDeApp = {}): Promise<Fastif
       await api.register(rutasDeMovimientos);
       await api.register(rutasDeReportes);
       await api.register(rutasDePerfil);
+      await api.register(rutasDeAdmin);
     },
     { prefix: '/api/v1' },
   );

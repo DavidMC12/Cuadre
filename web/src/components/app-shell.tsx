@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeftRight, ChartPie, Settings, Wallet } from "lucide-react";
 
+import { BannerSuplantacion } from "@/components/admin/banner-suplantacion";
 import { cn } from "@/lib/utils";
 
 const ELEMENTOS_NAV = [
@@ -21,6 +22,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-dvh flex-col">
+      {!sinSesion && <BannerSuplantacion />}
+
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
         <div className="mx-auto flex h-12 w-full max-w-md items-center justify-between px-4">
           <span className="font-heading text-base font-semibold">Cuadre</span>
@@ -54,7 +57,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   )}
                   aria-current={activo ? "page" : undefined}
                 >
-                  <Icono className={cn("size-5", activo && "text-primary")} strokeWidth={activo ? 2.5 : 2} />
+                  <Icono
+                    className={cn("size-5", activo && "text-primary")}
+                    strokeWidth={activo ? 2.5 : 2}
+                  />
                   {etiqueta}
                 </Link>
               );

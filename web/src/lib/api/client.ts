@@ -14,6 +14,7 @@ export type CodigoErrorApi =
   | "RULE_VIOLATION"
   | "RATE_LIMITED"
   | "UNAUTHORIZED"
+  | "FORBIDDEN"
   | "INTERNAL"
   | "SIN_CONEXION";
 

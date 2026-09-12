@@ -22,7 +22,33 @@ declare module 'fastify' {
   interface FastifyRequest {
     /** Dueño de los datos de esta petición. Nunca es implícito más abajo. */
     usuarioId: string;
+    /**
+     * Si quien pide administra el sistema. Solo lo miran las rutas de
+     * administración; el resto de la app trata a todo el mundo igual, y esa es
+     * la razón de que suplantar a alguien no necesite tocar ningún módulo.
+     */
+    esAdmin: boolean;
+    /** Si esta sesión es la de alguien a quien un administrador está viendo. */
+    suplantada: boolean;
   }
+}
+
+const ROL_ADMIN = 'admin';
+
+/**
+ * Better Auth admite varios roles a la vez y los guarda separados por comas
+ * ("admin,user"), así que comparar el texto completo contra 'admin' dejaría
+ * fuera a un administrador de verdad.
+ *
+ * La comparación es exacta —sin recortar espacios ni ignorar mayúsculas— a
+ * propósito: es literalmente lo que hace Neon Auth al decidir lo mismo. Ser
+ * más generoso aquí abriría la puerta al desacuerdo contrario, donde Cuadre te
+ * deja entrar al panel y Neon te rechaza a media operación. Que los dos digan
+ * lo mismo importa más que aceptar un " Admin " escrito a mano.
+ */
+export function esRolAdmin(rol: string | null): boolean {
+  if (!rol) return false;
+  return rol.split(',').includes(ROL_ADMIN);
 }
 
 const PROVEEDOR = 'neon-auth';
@@ -87,16 +113,26 @@ export interface OpcionesDeUsuario {
    * verdad. Cuando se da, la verificación de Neon Auth ni se intenta.
    */
   resolver?: () => Promise<string>;
+  /** Solo para pruebas: si ese usuario administra el sistema. */
+  esAdmin?: boolean;
+  /** Solo para pruebas: si la sesión es una suplantación. */
+  suplantada?: boolean;
 }
 
 async function plugin(app: FastifyInstance, opciones: OpcionesDeUsuario): Promise<void> {
   app.decorateRequest('usuarioId', '');
+  app.decorateRequest('esAdmin', false);
+  app.decorateRequest('suplantada', false);
 
   app.addHook('onRequest', async (peticion, respuesta) => {
     if (RUTAS_PUBLICAS.has(peticion.url)) return;
 
     if (opciones.resolver) {
       peticion.usuarioId = await opciones.resolver();
+      peticion.suplantada = opciones.suplantada ?? false;
+      // La misma regla que abajo, para que las pruebas la comprueben de verdad
+      // en vez de comprobar un atajo que se porta distinto.
+      peticion.esAdmin = (opciones.esAdmin ?? false) && !peticion.suplantada;
       return;
     }
 
@@ -104,6 +140,14 @@ async function plugin(app: FastifyInstance, opciones: OpcionesDeUsuario): Promis
     if (!identidad) throw sinAutorizar();
 
     peticion.usuarioId = await encontrarOCrearUsuario(identidad);
+    peticion.suplantada = identidad.suplantadaPor !== null;
+
+    // La segunda mitad no sobra aunque Neon Auth ya impida suplantar a un
+    // administrador: esa garantía vive en la configuración del servidor de
+    // Neon, fuera de este repositorio, y un paquete en beta puede cambiar un
+    // valor por defecto sin que aquí se entere nadie. La regla está escrita en
+    // CLAUDE.md como no negociable, así que la hace cumplir esta app.
+    peticion.esAdmin = esRolAdmin(identidad.rol) && !peticion.suplantada;
   });
 }
 

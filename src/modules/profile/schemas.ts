@@ -46,9 +46,31 @@ export const PerfilSchema = z.object({
   createdAt: z.string(),
   defaultCurrency: z.string().nullable(),
   startPage: z.enum(START_PAGES),
+  /**
+   * Si esta persona administra el sistema. No sale de la tabla `users` sino de
+   * la sesión, porque los permisos los manda el proveedor de identidad; aquí
+   * solo viaja para que las pantallas sepan si mostrar la entrada al panel.
+   */
+  isAdmin: z.boolean(),
+  /**
+   * Si esta sesión es la de alguien a quien un administrador está viendo.
+   *
+   * Viaja junto al perfil, y no en una consulta aparte, para que el aviso de
+   * la pantalla y el correo que muestra salgan del mismo dato: dos consultas
+   * distintas pueden desincronizarse, y el precio de que se desincronicen es
+   * escribir un movimiento en el libro de la persona equivocada.
+   */
+  isImpersonated: z.boolean(),
 });
 
 export const UnPerfilSchema = z.object({ data: PerfilSchema });
 
 export type ActualizarPerfil = z.infer<typeof ActualizarPerfilSchema>;
 export type Perfil = z.infer<typeof PerfilSchema>;
+
+/**
+ * Lo que de verdad está guardado en la tabla. Lo que dice la sesión —si
+ * administras y si te están viendo— queda fuera: lo añade la capa HTTP al
+ * responder.
+ */
+export type PerfilGuardado = Omit<Perfil, 'isAdmin' | 'isImpersonated'>;

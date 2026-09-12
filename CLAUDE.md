@@ -81,6 +81,14 @@ letras.
 | 5   | Apertura a usuarios reales                | Cambia el proyecto de cosa personal a servicio: soporte, privacidad y costos ajenos. Se decide aparte, nunca por inercia. Aquí vive también el botón de "entrar con Google": con un solo dueño no le ahorra nada a nadie, y obliga a configurar credenciales en Google Cloud para mantener algo que hoy no se usa. |
 | 6   | Integraciones externas + workers y outbox | Qué tanta falta hacen se sabe usando la app, no suponiéndolo antes.                                                          |
 
+**El paso 5 ya está empezado a medias, y conviene saber qué parte.** El dueño
+pidió el panel de administración *antes* de abrir la app, para tener la
+herramienta lista cuando llegue gente. Así que existe `/admin`: la lista de
+quién puede entrar y un botón para ver la app como esa persona, con registro
+de cada vez que pasa. Lo que **no** está hecho del paso 5 es lo demás —
+términos, política de privacidad, soporte, costos, registro abierto—, y sigue
+congelado igual que antes.
+
 El esquema es multi-tenant desde la Fase 0, aunque los usuarios de la Fase 5
 quizá no lleguen nunca. Ya está hecho y quitarlo costaría más que dejarlo.
 
@@ -135,6 +143,7 @@ accounts/ bancos, tarjetas, efectivo
 transactions/ movimientos (núcleo) + exportación del historial
 categories/ catálogo + reglas automáticas
 profile/ nombre y preferencias de quien usa la app
+admin/ registro de quién entró a la cuenta de quién
 imports/ parseo, preview, confirmación
 reports/ dashboard y gráficas
 budgets/ límites por categoría
@@ -165,6 +174,17 @@ Outbox (eventos a tabla en la misma transacción, worker los procesa después).
 
 - `user_id` en toda tabla del núcleo
 - `user_id` obligatorio en cada método del repository, nunca implícito
+- **Ni siquiera un administrador lee los datos de otro con una consulta
+  especial.** Para ver las cuentas de alguien, se convierte en esa persona
+  (`/admin` → "Entrar") y usa la app tal cual: así toda consulta sigue pidiendo
+  su `user_id`, igual que siempre. Unas pantallas de administración que leyeran
+  movimientos de cualquiera serían la excepción a la regla de arriba, y las
+  excepciones a esa regla son por donde se cuela una fuga. Si alguna vez hace
+  falta un número agregado del sistema, se piensa dos veces antes de abrir esa
+  puerta.
+- Suplantar no da acceso al panel: durante la suplantación la sesión es la de
+  la otra persona, así que `esAdmin` vale `false`. Es a propósito — si no,
+  desde la cuenta de alguien se podría saltar a una tercera sin dejar rastro.
 
 **Integraciones**
 

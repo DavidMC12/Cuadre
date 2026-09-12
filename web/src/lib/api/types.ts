@@ -117,6 +117,26 @@ export interface Perfil {
   /** Null si no ha elegido ninguna: entonces se deduce de las cuentas. */
   defaultCurrency: string | null;
   startPage: PantallaDeInicio;
+  /**
+   * Si administra el sistema. Viene de la sesión, no de la tabla. Mientras un
+   * administrador ve la app como otra persona, esto es `false`: la sesión es
+   * la de ella.
+   */
+  isAdmin: boolean;
+  /**
+   * Si un administrador está viendo esta cuenta ahora mismo. Viene junto al
+   * perfil, y no en una consulta aparte, para que el aviso de la pantalla y el
+   * correo que muestra salgan siempre del mismo dato.
+   */
+  isImpersonated: boolean;
+}
+
+/** Una fila del registro de quién entró a la cuenta de quién. */
+export interface Suplantacion {
+  id: string;
+  targetAuthSubject: string;
+  targetEmail: string;
+  startedAt: string;
 }
 
 /** Solo lo que se puede cambiar. El correo lo manda el proveedor de identidad. */

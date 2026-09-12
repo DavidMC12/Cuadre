@@ -93,6 +93,39 @@ export interface IdentidadDeSesion {
   id: string;
   email: string;
   displayName: string | null;
+  /**
+   * 'admin' o 'user', según Neon Auth. Ojo con una propiedad que no salta a la
+   * vista: mientras un administrador está viendo la app como otra persona,
+   * esto vale 'user', porque la sesión ES la de esa persona. Por eso suplantar
+   * no abre la puerta de vuelta al panel de administración, que es justo lo
+   * que uno querría.
+   */
+  rol: string | null;
+  /**
+   * Quién inició esta sesión, cuando no es de quien parece: el identificador
+   * del administrador que entró a ver la app como esta persona. `null` en una
+   * sesión normal.
+   */
+  suplantadaPor: string | null;
+}
+
+/**
+ * Quién inició una sesión, leyendo lo que manda Neon Auth.
+ *
+ * Vive aparte y se prueba sola porque de este campo cuelgan dos garantías a la
+ * vez: el aviso de que estás viendo una cuenta ajena, y que suplantar no
+ * devuelva al panel de administración. Si el paquete —que está en beta—
+ * renombrara `impersonatedBy`, las dos se caerían calladas. Una prueba sobre
+ * esta función hace ruido cuando eso pase.
+ *
+ * Un texto vacío se trata como "no hay suplantación": no identifica a nadie.
+ */
+export function leerSuplantadaPor(sesion: unknown): string | null {
+  const quien = (sesion as { impersonatedBy?: unknown } | null | undefined)?.impersonatedBy;
+  if (typeof quien !== 'string') return null;
+
+  const limpio = quien.trim();
+  return limpio === '' ? null : limpio;
 }
 
 /**
@@ -120,6 +153,8 @@ export async function verificarSesion(
       id: data.user.id,
       email: data.user.email,
       displayName: data.user.name ?? null,
+      rol: (data.user as { role?: string | null }).role ?? null,
+      suplantadaPor: leerSuplantadaPor(data.session),
     };
   } catch (fallo) {
     request.log.warn(

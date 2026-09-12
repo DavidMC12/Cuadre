@@ -47,6 +47,7 @@ perder nada.
 | `npm run db:generate` | Escribe una migración nueva a partir de cambios en el esquema |
 | `npm run db:migrate`  | Aplica a la base las migraciones que falten                   |
 | `npm run db:studio`   | Abre un visor para mirar los datos                            |
+| `npm run admin`       | Da o quita permiso de administrador a una cuenta              |
 | `npm run typecheck`   | Revisa que no haya errores de tipos                           |
 | `npm run format`      | Ordena el formato del código                                  |
 
@@ -91,6 +92,35 @@ esconde lo que se anuló deja de ser un respaldo.
 
 Ahí mismo están tu nombre, la moneda que la app te propone al registrar, con
 qué pantalla abre, y el tema claro u oscuro.
+
+## Administración
+
+Si tu cuenta tiene permiso de administrador, en **Ajustes → Personas** ves
+quién usa Cuadre y puedes entrar a su cuenta para ayudarle: ves lo mismo que
+ve esa persona —sus movimientos, sus saldos, todo— con un aviso rojo
+permanente arriba que no se puede cerrar, para que nunca registres un gasto
+creyendo que es tuyo.
+
+No hay pantallas que lean los datos de varias personas a la vez, y es a
+propósito: en vez de eso te *conviertes* en esa persona, así que cada consulta
+sigue pidiendo su identificador igual que siempre y la regla de que nadie ve lo
+ajeno queda intacta.
+
+Cada vez que entras desde el botón queda un registro con a quién y cuándo, y lo
+ves en esa misma pantalla. Conviene decir con precisión qué garantiza: el
+registro lo escribe la app antes de cambiar de cuenta, así que cubre el uso
+normal, pero no es un candado — quien administra también podría hablarle
+directo al servicio de identidad desde la consola del navegador y saltárselo.
+Sirve para responder "¿quién entró a mis cuentas?" de buena fe, no para
+atrapar a alguien que quiera esconderse.
+
+El primer administrador se nombra a mano, porque para entrar al panel hay que
+serlo ya:
+
+```bash
+npm run admin -- tucorreo@ejemplo.com admin   # dar permiso
+npm run admin -- tucorreo@ejemplo.com user    # quitarlo
+```
 
 ## Las pruebas son la documentación
 

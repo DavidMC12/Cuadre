@@ -17,6 +17,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:studio": "drizzle-kit studio",
+    "admin": "tsx scripts/rol-admin.mts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

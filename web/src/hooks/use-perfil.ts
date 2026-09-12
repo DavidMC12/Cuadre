@@ -17,6 +17,15 @@ export function usePerfil() {
     queryKey: clavesPerfil.todo(),
     queryFn: fetchProfile,
     select: (respuesta) => respuesta.data,
+
+    // El perfil no se guarda ni un segundo, y se vuelve a pedir cada vez que
+    // la pestaña recupera el foco. Es más tráfico del que necesitaría un
+    // nombre y un par de preferencias, y aun así vale la pena: de este mismo
+    // dato sale el aviso de "estás viendo la cuenta de otra persona". Si
+    // suplantas en una pestaña, la otra se quedaría con el perfil viejo y sin
+    // aviso, y lo que escribieras ahí se iría al libro ajeno —que no se edita.
+    staleTime: 0,
+    refetchOnWindowFocus: "always",
   });
 }
 

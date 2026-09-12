@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { users } from '../../db/schema/index.js';
 import type { StartPage } from '../../db/schema/users.js';
-import type { Perfil } from './schemas.js';
+import type { PerfilGuardado } from './schemas.js';
 
 const CAMPOS = {
   id: users.id,
@@ -29,7 +29,7 @@ interface FilaDePerfil {
 }
 
 /** `char(3)` rellena con espacios hasta completar el ancho; hay que quitarlos. */
-function aPerfil(fila: FilaDePerfil): Perfil {
+function aPerfil(fila: FilaDePerfil): PerfilGuardado {
   return {
     id: fila.id,
     email: fila.email,
@@ -42,7 +42,7 @@ function aPerfil(fila: FilaDePerfil): Perfil {
 
 // -----------------------------------------------------------------------------
 
-export async function obtener(usuarioId: string): Promise<Perfil | null> {
+export async function obtener(usuarioId: string): Promise<PerfilGuardado | null> {
   const [fila] = await db.select(CAMPOS).from(users).where(eq(users.id, usuarioId)).limit(1);
 
   return fila ? aPerfil(fila) : null;
@@ -64,7 +64,7 @@ export interface CambiosDePerfil {
 export async function actualizar(
   usuarioId: string,
   cambios: CambiosDePerfil,
-): Promise<Perfil | null> {
+): Promise<PerfilGuardado | null> {
   const [fila] = await db
     .update(users)
     .set(cambios)

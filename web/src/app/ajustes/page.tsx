@@ -149,6 +149,16 @@ export default function PaginaAjustes() {
               <BotonExportar />
             </Fila>
           </Seccion>
+
+          {perfil.isAdmin && (
+            <Seccion titulo="Administración">
+              <FilaEnlace
+                etiqueta="Personas"
+                ayuda="Ver quién usa Cuadre y entrar a su cuenta"
+                href="/admin"
+              />
+            </Seccion>
+          )}
         </>
       )}
 
