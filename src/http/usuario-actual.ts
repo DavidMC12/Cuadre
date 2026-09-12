@@ -22,8 +22,16 @@ declare module 'fastify' {
   interface FastifyRequest {
     /** Dueño de los datos de esta petición. Nunca es implícito más abajo. */
     usuarioId: string;
+    /**
+     * Si quien pide administra el sistema. Solo lo miran las rutas de
+     * administración; el resto de la app trata a todo el mundo igual, y esa es
+     * la razón de que suplantar a alguien no necesite tocar ningún módulo.
+     */
+    esAdmin: boolean;
   }
 }
+
+const ROL_ADMIN = 'admin';
 
 const PROVEEDOR = 'neon-auth';
 
@@ -87,16 +95,20 @@ export interface OpcionesDeUsuario {
    * verdad. Cuando se da, la verificación de Neon Auth ni se intenta.
    */
   resolver?: () => Promise<string>;
+  /** Solo para pruebas: si ese usuario administra el sistema. */
+  esAdmin?: boolean;
 }
 
 async function plugin(app: FastifyInstance, opciones: OpcionesDeUsuario): Promise<void> {
   app.decorateRequest('usuarioId', '');
+  app.decorateRequest('esAdmin', false);
 
   app.addHook('onRequest', async (peticion, respuesta) => {
     if (RUTAS_PUBLICAS.has(peticion.url)) return;
 
     if (opciones.resolver) {
       peticion.usuarioId = await opciones.resolver();
+      peticion.esAdmin = opciones.esAdmin ?? false;
       return;
     }
 
@@ -104,6 +116,7 @@ async function plugin(app: FastifyInstance, opciones: OpcionesDeUsuario): Promis
     if (!identidad) throw sinAutorizar();
 
     peticion.usuarioId = await encontrarOCrearUsuario(identidad);
+    peticion.esAdmin = identidad.rol === ROL_ADMIN;
   });
 }
 

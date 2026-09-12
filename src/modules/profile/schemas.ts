@@ -46,9 +46,21 @@ export const PerfilSchema = z.object({
   createdAt: z.string(),
   defaultCurrency: z.string().nullable(),
   startPage: z.enum(START_PAGES),
+  /**
+   * Si esta persona administra el sistema. No sale de la tabla `users` sino de
+   * la sesión, porque los permisos los manda el proveedor de identidad; aquí
+   * solo viaja para que las pantallas sepan si mostrar la entrada al panel.
+   */
+  isAdmin: z.boolean(),
 });
 
 export const UnPerfilSchema = z.object({ data: PerfilSchema });
 
 export type ActualizarPerfil = z.infer<typeof ActualizarPerfilSchema>;
 export type Perfil = z.infer<typeof PerfilSchema>;
+
+/**
+ * Lo que de verdad está guardado en la tabla. `isAdmin` queda fuera porque no
+ * vive ahí: lo trae la sesión, y lo añade la capa HTTP al responder.
+ */
+export type PerfilGuardado = Omit<Perfil, 'isAdmin'>;

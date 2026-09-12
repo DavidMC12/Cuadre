@@ -7,11 +7,11 @@
  */
 import { noEncontrado } from '../../http/errores.js';
 import * as repositorio from './repository.js';
-import type { ActualizarPerfil, Perfil } from './schemas.js';
+import type { ActualizarPerfil, PerfilGuardado } from './schemas.js';
 
 const NO_EXISTE = 'No encontramos tu perfil.';
 
-export async function obtenerPerfil(usuarioId: string): Promise<Perfil> {
+export async function obtenerPerfil(usuarioId: string): Promise<PerfilGuardado> {
   const perfil = await repositorio.obtener(usuarioId);
   if (!perfil) throw noEncontrado(NO_EXISTE);
   return perfil;
@@ -20,7 +20,7 @@ export async function obtenerPerfil(usuarioId: string): Promise<Perfil> {
 export async function actualizarPerfil(
   usuarioId: string,
   datos: ActualizarPerfil,
-): Promise<Perfil> {
+): Promise<PerfilGuardado> {
   const perfil = await repositorio.actualizar(usuarioId, datos);
   if (!perfil) throw noEncontrado(NO_EXISTE);
   return perfil;

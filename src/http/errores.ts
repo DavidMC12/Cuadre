@@ -19,6 +19,7 @@ export type CodigoError =
   | 'RULE_VIOLATION'
   | 'RATE_LIMITED'
   | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
   | 'INTERNAL';
 
 export class ErrorDeApp extends Error {
@@ -43,6 +44,15 @@ export const noEncontrado = (mensaje: string): ErrorDeApp =>
  */
 export const sinAutorizar = (mensaje = 'Inicia sesión para continuar.'): ErrorDeApp =>
   new ErrorDeApp('UNAUTHORIZED', mensaje, 401);
+
+/**
+ * Con sesión válida, pero sin permiso para esto. Distinto de 401: ahí el
+ * problema es quién eres; aquí, qué te dejan hacer. El mensaje no dice qué
+ * haría falta para entrar —eso le confirmaría a un curioso que la puerta
+ * existe y qué llave necesita.
+ */
+export const sinPermiso = (mensaje = 'No tienes permiso para esto.'): ErrorDeApp =>
+  new ErrorDeApp('FORBIDDEN', mensaje, 403);
 
 export const conflicto = (mensaje: string): ErrorDeApp => new ErrorDeApp('CONFLICT', mensaje, 409);
 

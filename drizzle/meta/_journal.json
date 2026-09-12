@@ -29,6 +29,13 @@
       "when": 1789225747917,
       "tag": "0003_dry_wolf_cub",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789244322384,
+      "tag": "0004_wooden_unus",
+      "breakpoints": true
     }
   ]
 }

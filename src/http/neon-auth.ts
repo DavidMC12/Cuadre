@@ -93,6 +93,14 @@ export interface IdentidadDeSesion {
   id: string;
   email: string;
   displayName: string | null;
+  /**
+   * 'admin' o 'user', según Neon Auth. Ojo con una propiedad que no salta a la
+   * vista: mientras un administrador está viendo la app como otra persona,
+   * esto vale 'user', porque la sesión ES la de esa persona. Por eso suplantar
+   * no abre la puerta de vuelta al panel de administración, que es justo lo
+   * que uno querría.
+   */
+  rol: string | null;
 }
 
 /**
@@ -120,6 +128,7 @@ export async function verificarSesion(
       id: data.user.id,
       email: data.user.email,
       displayName: data.user.name ?? null,
+      rol: (data.user as { role?: string | null }).role ?? null,
     };
   } catch (fallo) {
     request.log.warn(
