@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, ChartPie, Wallet } from "lucide-react";
+import { ArrowLeftRight, ChartPie, Settings, Wallet } from "lucide-react";
 
-import { BotonSalir } from "@/components/auth/boton-salir";
 import { cn } from "@/lib/utils";
 
 const ELEMENTOS_NAV = [
   { href: "/", etiqueta: "Resumen", Icono: ChartPie },
   { href: "/cuentas", etiqueta: "Cuentas", Icono: Wallet },
   { href: "/movimientos", etiqueta: "Movimientos", Icono: ArrowLeftRight },
+  { href: "/ajustes", etiqueta: "Ajustes", Icono: Settings },
 ] as const;
 
 const RUTAS_SIN_SESION = ["/entrar", "/registrarse"];
@@ -24,7 +24,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
         <div className="mx-auto flex h-12 w-full max-w-md items-center justify-between px-4">
           <span className="font-heading text-base font-semibold">Cuadre</span>
-          {!sinSesion && <BotonSalir />}
         </div>
       </header>
 

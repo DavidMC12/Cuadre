@@ -1,6 +1,6 @@
 /** Llamadas a la API de movimientos. */
 
-import { pedir } from "./client";
+import { descargar, pedir } from "./client";
 import type {
   FiltrosMovimientos,
   Movimiento,
@@ -34,4 +34,9 @@ export function updateTransactionCategory(
   categoryId: string | null
 ): Promise<{ data: Movimiento }> {
   return pedir(`/transactions/${id}/category`, { metodo: "PATCH", cuerpo: { categoryId } });
+}
+
+/** Todo el historial en un archivo, para abrirlo en Excel o guardarlo aparte. */
+export function exportTransactions(): Promise<{ contenido: Blob; nombre: string }> {
+  return descargar("/transactions/export", "cuadre-movimientos.csv");
 }

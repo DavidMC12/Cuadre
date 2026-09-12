@@ -5,8 +5,7 @@
  * nombre, sin enterarse de rutas ni de códigos de estado.
  */
 
-const BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ?? "http://localhost:3001";
+const BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ?? "http://localhost:3001";
 
 export type CodigoErrorApi =
   | "VALIDATION_ERROR"
@@ -14,6 +13,7 @@ export type CodigoErrorApi =
   | "CONFLICT"
   | "RULE_VIOLATION"
   | "RATE_LIMITED"
+  | "UNAUTHORIZED"
   | "INTERNAL"
   | "SIN_CONEXION";
 
@@ -62,6 +62,54 @@ function construirUrl(ruta: string, parametros?: Opciones["parametros"]): string
   return url.toString();
 }
 
+/**
+ * Para lo que no es JSON: trae un archivo del servidor con su nombre.
+ *
+ * El nombre lo decide el servidor y viaja en `Content-Disposition`. Si el
+ * navegador esconde esa cabecera —pasa cuando las pantallas y la API no
+ * comparten origen y el servidor no la expone— se usa el nombre de respaldo,
+ * porque un archivo con nombre feo sirve y uno sin nombre no.
+ */
+export async function descargar(
+  ruta: string,
+  nombreDeRespaldo: string
+): Promise<{ contenido: Blob; nombre: string }> {
+  let respuesta: Response;
+  try {
+    respuesta = await fetch(construirUrl(ruta), { credentials: "include" });
+  } catch {
+    throw new ApiError({
+      code: "SIN_CONEXION",
+      message: "No se pudo conectar con el servidor. Revisa que esté encendido.",
+    });
+  }
+
+  if (!respuesta.ok) {
+    // El servidor manda sus errores en JSON y ya en español, incluido el de
+    // sesión vencida. Decir siempre "no se pudo preparar el archivo" mandaría
+    // a revisar lo que no es.
+    const texto = await respuesta.text();
+    let json: { error?: CuerpoErrorApi } | null = null;
+    try {
+      json = texto ? JSON.parse(texto) : null;
+    } catch {
+      json = null;
+    }
+
+    throw new ApiError(
+      json?.error ?? {
+        code: "INTERNAL",
+        message: "No se pudo preparar el archivo. Inténtalo otra vez.",
+      }
+    );
+  }
+
+  const disposicion = respuesta.headers.get("content-disposition") ?? "";
+  const encontrado = /filename="([^"]+)"/.exec(disposicion)?.[1];
+
+  return { contenido: await respuesta.blob(), nombre: encontrado ?? nombreDeRespaldo };
+}
+
 export async function pedir<T>(ruta: string, opciones: Opciones = {}): Promise<T> {
   const { metodo = "GET", cuerpo, parametros } = opciones;
 
@@ -95,7 +143,7 @@ export async function pedir<T>(ruta: string, opciones: Opciones = {}): Promise<T
       error ?? {
         code: "INTERNAL",
         message: "El servidor respondió algo que no supimos entender.",
-      },
+      }
     );
   }
 

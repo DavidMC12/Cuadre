@@ -10,19 +10,8 @@
  */
 import { sql, type SQL } from 'drizzle-orm';
 import { db } from '../../db/client.js';
+import { ZONA_HORARIA } from '../../shared/zona-horaria.js';
 import type { TipoDeCategoria } from './schemas.js';
-
-/**
- * La zona con la que se agrupa por mes.
- *
- * Un gasto del 30 de septiembre a las 11 de la noche en Bogotá es el 1 de
- * octubre en UTC. Agrupar en UTC lo mandaría al mes que no es, y el reporte de
- * septiembre le quedaría corto a quien lo hizo.
- *
- * Hoy es una constante porque hoy la app tiene un solo dueño. En la Fase 5,
- * con usuarios reales, sale de su perfil.
- */
-export const ZONA_HORARIA = 'America/Bogota';
 
 /**
  * Regla 1 y 2: ni las transferencias ni los saldos iniciales son movimiento de

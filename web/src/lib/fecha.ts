@@ -71,6 +71,20 @@ export function etiquetaMes(mes: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
+/**
+ * Un instante completo -> "Septiembre de 2026".
+ *
+ * Usa la zona de este aparato, no UTC: quien se registró un 31 de agosto a las
+ * 8 de la noche en Bogotá se registró en agosto, aunque en UTC ya fuera
+ * septiembre.
+ */
+export function etiquetaMesDeFecha(iso: string): string {
+  const texto = new Intl.DateTimeFormat("es-CO", { month: "long", year: "numeric" }).format(
+    new Date(iso)
+  );
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
 /** "YYYY-MM" -> "Sep" (para los ejes de la gráfica de tendencia). */
 export function etiquetaMesCorta(mes: string): string {
   const [anio, mesNumero] = mes.split("-").map(Number);

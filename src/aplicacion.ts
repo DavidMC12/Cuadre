@@ -17,6 +17,7 @@ import { registrarManejoDeErrores } from './http/errores.js';
 import { usuarioActual } from './http/usuario-actual.js';
 import { rutasDeCuentas } from './modules/accounts/routes.js';
 import { rutasDeCategorias } from './modules/categories/routes.js';
+import { rutasDePerfil } from './modules/profile/routes.js';
 import { rutasDeReportes } from './modules/reports/routes.js';
 import { rutasDeMovimientos } from './modules/transactions/routes.js';
 import { configurarMensajesEnEspanol } from './shared/mensajes-zod.js';
@@ -54,6 +55,10 @@ export async function construirApp(opciones: OpcionesDeApp = {}): Promise<Fastif
     origin: env.CORS_ORIGINS,
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    // Sin esto el navegador esconde la cabecera y el archivo exportado se
+    // descarga sin nombre cuando las pantallas y la API no comparten origen,
+    // que es justo lo que pasa en desarrollo.
+    exposedHeaders: ['content-disposition'],
   });
 
   await app.register(rateLimit, {
@@ -77,6 +82,7 @@ export async function construirApp(opciones: OpcionesDeApp = {}): Promise<Fastif
       await api.register(rutasDeCategorias);
       await api.register(rutasDeMovimientos);
       await api.register(rutasDeReportes);
+      await api.register(rutasDePerfil);
     },
     { prefix: '/api/v1' },
   );
