@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import type { TendenciaMes } from "@/lib/api/types";
@@ -71,9 +62,7 @@ export function GraficaTendencia({
     gastoNumerico: Number(mes.expense),
   }));
 
-  const sinMovimientos = datos.every(
-    (fila) => fila.ingresoNumerico === 0 && fila.gastoNumerico === 0
-  );
+  const sinMovimientos = datos.every((fila) => fila.ingresoNumerico === 0 && fila.gastoNumerico === 0);
 
   if (datos.length === 0 || sinMovimientos) {
     return (
@@ -119,20 +108,8 @@ export function GraficaTendencia({
             </div>
           )}
         />
-        <Bar
-          dataKey="ingresoNumerico"
-          name="Ingresos"
-          fill={COLOR_INGRESO.claro}
-          radius={[4, 4, 0, 0]}
-          maxBarSize={20}
-        />
-        <Bar
-          dataKey="gastoNumerico"
-          name="Gastos"
-          fill={COLOR_GASTO.claro}
-          radius={[4, 4, 0, 0]}
-          maxBarSize={20}
-        />
+        <Bar dataKey="ingresoNumerico" name="Ingresos" fill={COLOR_INGRESO.claro} radius={[4, 4, 0, 0]} maxBarSize={20} />
+        <Bar dataKey="gastoNumerico" name="Gastos" fill={COLOR_GASTO.claro} radius={[4, 4, 0, 0]} maxBarSize={20} />
       </BarChart>
     </ResponsiveContainer>
   );

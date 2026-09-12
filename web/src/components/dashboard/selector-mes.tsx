@@ -5,7 +5,13 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { etiquetaMes, mesActual, sumarMeses } from "@/lib/fecha";
 
-export function SelectorMes({ mes, onCambiar }: { mes: string; onCambiar: (mes: string) => void }) {
+export function SelectorMes({
+  mes,
+  onCambiar,
+}: {
+  mes: string;
+  onCambiar: (mes: string) => void;
+}) {
   const esMesActual = mes === mesActual();
 
   return (
