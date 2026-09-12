@@ -46,7 +46,7 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
   // a mano no se pisa.
   const monedaElegida = moneda ?? monedaPreferida;
 
-  const monedasOfrecidas: string[] = MONEDAS.includes(monedaPreferida as (typeof MONEDAS)[number])
+  const monedasOfrecidas: string[] = (MONEDAS as readonly string[]).includes(monedaPreferida)
     ? [...MONEDAS]
     : [...MONEDAS, monedaPreferida];
 

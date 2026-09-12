@@ -11,6 +11,7 @@ import { BotonSalir } from "@/components/auth/boton-salir";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePerfil } from "@/hooks/use-perfil";
+import { ApiError } from "@/lib/api/client";
 import { etiquetaMesDeFecha } from "@/lib/fecha";
 import { MONEDAS } from "@/lib/labels";
 import type { PantallaDeInicio } from "@/lib/api/types";
@@ -41,7 +42,14 @@ const PANTALLAS = [
 ] as const;
 
 export default function PaginaAjustes() {
-  const { data: perfil, isPending, isError, refetch } = usePerfil();
+  const { data: perfil, isPending, isError, error, isFetching, refetch } = usePerfil();
+
+  // Una sesión vencida no es un servidor dormido, y el servidor ya lo dice en
+  // español. Para todo lo demás el mensaje propio explica mejor lo que pasa.
+  const porQueFallo =
+    error instanceof ApiError && error.code === "UNAUTHORIZED"
+      ? error.message
+      : "No pudimos cargar tus ajustes. Puede ser que el servidor esté dormido.";
 
   return (
     <div className="flex flex-col gap-5 pb-4">
@@ -57,11 +65,15 @@ export default function PaginaAjustes() {
 
       {isError && (
         <div className="flex flex-col items-start gap-3 rounded-lg border border-border p-4">
-          <p className="text-sm text-muted-foreground">
-            No pudimos cargar tus ajustes. Puede ser que el servidor esté dormido.
-          </p>
-          <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
-            Reintentar
+          <p className="text-sm text-muted-foreground">{porQueFallo}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isFetching}
+          >
+            {isFetching ? "Reintentando…" : "Reintentar"}
           </Button>
         </div>
       )}
