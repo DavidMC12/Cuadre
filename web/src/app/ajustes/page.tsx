@@ -58,7 +58,9 @@ export default function PaginaAjustes() {
               </EditarNombre>
             </Fila>
 
-            <Fila etiqueta="Correo" ayuda="Con este entras. No se cambia desde aquí.">
+            {/* Sin flecha, a diferencia del nombre: eso ya dice que no se toca,
+                y una nota explicándolo solo le robaba ancho al correo. */}
+            <Fila etiqueta="Correo">
               <ValorFijo>{perfil.email}</ValorFijo>
             </Fila>
 
