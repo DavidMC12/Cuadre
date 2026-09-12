@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,16 +12,30 @@ const TEMAS = [
   { valor: "system", etiqueta: "Automático" },
 ] as const;
 
+/** Nunca cambia, así que no hay a qué suscribirse. */
+const noEscuchar = () => () => {};
+
+/**
+ * `false` mientras la pantalla la arma el servidor, `true` cuando el navegador
+ * ya tomó el control.
+ *
+ * El tema vive en este aparato, así que el servidor no puede saber cuál está
+ * elegido. Si se pintara uno a ciegas, al llegar el navegador cambiaría solo y
+ * se vería el salto.
+ */
+function useYaEnElNavegador(): boolean {
+  return useSyncExternalStore(
+    noEscuchar,
+    () => true,
+    () => false
+  );
+}
+
 export function SelectorTema() {
   const { theme, setTheme } = useTheme();
+  const yaEnElNavegador = useYaEnElNavegador();
 
-  // En el servidor no se sabe qué tema tiene este aparato, así que hasta que el
-  // navegador no despierta no se puede pintar cuál está elegido. Sin esta
-  // espera, React pinta uno y luego lo cambia, y se ve el salto.
-  const [montado, setMontado] = useState(false);
-  useEffect(() => setMontado(true), []);
-
-  if (!montado) return <Skeleton className="h-9 w-full rounded-lg" />;
+  if (!yaEnElNavegador) return <Skeleton className="h-9 w-full rounded-lg" />;
 
   return (
     <ToggleGroup
