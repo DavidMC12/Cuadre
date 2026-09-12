@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { SelectorCategoria } from "@/components/movimientos/selector-categoria";
 import { useActualizarCategoriaMovimiento } from "@/hooks/use-movimientos";
+import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { Movimiento } from "@/lib/api/types";
 
@@ -31,8 +32,11 @@ export function EditarCategoriaMovimiento({
   movimiento: Movimiento;
   children: React.ReactNode;
 }) {
+  const soloMirar = useSoloMirar();
   const [abierto, setAbierto] = useState(false);
-  const [categoryId, setCategoryId] = useState<string | undefined>(movimiento.categoryId ?? undefined);
+  const [categoryId, setCategoryId] = useState<string | undefined>(
+    movimiento.categoryId ?? undefined
+  );
 
   const actualizarCategoria = useActualizarCategoriaMovimiento();
 
@@ -54,6 +58,10 @@ export function EditarCategoriaMovimiento({
     );
   }
 
+  // Quien está mirando la cuenta de otra persona no ve el botón siquiera: el
+  // servidor rechazaría la escritura de todos modos.
+  if (soloMirar) return null;
+
   return (
     <Drawer
       open={abierto}
@@ -74,7 +82,11 @@ export function EditarCategoriaMovimiento({
 
           <div className="flex flex-col gap-1.5 px-4 py-4">
             <Label htmlFor="categoria-existente">Categoría</Label>
-            <SelectorCategoria id="categoria-existente" value={categoryId} onChange={setCategoryId} />
+            <SelectorCategoria
+              id="categoria-existente"
+              value={categoryId}
+              onChange={setCategoryId}
+            />
           </div>
 
           <DrawerFooter>

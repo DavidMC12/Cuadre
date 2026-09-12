@@ -15,7 +15,7 @@ import type { FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 import { db } from '../db/client.js';
 import { users } from '../db/schema/index.js';
-import { sinAutorizar } from './errores.js';
+import { sinAutorizar, sinPermiso } from './errores.js';
 import { verificarSesion } from './neon-auth.js';
 
 declare module 'fastify' {
@@ -119,6 +119,29 @@ export interface OpcionesDeUsuario {
   suplantada?: boolean;
 }
 
+/**
+ * Métodos que cambian algo. Dar soporte es entender qué pasó, no escribir en
+ * las cuentas de nadie.
+ */
+const METODOS_QUE_ESCRIBEN = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
+
+const SOLO_MIRAR =
+  'Estás viendo la cuenta de otra persona: desde aquí solo puedes mirar. Vuelve a la tuya para registrar algo.';
+
+/**
+ * Cierra con llave todo lo que escriba mientras se está viendo la cuenta de
+ * alguien más.
+ *
+ * Va por método y no ruta por ruta a propósito: así una ruta nueva nace
+ * protegida en vez de acordarse de protegerla. Y va aquí, en el borde, porque
+ * el libro de movimientos no se edita —un gasto registrado por error en la
+ * cuenta equivocada queda escrito para siempre— y esa clase de error no se
+ * arregla con cuidado, se arregla haciéndolo imposible.
+ */
+function exigirSoloLectura(metodo: string, suplantada: boolean): void {
+  if (suplantada && METODOS_QUE_ESCRIBEN.has(metodo)) throw sinPermiso(SOLO_MIRAR);
+}
+
 async function plugin(app: FastifyInstance, opciones: OpcionesDeUsuario): Promise<void> {
   app.decorateRequest('usuarioId', '');
   app.decorateRequest('esAdmin', false);
@@ -133,14 +156,20 @@ async function plugin(app: FastifyInstance, opciones: OpcionesDeUsuario): Promis
       // La misma regla que abajo, para que las pruebas la comprueben de verdad
       // en vez de comprobar un atajo que se porta distinto.
       peticion.esAdmin = (opciones.esAdmin ?? false) && !peticion.suplantada;
+      exigirSoloLectura(peticion.method, peticion.suplantada);
       return;
     }
 
     const identidad = await verificarSesion(peticion, respuesta);
     if (!identidad) throw sinAutorizar();
 
-    peticion.usuarioId = await encontrarOCrearUsuario(identidad);
     peticion.suplantada = identidad.suplantadaPor !== null;
+
+    // Antes de `encontrarOCrearUsuario`, que puede insertar una fila: no tiene
+    // sentido escribir en la base por una petición que se va a rechazar igual.
+    exigirSoloLectura(peticion.method, peticion.suplantada);
+
+    peticion.usuarioId = await encontrarOCrearUsuario(identidad);
 
     // La segunda mitad no sobra aunque Neon Auth ya impida suplantar a un
     // administrador: esa garantía vive en la configuración del servidor de

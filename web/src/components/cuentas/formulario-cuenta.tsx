@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useCrearCuenta } from "@/hooks/use-cuentas";
-import { usePerfil } from "@/hooks/use-perfil";
+import { usePerfil, useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { TipoCuenta } from "@/lib/api/types";
 import { ETIQUETA_TIPO_CUENTA, MONEDAS } from "@/lib/labels";
@@ -26,6 +26,7 @@ import { normalizarMontoConSigno } from "@/lib/money";
 const TIPOS: TipoCuenta[] = ["bank", "card", "cash"];
 
 export function FormularioCuenta({ children }: { children: React.ReactNode }) {
+  const soloMirar = useSoloMirar();
   const { data: perfil } = usePerfil();
 
   // La preferencia de los ajustes decide cuál viene marcada. Si no hay ninguna
@@ -102,6 +103,10 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
       }
     );
   }
+
+  // Quien está mirando la cuenta de otra persona no ve el botón siquiera: el
+  // servidor rechazaría la escritura de todos modos.
+  if (soloMirar) return null;
 
   return (
     <Drawer

@@ -15,10 +15,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SelectorCategoria } from "@/components/movimientos/selector-categoria";
 import { useCrearMovimiento } from "@/hooks/use-movimientos";
+import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { Cuenta } from "@/lib/api/types";
 import { fechaParaInput, inputAIso } from "@/lib/fecha";
@@ -37,6 +44,7 @@ export function FormularioMovimiento({
 }) {
   const hoyInput = () => fechaParaInput(new Date().toISOString());
 
+  const soloMirar = useSoloMirar();
   const [abierto, setAbierto] = useState(false);
   const [cuentaId, setCuentaId] = useState(cuentaIdPorDefecto ?? cuentas[0]?.id ?? "");
   const [tipoMonto, setTipoMonto] = useState<TipoMonto>("gasto");
@@ -100,6 +108,10 @@ export function FormularioMovimiento({
     );
   }
 
+  // Quien está mirando la cuenta de otra persona no ve el botón siquiera: el
+  // servidor rechazaría la escritura de todos modos.
+  if (soloMirar) return null;
+
   return (
     <Drawer
       open={abierto}
@@ -150,7 +162,9 @@ export function FormularioMovimiento({
                         montado mientras el selector está cerrado: hay que
                         resolver el nombre a mano, no asumir que lo encuentra solo. */}
                     <SelectValue placeholder="Elige una cuenta">
-                      {(valor: string) => cuentas.find((cuenta) => cuenta.id === valor)?.name ?? valor}
+                      {(valor: string) =>
+                        cuentas.find((cuenta) => cuenta.id === valor)?.name ?? valor
+                      }
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>

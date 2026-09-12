@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useCrearCategoria } from "@/hooks/use-categorias";
+import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { TipoCategoria } from "@/lib/api/types";
 import { ETIQUETA_TIPO_CATEGORIA } from "@/lib/labels";
@@ -24,6 +25,7 @@ import { ETIQUETA_TIPO_CATEGORIA } from "@/lib/labels";
 const TIPOS: TipoCategoria[] = ["expense", "income"];
 
 export function FormularioCategoria({ children }: { children: React.ReactNode }) {
+  const soloMirar = useSoloMirar();
   const [abierto, setAbierto] = useState(false);
   const [nombre, setNombre] = useState("");
   const [tipo, setTipo] = useState<TipoCategoria>("expense");
@@ -64,6 +66,10 @@ export function FormularioCategoria({ children }: { children: React.ReactNode })
       }
     );
   }
+
+  // Quien está mirando la cuenta de otra persona no ve el botón siquiera: el
+  // servidor rechazaría la escritura de todos modos.
+  if (soloMirar) return null;
 
   return (
     <Drawer

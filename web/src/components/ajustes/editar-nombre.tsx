@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useGuardarPerfil } from "@/hooks/use-perfil";
+import { useGuardarPerfil, useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 
 export function EditarNombre({
@@ -25,6 +25,7 @@ export function EditarNombre({
   nombreActual: string;
   children: React.ReactNode;
 }) {
+  const soloMirar = useSoloMirar();
   const [abierto, setAbierto] = useState(false);
   const [nombre, setNombre] = useState(nombreActual);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +59,9 @@ export function EditarNombre({
       }
     );
   }
+
+  // El nombre de otra persona no se le cambia desde su propia cuenta.
+  if (soloMirar) return <span className="text-sm text-muted-foreground">{nombreActual}</span>;
 
   return (
     <Drawer

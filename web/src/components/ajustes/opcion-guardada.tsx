@@ -3,7 +3,7 @@
 import { toast } from "sonner";
 
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { useGuardarPerfil } from "@/hooks/use-perfil";
+import { useGuardarPerfil, useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { CambiosDePerfil } from "@/lib/api/types";
 
@@ -29,6 +29,7 @@ export function OpcionGuardada({
   aCambio: (elegido: string) => CambiosDePerfil;
 }) {
   const guardar = useGuardarPerfil();
+  const soloMirar = useSoloMirar();
 
   return (
     <ToggleGroup
@@ -49,7 +50,8 @@ export function OpcionGuardada({
       }}
       variant="outline"
       className="w-full"
-      disabled={guardar.isPending}
+      // Las preferencias de otra persona se ven, no se tocan.
+      disabled={guardar.isPending || soloMirar}
     >
       {opciones.map((opcion) => (
         <ToggleGroupItem key={opcion.valor} value={opcion.valor} className="flex-1">

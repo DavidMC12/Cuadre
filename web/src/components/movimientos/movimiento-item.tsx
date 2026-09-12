@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Monto } from "@/components/monto";
 import { EditarCategoriaMovimiento } from "@/components/movimientos/editar-categoria-movimiento";
+import { useSoloMirar } from "@/hooks/use-perfil";
 import type { Categoria, Cuenta, Movimiento } from "@/lib/api/types";
 import { horaCorta } from "@/lib/fecha";
 import { ETIQUETA_TIPO_MOVIMIENTO } from "@/lib/labels";
@@ -22,14 +23,17 @@ export function MovimientoItem({
   mostrarCuenta: boolean;
   onSolicitarAnular: (movimiento: Movimiento) => void;
 }) {
+  const soloMirar = useSoloMirar();
+
   const anulado = movimiento.reversedByTransactionId !== null;
   const esAnulacion = movimiento.reversesTransactionId !== null;
 
-  const puedeAnularse = !anulado && !esAnulacion && movimiento.kind !== "opening";
+  // Anular escribe otro movimiento en el libro, y el libro no se edita. Desde
+  // la cuenta de otra persona eso ni se ofrece.
+  const puedeAnularse = !soloMirar && !anulado && !esAnulacion && movimiento.kind !== "opening";
   const puedeCategorizarse = movimiento.kind === "standard";
 
-  const descripcion =
-    movimiento.description?.trim() || ETIQUETA_TIPO_MOVIMIENTO[movimiento.kind];
+  const descripcion = movimiento.description?.trim() || ETIQUETA_TIPO_MOVIMIENTO[movimiento.kind];
 
   return (
     <div className="flex items-start gap-3 py-3">

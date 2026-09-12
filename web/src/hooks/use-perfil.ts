@@ -52,6 +52,19 @@ export function useGuardarPerfil() {
 }
 
 /**
+ * Si esta sesión es de alguien a quien un administrador está mirando, y por lo
+ * tanto no puede cambiar nada.
+ *
+ * El servidor ya rechaza cualquier escritura, así que esto no es la cerradura:
+ * es para no mostrar botones que van a fallar siempre. Un botón que no
+ * funciona es peor que un botón que no está.
+ */
+export function useSoloMirar(): boolean {
+  const { data: perfil } = usePerfil();
+  return perfil?.isImpersonated ?? false;
+}
+
+/**
  * Vive fuera del hook para que dure lo que dura la pestaña abierta, no lo que
  * dura un componente montado: abrir la app pasa una sola vez, y volver al
  * resumen desde el menú no es abrirla.
