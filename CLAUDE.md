@@ -78,7 +78,7 @@ letras.
 | #   | Alcance                                   | Por qué está afuera                                                                                                          |
 | --- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | 4   | Pruebas de punta a punta (Playwright)     | Las pruebas que ya existen cubren el dinero, que es lo que importa. Un navegador automatizado protege sobre todo del trabajo de otras personas sobre el mismo código, y aquí no hay otras personas. |
-| 5   | Apertura a usuarios reales                | Cambia el proyecto de cosa personal a servicio: soporte, privacidad y costos ajenos. Se decide aparte, nunca por inercia.     |
+| 5   | Apertura a usuarios reales                | Cambia el proyecto de cosa personal a servicio: soporte, privacidad y costos ajenos. Se decide aparte, nunca por inercia. Aquí vive también el botón de "entrar con Google": con un solo dueño no le ahorra nada a nadie, y obliga a configurar credenciales en Google Cloud para mantener algo que hoy no se usa. |
 | 6   | Integraciones externas + workers y outbox | Qué tanta falta hacen se sabe usando la app, no suponiéndolo antes.                                                          |
 
 El esquema es multi-tenant desde la Fase 0, aunque los usuarios de la Fase 5
@@ -132,8 +132,9 @@ Monolito modular. Un deploy, módulos internos.
 
 src/modules/
 accounts/ bancos, tarjetas, efectivo
-transactions/ movimientos (núcleo)
+transactions/ movimientos (núcleo) + exportación del historial
 categories/ catálogo + reglas automáticas
+profile/ nombre y preferencias de quien usa la app
 imports/ parseo, preview, confirmación
 reports/ dashboard y gráficas
 budgets/ límites por categoría

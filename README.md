@@ -81,6 +81,17 @@ divisa distinta a la de su cuenta.
 Las pruebas de `npm test` existen justamente para intentar romper cada una
 de estas reglas y comprobar que la base no lo permite.
 
+## Tus datos son tuyos
+
+En **Ajustes → Respaldo** te bajas todo el historial en un archivo que abre
+Excel. No es un resumen ni una muestra: son todos los movimientos, con los
+montos exactos y las correcciones visibles, para que el archivo cuente la misma
+historia que la app —errores incluidos—. Un respaldo que redondea cifras o que
+esconde lo que se anuló deja de ser un respaldo.
+
+Ahí mismo están tu nombre, la moneda que la app te propone al registrar, con
+qué pantalla abre, y el tema claro u oscuro.
+
 ## Las pruebas son la documentación
 
 No hay un documento aparte que liste qué está garantizado, y es a propósito: un
@@ -107,7 +118,7 @@ src/db/reglas.test  pruebas de consistencia contra la base real
 src/shared/money    aritmética de dinero exacta, sin coma flotante
 src/env.ts          variables de entorno, validadas al arrancar
 src/http/           esqueleto HTTP y traduccion de errores
-src/modules/        cuentas y movimientos, en tres capas cada uno
+src/modules/        cuentas, movimientos, categorías y perfil, en tres capas cada uno
 web/                las pantallas (Next.js)
 ```
 
