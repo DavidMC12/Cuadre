@@ -365,6 +365,38 @@ describe('desde una cuenta ajena solo se mira', () => {
     expect(estado).toBe(403);
   });
 
+  it('descargar el respaldo sí se permite, y es a propósito', async () => {
+    // Es de lectura y es justo lo que sirve para entender qué le pasó a
+    // alguien. Esta prueba fija la decisión para que no se cierre sin querer
+    // el día que alguien amplíe el candado.
+    const respuesta = await appSuplantando.inject({
+      method: 'GET',
+      url: '/api/v1/transactions/export',
+    });
+
+    expect(respuesta.statusCode).toBe(200);
+    expect(respuesta.headers['content-type']).toContain('text/csv');
+  });
+
+  it('un administrador que NO está suplantando escribe como todo el mundo', async () => {
+    const soloAdminId = await crearUsuario('admin-escribe');
+    const appAdminSuelto = await construirApp({
+      silencioso: true,
+      resolverUsuario: async () => soloAdminId,
+      esAdmin: true,
+    });
+    await appAdminSuelto.ready();
+
+    const { estado } = await pedir(appAdminSuelto, 'POST', '/api/v1/accounts', {
+      name: 'Mi propia cuenta',
+      type: 'cash',
+      currency: 'COP',
+    });
+    expect(estado).toBe(201);
+
+    await appAdminSuelto.close();
+  });
+
   it('esa misma persona, en su propia sesión, sí puede escribir', async () => {
     const appPropia = await construirApp({
       silencioso: true,

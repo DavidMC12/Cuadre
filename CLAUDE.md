@@ -189,6 +189,8 @@ Outbox (eventos a tabla en la misma transacción, worker los procesa después).
   escriba (`POST`, `PATCH`, `PUT`, `DELETE`) responde 403 mientras la sesión
   sea suplantada, y el corte está en el borde —por método, no ruta por ruta—
   para que una ruta nueva nazca protegida en vez de acordarse de protegerla.
+  Con precisión: lo que queda cerrado es la API de Cuadre. El proveedor de
+  identidad tiene su propia puerta (`/api/auth/*`), que no pasa por aquí.
   La razón es el libro de movimientos: no se edita, así que un gasto
   registrado por error en la cuenta equivocada queda escrito para siempre.
   Esa clase de error no se evita con cuidado, se evita haciéndolo imposible.

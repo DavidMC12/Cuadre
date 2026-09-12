@@ -163,8 +163,13 @@ async function plugin(app: FastifyInstance, opciones: OpcionesDeUsuario): Promis
     const identidad = await verificarSesion(peticion, respuesta);
     if (!identidad) throw sinAutorizar();
 
-    peticion.usuarioId = await encontrarOCrearUsuario(identidad);
     peticion.suplantada = identidad.suplantadaPor !== null;
+
+    // Antes de `encontrarOCrearUsuario`, que puede insertar una fila: no tiene
+    // sentido escribir en la base por una petición que se va a rechazar igual.
+    exigirSoloLectura(peticion.method, peticion.suplantada);
+
+    peticion.usuarioId = await encontrarOCrearUsuario(identidad);
 
     // La segunda mitad no sobra aunque Neon Auth ya impida suplantar a un
     // administrador: esa garantía vive en la configuración del servidor de
@@ -172,8 +177,6 @@ async function plugin(app: FastifyInstance, opciones: OpcionesDeUsuario): Promis
     // valor por defecto sin que aquí se entere nadie. La regla está escrita en
     // CLAUDE.md como no negociable, así que la hace cumplir esta app.
     peticion.esAdmin = esRolAdmin(identidad.rol) && !peticion.suplantada;
-
-    exigirSoloLectura(peticion.method, peticion.suplantada);
   });
 }
 

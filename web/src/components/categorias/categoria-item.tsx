@@ -21,6 +21,7 @@ import {
   useDesarchivarCategoria,
   useRenombrarCategoria,
 } from "@/hooks/use-categorias";
+import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { Categoria } from "@/lib/api/types";
 
@@ -85,9 +86,7 @@ function RenombrarCategoria({
         <form onSubmit={manejarEnvio} className="flex min-h-0 flex-1 flex-col">
           <DrawerHeader>
             <DrawerTitle>Renombrar categoría</DrawerTitle>
-            <DrawerDescription>
-              El tipo (gasto o ingreso) no se puede cambiar.
-            </DrawerDescription>
+            <DrawerDescription>El tipo (gasto o ingreso) no se puede cambiar.</DrawerDescription>
           </DrawerHeader>
 
           <div className="flex flex-col gap-1.5 px-4 py-4">
@@ -114,6 +113,7 @@ function RenombrarCategoria({
 }
 
 export function CategoriaItem({ categoria }: { categoria: Categoria }) {
+  const soloMirar = useSoloMirar();
   const archivada = categoria.archivedAt !== null;
 
   const archivarCategoria = useArchivarCategoria();
@@ -132,6 +132,17 @@ export function CategoriaItem({ categoria }: { categoria: Categoria }) {
     });
   }
 
+  // Desde la cuenta de otra persona, la categoría se lee y nada más: renombrar
+  // y archivar escriben, y el servidor los rechazaría.
+  if (soloMirar) {
+    return (
+      <div className="flex items-center gap-2 py-2">
+        <span className="min-w-0 flex-1 truncate text-sm">{categoria.name}</span>
+        {archivada && <span className="text-xs text-muted-foreground">Archivada</span>}
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-2 py-2">
       <RenombrarCategoria categoria={categoria}>
@@ -146,7 +157,11 @@ export function CategoriaItem({ categoria }: { categoria: Categoria }) {
         onClick={alternarArchivo}
         disabled={enProceso}
       >
-        {archivada ? <ArchiveRestore data-icon="inline-start" /> : <Archive data-icon="inline-start" />}
+        {archivada ? (
+          <ArchiveRestore data-icon="inline-start" />
+        ) : (
+          <Archive data-icon="inline-start" />
+        )}
         {archivada ? "Restaurar" : "Archivar"}
       </Button>
     </div>
