@@ -1,12 +1,14 @@
 "use client";
 
+import { useTheme } from "next-themes";
+
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCategorias } from "@/hooks/use-categorias";
 import { usePorCategoria } from "@/hooks/use-reportes";
 import type { TipoCategoria } from "@/lib/api/types";
 import { textoMonto } from "@/lib/money";
-import { mapaColoresCategorias, COLOR_NEUTRO } from "@/lib/chart-colors";
+import { mapaColoresCategorias, COLOR_NEUTRO, modoDeTema } from "@/lib/chart-colors";
 import { SIN_CATEGORIA } from "@/lib/labels";
 
 const CAPACIDAD = 7;
@@ -39,6 +41,9 @@ export function GraficaPorCategoria({
   tipo: TipoCategoria;
   onCambiarTipo: (tipo: TipoCategoria) => void;
 }) {
+  const { resolvedTheme } = useTheme();
+  const modo = modoDeTema(resolvedTheme);
+
   // Con archivadas incluidas: un movimiento viejo puede apuntar a una
   // categoría que hoy ya está archivada, y necesita el mismo color de
   // siempre para que no "salte" de un mes a otro.
@@ -53,7 +58,7 @@ export function GraficaPorCategoria({
     .filter((categoria) => categoria.kind === tipo)
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name));
-  const colorPorCategoria = mapaColoresCategorias(catalogoDelTipo);
+  const colorPorCategoria = mapaColoresCategorias(catalogoDelTipo, modo);
 
   const filas = porCategoria ?? [];
   // "Sin categoría" nunca se repliega dentro de "Otros": son cosas distintas
@@ -73,7 +78,7 @@ export function GraficaPorCategoria({
     nombre: fila.categoryName!,
     total: fila.total,
     valorNumerico: Number(fila.total),
-    color: colorPorCategoria.get(fila.categoryId!) ?? COLOR_NEUTRO.claro,
+    color: colorPorCategoria.get(fila.categoryId!) ?? COLOR_NEUTRO[modo],
   }));
 
   if (filaSinCategoria) {
@@ -82,7 +87,7 @@ export function GraficaPorCategoria({
       nombre: SIN_CATEGORIA,
       total: filaSinCategoria.total,
       valorNumerico: Number(filaSinCategoria.total),
-      color: COLOR_NEUTRO.claro,
+      color: COLOR_NEUTRO[modo],
     });
   }
 
@@ -98,7 +103,7 @@ export function GraficaPorCategoria({
       nombre: "Otras categorías",
       total: String(totalResto),
       valorNumerico: totalResto,
-      color: COLOR_NEUTRO.claro,
+      color: COLOR_NEUTRO[modo],
     });
   }
 

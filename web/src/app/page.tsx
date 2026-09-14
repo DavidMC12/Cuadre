@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Wallet } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { EmptyState } from "@/components/empty-state";
 import { SelectorMes } from "@/components/dashboard/selector-mes";
 import { ResumenCards } from "@/components/dashboard/resumen-cards";
@@ -29,6 +30,7 @@ export default function PaginaResumen() {
   const [mes, setMes] = useState(mesActual);
   const [monedaElegida, setMonedaElegida] = useState<string | undefined>(undefined);
   const [tipoCategoria, setTipoCategoria] = useState<TipoCategoria>("expense");
+  const [mesesTendencia, setMesesTendencia] = useState<6 | 12>(6);
 
   // Quien eligió abrir en otra pantalla se va de aquí antes de que esto pinte.
   const yendoseAOtraPantalla = useIrAPantallaDeInicio();
@@ -43,7 +45,7 @@ export default function PaginaResumen() {
     currency: moneda ?? "",
   });
   const { data: tendencia, isLoading: cargandoTendencia } = useTendencia({
-    months: 6,
+    months: mesesTendencia,
     currency: moneda ?? "",
   });
 
@@ -117,7 +119,20 @@ export default function PaginaResumen() {
 
         <Card className="min-w-0">
           <CardHeader>
-            <CardTitle>Tendencia (6 meses)</CardTitle>
+            <CardTitle>Tendencia ({mesesTendencia} meses)</CardTitle>
+            <CardAction>
+              <ToggleGroup
+                value={[String(mesesTendencia)]}
+                onValueChange={(valores) => {
+                  if (valores.length > 0) setMesesTendencia(Number(valores[0]) as 6 | 12);
+                }}
+                variant="outline"
+                size="sm"
+              >
+                <ToggleGroupItem value="6">6 meses</ToggleGroupItem>
+                <ToggleGroupItem value="12">12 meses</ToggleGroupItem>
+              </ToggleGroup>
+            </CardAction>
           </CardHeader>
           <CardContent>
             <GraficaTendencia
