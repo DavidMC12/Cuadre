@@ -11,7 +11,7 @@ colors:
   focus-gray: 'oklch(0.5 0 0)'
   money-in: '#059669'
   money-out: 'oklch(0.145 0 0)'
-  destructive: 'oklch(0.577 0.245 27.325)'
+  destructive: 'oklch(0.52 0.245 27.325)'
   uncategorized-gray: '#898781'
 typography:
   headline:
@@ -147,13 +147,13 @@ Los grupos siguen Primary/Secondary/Tertiary/Neutral, y a propósito se agregan 
 - **Niebla** (`oklch(0.97 0 0)`, token `mist`): fondo de lo seleccionado o en hover (opciones de alternar, menú activo, botones fantasma).
 - **Grafito Suave** (`oklch(0.556 0 0)`, token `graphite`): texto secundario, etiquetas de sección, ayudas bajo un ajuste y fechas.
 - **Hilo** (`oklch(0.922 0 0)`, token `hairline`): bordes de campos y divisiones entre filas de una lista.
-- **Gris de Foco** (`oklch(0.5 0 0)`, token `focus-gray`): el anillo de foco del teclado. Se oscureció desde el `oklch(0.708 0 0)` original del tema de shadcn: medido con la fórmula de contraste de WCAG, el original al 50% de opacidad sobre blanco (así lo usan los controles) daba **1,54:1**; este valor sube a **2,14:1**, una mejora real pero que **todavía no alcanza el mínimo de 3:1** recomendado para indicadores de foco. Cerrarlo del todo pide subir también la opacidad con la que los controles usan este color (`ring-*/50` → algo más alto), un cambio que toca muchos componentes a la vez y por eso queda para una pasada de `$impeccable audit`, no para este ajuste puntual.
+- **Gris de Foco** (`oklch(0.5 0 0)`, token `focus-gray`): el anillo de foco del teclado. Se oscureció desde el `oklch(0.708 0 0)` original del tema de shadcn, lo que ya daba 2,14:1 sobre blanco — pero los controles (botón, campo, select, toggle, badge y el `outline` base) usaban ese color a mitad de opacidad (`ring-*/50`), lo que en la práctica bajaba el contraste real a **1,87:1–2,14:1** según el tema: por debajo del mínimo de 3:1 para indicadores de foco. Se cerró subiendo esa opacidad de uso a `ring-*/85` en los seis lugares donde se aplicaba, sin tocar el color en sí: **4,26:1 en modo claro, 3,31:1 en oscuro**, medido con la fórmula de contraste de WCAG.
 
 ### Semantic: money
 
 - **Verde Entrada** (`#059669`, token `money-in`; `#34d399` en oscuro): montos positivos y la barra de ingresos en la tendencia.
 - **Tinta de Salida** (`oklch(0.145 0 0)`, token `money-out`; el mismo `ink`/`foreground` del texto normal, también en oscuro): montos negativos y la barra de gastos. Un gasto se lee, no alarma.
-- **Rojo** (`oklch(0.577 0.245 27.325)`, token `destructive`; `oklch(0.704 0.191 22.216)` en oscuro): reservado para errores, "Cerrar sesión" y el aviso de suplantación — lo que de verdad es una alarma o no se puede deshacer. Ya no se usa para un gasto normal.
+- **Rojo** (`oklch(0.52 0.245 27.325)`, token `destructive`; `oklch(0.704 0.191 22.216)` en oscuro): reservado para errores, "Cerrar sesión" y el aviso de suplantación — lo que de verdad es una alarma o no se puede deshacer. Ya no se usa para un gasto normal. El tono claro se oscureció desde `oklch(0.577 0.245 27.325)`: como texto sobre su propio fondo tenue (p. ej. "Sí, anular" con `bg-destructive/10`) llegaba solo a 3,99:1, bajo el mínimo de 4,5:1 para texto — y ni con cero fondo pasaba de 4,76:1, así que ajustar la opacidad del tinte no alcanzaba. Con el tono más oscuro da 4,68:1 en claro y 5,46:1 en oscuro (donde además se simplificó el botón destructivo para usar el mismo tinte en ambos temas).
 - **Gris Sin Categoría** (`#898781`, token `uncategorized-gray`): el balde "Sin categoría" en las gráficas.
 
 ### Categorical (charts)
