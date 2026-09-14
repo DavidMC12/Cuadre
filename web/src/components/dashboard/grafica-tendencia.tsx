@@ -6,6 +6,7 @@ import {
   BarChart,
   CartesianGrid,
   Legend,
+  ReferenceDot,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -81,6 +82,16 @@ export function GraficaTendencia({
     (fila) => fila.ingresoNumerico === 0 && fila.gastoNumerico === 0
   );
 
+  // Con 12 meses las etiquetas no caben de frente en un celular: se inclinan
+  // para que se vean todas. Con 6 caben horizontales.
+  const etiquetasInclinadas = datos.length > 6;
+  // Un mes sin movimientos no tiene barra (valdría cero, no se dibuja), y sin
+  // nada que lo marque parecía que el mes no existía. Un punto neutro en la
+  // línea de cero lo deja ver sin inventar un monto.
+  const mesesVacios = datos.filter(
+    (fila) => fila.ingresoNumerico === 0 && fila.gastoNumerico === 0
+  );
+
   if (datos.length === 0 || sinMovimientos) {
     return (
       <p className="py-6 text-center text-sm text-muted-foreground">
@@ -97,10 +108,13 @@ export function GraficaTendencia({
           dataKey="etiqueta"
           tickLine={false}
           axisLine={false}
+          // `0` muestra todas las etiquetas; el encogido lo resuelve la
+          // inclinación de arriba, no escondiendo meses.
+          interval={0}
           tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
-          // Con 12 meses en un celular no caben todas las etiquetas: se salta
-          // las de en medio, pero nunca la primera ni la última.
-          interval="preserveStartEnd"
+          angle={etiquetasInclinadas ? -45 : 0}
+          textAnchor={etiquetasInclinadas ? "end" : "middle"}
+          height={etiquetasInclinadas ? 48 : 30}
         />
         <YAxis hide />
         <Tooltip
@@ -145,6 +159,17 @@ export function GraficaTendencia({
           radius={[4, 4, 0, 0]}
           maxBarSize={20}
         />
+        {mesesVacios.map((fila) => (
+          <ReferenceDot
+            key={fila.mes}
+            x={fila.etiqueta}
+            y={0}
+            r={3}
+            fill="var(--muted-foreground)"
+            stroke="none"
+            ifOverflow="visible"
+          />
+        ))}
       </BarChart>
     </ResponsiveContainer>
   );
