@@ -97,32 +97,37 @@ export default function PaginaResumen() {
 
       <ResumenCards resumen={resumen} moneda={moneda ?? ""} cargando={cargandoResumen} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Por categoría</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <GraficaPorCategoria
-            mes={mes}
-            moneda={moneda ?? ""}
-            tipo={tipoCategoria}
-            onCambiarTipo={setTipoCategoria}
-          />
-        </CardContent>
-      </Card>
+      {/* Desde `lg` van lado a lado: apiladas dejaban media pantalla vacía
+          en escritorio. `min-w-0` para que la gráfica de tendencia pueda
+          encogerse hasta el ancho de su columna en vez de desbordarla. */}
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card className="min-w-0">
+          <CardHeader>
+            <CardTitle>Por categoría</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <GraficaPorCategoria
+              mes={mes}
+              moneda={moneda ?? ""}
+              tipo={tipoCategoria}
+              onCambiarTipo={setTipoCategoria}
+            />
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Tendencia (6 meses)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <GraficaTendencia
-            tendencia={tendencia}
-            moneda={moneda ?? ""}
-            cargando={cargandoTendencia}
-          />
-        </CardContent>
-      </Card>
+        <Card className="min-w-0">
+          <CardHeader>
+            <CardTitle>Tendencia (6 meses)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <GraficaTendencia
+              tendencia={tendencia}
+              moneda={moneda ?? ""}
+              cargando={cargandoTendencia}
+            />
+          </CardContent>
+        </Card>
+      </div>
 
       <Link
         href="/categorias"
