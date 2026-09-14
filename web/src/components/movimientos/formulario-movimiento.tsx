@@ -39,7 +39,7 @@ import { ApiError } from "@/lib/api/client";
 import type { Cuenta } from "@/lib/api/types";
 import { fechaParaInput, inputAIso } from "@/lib/fecha";
 import { cn } from "@/lib/utils";
-import { normalizarMontoIngresado } from "@/lib/money";
+import { normalizarMontoIngresado, textoMonto } from "@/lib/money";
 
 type TipoMonto = "gasto" | "ingreso";
 
@@ -112,6 +112,7 @@ export function FormularioMovimiento({
     cuentaElegidaAMano && cuentas.some((cuenta) => cuenta.id === cuentaElegidaAMano)
       ? cuentaElegidaAMano
       : cuentaPorDefecto(cuentaIdPorDefecto, cuentas);
+  const cuentaElegida = cuentas.find((cuenta) => cuenta.id === cuentaId);
 
   const crearMovimiento = useCrearMovimiento();
   const hayCuentas = cuentas.length > 0;
@@ -131,17 +132,18 @@ export function FormularioMovimiento({
     evento.preventDefault();
 
     const nuevosErrores: typeof errores = {};
-    if (!cuentaId) nuevosErrores.cuenta = "Elige una cuenta.";
+    if (!cuentaElegida) nuevosErrores.cuenta = "Elige una cuenta.";
 
-    const montoNormalizado = normalizarMontoIngresado(monto);
-    if (montoNormalizado === null) {
-      nuevosErrores.monto = "Escribe solo números, con hasta 4 decimales.";
-    }
+    // Cómo se lee lo escrito depende de la moneda de la cuenta: en pesos
+    // "25.000" son veinticinco mil. Sin cuenta no hay moneda con qué leerlo, y
+    // el error de arriba ya dice qué falta.
+    const lectura = cuentaElegida ? normalizarMontoIngresado(monto, cuentaElegida.currency) : null;
+    if (lectura && "error" in lectura) nuevosErrores.monto = lectura.error;
 
     setErrores(nuevosErrores);
-    if (Object.keys(nuevosErrores).length > 0 || montoNormalizado === null) return;
+    if (!cuentaElegida || !lectura || "error" in lectura) return;
 
-    const montoConSigno = tipoMonto === "gasto" ? `-${montoNormalizado}` : montoNormalizado;
+    const montoConSigno = tipoMonto === "gasto" ? `-${lectura.monto}` : lectura.monto;
 
     crearMovimiento.mutate(
       {
@@ -152,9 +154,14 @@ export function FormularioMovimiento({
         categoryId,
       },
       {
-        onSuccess: () => {
+        onSuccess: ({ data: guardado }) => {
           recordarCuenta(cuentaId);
-          toast.success("Movimiento registrado.");
+          // El aviso repite lo que respondió el servidor, no lo que se escribió:
+          // así se confirma de un vistazo el monto que de verdad quedó en el
+          // libro, que después ya no se puede editar.
+          const tipo = guardado.amount.startsWith("-") ? "Gasto" : "Ingreso";
+          const cifra = textoMonto(guardado.amount.replace(/^-/, ""), guardado.currency);
+          toast.success(`${tipo} de ${cifra} registrado en ${cuentaElegida.name}.`);
           setAbierto(false);
           reiniciar();
         },
@@ -229,7 +236,7 @@ export function FormularioMovimiento({
             Monto
           </Label>
           <span aria-hidden className="text-xs text-muted-foreground">
-            {cuentas.find((cuenta) => cuenta.id === cuentaId)?.currency ?? ""}
+            {cuentaElegida?.currency ?? ""}
           </span>
           <div
             className={cn(
