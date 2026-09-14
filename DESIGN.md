@@ -130,6 +130,8 @@ Pensado primero para el celular, en escritorio se abre un menú lateral y el con
 
 Una paleta casi monocromática donde los únicos colores con saturación cuentan plata.
 
+Los grupos siguen Primary/Secondary/Tertiary/Neutral, y a propósito se agregan dos más: "Semantic: money" y "Categorical (charts)" no encajan en esos cuatro roles y merecían su propio espacio en vez de forzarlos dentro de Neutral. Los valores en `oklch` son variables CSS reales de `globals.css`; los que están en hex vienen de clases de Tailwind o de constantes en TypeScript (`chart-colors.ts`, `monto.tsx`) que nunca pasaron por una variable CSS. La mezcla no es un descuido: es de dónde sale cada uno.
+
 ### Primary
 - **Tinta Grafito** (`oklch(0.205 0 0)`, token `ink-strong`): relleno del botón principal y de las insignias. No es un color de marca; es el negro casi puro del tema neutral.
 
@@ -163,7 +165,7 @@ Paleta fija de 8 tonos para categorías, validada para que tonos vecinos se dist
 
 ### Hierarchy
 - **Headline** (600, 1.25rem): el título de cada pantalla ("Resumen", "Movimientos").
-- **Title** (500, 1rem): títulos de tarjeta y del menú lateral.
+- **Title** (500, 1rem): títulos de tarjeta.
 - **Body** (400, 0.875rem): casi todo el texto, incluidas las filas de las listas y los botones (500).
 - **Label** (500, 0.75rem, letter-spacing 0.025em, MAYÚSCULAS): encabezados de sección ("TU CUENTA", "GASTOS", "HOY").
 - **Figure** (400, 1rem, tabular): montos en listas y tarjetas pequeñas; los decimales van al 85% de tamaño y con menos opacidad.
@@ -222,7 +224,7 @@ Las secciones de Ajustes usan un contenedor con borde y filas divididas por hilo
 
 ### Navigation
 - **Mobile:** barra inferior fija de 64px con cuatro pestañas iguales (icono de 20px sobre etiqueta de 12px). La activa usa texto Tinta e icono con trazo más grueso; las demás van en Grafito Suave.
-- **Desktop:** barra lateral con el nombre "Cuadre" arriba y las mismas cuatro entradas en fila (icono de 18px más etiqueta de 14px). La activa lleva fondo Niebla y esquinas de 10px. "Ajustes" también se marca en Categorías y en Administración.
+- **Desktop:** barra lateral con el nombre "Cuadre" arriba (18px, 600 — un tamaño propio, entre Headline y Title, que no comparte con ningún otro texto de la app) y las mismas cuatro entradas en fila, con etiqueta en Body (14px, 500) e icono de 18px. La activa lleva fondo Niebla y esquinas de 10px. "Ajustes" también se marca en Categorías y en Administración.
 
 ### Monto (signature)
 El componente que más define la app. Muestra la cifra completa en Geist Mono tabular, con signo explícito (+ o −) y símbolo de moneda. Va en Verde Entrada si es positiva y en Rojo Salida si es negativa. Los decimales se ven más pequeños y tenues para que el entero mande, y en los saldos puede mostrar solo el signo negativo.

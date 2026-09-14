@@ -53,7 +53,7 @@ Cuadre no confía en que el usuario (ni el código) no se equivoque: la exactitu
 
 ## Evidence on Hand
 
-- Datos reales: los del dueño en producción; cuentas de prueba (`maria.prueba@ejemplo.com` con cuenta, movimientos y categorías) para ver pantallas pobladas.
+- Datos reales: los del dueño en producción. Además, creadas a mano en producción (no viven en ningún script de seed del repositorio) para ver pantallas pobladas durante este trabajo de diseño: la cuenta `maria.prueba@ejemplo.com`, con una cuenta bancaria, movimientos y categorías.
 - Iconos de la PWA generados en código: `web/src/app/icon.tsx`, `web/src/app/apple-icon.tsx`, `web/src/app/manifest.ts`.
 - No hay logo diseñado, testimonios, clientes, capturas de prensa ni cifras de uso. No inventarlos.
 
