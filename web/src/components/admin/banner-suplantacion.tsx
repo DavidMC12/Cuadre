@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useDejarDeSuplantar } from "@/hooks/use-admin";
 import { usePerfil } from "@/hooks/use-perfil";
+import { ANCHO_CONTENIDO } from "@/lib/layout";
+import { cn } from "@/lib/utils";
 
 /**
  * Aviso permanente de que lo que se ve en pantalla es la cuenta de otra
@@ -43,7 +45,12 @@ export function BannerSuplantacion() {
 
   return (
     <div className="sticky top-0 z-50 bg-destructive text-white">
-      <div className="mx-auto flex w-full max-w-md items-center justify-between gap-2 px-4 py-2">
+      <div
+        className={cn(
+          "mx-auto flex w-full items-center justify-between gap-2 px-4 py-2 md:px-8",
+          ANCHO_CONTENIDO
+        )}
+      >
         <span className="flex min-w-0 items-center gap-2 text-xs font-medium">
           <Eye className="size-4 shrink-0" />
           {/* "Mirando" y no "viendo": desde aquí no se puede cambiar nada, y

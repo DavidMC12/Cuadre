@@ -12,38 +12,38 @@ export function ResumenCards({
   moneda: string;
   cargando: boolean;
 }) {
+  // En el celular: ingresos y gastos lado a lado, y el balance debajo a lo
+  // ancho. Desde `md` los tres caben en una fila.
   if (cargando) {
     return (
-      <div className="flex flex-col gap-2">
-        <div className="grid grid-cols-2 gap-2">
-          <Skeleton className="h-16 rounded-xl" />
-          <Skeleton className="h-16 rounded-xl" />
-        </div>
-        <Skeleton className="h-20 rounded-xl" />
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
+        <Skeleton className="h-16 rounded-xl" />
+        <Skeleton className="h-16 rounded-xl" />
+        <Skeleton className="col-span-2 h-20 rounded-xl lg:col-span-1 lg:h-16" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="grid grid-cols-2 gap-2">
-        <Card size="sm">
-          <CardContent className="flex flex-col gap-0.5">
-            <span className="text-xs text-muted-foreground">Ingresos</span>
-            {/* Con signo "+" a propósito: se ve igual que un ingreso en la lista de movimientos. */}
-            <Monto valor={resumen?.income ?? "0"} moneda={moneda} className="text-base" />
-          </CardContent>
-        </Card>
-        <Card size="sm">
-          <CardContent className="flex flex-col gap-0.5">
-            <span className="text-xs text-muted-foreground">Gastos</span>
-            {/* `expense` llega positivo del backend; se antepone el signo para que
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
+      <Card size="sm">
+        <CardContent className="flex flex-col gap-0.5">
+          <span className="text-xs text-muted-foreground">Ingresos</span>
+          {/* Con signo "+" a propósito: se ve igual que un ingreso en la lista de movimientos. */}
+          <Monto valor={resumen?.income ?? "0"} moneda={moneda} className="text-base" />
+        </CardContent>
+      </Card>
+      <Card size="sm">
+        <CardContent className="flex flex-col gap-0.5">
+          <span className="text-xs text-muted-foreground">Gastos</span>
+          {/* `expense` llega positivo del backend; se antepone el signo para que
                 se vea igual que un gasto en la lista de movimientos. */}
-            <Monto valor={`-${resumen?.expense ?? "0"}`} moneda={moneda} className="text-base" />
-          </CardContent>
-        </Card>
-      </div>
-      <Card>
+          <Monto valor={`-${resumen?.expense ?? "0"}`} moneda={moneda} className="text-base" />
+        </CardContent>
+      </Card>
+      {/* Tres en fila solo desde `lg`: en tablet cada tarjeta quedaría de ~130px
+          y un balance de millones se cortaría sin avisar. */}
+      <Card className="col-span-2 lg:col-span-1">
         <CardContent className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground">Balance del mes</span>
           <Monto valor={resumen?.net ?? "0"} moneda={moneda} className="text-2xl" />

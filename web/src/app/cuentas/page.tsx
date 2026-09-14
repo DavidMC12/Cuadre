@@ -25,7 +25,7 @@ export default function PaginaCuentas() {
       </div>
 
       {isLoading && (
-        <div className="flex flex-col gap-2">
+        <div className="grid gap-2 lg:grid-cols-2">
           <Skeleton className="h-16 w-full rounded-xl" />
           <Skeleton className="h-16 w-full rounded-xl" />
           <Skeleton className="h-16 w-full rounded-xl" />
@@ -48,7 +48,7 @@ export default function PaginaCuentas() {
       )}
 
       {!isLoading && cuentas && cuentas.length > 0 && (
-        <div className="flex flex-col gap-2">
+        <div className="grid gap-2 lg:grid-cols-2">
           {cuentas.map((cuenta) => (
             <CuentaCard key={cuenta.id} cuenta={cuenta} />
           ))}

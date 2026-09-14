@@ -17,7 +17,9 @@ export default function PaginaCategorias() {
 
   // `includeArchived=true` trae activas y archivadas juntas; para esta vista
   // solo interesan las archivadas, así que se filtra en el cliente.
-  const categorias = verArchivadas ? (data ?? []).filter((c) => c.archivedAt !== null) : data ?? [];
+  const categorias = verArchivadas
+    ? (data ?? []).filter((c) => c.archivedAt !== null)
+    : (data ?? []);
 
   const gastos = categorias.filter((categoria) => categoria.kind === "expense");
   const ingresos = categorias.filter((categoria) => categoria.kind === "income");
@@ -68,7 +70,7 @@ export default function PaginaCategorias() {
       )}
 
       {!isLoading && hayCategorias && (
-        <div className="flex flex-col gap-5">
+        <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-2 md:gap-8">
           {gastos.length > 0 && (
             <section className="flex flex-col gap-1">
               <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
