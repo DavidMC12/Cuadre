@@ -1,5 +1,6 @@
 "use client";
 
+import { useTheme } from "next-themes";
 import {
   Bar,
   BarChart,
@@ -15,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { TendenciaMes } from "@/lib/api/types";
 import { etiquetaMesCorta } from "@/lib/fecha";
 import { textoMonto } from "@/lib/money";
-import { COLOR_GASTO, COLOR_INGRESO } from "@/lib/chart-colors";
+import { COLOR_GASTO, COLOR_INGRESO, modoDeTema, type ModoColor } from "@/lib/chart-colors";
 
 interface FilaTendencia {
   mes: string;
@@ -32,19 +33,21 @@ function TooltipTendencia({
   payload,
   label,
   moneda,
+  modo,
 }: {
   active?: boolean;
   payload?: { payload: FilaTendencia }[];
   label?: string;
   moneda: string;
+  modo: ModoColor;
 }) {
   if (!active || !payload || payload.length === 0) return null;
   const fila = payload[0].payload;
   return (
     <div className="flex flex-col gap-1 rounded-lg bg-popover px-2.5 py-1.5 text-xs text-popover-foreground ring-1 ring-foreground/10">
       <p className="font-medium">{label}</p>
-      <p style={{ color: COLOR_INGRESO.claro }}>Ingresos: {textoMonto(fila.ingreso, moneda)}</p>
-      <p style={{ color: COLOR_GASTO.claro }}>Gastos: {textoMonto(fila.gasto, moneda)}</p>
+      <p style={{ color: COLOR_INGRESO[modo] }}>Ingresos: {textoMonto(fila.ingreso, moneda)}</p>
+      <p style={{ color: COLOR_GASTO[modo] }}>Gastos: {textoMonto(fila.gasto, moneda)}</p>
     </div>
   );
 }
@@ -58,6 +61,9 @@ export function GraficaTendencia({
   moneda: string;
   cargando: boolean;
 }) {
+  const { resolvedTheme } = useTheme();
+  const modo = modoDeTema(resolvedTheme);
+
   if (cargando) {
     return <Skeleton className="h-48 w-full rounded-lg" />;
   }
@@ -97,7 +103,10 @@ export function GraficaTendencia({
           interval="preserveStartEnd"
         />
         <YAxis hide />
-        <Tooltip content={<TooltipTendencia moneda={moneda} />} cursor={{ fill: "var(--muted)" }} />
+        <Tooltip
+          content={<TooltipTendencia moneda={moneda} modo={modo} />}
+          cursor={{ fill: "var(--muted)" }}
+        />
         {/* Leyenda propia: el orden que arma Recharts a partir de los <Bar>
             no siempre respeta el orden en el que se declaran. */}
         <Legend
@@ -108,14 +117,14 @@ export function GraficaTendencia({
               <span className="flex items-center gap-1.5">
                 <span
                   className="inline-block size-2 rounded-full"
-                  style={{ backgroundColor: COLOR_INGRESO.claro }}
+                  style={{ backgroundColor: COLOR_INGRESO[modo] }}
                 />
                 Ingresos
               </span>
               <span className="flex items-center gap-1.5">
                 <span
                   className="inline-block size-2 rounded-full"
-                  style={{ backgroundColor: COLOR_GASTO.claro }}
+                  style={{ backgroundColor: COLOR_GASTO[modo] }}
                 />
                 Gastos
               </span>
@@ -125,14 +134,14 @@ export function GraficaTendencia({
         <Bar
           dataKey="ingresoNumerico"
           name="Ingresos"
-          fill={COLOR_INGRESO.claro}
+          fill={COLOR_INGRESO[modo]}
           radius={[4, 4, 0, 0]}
           maxBarSize={20}
         />
         <Bar
           dataKey="gastoNumerico"
           name="Gastos"
-          fill={COLOR_GASTO.claro}
+          fill={COLOR_GASTO[modo]}
           radius={[4, 4, 0, 0]}
           maxBarSize={20}
         />
