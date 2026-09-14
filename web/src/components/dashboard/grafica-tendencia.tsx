@@ -115,6 +115,10 @@ export function GraficaTendencia({
           angle={etiquetasInclinadas ? -45 : 0}
           textAnchor={etiquetasInclinadas ? "end" : "middle"}
           height={etiquetasInclinadas ? 48 : 30}
+          // Con las etiquetas inclinadas y ancladas al final, la primera se
+          // estira hacia la izquierda y se saldría del SVG (Recharts ya no
+          // empuja los bordes con `interval={0}`). Este hueco la deja adentro.
+          padding={etiquetasInclinadas ? { left: 16 } : undefined}
         />
         <YAxis hide />
         <Tooltip
