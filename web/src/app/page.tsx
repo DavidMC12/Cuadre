@@ -119,7 +119,7 @@ export default function PaginaResumen() {
 
         <Card className="min-w-0">
           <CardHeader>
-            <CardTitle>Tendencia ({mesesTendencia} meses)</CardTitle>
+            <CardTitle>Tendencia</CardTitle>
             <CardAction>
               <ToggleGroup
                 value={[String(mesesTendencia)]}
