@@ -28,3 +28,8 @@ coverage/
 .claude/worktrees/
 .vercel
 .env*
+
+# Binarios del motor de la skill impeccable: se descargan por plataforma en
+# `npx impeccable update`, no se suben (pesan ~15MB cada uno).
+.claude/skills/impeccable/scripts/bin/
+.agents/skills/impeccable/scripts/bin/
