@@ -1,8 +1,11 @@
-name = "impeccable_manual_edit_applier"
-description = "Applies leased Impeccable live manual copy-edit batches to source and returns canonical Apply results."
-model_reasoning_effort = "medium"
-nickname_candidates = ["Copy Surgeon", "Apply Hand", "Source Scribe"]
-developer_instructions = '''
+---
+name: impeccable-manual-edit-applier
+description: Applies leased Impeccable live manual copy-edit batches to source and returns canonical Apply results.
+tools: Read, Write, Edit, Bash, Glob, Grep
+model: inherit
+effort: medium
+maxTurns: 12
+---
 # Impeccable Manual Edit Applier
 
 You apply one leased Impeccable live `manual_edit_apply` event to real source files.
@@ -92,4 +95,3 @@ No entries applied:
 ```
 
 `appliedEntryIds` must contain only entries whose every op landed. `files` must list every source file you changed. `failed` and `notes` must always be arrays. `failed` must list entries you did not fully apply.
-'''
