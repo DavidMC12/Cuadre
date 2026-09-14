@@ -69,11 +69,13 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
 
     let saldoNormalizado: string | undefined;
     if (saldoInicial.trim() !== "") {
-      const normalizado = normalizarMontoConSigno(saldoInicial);
-      if (normalizado === null) {
-        nuevosErrores.saldoInicial = "Escribe solo números, con hasta 4 decimales.";
+      // Se lee con la moneda marcada ahora mismo: "2.000.000" en pesos son dos
+      // millones, y en dólares el punto también es de miles.
+      const lectura = normalizarMontoConSigno(saldoInicial, monedaElegida);
+      if ("error" in lectura) {
+        nuevosErrores.saldoInicial = lectura.error;
       } else {
-        saldoNormalizado = normalizado;
+        saldoNormalizado = lectura.monto;
       }
     }
 

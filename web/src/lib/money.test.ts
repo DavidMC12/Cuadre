@@ -9,6 +9,7 @@ import {
   decimalesDe,
   esCero,
   formatearMonto,
+  normalizarMontoConSigno,
   normalizarMontoIngresado,
   sumarMontos,
 } from "./money";
@@ -64,11 +65,12 @@ describe("no se toca el dinero con coma flotante", () => {
     expect(mostrar("999999999999999.9999", "USD")).toBe("999.999.999.999.999,99");
   });
 
-  it("lee lo que la persona escribe con coma o con punto", () => {
-    expect(normalizarMontoIngresado("1250,75")).toBe("1250.75");
-    expect(normalizarMontoIngresado("1250.75")).toBe("1250.75");
-    expect(normalizarMontoIngresado("no es un monto")).toBeNull();
-    expect(normalizarMontoIngresado("-100")).toBeNull(); // el signo lo pone la app
+  it("lee los centavos de un monto en dólares con coma, o con un punto que no puede ser de miles", () => {
+    expect(normalizarMontoIngresado("1250,75", "USD")).toEqual({ monto: "1250.75" });
+    expect(normalizarMontoIngresado("1250.75", "USD")).toEqual({ monto: "1250.75" });
+    expect(normalizarMontoIngresado("no es un monto", "USD")).toHaveProperty("error");
+    // El signo lo pone la app, según sea gasto o ingreso.
+    expect(normalizarMontoIngresado("-100", "USD")).toHaveProperty("error");
   });
 
   it("suma sin perder centavos aunque sean muchos montos", () => {
@@ -79,6 +81,128 @@ describe("no se toca el dinero con coma flotante", () => {
 
   it("suma montos grandes sin que Number los redondee primero", () => {
     expect(sumarMontos(["999999999999999.9999", "0.0001"])).toBe("1000000000000000.0000");
+  });
+});
+
+/**
+ * "25.000" se guardaba como veinticinco pesos: el campo tomaba el punto como
+ * decimal, justo al revés de como la app muestra ese mismo monto. Y un
+ * movimiento no se edita, así que el error quedaba escrito para siempre.
+ */
+describe("lo que la persona escribe se lee como se escribe en Colombia", () => {
+  const monto = (texto: string, moneda: string) => normalizarMontoIngresado(texto, moneda);
+
+  describe("en pesos, punto y coma son de miles", () => {
+    it("25.000 son veinticinco mil, no veinticinco", () => {
+      expect(monto("25.000", "COP")).toEqual({ monto: "25000" });
+      expect(monto("25000", "COP")).toEqual({ monto: "25000" });
+    });
+
+    it("acepta varios grupos de miles", () => {
+      expect(monto("1.500.000", "COP")).toEqual({ monto: "1500000" });
+      expect(monto("1.234.567.890", "COP")).toEqual({ monto: "1234567890" });
+    });
+
+    it("acepta la coma como separador de miles, para teclados que solo la traen", () => {
+      expect(monto("25,000", "COP")).toEqual({ monto: "25000" });
+      expect(monto("1,500,000", "COP")).toEqual({ monto: "1500000" });
+    });
+
+    it("ignora los espacios alrededor", () => {
+      expect(monto("  25.000 ", "COP")).toEqual({ monto: "25000" });
+    });
+
+    it("rechaza decimales con un mensaje que dice por qué", () => {
+      const sinDecimales = {
+        error: "Los pesos no llevan decimales: escribe el monto completo, por ejemplo 25.000.",
+      };
+      expect(monto("25,50", "COP")).toEqual(sinDecimales);
+      expect(monto("25.5", "COP")).toEqual(sinDecimales);
+      expect(monto("1.500,00", "COP")).toEqual(sinDecimales);
+      expect(monto("1.500,000", "COP")).toEqual(sinDecimales);
+    });
+
+    it("rechaza grupos de miles mal armados en vez de adivinar", () => {
+      expect(monto("2.50.000", "COP")).toHaveProperty("error");
+      expect(monto("25.0000", "COP")).toHaveProperty("error");
+      expect(monto("0.500", "COP")).toHaveProperty("error");
+      expect(monto("25..000", "COP")).toHaveProperty("error");
+    });
+  });
+
+  describe("en dólares, punto de miles y coma decimal", () => {
+    it("1.500,50 son mil quinientos dólares con cincuenta centavos", () => {
+      expect(monto("1.500,50", "USD")).toEqual({ monto: "1500.50" });
+      expect(monto("1500,5", "USD")).toEqual({ monto: "1500.5" });
+      expect(monto("0,99", "USD")).toEqual({ monto: "0.99" });
+    });
+
+    it("un punto seguido de tres dígitos es de miles", () => {
+      expect(monto("1.500", "USD")).toEqual({ monto: "1500" });
+      expect(monto("2.000.000", "USD")).toEqual({ monto: "2000000" });
+    });
+
+    it("un punto seguido de uno o dos dígitos solo puede ser decimal", () => {
+      expect(monto("1500.50", "USD")).toEqual({ monto: "1500.50" });
+      expect(monto("2.5", "USD")).toEqual({ monto: "2.5" });
+    });
+
+    it("rechaza más centavos de los que tiene la moneda", () => {
+      const maximo = { error: "Los dólares llevan máximo 2 decimales, por ejemplo 1.500,50." };
+      expect(monto("10,555", "USD")).toEqual(maximo);
+      // Con la costumbre de Estados Unidos esto serían mil quinientos; aquí la
+      // coma es decimal, así que no se adivina y el ejemplo muestra cómo va.
+      expect(monto("1,500", "USD")).toEqual(maximo);
+    });
+
+    it("rechaza separadores que no encajan en ninguna de las dos costumbres", () => {
+      const malEscrito = {
+        error: "Usa punto para los miles y coma para los centavos, por ejemplo 1.500,50.",
+      };
+      expect(monto("1,500,000", "USD")).toEqual(malEscrito);
+      expect(monto("1500.505", "USD")).toEqual(malEscrito);
+      expect(monto("1.50.0", "USD")).toEqual(malEscrito);
+      expect(monto(",50", "USD")).toEqual(malEscrito);
+      expect(monto("1500,", "USD")).toEqual(malEscrito);
+    });
+  });
+
+  it("nombra en genérico una moneda que las pantallas no ofrecen", () => {
+    expect(monto("100,5", "JPY")).toEqual({
+      error: "Esta moneda no lleva decimales: escribe el monto completo, por ejemplo 25.000.",
+    });
+  });
+
+  it("explica lo que falta cuando no hay monto o no es un número", () => {
+    expect(monto("", "COP")).toEqual({ error: "Escribe el monto." });
+    expect(monto("   ", "COP")).toEqual({ error: "Escribe el monto." });
+    expect(monto("$25.000", "COP")).toEqual({
+      error: "Escribe solo números, por ejemplo 25.000.",
+    });
+    expect(monto("veinte", "USD")).toEqual({
+      error: "Escribe solo números, por ejemplo 1.500,50.",
+    });
+    expect(monto(".", "COP")).toHaveProperty("error");
+  });
+
+  it("en un campo sin signo, el menos se rechaza en vez de ignorarse", () => {
+    expect(monto("-25.000", "COP")).toEqual({
+      error: "Escribe el monto sin signo; si es un gasto, elige Gasto.",
+    });
+  });
+
+  describe("con signo, como el saldo inicial de una tarjeta en deuda", () => {
+    it("aplica las mismas reglas y conserva el menos", () => {
+      expect(normalizarMontoConSigno("-1.500.000", "COP")).toEqual({ monto: "-1500000" });
+      expect(normalizarMontoConSigno("2.000.000", "COP")).toEqual({ monto: "2000000" });
+      expect(normalizarMontoConSigno("-1.500,50", "USD")).toEqual({ monto: "-1500.50" });
+      expect(normalizarMontoConSigno("-25,5", "COP")).toHaveProperty("error");
+    });
+
+    it("un menos solo, o dos, no son un monto", () => {
+      expect(normalizarMontoConSigno("-", "COP")).toEqual({ error: "Escribe el monto." });
+      expect(normalizarMontoConSigno("--5", "COP")).toHaveProperty("error");
+    });
   });
 });
 

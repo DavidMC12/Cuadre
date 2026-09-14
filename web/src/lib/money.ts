@@ -134,17 +134,117 @@ export function sumarMontos(montos: readonly string[]): string {
   return `${negativo ? "-" : ""}${entero}.${decimales}`;
 }
 
-const PATRON_MONTO_POSITIVO = /^\d+([.,]\d{1,4})?$/;
-const PATRON_MONTO_CON_SIGNO = /^-?\d+([.,]\d{1,4})?$/;
+/**
+ * Lo que sale de leer un monto escrito a mano: o el monto listo para mandarlo
+ * a la API ("25000", "1500.50"), o una frase que le dice a la persona qué
+ * corregir.
+ */
+export type MontoLeido = { monto: string } | { error: string };
+
+const SOLO_DIGITOS = /^\d+$/;
 
 /**
- * Valida lo que la persona escribió en un campo de monto (sin signo, tal
- * como se le pide en los formularios) y lo normaliza a punto decimal.
- * Devuelve `null` si el texto no tiene forma de número.
+ * "1.500.000" o "1,500,000": un primer grupo de uno a tres dígitos que no
+ * empieza en cero, y detrás grupos de exactamente tres, siempre con el mismo
+ * separador. Un separador de miles nunca va seguido de menos de tres dígitos,
+ * y eso es lo que permite distinguirlo de uno decimal.
  */
-export function normalizarMontoIngresado(texto: string): string | null {
-  if (!PATRON_MONTO_POSITIVO.test(texto.trim())) return null;
-  return texto.trim().replace(",", ".");
+const MILES_CON_PUNTO = /^[1-9]\d{0,2}(\.\d{3})+$/;
+const MILES_CON_COMA = /^[1-9]\d{0,2}(,\d{3})+$/;
+
+/** Solo las monedas que las pantallas ofrecen; el resto se nombra en genérico. */
+const MONEDA_EN_PLURAL: Record<string, string> = {
+  COP: "pesos",
+  USD: "dólares",
+};
+
+/** "Los pesos no llevan…" o, si la moneda no tiene nombre aquí, "Esta moneda no lleva…". */
+function sobreLaMoneda(moneda: string, enPlural: string, enSingular: string): string {
+  const nombre = MONEDA_EN_PLURAL[moneda.toUpperCase()];
+  return nombre ? `Los ${nombre} ${enPlural}` : `Esta moneda ${enSingular}`;
+}
+
+/**
+ * Lee un monto escrito sin signo, con las costumbres de Colombia.
+ *
+ * Cómo se lee un punto o una coma depende de la moneda, igual que cuántos
+ * decimales se muestran:
+ *
+ * - **Sin decimales (pesos):** punto y coma son separadores de miles. "25.000"
+ *   y "25000" son lo mismo, y cualquier intento de poner decimales se rechaza:
+ *   leer "25.000" como veinticinco pesos guardaría mil veces menos plata de la
+ *   que la persona quiso escribir.
+ * - **Con decimales (dólares):** quien escribe sigue siendo colombiano, así
+ *   que el punto es de miles y la coma es decimal: "1.500,50". Una sola
+ *   excepción: si no hay coma y hay un único punto seguido de uno o dos
+ *   dígitos ("1500.50"), ese punto solo puede ser decimal —uno de miles
+ *   llevaría tres dígitos detrás— y se acepta, porque hay teclados numéricos
+ *   de celular que no traen la coma.
+ *
+ * Solo corta y pega texto, nunca convierte a número.
+ */
+function leerSinSigno(texto: string, moneda: string): MontoLeido {
+  const decimales = decimalesDe(moneda);
+  const ejemplo = decimales === 0 ? "25.000" : "1.500,50";
+
+  if (texto === "") return { error: "Escribe el monto." };
+  if (/[^\d.,]/.test(texto) || !/\d/.test(texto)) {
+    return { error: `Escribe solo números, por ejemplo ${ejemplo}.` };
+  }
+
+  if (decimales === 0) {
+    if (SOLO_DIGITOS.test(texto)) return { monto: texto };
+    if (MILES_CON_PUNTO.test(texto) || MILES_CON_COMA.test(texto)) {
+      return { monto: texto.replace(/[.,]/g, "") };
+    }
+    return {
+      error: `${sobreLaMoneda(moneda, "no llevan decimales", "no lleva decimales")}: escribe el monto completo, por ejemplo 25.000.`,
+    };
+  }
+
+  const malEscrito: MontoLeido = {
+    error: `Usa punto para los miles y coma para los centavos, por ejemplo ${ejemplo}.`,
+  };
+  const [parteEntera = "", parteDecimal, ...sobrantes] = texto.split(",");
+  if (sobrantes.length > 0) return malEscrito;
+
+  const enteroValido = SOLO_DIGITOS.test(parteEntera) || MILES_CON_PUNTO.test(parteEntera);
+
+  if (parteDecimal !== undefined) {
+    if (!enteroValido || !SOLO_DIGITOS.test(parteDecimal)) return malEscrito;
+    if (parteDecimal.length > decimales) {
+      const cuantos = `máximo ${decimales} ${decimales === 1 ? "decimal" : "decimales"}`;
+      return {
+        error: `${sobreLaMoneda(moneda, `llevan ${cuantos}`, `lleva ${cuantos}`)}, por ejemplo ${ejemplo}.`,
+      };
+    }
+    return { monto: `${parteEntera.replace(/\./g, "")}.${parteDecimal}` };
+  }
+
+  if (enteroValido) return { monto: parteEntera.replace(/\./g, "") };
+
+  const [antesDelPunto = "", despuesDelPunto = "", ...otrosPuntos] = texto.split(".");
+  if (
+    otrosPuntos.length === 0 &&
+    SOLO_DIGITOS.test(antesDelPunto) &&
+    SOLO_DIGITOS.test(despuesDelPunto) &&
+    despuesDelPunto.length <= decimales
+  ) {
+    return { monto: texto };
+  }
+  return malEscrito;
+}
+
+/**
+ * Lee lo que la persona escribió en un campo de monto sin signo, como el de
+ * registrar un movimiento (ahí el signo lo pone el tipo: gasto o ingreso).
+ */
+export function normalizarMontoIngresado(texto: string, moneda: string): MontoLeido {
+  const limpio = texto.trim();
+  if (limpio.startsWith("-")) {
+    return { error: "Escribe el monto sin signo; si es un gasto, elige Gasto." };
+  }
+  return leerSinSigno(limpio, moneda);
 }
 
 /**
@@ -152,7 +252,10 @@ export function normalizarMontoIngresado(texto: string): string | null {
  * frente. Para campos donde la persona sí puede escribir el menos, como el
  * saldo inicial de una cuenta (ej. una tarjeta que ya arranca en deuda).
  */
-export function normalizarMontoConSigno(texto: string): string | null {
-  if (!PATRON_MONTO_CON_SIGNO.test(texto.trim())) return null;
-  return texto.trim().replace(",", ".");
+export function normalizarMontoConSigno(texto: string, moneda: string): MontoLeido {
+  const limpio = texto.trim();
+  const negativo = limpio.startsWith("-");
+  const lectura = leerSinSigno(negativo ? limpio.slice(1) : limpio, moneda);
+  if ("error" in lectura) return lectura;
+  return { monto: negativo ? `-${lectura.monto}` : lectura.monto };
 }

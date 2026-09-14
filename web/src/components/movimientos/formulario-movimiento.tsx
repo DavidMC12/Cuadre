@@ -112,6 +112,7 @@ export function FormularioMovimiento({
     cuentaElegidaAMano && cuentas.some((cuenta) => cuenta.id === cuentaElegidaAMano)
       ? cuentaElegidaAMano
       : cuentaPorDefecto(cuentaIdPorDefecto, cuentas);
+  const cuentaElegida = cuentas.find((cuenta) => cuenta.id === cuentaId);
 
   const crearMovimiento = useCrearMovimiento();
   const hayCuentas = cuentas.length > 0;
@@ -131,17 +132,18 @@ export function FormularioMovimiento({
     evento.preventDefault();
 
     const nuevosErrores: typeof errores = {};
-    if (!cuentaId) nuevosErrores.cuenta = "Elige una cuenta.";
+    if (!cuentaElegida) nuevosErrores.cuenta = "Elige una cuenta.";
 
-    const montoNormalizado = normalizarMontoIngresado(monto);
-    if (montoNormalizado === null) {
-      nuevosErrores.monto = "Escribe solo números, con hasta 4 decimales.";
-    }
+    // Cómo se lee lo escrito depende de la moneda de la cuenta: en pesos
+    // "25.000" son veinticinco mil. Sin cuenta no hay moneda con qué leerlo, y
+    // el error de arriba ya dice qué falta.
+    const lectura = cuentaElegida ? normalizarMontoIngresado(monto, cuentaElegida.currency) : null;
+    if (lectura && "error" in lectura) nuevosErrores.monto = lectura.error;
 
     setErrores(nuevosErrores);
-    if (Object.keys(nuevosErrores).length > 0 || montoNormalizado === null) return;
+    if (!cuentaElegida || !lectura || "error" in lectura) return;
 
-    const montoConSigno = tipoMonto === "gasto" ? `-${montoNormalizado}` : montoNormalizado;
+    const montoConSigno = tipoMonto === "gasto" ? `-${lectura.monto}` : lectura.monto;
 
     crearMovimiento.mutate(
       {
@@ -229,7 +231,7 @@ export function FormularioMovimiento({
             Monto
           </Label>
           <span aria-hidden className="text-xs text-muted-foreground">
-            {cuentas.find((cuenta) => cuenta.id === cuentaId)?.currency ?? ""}
+            {cuentaElegida?.currency ?? ""}
           </span>
           <div
             className={cn(
