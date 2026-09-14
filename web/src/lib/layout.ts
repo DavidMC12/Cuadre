@@ -9,3 +9,10 @@
  * exactamente con el contenido que tiene debajo.
  */
 export const ANCHO_CONTENIDO = "max-w-md md:max-w-2xl lg:max-w-3xl";
+
+/**
+ * La misma frontera del tramo `lg` de Tailwind (1024px), pero para decidir en
+ * JavaScript lo que una clase no puede: qué componente se monta. Si el tramo
+ * cambia en la configuración de Tailwind, hay que cambiarlo aquí también.
+ */
+export const CONSULTA_TRAMO_LG = "(min-width: 64rem)";
