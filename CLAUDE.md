@@ -84,7 +84,10 @@ con `impeccable` sobre el critique de 27/40
 - [x] Color semántico ($0, signo menos, contraste, foco) — `colorize` + `audit`
 - [x] Detalle de movimiento (saca Anular/Categorizar de la fila) — `distill`
 - [x] Escritorio: panel lateral, desglose y tendencia lado a lado — `layout`
-- [ ] Pulido menor (texto, meses, tabular, orden saldo inicial) — `clarify`
+- [x] Pulido menor (texto, meses, tabular, orden saldo inicial) — `clarify`
+
+Las 4 tareas del critique 27/40 ya están en `main`. Pendiente, aparte: un
+`$impeccable critique` nuevo para medir cuánto subió.
 
 ### Pasos adicionales, ya pasado el 100%
 
