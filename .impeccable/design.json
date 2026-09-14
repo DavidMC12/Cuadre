@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-13T00:00:00Z",
+  "title": "Design System: Cuadre",
+  "extensions": {
+    "colorMeta": {
+      "paper": { "role": "neutral", "displayName": "Papel", "canonical": "oklch(1 0 0)", "dark": "oklch(0.145 0 0)", "tonalRamp": ["oklch(0.15 0 0)", "oklch(0.27 0 0)", "oklch(0.39 0 0)", "oklch(0.51 0 0)", "oklch(0.63 0 0)", "oklch(0.75 0 0)", "oklch(0.87 0 0)", "oklch(0.97 0 0)"] },
+      "ink": { "role": "neutral", "displayName": "Tinta", "canonical": "oklch(0.145 0 0)", "dark": "oklch(0.985 0 0)" },
+      "ink-strong": { "role": "primary", "displayName": "Tinta Grafito", "canonical": "oklch(0.205 0 0)", "dark": "oklch(0.922 0 0)" },
+      "mist": { "role": "neutral", "displayName": "Niebla", "canonical": "oklch(0.97 0 0)", "dark": "oklch(0.269 0 0)" },
+      "graphite": { "role": "neutral", "displayName": "Grafito Suave", "canonical": "oklch(0.556 0 0)", "dark": "oklch(0.708 0 0)" },
+      "hairline": { "role": "neutral", "displayName": "Hilo", "canonical": "oklch(0.922 0 0)", "dark": "oklch(1 0 0 / 10%)" },
+      "focus-gray": { "role": "neutral", "displayName": "Gris de Foco", "canonical": "oklch(0.708 0 0)", "dark": "oklch(0.556 0 0)" },
+      "money-in": { "role": "semantic", "displayName": "Verde Entrada", "canonical": "#059669", "dark": "#34d399", "tonalRamp": ["#022c22", "#064e3b", "#065f46", "#047857", "#059669", "#10b981", "#34d399", "#a7f3d0"] },
+      "money-out": { "role": "semantic", "displayName": "Rojo Salida", "canonical": "oklch(0.577 0.245 27.325)", "dark": "oklch(0.704 0.191 22.216)", "note": "Compartido con el token destructive: errores, cerrar sesión y aviso de suplantación." },
+      "uncategorized-gray": { "role": "neutral", "displayName": "Gris Sin Categoría", "canonical": "#898781" }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "Título de cada pantalla." },
+      "title": { "displayName": "Title", "purpose": "Títulos de tarjeta y menú lateral." },
+      "body": { "displayName": "Body", "purpose": "Casi todo el texto, filas y botones." },
+      "label": { "displayName": "Label", "purpose": "Encabezados de sección en mayúsculas." },
+      "figure": { "displayName": "Figure", "purpose": "Montos en listas y tarjetas; decimales al 85% y tenues." },
+      "figure-hero": { "displayName": "Figure Hero", "purpose": "El balance del mes." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "transition-default", "value": "all 150ms cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Hover y foco de controles (valor por defecto de Tailwind)." },
+      { "name": "drawer", "value": "transform 450ms cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Apertura y cierre de los cajones de formulario." }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción principal de una pantalla: Nuevo, Registrar, Guardar.",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M5 12h14\"/><path d=\"M12 5v14\"/></svg>Nuevo</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px 0 8px; border: 1px solid transparent; border-radius: 10px; background: oklch(0.205 0 0); color: oklch(0.985 0 0); font: 500 14px/1 Geist, ui-sans-serif, system-ui, sans-serif; cursor: pointer; transition: all 150ms cubic-bezier(0.4,0,0.2,1); } .ds-btn-primary:hover { background: oklch(0.205 0 0 / 0.8); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px oklch(0.708 0 0 / 0.5); } .ds-btn-primary:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Acción de peso medio: descargar respaldo, reintentar.",
+      "html": "<button class=\"ds-btn-outline\">Descargar mis movimientos</button>",
+      "css": ".ds-btn-outline { height: 32px; padding: 0 10px; border: 1px solid oklch(0.922 0 0); border-radius: 10px; background: oklch(1 0 0); color: oklch(0.145 0 0); font: 500 14px/1 Geist, ui-sans-serif, system-ui, sans-serif; cursor: pointer; transition: all 150ms; } .ds-btn-outline:hover { background: oklch(0.97 0 0); } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 3px oklch(0.708 0 0 / 0.5); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo de formulario; 16px en celular para evitar zoom.",
+      "html": "<input class=\"ds-input\" placeholder=\"Ej. Mercado de la semana\" />",
+      "css": ".ds-input { height: 32px; width: 260px; padding: 4px 10px; border: 1px solid oklch(0.922 0 0); border-radius: 10px; background: transparent; color: oklch(0.145 0 0); font: 400 14px/1.4 Geist, ui-sans-serif, system-ui, sans-serif; transition: border-color 150ms, box-shadow 150ms; } .ds-input::placeholder { color: oklch(0.556 0 0); } .ds-input:focus-visible { outline: none; border-color: oklch(0.708 0 0); box-shadow: 0 0 0 3px oklch(0.708 0 0 / 0.5); }"
+    },
+    {
+      "name": "Summary Card with Amount",
+      "kind": "card",
+      "refersTo": "card-compact",
+      "description": "Tarjeta del resumen con cifra: plana, anillo de 1px, monto tabular.",
+      "html": "<div class=\"ds-card\"><span class=\"ds-card-label\">Gastos</span><span class=\"ds-amount ds-amount-out\">-$58.900</span></div>",
+      "css": ".ds-card { display: flex; flex-direction: column; gap: 2px; width: 200px; padding: 12px; border-radius: 14px; background: oklch(1 0 0); box-shadow: 0 0 0 1px oklch(0.145 0 0 / 0.1); } .ds-card-label { font: 400 12px/1.3 Geist, ui-sans-serif, system-ui, sans-serif; color: oklch(0.556 0 0); } .ds-amount { font: 400 16px/1.5 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; } .ds-amount-out { color: oklch(0.577 0.245 27.325); }"
+    },
+    {
+      "name": "Monto",
+      "kind": "custom",
+      "refersTo": "figure",
+      "description": "La cifra de dinero: completa, con signo, verde si entra y rojo si sale, decimales tenues.",
+      "html": "<span class=\"ds-monto ds-monto-in\">+$1.200.000<span class=\"ds-monto-dec\">,50</span></span> <span class=\"ds-monto ds-monto-out\">-$45.300<span class=\"ds-monto-dec\">,50</span></span>",
+      "css": ".ds-monto { font: 400 16px/1.5 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; margin-right: 16px; } .ds-monto-in { color: #059669; } .ds-monto-out { color: oklch(0.577 0.245 27.325); } .ds-monto-dec { font-size: 0.85em; opacity: 0.7; }"
+    },
+    {
+      "name": "Type Chip",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Insignia de contorno para el tipo de movimiento.",
+      "html": "<span class=\"ds-chip\">Saldo inicial</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; height: 20px; padding: 2px 8px; border: 1px solid oklch(0.922 0 0); border-radius: 26px; color: oklch(0.145 0 0); font: 500 12px/1 Geist, ui-sans-serif, system-ui, sans-serif; }"
+    },
+    {
+      "name": "Bottom Navigation (mobile)",
+      "kind": "nav",
+      "refersTo": null,
+      "description": "Menú de cuatro pestañas fijo abajo en celular.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-active\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\"><path d=\"M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z\"/><path d=\"M21.21 15.89A10 10 0 1 1 8 2.83\"/></svg>Resumen</a><a class=\"ds-nav-item\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1\"/><path d=\"M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4\"/></svg>Cuentas</a></nav>",
+      "css": ".ds-nav { display: flex; width: 320px; height: 64px; border-top: 1px solid oklch(0.922 0 0); background: oklch(1 0 0); } .ds-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font: 500 12px/1 Geist, ui-sans-serif, system-ui, sans-serif; color: oklch(0.556 0 0); cursor: pointer; transition: color 150ms; } .ds-nav-item:hover { color: oklch(0.145 0 0); } .ds-nav-active { color: oklch(0.145 0 0); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "El punto de partida",
+    "overview": "Lo que hay hoy no es una identidad elegida: es el tema por defecto de shadcn (estilo base-nova, base de color neutral) con la tipografía Geist, sobre el que se construyó la app entera. Se registra tal cual, sin atribuirle intenciones que no tuvo. La decisión tomada es refinar, no reemplazar: este documento es la base que el trabajo de diseño debe respetar y pulir. Aun heredado, el sistema ya dice algo coherente con el producto: es sobrio, casi todo en escala de grises, y el color aparece en un solo lugar donde significa algo, la plata.",
+    "keyCharacteristics": [
+      "Escala de grises como base; el color está reservado para el significado.",
+      "Cifras en Geist Mono con dígitos tabulares, siempre completas y con su signo.",
+      "Superficies planas separadas por un hilo de borde, sin sombras.",
+      "Bordes curvos suaves y consistentes (10px en controles, 14px en tarjetas).",
+      "Tema claro y oscuro con la misma estructura."
+    ],
+    "rules": [
+      { "name": "The Color Means Money Rule", "body": "Fuera de las gráficas, el único color saturado en pantalla es el de un monto: verde si entra, rojo si sale. Todo lo demás es gris.", "section": "colors" },
+      { "name": "The Fixed Palette Rule", "body": "Las categorías nunca generan un tono nuevo: ocho colores fijos y luego gris.", "section": "colors" },
+      { "name": "The Counted In Mono Rule", "body": "Toda cifra de dinero va en Geist Mono con dígitos tabulares; ningún texto que no sea una cifra la usa.", "section": "typography" },
+      { "name": "The Flat Ledger Rule", "body": "Las superficies no flotan: se separan con un hilo o con un cambio de tono, nunca con sombra.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do mostrar cada monto completo, con signo y símbolo, en Geist Mono tabular (componente Monto).",
+      "Do reservar el verde y el rojo para plata que entra y que sale.",
+      "Do separar filas y superficies con un hilo de 1px o un cambio de tono, no con sombras.",
+      "Do mantener las esquinas en la escala de 10px (controles) y 14px (tarjetas).",
+      "Do diseñar cada cambio en celular y escritorio a la vez, respetando los tramos de 768px y 1024px."
+    ],
+    "donts": [
+      "Don't abreviar ni redondear cifras (\"1,2 M\", \"$1k\"): el producto se compromete a montos exactos.",
+      "Don't generar colores nuevos para categorías; ocho fijos y luego gris.",
+      "Don't usar la monoespaciada para texto que no sea una cifra.",
+      "Don't estirar listas a todo el ancho en escritorio; el contenido tiene tope.",
+      "Don't confundir este punto de partida con una identidad terminada: se refina, pero sus valores por defecto no son decisiones sagradas."
+    ]
+  }
+}
