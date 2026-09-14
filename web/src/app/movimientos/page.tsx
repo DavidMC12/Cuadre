@@ -20,9 +20,9 @@ import { ConfirmarAnulacion } from "@/components/movimientos/confirmar-anulacion
 import { useCuentas } from "@/hooks/use-cuentas";
 import { useCategorias } from "@/hooks/use-categorias";
 import { useAnularMovimiento, useMovimientos } from "@/hooks/use-movimientos";
+import { agruparMovimientosPorDia } from "@/lib/agrupar-movimientos";
 import { ApiError } from "@/lib/api/client";
 import type { Movimiento } from "@/lib/api/types";
-import { etiquetaFecha } from "@/lib/fecha";
 
 const TODAS_LAS_CUENTAS = "todas";
 
@@ -47,32 +47,10 @@ export default function PaginaMovimientos() {
     [categorias]
   );
 
-  const grupos = useMemo(() => {
-    if (!movimientos) return [];
-
-    // El saldo inicial se fecha el día en que se creó la cuenta, no el día al
-    // que en verdad corresponde: si se registran movimientos de antes de esa
-    // fecha (por ejemplo, para completar el historial del mes), "Saldo
-    // inicial" queda fechado después de ellos y aparece en medio de la lista.
-    // Se ordena siempre al final, como el primer renglón del libro que es.
-    const ordenados = [...movimientos].sort((a, b) => {
-      if (a.kind === "opening" && b.kind !== "opening") return 1;
-      if (b.kind === "opening" && a.kind !== "opening") return -1;
-      return 0;
-    });
-
-    const acumulado: { etiqueta: string; items: Movimiento[] }[] = [];
-    for (const movimiento of ordenados) {
-      const etiqueta = etiquetaFecha(movimiento.occurredAt);
-      const grupoActual = acumulado[acumulado.length - 1];
-      if (grupoActual && grupoActual.etiqueta === etiqueta) {
-        grupoActual.items.push(movimiento);
-      } else {
-        acumulado.push({ etiqueta, items: [movimiento] });
-      }
-    }
-    return acumulado;
-  }, [movimientos]);
+  const grupos = useMemo(
+    () => (movimientos ? agruparMovimientosPorDia(movimientos) : []),
+    [movimientos]
+  );
 
   function confirmarAnulacion() {
     if (!movimientoAConfirmar) return;
