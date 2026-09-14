@@ -47,7 +47,7 @@ export function BannerSuplantacion() {
     <div className="sticky top-0 z-50 bg-destructive text-white">
       <div
         className={cn(
-          "mx-auto flex w-full items-center justify-between gap-2 px-4 py-2 md:px-8",
+          "flex w-full items-center justify-between gap-2 px-4 py-2 md:px-8",
           ANCHO_CONTENIDO
         )}
       >

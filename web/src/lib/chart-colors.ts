@@ -35,10 +35,12 @@ const PALETA_CATEGORICA_OSCURO = [
 /** Gris neutro para "Sin categoría" y para lo que no cabe en la paleta. */
 export const COLOR_NEUTRO = { claro: "#898781", oscuro: "#898781" } as const;
 
-/** Ingreso/gasto son un par fijo, no una identidad categórica: reutiliza el
- * mismo verde/rojo que ya usa el componente `Monto` en el resto de la app. */
+/** Ingreso/gasto son un par fijo, no una identidad categórica: reutiliza los
+ * mismos colores que ya usa el componente `Monto` en el resto de la app.
+ * El gasto va en tinta normal, no en rojo: gastar es un renglón del libro,
+ * no una alarma. El rojo queda libre para lo que de verdad es un error. */
 export const COLOR_INGRESO = { claro: "#059669", oscuro: "#34d399" } as const;
-export const COLOR_GASTO = { claro: "#dc2626", oscuro: "#f87171" } as const;
+export const COLOR_GASTO = { claro: "#171717", oscuro: "#fafafa" } as const;
 
 /**
  * Construye un mapa `categoryId -> color`, estable mientras no cambie el

@@ -42,11 +42,13 @@ export function ResumenCards({
         </CardContent>
       </Card>
       {/* Tres en fila solo desde `lg`: en tablet cada tarjeta quedaría de ~130px
-          y un balance de millones se cortaría sin avisar. */}
-      <Card className="col-span-2 lg:col-span-1">
+          y un balance de millones se cortaría sin avisar. Del mismo tamaño que
+          Ingresos y Gastos, no más grande: "Tienes" es ahora el protagonista,
+          esto es un dato secundario del mes. */}
+      <Card size="sm" className="col-span-2 lg:col-span-1">
         <CardContent className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground">Balance del mes</span>
-          <Monto valor={resumen?.net ?? "0"} moneda={moneda} className="text-2xl" />
+          <Monto valor={resumen?.net ?? "0"} moneda={moneda} className="text-base" />
         </CardContent>
       </Card>
     </div>

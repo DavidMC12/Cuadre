@@ -5,13 +5,21 @@ import { useState } from "react";
 import { Wallet } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { SelectorMes } from "@/components/dashboard/selector-mes";
 import { ResumenCards } from "@/components/dashboard/resumen-cards";
+import { TotalCuentas } from "@/components/dashboard/total-cuentas";
 import { GraficaPorCategoria } from "@/components/dashboard/grafica-por-categoria";
 import { GraficaTendencia } from "@/components/dashboard/grafica-tendencia";
+import { useCuentas } from "@/hooks/use-cuentas";
 import { useIrAPantallaDeInicio } from "@/hooks/use-perfil";
 import { useMonedas, useResumenMes, useTendencia } from "@/hooks/use-reportes";
 import type { TipoCategoria } from "@/lib/api/types";
@@ -27,6 +35,8 @@ export default function PaginaResumen() {
 
   const { data: monedas, isLoading: cargandoMonedas } = useMonedas();
   const moneda = monedaElegida ?? monedas?.[0];
+
+  const { data: cuentas, isLoading: cargandoCuentas } = useCuentas();
 
   const { data: resumen, isLoading: cargandoResumen } = useResumenMes({
     month: mes,
@@ -81,6 +91,8 @@ export default function PaginaResumen() {
         )}
       </div>
 
+      <TotalCuentas cuentas={cuentas} moneda={moneda ?? ""} cargando={cargandoCuentas} />
+
       <SelectorMes mes={mes} onCambiar={setMes} />
 
       <ResumenCards resumen={resumen} moneda={moneda ?? ""} cargando={cargandoResumen} />
@@ -104,7 +116,11 @@ export default function PaginaResumen() {
           <CardTitle>Tendencia (6 meses)</CardTitle>
         </CardHeader>
         <CardContent>
-          <GraficaTendencia tendencia={tendencia} moneda={moneda ?? ""} cargando={cargandoTendencia} />
+          <GraficaTendencia
+            tendencia={tendencia}
+            moneda={moneda ?? ""}
+            cargando={cargandoTendencia}
+          />
         </CardContent>
       </Card>
 

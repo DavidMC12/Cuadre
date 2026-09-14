@@ -5,7 +5,13 @@ import { Plus, Receipt } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { MovimientoItem } from "@/components/movimientos/movimiento-item";
@@ -76,18 +82,10 @@ export default function PaginaMovimientos() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Movimientos</h1>
-        <FormularioMovimiento
-          cuentas={cuentas ?? []}
-          cuentaIdPorDefecto={cuentaFiltro === TODAS_LAS_CUENTAS ? undefined : cuentaFiltro}
-        >
-          <Button size="sm">
-            <Plus data-icon="inline-start" />
-            Nuevo
-          </Button>
-        </FormularioMovimiento>
-      </div>
+      {/* Sin botón "Nuevo" aquí: registrar ya se alcanza desde cualquier
+          pantalla con el botón del armazón. Uno solo, no dos caminos al mismo
+          formulario. */}
+      <h1 className="text-xl font-semibold">Movimientos</h1>
 
       {hayCuentas && (
         <Select

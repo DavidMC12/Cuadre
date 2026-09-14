@@ -26,12 +26,7 @@ export function BotonSalir() {
   }
 
   return (
-    <Button
-      variant="outline"
-      onClick={manejarClic}
-      disabled={saliendo}
-      className="w-full text-destructive"
-    >
+    <Button variant="outline" onClick={manejarClic} disabled={saliendo} className="w-full">
       <LogOut data-icon="inline-start" />
       {saliendo ? "Saliendo…" : "Cerrar sesión"}
     </Button>
