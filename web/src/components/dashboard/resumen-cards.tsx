@@ -16,16 +16,16 @@ export function ResumenCards({
   // ancho. Desde `md` los tres caben en una fila.
   if (cargando) {
     return (
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
         <Skeleton className="h-16 rounded-xl" />
         <Skeleton className="h-16 rounded-xl" />
-        <Skeleton className="col-span-2 h-20 rounded-xl md:col-span-1 md:h-16" />
+        <Skeleton className="col-span-2 h-20 rounded-xl lg:col-span-1 lg:h-16" />
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
       <Card size="sm">
         <CardContent className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground">Ingresos</span>
@@ -41,7 +41,9 @@ export function ResumenCards({
           <Monto valor={`-${resumen?.expense ?? "0"}`} moneda={moneda} className="text-base" />
         </CardContent>
       </Card>
-      <Card className="col-span-2 md:col-span-1">
+      {/* Tres en fila solo desde `lg`: en tablet cada tarjeta quedaría de ~130px
+          y un balance de millones se cortaría sin avisar. */}
+      <Card className="col-span-2 lg:col-span-1">
         <CardContent className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground">Balance del mes</span>
           <Monto valor={resumen?.net ?? "0"} moneda={moneda} className="text-2xl" />

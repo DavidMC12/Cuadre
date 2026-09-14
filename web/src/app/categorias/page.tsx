@@ -70,7 +70,7 @@ export default function PaginaCategorias() {
       )}
 
       {!isLoading && hayCategorias && (
-        <div className="grid items-start gap-5 md:grid-cols-2 md:gap-8">
+        <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-2 md:gap-8">
           {gastos.length > 0 && (
             <section className="flex flex-col gap-1">
               <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">

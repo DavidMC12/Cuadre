@@ -55,7 +55,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-dvh">
-      <aside
+      {/* `nav` y no `aside`: un lector de pantalla anuncia `aside` como contenido
+          complementario, y esto es el menú. Nunca se ve a la vez que el de abajo. */}
+      <nav
         aria-label="Navegación principal"
         className="sticky top-0 hidden h-dvh w-56 shrink-0 flex-col gap-1 border-r border-border bg-background px-3 py-5 md:flex lg:w-60"
       >
@@ -82,7 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           );
         })}
-      </aside>
+      </nav>
 
       {/* El aviso de suplantación va dentro de esta columna y no encima de todo:
           así en escritorio no tapa el menú lateral al hacer scroll. */}
