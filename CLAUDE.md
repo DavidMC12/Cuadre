@@ -14,14 +14,18 @@ Responde siempre en lenguaje simple y conversacional, evitando jerga técnica si
 Este proyecto puede tener varios agentes trabajando al mismo tiempo, cada uno en su propia rama y en su propia copia aislada del proyecto (worktree), para no pisarse archivos entre sí. Reglas:
 
 - Los sub-agentes que implementan una funcionalidad **nunca** tienen permiso de hacer `push`, merge, ni ningún cambio directo sobre `main`. Solo trabajan y suben cambios dentro de su propia rama.
-- Solo el agente principal (con quien el usuario habla directamente) puede subir cambios a `main`, y únicamente cuando se cumplen **ambas** condiciones:
-  1. El usuario dio permiso explícito para integrar esa rama/funcionalidad específica a `main`.
-  2. El agente principal ya revisó y le confirmó al usuario que el cambio no choca ni con otras ramas activas ni con trabajo en curso de otros agentes.
+- Solo el agente principal (con quien el usuario habla directamente) puede subir cambios a `main`, y lo hace en cuanto se cumple lo siguiente — **no hace falta que el usuario dé permiso caso por caso**:
+  - La rama ya fue revisada por un agente aparte (`requesting-code-review`), y los hallazgos de esa revisión ya se atendieron.
+  - El agente principal confirmó que el cambio no choca ni con otras ramas activas ni con trabajo en curso de otros agentes.
+  (Cambiado 2026-09-14 a pedido del dueño: antes cada integración necesitaba su
+  visto bueno; ahora, revisado y sin conflictos es suficiente. Como Vercel
+  despliega automático desde `main`, esto significa que cada integración pasa
+  a producción sin una pausa previa.)
 - Cada funcionalidad se desarrolla en su propia copia/worktree separada del proyecto — nunca dos agentes comparten la misma carpeta de trabajo al mismo tiempo.
 - **Los arreglos de errores también van en su propia rama**, por pequeños que parezcan. Nada se corrige escribiendo directo sobre `main`, ni siquiera un cambio de una línea: si vale la pena arreglarlo, vale la pena que quede revisado y con su historia aparte.
 - Para que el perfil de GitHub del usuario se vea activo, se debe comitear seguido: cada vez que una parte pequeña y completa del trabajo esté lista (una función, una corrección, un ajuste), en vez de acumular varios cambios en un solo commit grande al final. No se deben crear commits vacíos o sin cambios reales solo para inflar el conteo.
 - **Cada commit se sube (`push`) a su rama de inmediato**, en la misma acción, no al final de la sesión. Un commit que se queda en la máquina no existe para nadie más y no aparece en el perfil de GitHub. La primera vez en una rama nueva: `git push -u origin <rama>`; después, `git push` a secas. Si el push falla (por ejemplo, sin red), se avisa al usuario en vez de seguir acumulando commits en silencio.
-- Esa regla de subir siempre aplica **solo a la rama propia**. `main` sigue intocable sin permiso explícito, según las dos condiciones de arriba.
+- Esa regla de subir siempre aplica también a `main`: en cuanto una rama está revisada y sin conflictos, el agente principal la integra sin esperar una confirmación aparte del usuario.
 
 ## Revisión de código: nunca la hace quien escribió el código
 
@@ -43,8 +47,9 @@ Cómo se hace, con las skills que ya están en el repositorio:
   **`receiving-code-review`**: cada punto se verifica antes de aplicarlo. Ni se
   acepta por cortesía ni se descarta por orgullo; si un comentario está
   equivocado, se responde con el porqué.
-- La revisión ocurre **antes** de pedirle permiso al usuario para integrar a
-  `main`, no después. Lo que le llega al usuario ya viene revisado.
+- La revisión ocurre **antes** de integrar a `main`, no después: el agente
+  principal mezcla la rama ya revisada sin esperar una confirmación aparte
+  del usuario, y le avisa lo que quedó integrado.
 - Para una mirada más honda existe además `/code-review` (la skill del propio
   Claude Code), útil cuando el cambio es grande o el riesgo es alto.
 
