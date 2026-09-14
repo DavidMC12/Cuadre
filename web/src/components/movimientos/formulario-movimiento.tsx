@@ -39,7 +39,7 @@ import { ApiError } from "@/lib/api/client";
 import type { Cuenta } from "@/lib/api/types";
 import { fechaParaInput, inputAIso } from "@/lib/fecha";
 import { cn } from "@/lib/utils";
-import { normalizarMontoIngresado } from "@/lib/money";
+import { normalizarMontoIngresado, textoMonto } from "@/lib/money";
 
 type TipoMonto = "gasto" | "ingreso";
 
@@ -154,9 +154,14 @@ export function FormularioMovimiento({
         categoryId,
       },
       {
-        onSuccess: () => {
+        onSuccess: ({ data: guardado }) => {
           recordarCuenta(cuentaId);
-          toast.success("Movimiento registrado.");
+          // El aviso repite lo que respondió el servidor, no lo que se escribió:
+          // así se confirma de un vistazo el monto que de verdad quedó en el
+          // libro, que después ya no se puede editar.
+          const tipo = guardado.amount.startsWith("-") ? "Gasto" : "Ingreso";
+          const cifra = textoMonto(guardado.amount.replace(/^-/, ""), guardado.currency);
+          toast.success(`${tipo} de ${cifra} registrado en ${cuentaElegida.name}.`);
           setAbierto(false);
           reiniciar();
         },

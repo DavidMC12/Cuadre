@@ -12,6 +12,7 @@ import {
   normalizarMontoConSigno,
   normalizarMontoIngresado,
   sumarMontos,
+  textoMonto,
 } from "./money";
 
 const mostrar = (monto: string, moneda: string) => {
@@ -203,6 +204,19 @@ describe("lo que la persona escribe se lee como se escribe en Colombia", () => {
       expect(normalizarMontoConSigno("-", "COP")).toEqual({ error: "Escribe el monto." });
       expect(normalizarMontoConSigno("--5", "COP")).toHaveProperty("error");
     });
+  });
+
+  it("lo que se escribe, una vez guardado, se vuelve a mostrar igual", () => {
+    // Así lo repite el aviso al registrar: la API devuelve el monto con cuatro
+    // decimales, y tiene que leerse como la persona lo escribió.
+    const guardado = (texto: string, moneda: string) => {
+      const lectura = normalizarMontoIngresado(texto, moneda);
+      if ("error" in lectura) throw new Error(lectura.error);
+      return sumarMontos([lectura.monto]);
+    };
+    expect(textoMonto(guardado("25.000", "COP"), "COP")).toBe("$25.000");
+    expect(textoMonto(guardado("1.500.000", "COP"), "COP")).toBe("$1.500.000");
+    expect(textoMonto(guardado("1.500,50", "USD"), "USD")).toBe("US$1.500,50");
   });
 });
 
