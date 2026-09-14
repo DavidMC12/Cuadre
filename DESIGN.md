@@ -194,9 +194,9 @@ Móvil primero, con una sola columna de 448px de ancho máximo y márgenes later
 
 Desde **768px** (`md`) el menú pasa a una barra lateral fija de 224px (240px desde 1024px) y el encabezado móvil desaparece. El contenido crece a 672px, y a 768px desde **1024px** (`lg`), con márgenes de 32px. Tiene tope a propósito: las listas pierden legibilidad si se estiran.
 
-El ritmo vertical entre bloques de una pantalla es de 16 a 20px. Las filas de lista separan con un hilo de borde, no con espacio. Las columnas aparecen solo donde el contenido lo aguanta: categorías en dos desde `md`, y resumen (tres tarjetas) y cuentas (dos) desde `lg`, para que ningún monto se corte.
+El ritmo vertical entre bloques de una pantalla es de 16 a 20px. Las filas de lista separan con un hilo de borde, no con espacio. Las columnas aparecen solo donde el contenido lo aguanta: categorías en dos desde `md`, y resumen (tres tarjetas), cuentas (dos) y las gráficas del resumen (desglose y tendencia lado a lado) desde `lg`, para que ningún monto se corte.
 
-Los formularios abren como cajón inferior; en escritorio quedan centrados con un máximo de 512px.
+Los formularios abren como cajón inferior; en escritorio quedan centrados con un máximo de 512px. La excepción es el de registrar un movimiento —el de uso diario—: desde `lg` abre como diálogo centrado con el mismo tope de ancho, porque un cajón pegado al borde inferior de un monitor desperdicia la pantalla.
 
 ## Elevation & Depth
 
