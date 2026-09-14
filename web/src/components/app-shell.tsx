@@ -43,7 +43,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-dvh flex-col">
         <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
-          <div className="mx-auto flex h-12 w-full max-w-md items-center px-4">
+          <div className="mx-auto flex h-11 w-full max-w-md items-center px-4">
             <span className="font-heading text-base font-semibold">Cuadre</span>
           </div>
         </header>
@@ -96,7 +96,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <BannerSuplantacion />
 
         <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80 md:hidden">
-          <div className="mx-auto flex h-12 w-full max-w-md items-center px-4">
+          <div className="mx-auto flex h-11 w-full max-w-md items-center px-4">
             <span className="font-heading text-base font-semibold">Cuadre</span>
           </div>
         </header>

@@ -85,11 +85,19 @@ export function etiquetaMesDeFecha(iso: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
-/** "YYYY-MM" -> "Sep" (para los ejes de la gráfica de tendencia). */
+/**
+ * "YYYY-MM" -> "Sep" (para los ejes de la gráfica de tendencia).
+ *
+ * Se corta a 3 letras a mano: "septiembre" es el único mes que
+ * `Intl.DateTimeFormat` con `month: "short"` abrevia a 4 letras ("sept.") en
+ * español, y en el eje se veía más largo que los demás ("Sept" junto a "Ene",
+ * "Feb", etc.).
+ */
 export function etiquetaMesCorta(mes: string): string {
   const [anio, mesNumero] = mes.split("-").map(Number);
-  const texto = new Intl.DateTimeFormat("es-CO", { month: "short" }).format(
-    new Date(anio, mesNumero - 1, 1)
-  );
-  return texto.replace(".", "").charAt(0).toUpperCase() + texto.replace(".", "").slice(1);
+  const texto = new Intl.DateTimeFormat("es-CO", { month: "short" })
+    .format(new Date(anio, mesNumero - 1, 1))
+    .replace(".", "")
+    .slice(0, 3);
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
 }

@@ -11,7 +11,8 @@ export default async function PaginaEntrar() {
   if (session?.user) redirect("/");
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center py-8">
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 py-8">
+      <p className="text-sm text-muted-foreground">Que las cuentas cuadren.</p>
       <FormularioEntrar />
     </div>
   );
