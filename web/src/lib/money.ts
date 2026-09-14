@@ -7,6 +7,13 @@
  * texto en sus partes (signo, entero, decimales); nunca hace una cuenta.
  */
 
+/**
+ * Menos matemático (U+2212), no un guion: un guion es un signo de puntuación
+ * que se presta a leerse como un rango o un guion de palabra; este se lee sin
+ * dudar como "negativo".
+ */
+export const MENOS = "−";
+
 export interface MontoFormateado {
   negativo: boolean;
   /** Parte entera, ya con separador de miles. */
@@ -97,7 +104,7 @@ export function esCero(monto: string): boolean {
 
 export function textoMonto(monto: string, moneda: string): string {
   const { negativo, entero, decimales } = formatearMonto(monto, moneda);
-  return `${negativo ? "-" : ""}${simboloMoneda(moneda)}${entero}${decimales ? `,${decimales}` : ""}`;
+  return `${negativo ? MENOS : ""}${simboloMoneda(moneda)}${entero}${decimales ? `,${decimales}` : ""}`;
 }
 
 const ESCALA_DECIMAL = 10000n;

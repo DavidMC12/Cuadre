@@ -1,12 +1,5 @@
-import { esCero, formatearMonto, simboloMoneda } from "@/lib/money";
+import { esCero, formatearMonto, MENOS, simboloMoneda } from "@/lib/money";
 import { cn } from "@/lib/utils";
-
-/**
- * Menos matemático (U+2212), no un guion: un guion es un signo de puntuación
- * que se presta a leerse como un rango o un guion de palabra; este se lee sin
- * dudar como "negativo".
- */
-const MENOS = "−";
 
 export function Monto({
   valor,
