@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { ArrowLeftRight, ChartPie, Settings, Wallet } from "lucide-react";
 
 import { BannerSuplantacion } from "@/components/admin/banner-suplantacion";
+import { AccionRegistrar } from "@/components/movimientos/accion-registrar";
 import { ANCHO_CONTENIDO } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +63,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         className="sticky top-0 hidden h-dvh w-56 shrink-0 flex-col gap-1 border-r border-border bg-background px-3 py-5 md:flex lg:w-60"
       >
         <span className="px-3 pb-5 font-heading text-lg font-semibold">Cuadre</span>
+        <div className="px-3">
+          <AccionRegistrar variante="lateral" />
+        </div>
         {ELEMENTOS_NAV.map(({ href, etiqueta, Icono, hijas }) => {
           const activo = estaActivo(pathname, href, hijas);
           return (
@@ -99,13 +103,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <main
           className={cn(
-            "mx-auto w-full flex-1 px-4 pt-4 pb-24 md:px-8 md:pt-8 md:pb-10",
+            // Sin mx-auto: en escritorio el contenido queda pegado al menú
+            // lateral, no flotando centrado en lo que sobra de la pantalla.
+            "w-full flex-1 px-4 pt-4 pb-24 md:px-8 md:pt-8 md:pb-10",
             ANCHO_CONTENIDO
           )}
         >
           {children}
         </main>
       </div>
+
+      <AccionRegistrar variante="flotante" />
 
       <nav
         aria-label="Navegación principal"

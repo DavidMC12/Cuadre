@@ -48,7 +48,9 @@ export function MovimientoItem({
             </Badge>
           )}
           {esAnulacion && <Badge variant="secondary">Anulación</Badge>}
-          {movimiento.kind === "opening" && <Badge variant="outline">Saldo inicial</Badge>}
+          {/* Sin insignia para "opening": el texto de la fila ya dice "Saldo
+              inicial" (es su descripción de siempre), repetirlo en una
+              insignia al lado no agrega información, solo ruido. */}
         </div>
 
         {puedeCategorizarse && (

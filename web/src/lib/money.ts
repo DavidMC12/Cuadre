@@ -86,9 +86,45 @@ export function simboloMoneda(moneda: string): string {
  * "$820.000" — un monto como texto plano, sin JSX ni colores. Para
  * etiquetas y tooltips de las gráficas, donde no se puede usar `<Monto>`.
  */
+/**
+ * Si el monto es cero, sea cual sea cómo esté escrito ("0", "0.0000",
+ * "-0.0000"). Un cero no es ni un ingreso ni un gasto: no debería teñirse de
+ * ninguno de los dos colores.
+ */
+export function esCero(monto: string): boolean {
+  return /^-?0+(\.0+)?$/.test(monto.trim());
+}
+
 export function textoMonto(monto: string, moneda: string): string {
   const { negativo, entero, decimales } = formatearMonto(monto, moneda);
   return `${negativo ? "-" : ""}${simboloMoneda(moneda)}${entero}${decimales ? `,${decimales}` : ""}`;
+}
+
+const ESCALA_DECIMAL = 10000n;
+
+/** "1234.5" -> 12345000n. Nunca pasa por `parseFloat`: cuenta enteros. */
+function aUnidadesMinimas(monto: string): bigint {
+  const texto = monto.trim();
+  const negativo = texto.startsWith("-");
+  const sinSigno = texto.replace(/^[-+]/, "");
+  const [parteEntera = "0", parteDecimal = ""] = sinSigno.split(".");
+  const decimalCompleto = (parteDecimal + "0000").slice(0, 4);
+  const valor = BigInt(parteEntera || "0") * ESCALA_DECIMAL + BigInt(decimalCompleto || "0");
+  return negativo ? -valor : valor;
+}
+
+/**
+ * Suma exacta de montos de la misma moneda, sin coma flotante: el total de
+ * "cuánto tienes" sale de sumar los saldos de tus cuentas, y ese es dinero de
+ * verdad, no una cuenta aproximada.
+ */
+export function sumarMontos(montos: readonly string[]): string {
+  const total = montos.reduce((acumulado, monto) => acumulado + aUnidadesMinimas(monto), 0n);
+  const negativo = total < 0n;
+  const absoluto = negativo ? -total : total;
+  const entero = absoluto / ESCALA_DECIMAL;
+  const decimales = (absoluto % ESCALA_DECIMAL).toString().padStart(4, "0");
+  return `${negativo ? "-" : ""}${entero}.${decimales}`;
 }
 
 const PATRON_MONTO_POSITIVO = /^\d+([.,]\d{1,4})?$/;
