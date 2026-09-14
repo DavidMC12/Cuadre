@@ -67,10 +67,14 @@ function cuentaPorDefecto(cuentaIdPorDefecto: string | undefined, cuentas: Cuent
 
 export function FormularioMovimiento({
   cuentas,
+  cargandoCuentas = false,
   cuentaIdPorDefecto,
   children,
 }: {
   cuentas: Cuenta[];
+  /** Si `cuentas` todavía se está pidiendo. Sin esto, abrir el formulario
+   * antes de que carguen diría "no tienes cuentas" aunque sí tengas. */
+  cargandoCuentas?: boolean;
   cuentaIdPorDefecto?: string;
   children: React.ReactNode;
 }) {
@@ -78,7 +82,6 @@ export function FormularioMovimiento({
 
   const soloMirar = useSoloMirar();
   const [abierto, setAbierto] = useState(false);
-  const [cuentaId, setCuentaId] = useState(() => cuentaPorDefecto(cuentaIdPorDefecto, cuentas));
   const [tipoMonto, setTipoMonto] = useState<TipoMonto>("gasto");
   const [monto, setMonto] = useState("");
   const [masDetalles, setMasDetalles] = useState(false);
@@ -87,11 +90,23 @@ export function FormularioMovimiento({
   const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
   const [errores, setErrores] = useState<{ cuenta?: string; monto?: string }>({});
 
+  // La cuenta elegida no es un dato que haya que recordar entre renders por su
+  // cuenta: solo hace falta guardar si la persona ELIGIÓ una a mano, y todo lo
+  // demás sale de recalcular en cada render. Así, si el botón de registrar se
+  // toca antes de que `cuentas` termine de cargar (vive en el armazón, puede
+  // pasar en cualquier pantalla), en cuanto los datos llegan la cuenta correcta
+  // aparece sola, sin depender de un efecto que reaccione después.
+  const [cuentaElegidaAMano, setCuentaElegidaAMano] = useState<string | null>(null);
+  const cuentaId =
+    cuentaElegidaAMano && cuentas.some((cuenta) => cuenta.id === cuentaElegidaAMano)
+      ? cuentaElegidaAMano
+      : cuentaPorDefecto(cuentaIdPorDefecto, cuentas);
+
   const crearMovimiento = useCrearMovimiento();
   const hayCuentas = cuentas.length > 0;
 
   function reiniciar() {
-    setCuentaId(cuentaPorDefecto(cuentaIdPorDefecto, cuentas));
+    setCuentaElegidaAMano(null);
     setTipoMonto("gasto");
     setMonto("");
     setMasDetalles(false);
@@ -152,18 +167,21 @@ export function FormularioMovimiento({
       open={abierto}
       onOpenChange={(valor) => {
         setAbierto(valor);
-        if (!valor) {
-          reiniciar();
-        } else if (!cuentaId) {
-          // Si el drawer se montó antes de que `cuentas` terminara de cargar,
-          // la cuenta por defecto se quedó vacía; al abrir ya hay datos.
-          setCuentaId(cuentaPorDefecto(cuentaIdPorDefecto, cuentas));
-        }
+        if (!valor) reiniciar();
       }}
     >
       <DrawerTrigger render={children as React.ReactElement} />
       <DrawerContent>
-        {!hayCuentas ? (
+        {cargandoCuentas ? (
+          // Distinto de "no tienes cuentas": el botón de registrar vive en el
+          // armazón y puede abrirse antes de que `cuentas` termine de cargar.
+          // Sin este estado, ese instante diría "primero crea una cuenta"
+          // aunque la persona ya tenga varias.
+          <DrawerHeader>
+            <DrawerTitle>Un momento…</DrawerTitle>
+            <DrawerDescription>Cargando tus cuentas.</DrawerDescription>
+          </DrawerHeader>
+        ) : !hayCuentas ? (
           <>
             <DrawerHeader>
               <DrawerTitle>Nuevo movimiento</DrawerTitle>
@@ -190,7 +208,16 @@ export function FormularioMovimiento({
                   que quede claro de un vistazo si es un gasto o un ingreso
                   antes de leer ninguna etiqueta. */}
               <div className="flex flex-col items-center gap-1 pt-2">
-                <span className="text-xs text-muted-foreground">
+                {/* Igual que en todos los demás campos: un `Label` de verdad,
+                    no solo `aria-label`. Aquí va oculto a la vista porque la
+                    moneda ya cumple ese rol visualmente, pero un lector de
+                    pantalla lo sigue anunciando igual que a "Cuenta" o
+                    "Fecha", en vez de depender de un atributo aparte que se
+                    pierde si el campo cambia de forma más adelante. */}
+                <Label htmlFor="monto-movimiento" className="sr-only">
+                  Monto
+                </Label>
+                <span aria-hidden className="text-xs text-muted-foreground">
                   {cuentas.find((cuenta) => cuenta.id === cuentaId)?.currency ?? ""}
                 </span>
                 <div
@@ -211,7 +238,6 @@ export function FormularioMovimiento({
                     value={monto}
                     onChange={(evento) => setMonto(evento.target.value)}
                     aria-invalid={Boolean(errores.monto)}
-                    aria-label="Monto"
                     autoFocus
                     className="h-auto w-40 border-none bg-transparent p-0 text-center font-mono text-4xl tabular-nums text-inherit shadow-none focus-visible:ring-0 dark:bg-transparent"
                   />
@@ -248,7 +274,10 @@ export function FormularioMovimiento({
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="cuenta-movimiento">Cuenta</Label>
-                <Select value={cuentaId} onValueChange={(valor) => setCuentaId(valor ?? "")}>
+                <Select
+                  value={cuentaId}
+                  onValueChange={(valor) => setCuentaElegidaAMano(valor ?? null)}
+                >
                   <SelectTrigger
                     id="cuenta-movimiento"
                     className="w-full"

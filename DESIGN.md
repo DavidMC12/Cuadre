@@ -147,7 +147,7 @@ Los grupos siguen Primary/Secondary/Tertiary/Neutral, y a propósito se agregan 
 - **Niebla** (`oklch(0.97 0 0)`, token `mist`): fondo de lo seleccionado o en hover (opciones de alternar, menú activo, botones fantasma).
 - **Grafito Suave** (`oklch(0.556 0 0)`, token `graphite`): texto secundario, etiquetas de sección, ayudas bajo un ajuste y fechas.
 - **Hilo** (`oklch(0.922 0 0)`, token `hairline`): bordes de campos y divisiones entre filas de una lista.
-- **Gris de Foco** (`oklch(0.5 0 0)`, token `focus-gray`): el anillo de foco del teclado. Se oscureció desde el `oklch(0.708 0 0)` original del tema de shadcn porque, a la mitad de opacidad sobre blanco (así lo usan los controles), quedaba casi invisible — justo lo que un foco no puede ser.
+- **Gris de Foco** (`oklch(0.5 0 0)`, token `focus-gray`): el anillo de foco del teclado. Se oscureció desde el `oklch(0.708 0 0)` original del tema de shadcn: medido con la fórmula de contraste de WCAG, el original al 50% de opacidad sobre blanco (así lo usan los controles) daba **1,54:1**; este valor sube a **2,14:1**, una mejora real pero que **todavía no alcanza el mínimo de 3:1** recomendado para indicadores de foco. Cerrarlo del todo pide subir también la opacidad con la que los controles usan este color (`ring-*/50` → algo más alto), un cambio que toca muchos componentes a la vez y por eso queda para una pasada de `$impeccable audit`, no para este ajuste puntual.
 
 ### Semantic: money
 

@@ -16,10 +16,10 @@ import { cn } from "@/lib/utils";
  * solo, recordando la última que se usó en este aparato.
  */
 export function AccionRegistrar({ variante }: { variante: "flotante" | "lateral" }) {
-  const { data: cuentas } = useCuentas();
+  const { data: cuentas, isLoading: cargandoCuentas } = useCuentas();
 
   return (
-    <FormularioMovimiento cuentas={cuentas ?? []}>
+    <FormularioMovimiento cuentas={cuentas ?? []} cargandoCuentas={cargandoCuentas}>
       {variante === "flotante" ? (
         <button
           type="button"
