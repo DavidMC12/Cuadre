@@ -74,6 +74,18 @@ empieza sin que él lo pida explícitamente.
 | 2   | Autenticación y despliegue                 | hecha  |
 | 3   | Uso real y ajustes de diseño               | activa |
 
+### Bitácora de diseño (Fase 3)
+
+Decisión 2026-09-14: sin ronda de mockups — ya existe `DESIGN.md`, un sistema
+de neutros + un acento, y la app corre en modo Operar. Se implementa directo
+con `impeccable` sobre el critique de 27/40
+(`.impeccable/critique/2026-09-14T02-14-20Z__web-src-app.md`).
+
+- [ ] Color semántico ($0, signo menos, contraste, foco) — `colorize` + `audit`
+- [ ] Detalle de movimiento (saca Anular/Categorizar de la fila) — `distill`
+- [ ] Escritorio: panel lateral, desglose y tendencia lado a lado — `layout`
+- [ ] Pulido menor (texto, meses, tabular, orden saldo inicial) — `clarify`
+
 ### Pasos adicionales, ya pasado el 100%
 
 Congelados. Que la fase anterior se vea terminada **no** es razón para
