@@ -10,8 +10,10 @@
  * que todo lo que valida el negocio (formato de moneda, transferencias entre
  * cuentas de igual moneda, etc.) se respeta igual que si viniera de la app.
  *
- * Es aditivo: si la cuenta ya tiene cuentas o categorías con esos nombres, no
- * las duplica; solo agrega movimientos nuevos.
+ * Cuentas y categorías son idempotentes (reusa las que ya existan con esos
+ * nombres), pero los MOVIMIENTOS no: correrlo dos veces duplica el año
+ * completo de movimientos, porque son inmutables y no queda otra forma de
+ * detectar "esto ya se sembró".
  */
 import { eq } from 'drizzle-orm';
 import { db, closeDb } from '../src/db/client.js';
@@ -40,6 +42,10 @@ if (!usuario) {
 }
 
 const usuarioId = usuario.id;
+
+// Igual que scripts/rol-admin.mts: decir a qué base se va a escribir ANTES de
+// escribir, para no sembrar un año de movimientos en la base equivocada.
+console.log(`Base: ${new URL(process.env['DATABASE_URL']!).host}`);
 console.log(`Sembrando datos de prueba para ${usuario.email} (${usuarioId})`);
 
 // Generador determinista: mismos datos si se corre dos veces, para poder
