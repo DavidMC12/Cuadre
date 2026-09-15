@@ -56,6 +56,7 @@ export interface NuevoMovimiento {
 
 export interface FiltrosMovimientos {
   accountId?: string;
+  categoryId?: string;
   from?: string;
   to?: string;
   limit?: number;
