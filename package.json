@@ -18,6 +18,7 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "admin": "tsx scripts/rol-admin.mts",
+    "seed:prueba": "tsx scripts/seed-datos-prueba.mts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
