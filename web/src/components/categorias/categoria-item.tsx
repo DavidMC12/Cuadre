@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Archive, ArchiveRestore } from "lucide-react";
+import { Archive, ArchiveRestore, Pencil } from "lucide-react";
 
 import {
   Drawer,
@@ -144,24 +144,31 @@ export function CategoriaItem({ categoria }: { categoria: Categoria }) {
   }
 
   return (
-    <div className="flex items-center gap-2 py-2">
+    <div className="flex items-center gap-4 py-2">
       <RenombrarCategoria categoria={categoria}>
-        <button type="button" className="min-w-0 flex-1 truncate text-left text-sm">
-          {categoria.name}
+        {/* El lápiz es lo que dice "esto se toca para renombrar": el nombre
+            solo, sin ningún ícono ni subrayado, no se leía como un control. */}
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-sm text-muted-foreground hover:text-foreground"
+        >
+          <span className="truncate text-foreground">{categoria.name}</span>
+          <Pencil className="size-3 shrink-0 opacity-60" />
         </button>
       </RenombrarCategoria>
       <Button
         type="button"
         variant="ghost"
-        size="xs"
+        size="sm"
+        // Más grande y más lejos del nombre que se toca para renombrar: era
+        // fácil archivar por error al querer renombrar (o al revés). Sin
+        // `data-icon`: esa marca angosta el relleno de un lado y compite
+        // con el `px-3` de acá, dejando el botón dispar.
+        className="h-10 shrink-0 gap-1.5 px-3"
         onClick={alternarArchivo}
         disabled={enProceso}
       >
-        {archivada ? (
-          <ArchiveRestore data-icon="inline-start" />
-        ) : (
-          <Archive data-icon="inline-start" />
-        )}
+        {archivada ? <ArchiveRestore /> : <Archive />}
         {archivada ? "Restaurar" : "Archivar"}
       </Button>
     </div>

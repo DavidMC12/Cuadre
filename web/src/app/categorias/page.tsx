@@ -31,8 +31,10 @@ export default function PaginaCategorias() {
         <h1 className="text-xl font-semibold">Categorías</h1>
         {!verArchivadas && (
           <FormularioCategoria>
-            <Button size="sm">
-              <Plus data-icon="inline-start" />
+            {/* Sin `data-icon`: esa marca angosta el relleno del lado del
+                ícono, y acá compite con `px-4` dejando el botón dispar. */}
+            <Button size="sm" className="h-10 gap-1.5 px-4">
+              <Plus />
               Nueva
             </Button>
           </FormularioCategoria>

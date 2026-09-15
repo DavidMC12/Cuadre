@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SelectorCategoria } from "@/components/movimientos/selector-categoria";
+import { useCategorias } from "@/hooks/use-categorias";
 import { useCrearMovimiento } from "@/hooks/use-movimientos";
 import { usePantallaGrande } from "@/hooks/use-pantalla-grande";
 import { useSoloMirar } from "@/hooks/use-perfil";
@@ -42,6 +43,18 @@ import { cn } from "@/lib/utils";
 import { normalizarMontoIngresado, textoMonto } from "@/lib/money";
 
 type TipoMonto = "gasto" | "ingreso";
+
+/**
+ * Cuántas categorías se ofrecen como chip antes de "Más detalles".
+ *
+ * El catálogo no lleva cuenta de qué tan seguido se usa cada categoría (eso
+ * pediría guardar esa cuenta en el servidor), así que esto no es "las más
+ * usadas": son las primeras del catálogo, en el mismo orden alfabético que ya
+ * usa el resto de la app. Sigue resolviendo el problema real —hoy la
+ * categoría vive detrás de un enlace de 12px— sin inventar una función nueva
+ * de estadísticas.
+ */
+const CANTIDAD_CHIPS_RAPIDOS = 5;
 
 /** Dónde se recuerda la última cuenta usada: una comodidad de este aparato,
  * no un dato que haga falta guardar en el servidor. */
@@ -116,6 +129,11 @@ export function FormularioMovimiento({
 
   const crearMovimiento = useCrearMovimiento();
   const hayCuentas = cuentas.length > 0;
+
+  const { data: categorias } = useCategorias(false);
+  const chipsDeCategoria = (categorias ?? [])
+    .filter((categoria) => categoria.kind === (tipoMonto === "gasto" ? "expense" : "income"))
+    .slice(0, CANTIDAD_CHIPS_RAPIDOS);
 
   function reiniciar() {
     setCuentaElegidaAMano(null);
@@ -287,6 +305,41 @@ export function FormularioMovimiento({
             Ingreso
           </ToggleGroupItem>
         </ToggleGroup>
+
+        {chipsDeCategoria.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <span id="categorias-rapidas-etiqueta" className="sr-only">
+              Categoría
+            </span>
+            <div
+              role="group"
+              aria-labelledby="categorias-rapidas-etiqueta"
+              className="flex flex-wrap gap-1.5"
+            >
+              {chipsDeCategoria.map((categoria) => {
+                const elegida = categoryId === categoria.id;
+                return (
+                  <button
+                    key={categoria.id}
+                    type="button"
+                    aria-pressed={elegida}
+                    // Un chip elegido se puede volver a tocar para quitar la
+                    // categoría: no hace falta abrir "Más detalles" para eso.
+                    onClick={() => setCategoryId(elegida ? undefined : categoria.id)}
+                    className={cn(
+                      "rounded-full border px-3.5 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85",
+                      elegida
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+                    )}
+                  >
+                    {categoria.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="cuenta-movimiento">Cuenta</Label>
