@@ -23,6 +23,7 @@ export const RegistrarMovimientoSchema = z.object({
 
 export const ListarMovimientosSchema = z.object({
   accountId: z.uuid().optional(),
+  categoryId: z.uuid().optional(),
   from: FechaSchema.optional(),
   to: FechaSchema.optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),

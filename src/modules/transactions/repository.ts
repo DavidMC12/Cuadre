@@ -119,6 +119,7 @@ export async function registrar(
 
 export interface FiltrosDeListado {
   cuentaId?: string | undefined;
+  categoriaId?: string | undefined;
   desde?: string | undefined;
   hasta?: string | undefined;
   limite: number;
@@ -133,6 +134,7 @@ export async function listar(
 
   const condiciones = [eq(transactions.userId, usuarioId)];
   if (filtros.cuentaId) condiciones.push(eq(transactions.accountId, filtros.cuentaId));
+  if (filtros.categoriaId) condiciones.push(eq(transactions.categoryId, filtros.categoriaId));
   if (filtros.desde) condiciones.push(gte(transactions.occurredAt, new Date(filtros.desde)));
   if (filtros.hasta) condiciones.push(lte(transactions.occurredAt, new Date(filtros.hasta)));
   if (filtros.cursor) {
