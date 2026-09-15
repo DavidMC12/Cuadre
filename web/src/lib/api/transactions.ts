@@ -4,8 +4,10 @@ import { descargar, pedir } from "./client";
 import type {
   FiltrosMovimientos,
   Movimiento,
+  NuevaTransferencia,
   NuevoMovimiento,
   PaginaMovimientos,
+  Transferencia,
 } from "./types";
 
 export function fetchTransactions(filtros: FiltrosMovimientos = {}): Promise<PaginaMovimientos> {
@@ -39,4 +41,12 @@ export function updateTransactionCategory(
 /** Todo el historial en un archivo, para abrirlo en Excel o guardarlo aparte. */
 export function exportTransactions(): Promise<{ contenido: Blob; nombre: string }> {
   return descargar("/transactions/export", "cuadre-movimientos.csv");
+}
+
+/**
+ * Pasar plata entre dos cuentas propias. El servidor escribe las dos patas
+ * (lo que sale, lo que entra) juntas o ninguna.
+ */
+export function createTransfer(input: NuevaTransferencia): Promise<{ data: Transferencia }> {
+  return pedir("/transfers", { metodo: "POST", cuerpo: input });
 }
