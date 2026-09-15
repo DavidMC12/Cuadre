@@ -119,8 +119,14 @@ function ContenidoMovimientos() {
   );
 
   // Para el selector de filtro: todas, separadas por tipo como en el catálogo.
-  const categoriasDeGasto = (categorias ?? []).filter((categoria) => categoria.kind === "expense");
-  const categoriasDeIngreso = (categorias ?? []).filter((categoria) => categoria.kind === "income");
+  const categoriasDeGasto = useMemo(
+    () => (categorias ?? []).filter((categoria) => categoria.kind === "expense"),
+    [categorias]
+  );
+  const categoriasDeIngreso = useMemo(
+    () => (categorias ?? []).filter((categoria) => categoria.kind === "income"),
+    [categorias]
+  );
 
   const grupos = useMemo(
     () => (movimientos ? agruparMovimientosPorDia(movimientos) : []),
