@@ -48,8 +48,19 @@ export function DetalleMovimiento({
   const esAnulacion = movimiento.reversesTransactionId !== null;
 
   // Anular escribe otro movimiento en el libro, y el libro no se edita. Desde
-  // la cuenta de otra persona eso ni se ofrece.
-  const puedeAnularse = !soloMirar && !anulado && !esAnulacion && movimiento.kind !== "opening";
+  // la cuenta de otra persona eso ni se ofrece. Una pata de transferencia
+  // tampoco: el servidor la rechaza igual (se anula la transferencia
+  // completa, no una de sus mitades), y ese botón todavía no existe aquí —
+  // mejor no ofrecerlo que ofrecer uno que siempre falla. Solo llega a verse
+  // esta pantalla cuando la lista no encontró su pareja (por ejemplo, está
+  // filtrada a una sola cuenta): con las dos patas juntas, la fila combinada
+  // no abre ningún detalle.
+  const puedeAnularse =
+    !soloMirar &&
+    !anulado &&
+    !esAnulacion &&
+    movimiento.kind !== "opening" &&
+    movimiento.kind !== "transfer";
   // La categoría tampoco se toca en la cuenta de otra persona: el detalle es
   // solo lectura ahí, como el resto de la app.
   const puedeCategorizarse = !soloMirar && movimiento.kind === "standard";
