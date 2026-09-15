@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SelectorCategoria } from "@/components/movimientos/selector-categoria";
-import { useCrearMovimiento } from "@/hooks/use-movimientos";
+import { useCrearMovimiento, useCrearTransferencia } from "@/hooks/use-movimientos";
 import { usePantallaGrande } from "@/hooks/use-pantalla-grande";
 import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
@@ -41,7 +41,7 @@ import { fechaParaInput, inputAIso } from "@/lib/fecha";
 import { cn } from "@/lib/utils";
 import { normalizarMontoIngresado, textoMonto } from "@/lib/money";
 
-type TipoMonto = "gasto" | "ingreso";
+type TipoMonto = "gasto" | "ingreso" | "transferencia";
 
 /** Dónde se recuerda la última cuenta usada: una comodidad de este aparato,
  * no un dato que haga falta guardar en el servidor. */
@@ -99,7 +99,12 @@ export function FormularioMovimiento({
   const [fecha, setFecha] = useState(hoyInput);
   const [descripcion, setDescripcion] = useState("");
   const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
-  const [errores, setErrores] = useState<{ cuenta?: string; monto?: string }>({});
+  const [errores, setErrores] = useState<{
+    cuenta?: string;
+    origen?: string;
+    destino?: string;
+    monto?: string;
+  }>({});
 
   // La cuenta elegida no es un dato que haya que recordar entre renders por su
   // cuenta: solo hace falta guardar si la persona ELIGIÓ una a mano, y todo lo
@@ -114,11 +119,42 @@ export function FormularioMovimiento({
       : cuentaPorDefecto(cuentaIdPorDefecto, cuentas);
   const cuentaElegida = cuentas.find((cuenta) => cuenta.id === cuentaId);
 
+  // Lo mismo que arriba, pero para "Entre cuentas": dos cuentas en vez de una,
+  // y la de destino nunca puede quedar igual a la de origen (si la persona no
+  // ha elegido una a mano, o si cambió el origen y la que tenía elegida quedó
+  // repetida, se propone la primera cuenta distinta que haya).
+  const [origenElegidoAMano, setOrigenElegidoAMano] = useState<string | null>(null);
+  const [destinoElegidoAMano, setDestinoElegidoAMano] = useState<string | null>(null);
+  const cuentaOrigenId =
+    origenElegidoAMano && cuentas.some((cuenta) => cuenta.id === origenElegidoAMano)
+      ? origenElegidoAMano
+      : cuentaPorDefecto(cuentaIdPorDefecto, cuentas);
+  const cuentaDestinoId =
+    destinoElegidoAMano &&
+    destinoElegidoAMano !== cuentaOrigenId &&
+    cuentas.some((cuenta) => cuenta.id === destinoElegidoAMano)
+      ? destinoElegidoAMano
+      : (cuentas.find((cuenta) => cuenta.id !== cuentaOrigenId)?.id ?? "");
+  const cuentaOrigen = cuentas.find((cuenta) => cuenta.id === cuentaOrigenId);
+  const cuentaDestino = cuentas.find((cuenta) => cuenta.id === cuentaDestinoId);
+
+  // La cuenta que decide cómo se lee el monto escrito: la única elegida, o la
+  // de origen cuando es una transferencia.
+  const cuentaParaMonto = tipoMonto === "transferencia" ? cuentaOrigen : cuentaElegida;
+
   const crearMovimiento = useCrearMovimiento();
+  const crearTransferencia = useCrearTransferencia();
+  const registrando = crearMovimiento.isPending || crearTransferencia.isPending;
   const hayCuentas = cuentas.length > 0;
+  // "Entre cuentas" no tiene sentido con una sola cuenta: no habría hacia
+  // dónde transferir, y ofrecer una opción que nunca puede completarse es
+  // peor que no ofrecerla.
+  const puedeTransferir = cuentas.length >= 2;
 
   function reiniciar() {
     setCuentaElegidaAMano(null);
+    setOrigenElegidoAMano(null);
+    setDestinoElegidoAMano(null);
     setTipoMonto("gasto");
     setMonto("");
     setMasDetalles(false);
@@ -128,8 +164,66 @@ export function FormularioMovimiento({
     setErrores({});
   }
 
+  function manejarEnvioTransferencia() {
+    const nuevosErrores: typeof errores = {};
+    if (!cuentaOrigen) nuevosErrores.origen = "Elige la cuenta de origen.";
+    if (!cuentaDestino) {
+      nuevosErrores.destino = "Elige la cuenta de destino.";
+    } else if (cuentaOrigen && cuentaDestino.id === cuentaOrigen.id) {
+      // Defensivo: el selector de destino ya excluye la cuenta de origen, así
+      // que esto solo pasaría si las dos cuentas cambiaran entre un render y
+      // el siguiente. Igual se revisa antes de mandar nada al servidor.
+      nuevosErrores.destino = "Elige una cuenta distinta de la de origen.";
+    }
+
+    // Se lee con la moneda de la cuenta de origen: es ella la que pierde la
+    // plata, y sus pesos o sus dólares son los que hay que interpretar.
+    const lectura = cuentaOrigen ? normalizarMontoIngresado(monto, cuentaOrigen.currency) : null;
+    if (lectura && "error" in lectura) nuevosErrores.monto = lectura.error;
+
+    setErrores(nuevosErrores);
+    if (!cuentaOrigen || !cuentaDestino || cuentaOrigen.id === cuentaDestino.id) return;
+    if (!lectura || "error" in lectura) return;
+
+    crearTransferencia.mutate(
+      {
+        fromAccountId: cuentaOrigen.id,
+        toAccountId: cuentaDestino.id,
+        amount: lectura.monto,
+        occurredAt: inputAIso(fecha),
+        description: descripcion.trim() || undefined,
+      },
+      {
+        onSuccess: ({ data: guardada }) => {
+          recordarCuenta(cuentaOrigen.id);
+          // Igual que al registrar un movimiento normal: el aviso repite lo
+          // que respondió el servidor, no lo que se escribió.
+          const entrada = guardada.legs.find((pata) => !pata.amount.trim().startsWith("-"));
+          const cifra = entrada ? textoMonto(entrada.amount, entrada.currency) : "";
+          toast.success(
+            `Transferencia de ${cifra} de ${cuentaOrigen.name} a ${cuentaDestino.name} registrada.`
+          );
+          setAbierto(false);
+          reiniciar();
+        },
+        onError: (error) => {
+          if (error instanceof ApiError) {
+            toast.error(error.message);
+          } else {
+            toast.error("No se pudo registrar la transferencia. Intenta de nuevo.");
+          }
+        },
+      }
+    );
+  }
+
   function manejarEnvio(evento: React.FormEvent<HTMLFormElement>) {
     evento.preventDefault();
+
+    if (tipoMonto === "transferencia") {
+      manejarEnvioTransferencia();
+      return;
+    }
 
     const nuevosErrores: typeof errores = {};
     if (!cuentaElegida) nuevosErrores.cuenta = "Elige una cuenta.";
@@ -217,7 +311,7 @@ export function FormularioMovimiento({
     <form onSubmit={manejarEnvio} className="flex min-h-0 flex-1 flex-col">
       <DrawerHeader className="sr-only">
         <Titulo>Nuevo movimiento</Titulo>
-        <Descripcion>Registra un gasto o un ingreso.</Descripcion>
+        <Descripcion>Registra un gasto, un ingreso, o pasa plata entre tus cuentas.</Descripcion>
       </DrawerHeader>
 
       <div className="flex flex-col gap-5 overflow-y-auto px-4 pt-2 pb-4">
@@ -236,7 +330,7 @@ export function FormularioMovimiento({
             Monto
           </Label>
           <span aria-hidden className="text-xs text-muted-foreground">
-            {cuentaElegida?.currency ?? ""}
+            {cuentaParaMonto?.currency ?? ""}
           </span>
           <div
             className={cn(
@@ -244,9 +338,13 @@ export function FormularioMovimiento({
               tipoMonto === "ingreso" ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"
             )}
           >
-            <span aria-hidden className="opacity-60">
-              {tipoMonto === "ingreso" ? "+" : "−"}
-            </span>
+            {/* Una transferencia no lleva signo: no es plata que entra ni que
+                sale, es la misma plata cambiando de cuenta. */}
+            {tipoMonto !== "transferencia" && (
+              <span aria-hidden className="opacity-60">
+                {tipoMonto === "ingreso" ? "+" : "−"}
+              </span>
+            )}
             <Input
               id="monto-movimiento"
               inputMode="decimal"
@@ -286,33 +384,112 @@ export function FormularioMovimiento({
           >
             Ingreso
           </ToggleGroupItem>
+          {puedeTransferir && (
+            <ToggleGroupItem
+              value="transferencia"
+              className="flex-1 aria-pressed:bg-foreground/[0.06] aria-pressed:font-semibold aria-pressed:text-foreground"
+            >
+              Entre cuentas
+            </ToggleGroupItem>
+          )}
         </ToggleGroup>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="cuenta-movimiento">Cuenta</Label>
-          <Select value={cuentaId} onValueChange={(valor) => setCuentaElegidaAMano(valor ?? null)}>
-            <SelectTrigger
-              id="cuenta-movimiento"
-              className="w-full"
-              aria-invalid={Boolean(errores.cuenta)}
+        {tipoMonto === "transferencia" ? (
+          <>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="origen-transferencia">Desde</Label>
+              <Select
+                value={cuentaOrigenId}
+                onValueChange={(valor) => setOrigenElegidoAMano(valor ?? null)}
+              >
+                <SelectTrigger
+                  id="origen-transferencia"
+                  className="w-full"
+                  aria-invalid={Boolean(errores.origen)}
+                >
+                  {/* El popup de opciones vive en un portal que no está
+                      montado mientras el selector está cerrado: hay que
+                      resolver el nombre a mano, no asumir que lo encuentra solo. */}
+                  <SelectValue placeholder="Elige una cuenta">
+                    {(valor: string) =>
+                      cuentas.find((cuenta) => cuenta.id === valor)?.name ?? valor
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {cuentas.map((cuenta) => (
+                    <SelectItem key={cuenta.id} value={cuenta.id}>
+                      {cuenta.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errores.origen && <p className="text-xs text-destructive">{errores.origen}</p>}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="destino-transferencia">Hacia</Label>
+              <Select
+                value={cuentaDestinoId}
+                onValueChange={(valor) => setDestinoElegidoAMano(valor ?? null)}
+              >
+                <SelectTrigger
+                  id="destino-transferencia"
+                  className="w-full"
+                  aria-invalid={Boolean(errores.destino)}
+                >
+                  <SelectValue placeholder="Elige una cuenta">
+                    {(valor: string) =>
+                      cuentas.find((cuenta) => cuenta.id === valor)?.name ?? valor
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {/* Sin la cuenta de origen: transferir de una cuenta a sí
+                      misma no tiene sentido, y así no hace falta ni mostrar
+                      el error de "elige una cuenta distinta". */}
+                  {cuentas
+                    .filter((cuenta) => cuenta.id !== cuentaOrigenId)
+                    .map((cuenta) => (
+                      <SelectItem key={cuenta.id} value={cuenta.id}>
+                        {cuenta.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              {errores.destino && <p className="text-xs text-destructive">{errores.destino}</p>}
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="cuenta-movimiento">Cuenta</Label>
+            <Select
+              value={cuentaId}
+              onValueChange={(valor) => setCuentaElegidaAMano(valor ?? null)}
             >
-              {/* El popup de opciones vive en un portal que no está
-                        montado mientras el selector está cerrado: hay que
-                        resolver el nombre a mano, no asumir que lo encuentra solo. */}
-              <SelectValue placeholder="Elige una cuenta">
-                {(valor: string) => cuentas.find((cuenta) => cuenta.id === valor)?.name ?? valor}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {cuentas.map((cuenta) => (
-                <SelectItem key={cuenta.id} value={cuenta.id}>
-                  {cuenta.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errores.cuenta && <p className="text-xs text-destructive">{errores.cuenta}</p>}
-        </div>
+              <SelectTrigger
+                id="cuenta-movimiento"
+                className="w-full"
+                aria-invalid={Boolean(errores.cuenta)}
+              >
+                {/* El popup de opciones vive en un portal que no está
+                          montado mientras el selector está cerrado: hay que
+                          resolver el nombre a mano, no asumir que lo encuentra solo. */}
+                <SelectValue placeholder="Elige una cuenta">
+                  {(valor: string) => cuentas.find((cuenta) => cuenta.id === valor)?.name ?? valor}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {cuentas.map((cuenta) => (
+                  <SelectItem key={cuenta.id} value={cuenta.id}>
+                    {cuenta.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errores.cuenta && <p className="text-xs text-destructive">{errores.cuenta}</p>}
+          </div>
+        )}
 
         <button
           type="button"
@@ -320,7 +497,9 @@ export function FormularioMovimiento({
           className="flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           aria-expanded={masDetalles}
         >
-          Más detalles (fecha, descripción, categoría)
+          {tipoMonto === "transferencia"
+            ? "Más detalles (fecha, descripción)"
+            : "Más detalles (fecha, descripción, categoría)"}
           <ChevronDown
             className={cn("size-3.5 transition-transform", masDetalles && "rotate-180")}
           />
@@ -349,22 +528,26 @@ export function FormularioMovimiento({
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="categoria-movimiento">Categoría (opcional)</Label>
-              <SelectorCategoria
-                id="categoria-movimiento"
-                kind={tipoMonto === "gasto" ? "expense" : "income"}
-                value={categoryId}
-                onChange={setCategoryId}
-              />
-            </div>
+            {/* Pasar plata entre cuentas propias no es un gasto ni un
+                ingreso, así que no lleva categoría. */}
+            {tipoMonto !== "transferencia" && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="categoria-movimiento">Categoría (opcional)</Label>
+                <SelectorCategoria
+                  id="categoria-movimiento"
+                  kind={tipoMonto === "gasto" ? "expense" : "income"}
+                  value={categoryId}
+                  onChange={setCategoryId}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
 
       <DrawerFooter>
-        <Button type="submit" disabled={crearMovimiento.isPending}>
-          {crearMovimiento.isPending ? "Registrando…" : "Registrar"}
+        <Button type="submit" disabled={registrando}>
+          {registrando ? "Registrando…" : "Registrar"}
         </Button>
       </DrawerFooter>
     </form>
