@@ -6,9 +6,20 @@ import { useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { CampoContrasena } from "@/components/auth/campo-contrasena";
+import { TituloAuth } from "@/components/auth/titulo-auth";
 import { authClient } from "@/lib/auth/client";
 import { mensajeErrorAuth, mensajeErrorAuthLanzado } from "@/lib/auth/errors";
 import { cn } from "@/lib/utils";
+
+/**
+ * `bad_jwt` es el código con el que el cliente de Neon Auth normaliza tanto
+ * "tu sesión venció" como "este enlace de restablecer ya no sirve" (ver el
+ * comentario junto al diccionario en `auth/errors.ts`). Acá siempre es lo
+ * segundo: este formulario no depende de ninguna sesión.
+ */
+const SOBRESCRITURAS_RESTABLECER = {
+  bad_jwt: "Ese enlace ya no sirve. Puede que haya vencido o que ya lo hayas usado.",
+};
 
 /**
  * Pone una contraseña nueva a partir del enlace que llegó por correo.
@@ -51,7 +62,7 @@ export function FormularioRestablecer({
     } catch (excepcion) {
       // Un enlace vencido o ya usado llega hasta acá lanzado, no como
       // `{ error }`: ver el comentario de `bad_jwt` en auth/errors.ts.
-      setError(mensajeErrorAuthLanzado(excepcion));
+      setError(mensajeErrorAuthLanzado(excepcion, SOBRESCRITURAS_RESTABLECER));
     } finally {
       setEnviando(false);
     }
@@ -61,11 +72,13 @@ export function FormularioRestablecer({
     return (
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <h1 className="font-heading text-base leading-snug font-medium">
-            Ese enlace ya no sirve
-          </h1>
+          <TituloAuth>
+            {enlaceVencido ? "Ese enlace ya no sirve" : "Hace falta un enlace"}
+          </TituloAuth>
           <CardDescription>
-            Puede que haya vencido o que ya lo hayas usado. Pide uno nuevo.
+            {enlaceVencido
+              ? "Puede que haya vencido o que ya lo hayas usado. Pide uno nuevo."
+              : "Esta página se abre desde el enlace que llega por correo, no se visita directamente. Pide uno."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -81,9 +94,7 @@ export function FormularioRestablecer({
     return (
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <h1 className="font-heading text-base leading-snug font-medium">
-            Contraseña actualizada
-          </h1>
+          <TituloAuth>Contraseña actualizada</TituloAuth>
           <CardDescription>Ya puedes entrar con tu contraseña nueva.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -98,9 +109,7 @@ export function FormularioRestablecer({
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
-        <h1 className="font-heading text-base leading-snug font-medium">
-          Pon una contraseña nueva
-        </h1>
+        <TituloAuth>Pon una contraseña nueva</TituloAuth>
         <CardDescription>Elige una contraseña que no hayas usado antes.</CardDescription>
       </CardHeader>
       <CardContent>
@@ -117,7 +126,11 @@ export function FormularioRestablecer({
             autoFocus
           />
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
 
           <Button type="submit" disabled={enviando} className="h-10 w-full">
             {enviando ? "Guardando…" : "Guardar contraseña"}

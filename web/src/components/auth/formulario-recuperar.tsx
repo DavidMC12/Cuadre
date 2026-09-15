@@ -7,6 +7,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TituloAuth } from "@/components/auth/titulo-auth";
 import { authClient } from "@/lib/auth/client";
 import { mensajeErrorAuth, mensajeErrorAuthLanzado } from "@/lib/auth/errors";
 import { cn } from "@/lib/utils";
@@ -55,7 +56,7 @@ export function FormularioRecuperar() {
     return (
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <h1 className="font-heading text-base leading-snug font-medium">Revisa tu correo</h1>
+          <TituloAuth>Revisa tu correo</TituloAuth>
           <CardDescription>
             Si {correo.trim()} tiene una cuenta en Cuadre, te mandamos un enlace para poner una
             contraseña nueva. Puede tardar unos minutos en llegar.
@@ -73,9 +74,7 @@ export function FormularioRecuperar() {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
-        <h1 className="font-heading text-base leading-snug font-medium">
-          ¿Olvidaste tu contraseña?
-        </h1>
+        <TituloAuth>¿Olvidaste tu contraseña?</TituloAuth>
         <CardDescription>
           Escribe tu correo y te mandamos un enlace para poner una nueva.
         </CardDescription>
@@ -97,7 +96,11 @@ export function FormularioRecuperar() {
             />
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
 
           <Button type="submit" disabled={enviando} className="h-10 w-full">
             {enviando ? "Enviando…" : "Enviar enlace"}
@@ -105,7 +108,10 @@ export function FormularioRecuperar() {
         </form>
 
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          <Link href="/entrar" className="text-foreground underline underline-offset-4">
+          <Link
+            href="/entrar"
+            className="inline-block -my-2 px-1 py-2 text-foreground underline underline-offset-4"
+          >
             Volver a entrar
           </Link>
         </p>

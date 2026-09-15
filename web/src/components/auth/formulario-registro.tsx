@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CampoContrasena } from "@/components/auth/campo-contrasena";
+import { TituloAuth } from "@/components/auth/titulo-auth";
 import { authClient } from "@/lib/auth/client";
 import { mensajeErrorAuth, mensajeErrorAuthLanzado } from "@/lib/auth/errors";
 
@@ -52,7 +53,7 @@ export function FormularioRegistro() {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
-        <h1 className="font-heading text-base leading-snug font-medium">Crear cuenta</h1>
+        <TituloAuth>Crear cuenta</TituloAuth>
         <CardDescription>Un correo, una contraseña y listo.</CardDescription>
       </CardHeader>
       <CardContent>
@@ -101,7 +102,11 @@ export function FormularioRegistro() {
             ayuda="Al menos 8 caracteres."
           />
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
 
           <Button type="submit" disabled={enviando} className="h-10 w-full">
             {enviando ? "Creando cuenta…" : "Crear cuenta"}
@@ -110,7 +115,10 @@ export function FormularioRegistro() {
 
         <p className="mt-4 text-center text-sm text-muted-foreground">
           ¿Ya tienes cuenta?{" "}
-          <Link href="/entrar" className="text-foreground underline underline-offset-4">
+          <Link
+            href="/entrar"
+            className="inline-block -my-2 px-1 py-2 text-foreground underline underline-offset-4"
+          >
             Entra
           </Link>
         </p>
