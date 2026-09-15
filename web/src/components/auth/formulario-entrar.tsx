@@ -5,17 +5,13 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CampoContrasena } from "@/components/auth/campo-contrasena";
+import { TituloAuth } from "@/components/auth/titulo-auth";
 import { authClient } from "@/lib/auth/client";
-import { mensajeErrorAuth } from "@/lib/auth/errors";
+import { mensajeErrorAuth, mensajeErrorAuthLanzado } from "@/lib/auth/errors";
 
 export function FormularioEntrar() {
   const router = useRouter();
@@ -42,11 +38,11 @@ export function FormularioEntrar() {
 
       router.push("/");
       router.refresh();
-    } catch {
+    } catch (excepcion) {
       // La llamada puede lanzar en vez de devolver `error` (p. ej. si el
       // servicio de autenticación responde con un error que no sabe
       // interpretar). No debe quedar la pantalla congelada en "Entrando…".
-      setError(mensajeErrorAuth(null));
+      setError(mensajeErrorAuthLanzado(excepcion));
     } finally {
       setEnviando(false);
     }
@@ -55,7 +51,7 @@ export function FormularioEntrar() {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
-        <CardTitle>Entrar</CardTitle>
+        <TituloAuth>Entrar</TituloAuth>
         <CardDescription>Entra con tu correo y tu contraseña.</CardDescription>
       </CardHeader>
       <CardContent>
@@ -71,32 +67,47 @@ export function FormularioEntrar() {
               aria-invalid={Boolean(error)}
               required
               autoFocus
+              className="h-10"
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="contrasena">Contraseña</Label>
-            <Input
+            <CampoContrasena
               id="contrasena"
-              type="password"
-              autoComplete="current-password"
+              label="Contraseña"
               value={contrasena}
-              onChange={(evento) => setContrasena(evento.target.value)}
-              aria-invalid={Boolean(error)}
-              required
+              onChange={setContrasena}
+              autoComplete="current-password"
+              invalido={Boolean(error)}
             />
+            {/* -my-2 compensa el py-2: el texto queda en el mismo lugar de
+                siempre, pero el área que se puede tocar crece a los 40px
+                del resto de los controles de este formulario. */}
+            <Link
+              href="/recuperar-contrasena"
+              className="-my-2 self-end px-1 py-2 text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
 
-          <Button type="submit" disabled={enviando} className="w-full">
+          <Button type="submit" disabled={enviando} className="h-10 w-full">
             {enviando ? "Entrando…" : "Entrar"}
           </Button>
         </form>
 
         <p className="mt-4 text-center text-sm text-muted-foreground">
           ¿No tienes cuenta?{" "}
-          <Link href="/registrarse" className="text-foreground underline underline-offset-4">
+          <Link
+            href="/registrarse"
+            className="inline-block -my-2 px-1 py-2 text-foreground underline underline-offset-4"
+          >
             Regístrate
           </Link>
         </p>

@@ -18,7 +18,12 @@ const ELEMENTOS_NAV = [
   { href: "/ajustes", etiqueta: "Ajustes", Icono: Settings, hijas: ["/categorias", "/admin"] },
 ] as const;
 
-const RUTAS_SIN_SESION = ["/entrar", "/registrarse"];
+const RUTAS_SIN_SESION = [
+  "/entrar",
+  "/registrarse",
+  "/recuperar-contrasena",
+  "/restablecer-contrasena",
+];
 
 function estaActivo(pathname: string | null, href: string, hijas: readonly string[]): boolean {
   if (!pathname) return false;
