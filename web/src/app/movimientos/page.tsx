@@ -2,7 +2,7 @@
 
 import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Receipt } from "lucide-react";
+import { Filter, Plus, Receipt, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,9 @@ import { etiquetaMes, mesActual, rangoDelMes } from "@/lib/fecha";
 
 const TODAS_LAS_CUENTAS = "todas";
 const PARAM_MES = "mes";
+const PARAM_CATEGORIA = "categoria";
 const FORMA_DE_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
+const FORMA_DE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * `useSearchParams` obliga a que el contenido viva dentro de un límite de
@@ -67,11 +69,19 @@ function ContenidoMovimientos() {
   const mesDeLaUrl = searchParams.get(PARAM_MES);
   const mes = mesDeLaUrl && FORMA_DE_MES.test(mesDeLaUrl) ? mesDeLaUrl : mesActual();
 
+  // La categoría también llega por la URL, cuando se toca una barra del
+  // Resumen. Un valor que no sea un identificador válido se ignora.
+  const categoriaDeLaUrl = searchParams.get(PARAM_CATEGORIA);
+  const categoriaFiltro =
+    categoriaDeLaUrl && FORMA_DE_UUID.test(categoriaDeLaUrl) ? categoriaDeLaUrl : null;
+
   const [cuentaFiltro, setCuentaFiltro] = useState(TODAS_LAS_CUENTAS);
   const [movimientoAConfirmar, setMovimientoAConfirmar] = useState<Movimiento | null>(null);
 
   const { data: cuentas } = useCuentas();
-  const { data: categorias } = useCategorias();
+  // Con archivadas incluidas: la lista puede estar filtrada por una categoría
+  // que ya se archivó, y sus movimientos deben seguir mostrando el nombre.
+  const { data: categorias } = useCategorias(true);
 
   const rango = useMemo(() => rangoDelMes(mes), [mes]);
   const filtros = useMemo<FiltrosMovimientos>(
@@ -79,8 +89,9 @@ function ContenidoMovimientos() {
       from: rango.desde,
       to: rango.hasta,
       ...(cuentaFiltro === TODAS_LAS_CUENTAS ? {} : { accountId: cuentaFiltro }),
+      ...(categoriaFiltro ? { categoryId: categoriaFiltro } : {}),
     }),
-    [rango, cuentaFiltro]
+    [rango, cuentaFiltro, categoriaFiltro]
   );
 
   const {
@@ -107,9 +118,17 @@ function ContenidoMovimientos() {
     [movimientos]
   );
 
+  const categoriaActiva = categorias?.find((categoria) => categoria.id === categoriaFiltro);
+
   function cambiarMes(nuevoMes: string) {
     const parametros = new URLSearchParams(searchParams.toString());
     parametros.set(PARAM_MES, nuevoMes);
+    router.replace(`/movimientos?${parametros.toString()}`, { scroll: false });
+  }
+
+  function quitarCategoria() {
+    const parametros = new URLSearchParams(searchParams.toString());
+    parametros.delete(PARAM_CATEGORIA);
     router.replace(`/movimientos?${parametros.toString()}`, { scroll: false });
   }
 
@@ -169,6 +188,24 @@ function ContenidoMovimientos() {
         </Select>
       )}
 
+      {categoriaFiltro && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Categoría
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={quitarCategoria}
+            aria-label="Quitar el filtro de categoría"
+          >
+            {categoriaActiva?.name ?? "Seleccionada"}
+            <X data-icon="inline-end" />
+          </Button>
+        </div>
+      )}
+
       {isLoading && (
         <div className="flex flex-col gap-2">
           <Skeleton className="h-4 w-20" />
@@ -178,7 +215,21 @@ function ContenidoMovimientos() {
         </div>
       )}
 
-      {!isLoading && movimientos && movimientos.length === 0 && (
+      {!isLoading && movimientos?.length === 0 && categoriaFiltro && (
+        <EmptyState
+          Icono={Filter}
+          titulo="Sin movimientos con ese filtro"
+          descripcion={`No hay movimientos${
+            categoriaActiva ? ` de ${categoriaActiva.name}` : ""
+          } en ${etiquetaMes(mes)}.`}
+        >
+          <Button type="button" variant="outline" size="sm" onClick={quitarCategoria}>
+            Quitar filtro
+          </Button>
+        </EmptyState>
+      )}
+
+      {!isLoading && movimientos?.length === 0 && !categoriaFiltro && (
         <EmptyState
           Icono={Receipt}
           titulo={
