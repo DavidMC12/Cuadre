@@ -86,8 +86,21 @@ con `impeccable` sobre el critique de 27/40
 - [x] Escritorio: panel lateral, desglose y tendencia lado a lado — `layout`
 - [x] Pulido menor (texto, meses, tabular, orden saldo inicial) — `clarify`
 
-Las 4 tareas del critique 27/40 ya están en `main`. Pendiente, aparte: un
-`$impeccable critique` nuevo para medir cuánto subió.
+Las 4 tareas del critique 27/40 ya están en `main`.
+
+**Segunda vuelta:** el critique nuevo (25/40,
+`.impeccable/critique/2026-09-14T21-25-26Z__web-src-app.md`) bajó el puntaje
+sin deshacer lo anterior — encontró una clase de problema distinta, empezando
+por un P0 de dinero que la primera vuelta no había buscado.
+
+- [x] [P0] Separador de miles mal leído al escribir un monto — `harden`
+- [x] [P1] Historial sin límite, filtro de mes y de categoría — `shape`
+- [x] [P1] Gráfica de tendencia ilegible en modo oscuro — `colorize`
+- [x] [P1] Transferencias entre cuentas propias — `shape`
+- [x] [P2] Registrar rápido: categoría escondida y controles chicos — `adapt`
+
+Los 5 problemas prioritarios de esta vuelta ya están en `main`. Pendiente,
+aparte: otro `$impeccable critique` para medir cuánto subió esta vez.
 
 ### Pasos adicionales, ya pasado el 100%
 
