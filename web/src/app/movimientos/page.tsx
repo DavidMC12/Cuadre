@@ -32,9 +32,13 @@ export default function PaginaMovimientos() {
 
   const { data: cuentas } = useCuentas();
   const { data: categorias } = useCategorias();
-  const { data: movimientos, isLoading } = useMovimientos(
-    cuentaFiltro === TODAS_LAS_CUENTAS ? {} : { accountId: cuentaFiltro }
-  );
+  const {
+    data: movimientos,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useMovimientos(cuentaFiltro === TODAS_LAS_CUENTAS ? {} : { accountId: cuentaFiltro });
   const anularMovimiento = useAnularMovimiento();
 
   const cuentasPorId = useMemo(
@@ -160,6 +164,27 @@ export default function PaginaMovimientos() {
           ))}
         </div>
       )}
+
+      {/* Al final del historial: o se puede traer la página siguiente, o ya
+          se llegó al primer movimiento de todos. */}
+      {!isLoading &&
+        movimientos &&
+        movimientos.length > 0 &&
+        (hasNextPage ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="self-center"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+          >
+            {isFetchingNextPage ? "Cargando…" : "Cargar más"}
+          </Button>
+        ) : (
+          <p className="py-2 text-center text-sm text-muted-foreground">
+            Ese es el primer movimiento.
+          </p>
+        ))}
 
       <ConfirmarAnulacion
         movimiento={movimientoAConfirmar}

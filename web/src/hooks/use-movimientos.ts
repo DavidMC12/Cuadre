@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import {
   createTransaction,
@@ -17,11 +17,19 @@ export const clavesMovimientos = {
   lista: (filtros: FiltrosMovimientos) => [...clavesMovimientos.todas(), filtros] as const,
 };
 
+/**
+ * El historial, por páginas. La API pagina con cursor; aquí se van pidiendo y
+ * acumulando, y `select` las aplana en una sola lista para que la pantalla no
+ * tenga que saber de páginas. `hasNextPage` y `fetchNextPage` quedan para el
+ * botón "Cargar más".
+ */
 export function useMovimientos(filtros: FiltrosMovimientos = {}) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: clavesMovimientos.lista(filtros),
-    queryFn: () => fetchTransactions(filtros),
-    select: (respuesta) => respuesta.data,
+    queryFn: ({ pageParam }) => fetchTransactions({ ...filtros, cursor: pageParam ?? undefined }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (ultimaPagina) => ultimaPagina.nextCursor ?? undefined,
+    select: (resultado) => resultado.pages.flatMap((pagina) => pagina.data),
   });
 }
 
