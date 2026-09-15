@@ -41,6 +41,7 @@ import type { Cuenta } from "@/lib/api/types";
 import { fechaParaInput, inputAIso } from "@/lib/fecha";
 import { cn } from "@/lib/utils";
 import { normalizarMontoIngresado, textoMonto } from "@/lib/money";
+import { cuentasDeDestino } from "@/lib/transferencias";
 
 type TipoMonto = "gasto" | "ingreso" | "transferencia";
 
@@ -53,8 +54,13 @@ type TipoMonto = "gasto" | "ingreso" | "transferencia";
  * usa el resto de la app. Sigue resolviendo el problema real —hoy la
  * categoría vive detrás de un enlace de 12px— sin inventar una función nueva
  * de estadísticas.
+ *
+ * Son tres, no más, y con su propio rótulo: al registrar de pie y con prisa,
+ * el primer vistazo ya tiene el tipo (Gasto / Ingreso / Entre cuentas) y estos
+ * chips, y ocho opciones sueltas se leían como un solo grupo. El resto del
+ * catálogo sigue a un toque en "Más detalles".
  */
-const CANTIDAD_CHIPS_RAPIDOS = 5;
+const CANTIDAD_CHIPS_RAPIDOS = 3;
 
 /** Dónde se recuerda la última cuenta usada: una comodidad de este aparato,
  * no un dato que haga falta guardar en el servidor. */
@@ -142,13 +148,16 @@ export function FormularioMovimiento({
     origenElegidoAMano && cuentas.some((cuenta) => cuenta.id === origenElegidoAMano)
       ? origenElegidoAMano
       : cuentaPorDefecto(cuentaIdPorDefecto, cuentas);
-  const cuentaDestinoId =
-    destinoElegidoAMano &&
-    destinoElegidoAMano !== cuentaOrigenId &&
-    cuentas.some((cuenta) => cuenta.id === destinoElegidoAMano)
-      ? destinoElegidoAMano
-      : (cuentas.find((cuenta) => cuenta.id !== cuentaOrigenId)?.id ?? "");
   const cuentaOrigen = cuentas.find((cuenta) => cuenta.id === cuentaOrigenId);
+
+  // A dónde puede ir la plata: solo a otra cuenta de la misma moneda. Si no hay
+  // ninguna, abajo se dice por qué en vez de dejar el selector vacío.
+  const destinosPosibles = cuentasDeDestino(cuentas, cuentaOrigenId);
+  const cuentaDestinoId =
+    destinoElegidoAMano && destinosPosibles.some((cuenta) => cuenta.id === destinoElegidoAMano)
+      ? destinoElegidoAMano
+      : (destinosPosibles[0]?.id ?? "");
+  const hayDestinoPosible = destinosPosibles.length > 0;
   const cuentaDestino = cuentas.find((cuenta) => cuenta.id === cuentaDestinoId);
 
   // La cuenta que decide cómo se lee el monto escrito: la única elegida, o la
@@ -161,7 +170,8 @@ export function FormularioMovimiento({
   const hayCuentas = cuentas.length > 0;
   // "Entre cuentas" no tiene sentido con una sola cuenta: no habría hacia
   // dónde transferir, y ofrecer una opción que nunca puede completarse es
-  // peor que no ofrecerla.
+  // peor que no ofrecerla. Con dos cuentas de monedas distintas sí se ofrece y
+  // "Hacia" explica por qué no hay destino: esconderla no enseñaría la regla.
   const puedeTransferir = cuentas.length >= 2;
 
   const { data: categorias } = useCategorias(false);
@@ -189,9 +199,11 @@ export function FormularioMovimiento({
   function manejarEnvioTransferencia() {
     const nuevosErrores: typeof errores = {};
     if (!cuentaOrigen) nuevosErrores.origen = "Elige la cuenta de origen.";
-    if (!cuentaDestino) {
+    // Sin destino posible el aviso de "Hacia" ya dice por qué; además no hay
+    // que dejar un error escondido que reaparezca bajo un selector ya válido.
+    if (!cuentaDestino && hayDestinoPosible) {
       nuevosErrores.destino = "Elige la cuenta de destino.";
-    } else if (cuentaOrigen && cuentaDestino.id === cuentaOrigen.id) {
+    } else if (cuentaOrigen && cuentaDestino && cuentaDestino.id === cuentaOrigen.id) {
       // Defensivo: el selector de destino ya excluye la cuenta de origen, así
       // que esto solo pasaría si las dos cuentas cambiaran entre un render y
       // el siguiente. Igual se revisa antes de mandar nada al servidor.
@@ -418,7 +430,10 @@ export function FormularioMovimiento({
 
         {chipsDeCategoria.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <span id="categorias-rapidas-etiqueta" className="sr-only">
+            <span
+              id="categorias-rapidas-etiqueta"
+              className="text-xs font-medium text-muted-foreground"
+            >
               Categoría
             </span>
             <div
@@ -485,36 +500,48 @@ export function FormularioMovimiento({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="destino-transferencia">Hacia</Label>
-              <Select
-                value={cuentaDestinoId}
-                onValueChange={(valor) => setDestinoElegidoAMano(valor ?? null)}
-              >
-                <SelectTrigger
-                  id="destino-transferencia"
-                  className="w-full"
-                  aria-invalid={Boolean(errores.destino)}
+              <Label htmlFor={hayDestinoPosible ? "destino-transferencia" : undefined}>Hacia</Label>
+              {hayDestinoPosible ? (
+                <Select
+                  value={cuentaDestinoId}
+                  onValueChange={(valor) => setDestinoElegidoAMano(valor ?? null)}
                 >
-                  <SelectValue placeholder="Elige una cuenta">
-                    {(valor: string) =>
-                      cuentas.find((cuenta) => cuenta.id === valor)?.name ?? valor
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {/* Sin la cuenta de origen: transferir de una cuenta a sí
-                      misma no tiene sentido, y así no hace falta ni mostrar
-                      el error de "elige una cuenta distinta". */}
-                  {cuentas
-                    .filter((cuenta) => cuenta.id !== cuentaOrigenId)
-                    .map((cuenta) => (
+                  <SelectTrigger
+                    id="destino-transferencia"
+                    className="w-full"
+                    aria-invalid={Boolean(errores.destino)}
+                  >
+                    {/* El popup de opciones vive en un portal que no está
+                        montado mientras el selector está cerrado: hay que
+                        resolver el nombre a mano, no asumir que lo encuentra solo. */}
+                    <SelectValue placeholder="Elige una cuenta">
+                      {(valor: string) =>
+                        cuentas.find((cuenta) => cuenta.id === valor)?.name ?? valor
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* Solo otra cuenta y de la misma moneda: a sí misma no
+                        tiene sentido, y a otra moneda el servidor no lo
+                        acepta. */}
+                    {destinosPosibles.map((cuenta) => (
                       <SelectItem key={cuenta.id} value={cuenta.id}>
                         {cuenta.name}
                       </SelectItem>
                     ))}
-                </SelectContent>
-              </Select>
-              {errores.destino && <p className="text-xs text-destructive">{errores.destino}</p>}
+                  </SelectContent>
+                </Select>
+              ) : (
+                // Sin destino posible el selector quedaría vacío y sin
+                // explicación: mejor decir por qué y qué se puede hacer.
+                <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                  No hay otra cuenta en {cuentaOrigen?.currency ?? "esa moneda"} a la que pasarle
+                  plata. Solo se puede transferir entre cuentas de la misma moneda.
+                </p>
+              )}
+              {hayDestinoPosible && errores.destino && (
+                <p className="text-xs text-destructive">{errores.destino}</p>
+              )}
             </div>
           </>
         ) : (
@@ -603,7 +630,12 @@ export function FormularioMovimiento({
       </div>
 
       <DrawerFooter>
-        <Button type="submit" disabled={registrando}>
+        {/* Sin destino posible no hay nada que registrar: en vez de un botón
+            que no hace nada, queda apagado mientras "Hacia" explica por qué. */}
+        <Button
+          type="submit"
+          disabled={registrando || (tipoMonto === "transferencia" && !hayDestinoPosible)}
+        >
           {registrando ? "Registrando…" : "Registrar"}
         </Button>
       </DrawerFooter>
