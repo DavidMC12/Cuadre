@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CampoContrasena } from "@/components/auth/campo-contrasena";
 import { authClient } from "@/lib/auth/client";
-import { mensajeErrorAuth } from "@/lib/auth/errors";
+import { mensajeErrorAuth, mensajeErrorAuthLanzado } from "@/lib/auth/errors";
 
 export function FormularioEntrar() {
   const router = useRouter();
@@ -37,11 +37,11 @@ export function FormularioEntrar() {
 
       router.push("/");
       router.refresh();
-    } catch {
+    } catch (excepcion) {
       // La llamada puede lanzar en vez de devolver `error` (p. ej. si el
       // servicio de autenticación responde con un error que no sabe
       // interpretar). No debe quedar la pantalla congelada en "Entrando…".
-      setError(mensajeErrorAuth(null));
+      setError(mensajeErrorAuthLanzado(excepcion));
     } finally {
       setEnviando(false);
     }
@@ -70,14 +70,22 @@ export function FormularioEntrar() {
             />
           </div>
 
-          <CampoContrasena
-            id="contrasena"
-            label="Contraseña"
-            value={contrasena}
-            onChange={setContrasena}
-            autoComplete="current-password"
-            invalido={Boolean(error)}
-          />
+          <div className="flex flex-col gap-1.5">
+            <CampoContrasena
+              id="contrasena"
+              label="Contraseña"
+              value={contrasena}
+              onChange={setContrasena}
+              autoComplete="current-password"
+              invalido={Boolean(error)}
+            />
+            <Link
+              href="/recuperar-contrasena"
+              className="self-end text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 

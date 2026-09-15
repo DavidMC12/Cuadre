@@ -13,6 +13,15 @@ const MENSAJES_POR_CODIGO: Record<string, string> = {
     "Ya existe una cuenta con ese correo. Prueba entrar en vez de registrarte.",
   USER_NOT_FOUND: "No encontramos una cuenta con ese correo.",
   EMAIL_NOT_VERIFIED: "Todavía no verificaste tu correo.",
+  // Del enlace para poner una contraseña nueva: ya se usó, o pasó más de una
+  // hora desde que se pidió.
+  INVALID_TOKEN: "Ese enlace ya no sirve. Puede que haya vencido o que ya lo hayas usado.",
+  // El cliente de Neon Auth normaliza el "INVALID_TOKEN" del servidor (que en
+  // resetPassword habla del enlace, no de una sesión) a este código de sesión
+  // y LANZA en vez de devolver `{ error }` — confirmado probando contra el
+  // servidor real. Mismo mensaje que INVALID_TOKEN: para este formulario es
+  // exactamente el mismo caso.
+  bad_jwt: "Ese enlace ya no sirve. Puede que haya vencido o que ya lo hayas usado.",
   // Red de seguridad: el navegador ya valida el formulario antes de enviarlo,
   // pero el servidor es la última palabra (por ejemplo, un cliente sin
   // JavaScript, o una regla que el navegador no conoce).
@@ -29,4 +38,19 @@ export function mensajeErrorAuth(error: ErrorAuth): string {
     return MENSAJES_POR_CODIGO[error.code];
   }
   return MENSAJE_GENERICO;
+}
+
+/**
+ * Igual que `mensajeErrorAuth`, pero para el otro camino por el que puede
+ * fallar una llamada a `authClient`: lanzando una excepción en vez de
+ * devolver `{ error }` (pasa, por ejemplo, en `resetPassword` con un token
+ * vencido). Si lo lanzado se parece a un error de auth (trae `code`), se
+ * busca igual en el mismo diccionario; si no, cae en el mensaje genérico.
+ */
+export function mensajeErrorAuthLanzado(excepcion: unknown): string {
+  if (excepcion && typeof excepcion === "object" && "code" in excepcion) {
+    const codigo = (excepcion as { code?: unknown }).code;
+    if (typeof codigo === "string") return mensajeErrorAuth({ code: codigo });
+  }
+  return mensajeErrorAuth(null);
 }
