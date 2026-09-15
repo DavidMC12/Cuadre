@@ -5,17 +5,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CampoContrasena } from "@/components/auth/campo-contrasena";
 import { authClient } from "@/lib/auth/client";
-import { mensajeErrorAuth } from "@/lib/auth/errors";
+import { mensajeErrorAuth, mensajeErrorAuthLanzado } from "@/lib/auth/errors";
 
 export function FormularioRegistro() {
   const router = useRouter();
@@ -44,11 +39,11 @@ export function FormularioRegistro() {
 
       router.push("/");
       router.refresh();
-    } catch {
+    } catch (excepcion) {
       // La llamada puede lanzar en vez de devolver `error` (p. ej. si el
       // servicio de autenticación responde con un error que no sabe
       // interpretar). No debe quedar la pantalla congelada en "Creando…".
-      setError(mensajeErrorAuth(null));
+      setError(mensajeErrorAuthLanzado(excepcion));
     } finally {
       setEnviando(false);
     }
@@ -57,7 +52,7 @@ export function FormularioRegistro() {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
-        <CardTitle>Crear cuenta</CardTitle>
+        <h1 className="font-heading text-base leading-snug font-medium">Crear cuenta</h1>
         <CardDescription>Un correo, una contraseña y listo.</CardDescription>
       </CardHeader>
       <CardContent>
@@ -77,6 +72,7 @@ export function FormularioRegistro() {
               // espacio en blanco, en cualquier posición.
               pattern=".*\S.*"
               autoFocus
+              className="h-10"
             />
           </div>
 
@@ -90,27 +86,24 @@ export function FormularioRegistro() {
               onChange={(evento) => setCorreo(evento.target.value)}
               aria-invalid={Boolean(error)}
               required
+              className="h-10"
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="contrasena">Contraseña</Label>
-            <Input
-              id="contrasena"
-              type="password"
-              autoComplete="new-password"
-              minLength={8}
-              value={contrasena}
-              onChange={(evento) => setContrasena(evento.target.value)}
-              aria-invalid={Boolean(error)}
-              required
-            />
-            <p className="text-xs text-muted-foreground">Al menos 8 caracteres.</p>
-          </div>
+          <CampoContrasena
+            id="contrasena"
+            label="Contraseña"
+            value={contrasena}
+            onChange={setContrasena}
+            autoComplete="new-password"
+            minLength={8}
+            invalido={Boolean(error)}
+            ayuda="Al menos 8 caracteres."
+          />
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
-          <Button type="submit" disabled={enviando} className="w-full">
+          <Button type="submit" disabled={enviando} className="h-10 w-full">
             {enviando ? "Creando cuenta…" : "Crear cuenta"}
           </Button>
         </form>
