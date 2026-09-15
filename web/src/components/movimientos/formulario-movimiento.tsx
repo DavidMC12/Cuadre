@@ -308,8 +308,14 @@ export function FormularioMovimiento({
 
         {chipsDeCategoria.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <Label className="sr-only">Categoría</Label>
-            <div className="flex flex-wrap gap-1.5">
+            <span id="categorias-rapidas-etiqueta" className="sr-only">
+              Categoría
+            </span>
+            <div
+              role="group"
+              aria-labelledby="categorias-rapidas-etiqueta"
+              className="flex flex-wrap gap-1.5"
+            >
               {chipsDeCategoria.map((categoria) => {
                 const elegida = categoryId === categoria.id;
                 return (
@@ -321,7 +327,7 @@ export function FormularioMovimiento({
                     // categoría: no hace falta abrir "Más detalles" para eso.
                     onClick={() => setCategoryId(elegida ? undefined : categoria.id)}
                     className={cn(
-                      "rounded-full border px-3.5 py-2.5 text-sm transition-colors",
+                      "rounded-full border px-3.5 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85",
                       elegida
                         ? "border-foreground bg-foreground text-background"
                         : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"

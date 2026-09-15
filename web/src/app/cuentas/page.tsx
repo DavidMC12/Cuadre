@@ -17,8 +17,11 @@ export default function PaginaCuentas() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Cuentas</h1>
         <FormularioCuenta>
-          <Button size="sm" className="h-10 px-4">
-            <Plus data-icon="inline-start" />
+          {/* Sin `data-icon`: esa marca le da al botón un relleno más
+              angosto del lado del ícono, y acá compite con `px-4` — el
+              botón queda con menos aire de un lado que del otro. */}
+          <Button size="sm" className="h-10 gap-1.5 px-4">
+            <Plus />
             Nueva
           </Button>
         </FormularioCuenta>
