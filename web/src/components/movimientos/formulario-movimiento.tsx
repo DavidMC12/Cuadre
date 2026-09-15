@@ -53,8 +53,13 @@ type TipoMonto = "gasto" | "ingreso" | "transferencia";
  * usa el resto de la app. Sigue resolviendo el problema real —hoy la
  * categoría vive detrás de un enlace de 12px— sin inventar una función nueva
  * de estadísticas.
+ *
+ * Son tres, no más, y con su propio rótulo: al registrar de pie y con prisa,
+ * el primer vistazo ya tiene el tipo (Gasto / Ingreso / Entre cuentas) y estos
+ * chips, y ocho opciones sueltas se leían como un solo grupo. El resto del
+ * catálogo sigue a un toque en "Más detalles".
  */
-const CANTIDAD_CHIPS_RAPIDOS = 5;
+const CANTIDAD_CHIPS_RAPIDOS = 3;
 
 /** Dónde se recuerda la última cuenta usada: una comodidad de este aparato,
  * no un dato que haga falta guardar en el servidor. */
@@ -442,7 +447,10 @@ export function FormularioMovimiento({
 
         {chipsDeCategoria.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <span id="categorias-rapidas-etiqueta" className="sr-only">
+            <span
+              id="categorias-rapidas-etiqueta"
+              className="text-xs font-medium text-muted-foreground"
+            >
               Categoría
             </span>
             <div
