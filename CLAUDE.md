@@ -109,15 +109,15 @@ nunca habían pasado por revisión de diseño.
 - [x] [P1] Entrar/registrarse sin encabezados reales ni controles de tamaño
   táctil adecuado — `harden`
 - [x] [P1] Sin recuperación de contraseña — `shape`
-- [ ] [P2] Transferencia: el selector "Hacia" no filtra por moneda — `harden`
-- [ ] [P2] Registrar rápido: 8 opciones visibles a la vez (tipo + chips) —
+- [x] [P2] Transferencia: el selector "Hacia" no filtra por moneda — `harden`
+- [x] [P2] Registrar rápido: 8 opciones visibles a la vez (tipo + chips) —
   `distill`
-- [ ] [P3] Movimientos no filtra por categoría desde su propia pantalla —
+- [x] [P3] Movimientos no filtra por categoría desde su propia pantalla —
   `adapt`
 
-Los 2 P1 ya están en `main` y probados en producción con un correo real. Los
-P2/P3 están en curso. Pendiente, aparte: otro `$impeccable critique` para
-medir cuánto subió esta vez.
+Los 5 problemas prioritarios de esta vuelta ya están en `main`; los P1 de
+auth se probaron en producción con un correo real. Pendiente, aparte: otro
+`$impeccable critique` para medir cuánto subió esta vez.
 
 ### Pasos adicionales, ya pasado el 100%
 
