@@ -520,7 +520,10 @@ export function FormularioMovimiento({
         ) : (
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="cuenta-movimiento">Cuenta</Label>
-            <Select value={cuentaId} onValueChange={(valor) => setCuentaElegidaAMano(valor ?? null)}>
+            <Select
+              value={cuentaId}
+              onValueChange={(valor) => setCuentaElegidaAMano(valor ?? null)}
+            >
               <SelectTrigger
                 id="cuenta-movimiento"
                 className="w-full"
