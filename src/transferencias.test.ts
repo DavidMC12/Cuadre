@@ -158,6 +158,12 @@ describe('registrar una transferencia', () => {
 
     expect(estado).toBe(404);
     expect(cuerpo.error.message).toMatch(/no existe o está archivada/i);
+
+    // La pata de origen sí alcanza a escribirse antes de descubrir que el
+    // destino no existe: si la transacción no revierte de verdad, quedaría
+    // registrada sola, sin su par. Se confirma que el saldo no se movió.
+    const { cuerpo: cuentaBanco } = await pedir('GET', `/api/v1/accounts/${banco.id}`);
+    expect(cuentaBanco.data.balance).toBe('1000000.0000');
   });
 
   it('una transferencia no lleva descripción vacía ni categoría', async () => {
