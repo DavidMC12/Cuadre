@@ -203,6 +203,29 @@ export async function obtener(
   return fila ? aMovimiento(fila) : null;
 }
 
+/**
+ * La moneda de cada cuenta, por su id. Una cuenta que no existe (o no es de
+ * esta persona) simplemente no aparece en el mapa.
+ *
+ * Sirve para decidir ANTES de escribir si una transferencia tiene sentido: el
+ * disparador `transactions_transfer_group_balanced` ya rechaza dos monedas
+ * distintas, pero su mensaje habla de "patas" y de un id de grupo interno, que
+ * no es el lenguaje llano que el resto de la app usa con quien la usa.
+ */
+export async function obtenerMonedasDeCuentas(
+  ejecutor: Ejecutor,
+  usuarioId: string,
+  cuentaIds: readonly string[],
+): Promise<Map<string, string>> {
+  const filas = (await ejecutor.execute(sql`
+    select id, currency
+    from accounts
+    where user_id = ${usuarioId}::uuid and id = any(${cuentaIds}::uuid[])
+  `)) as unknown as { id: string; currency: string }[];
+
+  return new Map(filas.map((fila) => [fila.id, fila.currency.trim()]));
+}
+
 /** Los dos movimientos de una transferencia entran juntos o no entra ninguno. */
 export async function registrarTransferencia(
   usuarioId: string,

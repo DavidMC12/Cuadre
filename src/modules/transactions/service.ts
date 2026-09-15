@@ -156,6 +156,24 @@ export async function crearTransferencia(
   usuarioId: string,
   datos: CrearTransferencia,
 ): Promise<{ transferGroupId: string; legs: Movimiento[] }> {
+  // Se revisa antes de escribir para dar un mensaje en lenguaje llano. La base
+  // de datos igual lo exige (el disparador de la transferencia no deja pasar
+  // dos monedas distintas), pero su mensaje habla de "patas" y de un id de
+  // grupo interno: esto evita que la persona lo vea.
+  const monedas = await repositorio.obtenerMonedasDeCuentas(db, usuarioId, [
+    datos.fromAccountId,
+    datos.toAccountId,
+  ]);
+  const monedaOrigen = monedas.get(datos.fromAccountId);
+  const monedaDestino = monedas.get(datos.toAccountId);
+
+  // Si alguna de las dos cuentas no aparece (no existe, o no es de esta
+  // persona), no hay nada que comparar todavía: el intento de escritura de
+  // abajo va a fallar solo, con el mensaje de "no existe o está archivada".
+  if (monedaOrigen && monedaDestino && monedaOrigen !== monedaDestino) {
+    throw reglaViolada('Las dos cuentas deben ser de la misma moneda para transferir entre ellas.');
+  }
+
   const resultado = await repositorio.registrarTransferencia(usuarioId, {
     origenId: datos.fromAccountId,
     destinoId: datos.toAccountId,
