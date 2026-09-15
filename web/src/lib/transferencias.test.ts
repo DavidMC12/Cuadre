@@ -26,6 +26,16 @@ describe("cuentasDeDestino", () => {
     expect(cuentasDeDestino(cuentas, "a").map((c) => c.id)).toEqual(["b"]);
   });
 
+  it("devuelve todas las demás cuentas de la misma moneda, en orden", () => {
+    const cuentas = [
+      cuenta({ id: "a", currency: "COP" }),
+      cuenta({ id: "b", currency: "COP" }),
+      cuenta({ id: "c", currency: "COP" }),
+    ];
+
+    expect(cuentasDeDestino(cuentas, "a").map((c) => c.id)).toEqual(["b", "c"]);
+  });
+
   it("no ofrece nada si la única otra cuenta es de otra moneda", () => {
     const cuentas = [cuenta({ id: "a", currency: "COP" }), cuenta({ id: "b", currency: "USD" })];
 
