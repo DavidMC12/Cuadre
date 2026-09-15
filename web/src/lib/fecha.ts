@@ -62,6 +62,27 @@ export function sumarMeses(mes: string, delta: number): string {
   return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`;
 }
 
+/**
+ * El rango de un mes como instantes UTC, cortado en hora de Bogotá.
+ *
+ * El tablero arma sus meses en hora de Bogotá (mira la zona horaria del
+ * backend): un gasto del 30 de septiembre a las 11 de la noche pertenece a
+ * septiembre, no a octubre. Para que Movimientos enseñe los mismos movimientos
+ * que resume el tablero, el rango tiene que cortarse igual.
+ *
+ * Bogotá no tiene horario de verano: su desfase con UTC es siempre -05:00.
+ */
+const DESFASE_DE_BOGOTA = "-05:00";
+
+export function rangoDelMes(mes: string): { desde: string; hasta: string } {
+  const desde = new Date(`${mes}-01T00:00:00${DESFASE_DE_BOGOTA}`);
+  // El listado incluye el extremo "hasta": se le resta un milisegundo al primer
+  // instante del mes siguiente para no traer un movimiento que ya es de otro mes.
+  const siguiente = new Date(`${sumarMeses(mes, 1)}-01T00:00:00${DESFASE_DE_BOGOTA}`);
+  const hasta = new Date(siguiente.getTime() - 1);
+  return { desde: desde.toISOString(), hasta: hasta.toISOString() };
+}
+
 /** "YYYY-MM" -> "Septiembre 2026". */
 export function etiquetaMes(mes: string): string {
   const [anio, mesNumero] = mes.split("-").map(Number);

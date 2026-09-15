@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Receipt } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
+import { SelectorMes } from "@/components/dashboard/selector-mes";
 import { MovimientoItem } from "@/components/movimientos/movimiento-item";
 import { FormularioMovimiento } from "@/components/movimientos/formulario-movimiento";
 import { ConfirmarAnulacion } from "@/components/movimientos/confirmar-anulacion";
@@ -22,23 +24,72 @@ import { useCategorias } from "@/hooks/use-categorias";
 import { useAnularMovimiento, useMovimientos } from "@/hooks/use-movimientos";
 import { agruparMovimientosPorDia } from "@/lib/agrupar-movimientos";
 import { ApiError } from "@/lib/api/client";
-import type { Movimiento } from "@/lib/api/types";
+import type { FiltrosMovimientos, Movimiento } from "@/lib/api/types";
+import { etiquetaMes, mesActual, rangoDelMes } from "@/lib/fecha";
 
 const TODAS_LAS_CUENTAS = "todas";
+const PARAM_MES = "mes";
+const FORMA_DE_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
 
+/**
+ * `useSearchParams` obliga a que el contenido viva dentro de un límite de
+ * suspenso: durante el armado del servidor se muestra el esqueleto y el
+ * navegador termina de pintar la pantalla con el mes que venga en la URL.
+ */
 export default function PaginaMovimientos() {
+  return (
+    <Suspense fallback={<EsqueletoMovimientos />}>
+      <ContenidoMovimientos />
+    </Suspense>
+  );
+}
+
+function EsqueletoMovimientos() {
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="text-xl font-semibold">Movimientos</h1>
+      <Skeleton className="h-9 w-full rounded-lg" />
+      <Skeleton className="h-4 w-20" />
+      <Skeleton className="h-14 w-full rounded-lg" />
+      <Skeleton className="h-14 w-full rounded-lg" />
+      <Skeleton className="h-14 w-full rounded-lg" />
+    </div>
+  );
+}
+
+function ContenidoMovimientos() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // El mes vive en la URL: así el enlace de una barra de categoría del Resumen
+  // puede abrir Movimientos en su mes, y la pantalla se puede recargar o
+  // compartir sin perderlo. Sin parámetro válido, es el mes en curso.
+  const mesDeLaUrl = searchParams.get(PARAM_MES);
+  const mes = mesDeLaUrl && FORMA_DE_MES.test(mesDeLaUrl) ? mesDeLaUrl : mesActual();
+
   const [cuentaFiltro, setCuentaFiltro] = useState(TODAS_LAS_CUENTAS);
   const [movimientoAConfirmar, setMovimientoAConfirmar] = useState<Movimiento | null>(null);
 
   const { data: cuentas } = useCuentas();
   const { data: categorias } = useCategorias();
+
+  const rango = useMemo(() => rangoDelMes(mes), [mes]);
+  const filtros = useMemo<FiltrosMovimientos>(
+    () => ({
+      from: rango.desde,
+      to: rango.hasta,
+      ...(cuentaFiltro === TODAS_LAS_CUENTAS ? {} : { accountId: cuentaFiltro }),
+    }),
+    [rango, cuentaFiltro]
+  );
+
   const {
     data: movimientos,
     isLoading,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useMovimientos(cuentaFiltro === TODAS_LAS_CUENTAS ? {} : { accountId: cuentaFiltro });
+  } = useMovimientos(filtros);
   const anularMovimiento = useAnularMovimiento();
 
   const cuentasPorId = useMemo(
@@ -55,6 +106,12 @@ export default function PaginaMovimientos() {
     () => (movimientos ? agruparMovimientosPorDia(movimientos) : []),
     [movimientos]
   );
+
+  function cambiarMes(nuevoMes: string) {
+    const parametros = new URLSearchParams(searchParams.toString());
+    parametros.set(PARAM_MES, nuevoMes);
+    router.replace(`/movimientos?${parametros.toString()}`, { scroll: false });
+  }
 
   function confirmarAnulacion() {
     if (!movimientoAConfirmar) return;
@@ -73,6 +130,7 @@ export default function PaginaMovimientos() {
   }
 
   const hayCuentas = Boolean(cuentas && cuentas.length > 0);
+  const esMesActual = mes === mesActual();
 
   return (
     <div className="flex flex-col gap-4">
@@ -80,6 +138,8 @@ export default function PaginaMovimientos() {
           pantalla con el botón del armazón. Uno solo, no dos caminos al mismo
           formulario. */}
       <h1 className="text-xl font-semibold">Movimientos</h1>
+
+      <SelectorMes mes={mes} onCambiar={cambiarMes} />
 
       {hayCuentas && (
         <Select
@@ -121,11 +181,15 @@ export default function PaginaMovimientos() {
       {!isLoading && movimientos && movimientos.length === 0 && (
         <EmptyState
           Icono={Receipt}
-          titulo="Todavía no hay movimientos"
+          titulo={
+            esMesActual ? "Todavía no hay movimientos" : `Sin movimientos en ${etiquetaMes(mes)}`
+          }
           descripcion={
-            hayCuentas
-              ? "Registra el primer gasto o ingreso para empezar."
-              : "Crea primero una cuenta; los movimientos siempre pertenecen a una."
+            !hayCuentas
+              ? "Crea primero una cuenta; los movimientos siempre pertenecen a una."
+              : esMesActual
+                ? "Registra el primer gasto o ingreso para empezar."
+                : "Ese mes no quedó ningún movimiento registrado."
           }
         >
           {hayCuentas && (
