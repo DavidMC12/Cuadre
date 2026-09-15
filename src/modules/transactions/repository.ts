@@ -4,11 +4,11 @@
  * `usuarioId` es siempre el primer parámetro y nunca es implícito. No existe
  * una consulta aquí que pueda leer o escribir datos de otra persona.
  */
-import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { Ejecutor } from '../../db/client.js';
 import { db } from '../../db/client.js';
-import { transactions } from '../../db/schema/index.js';
+import { accounts, transactions } from '../../db/schema/index.js';
 import { ZONA_HORARIA } from '../../shared/zona-horaria.js';
 import type { Movimiento } from './schemas.js';
 
@@ -205,6 +205,39 @@ export async function obtener(
   return fila ? aMovimiento(fila) : null;
 }
 
+/**
+ * La moneda de cada cuenta, por su id. Una cuenta que no existe (o no es de
+ * esta persona) simplemente no aparece en el mapa.
+ *
+ * Sirve para decidir ANTES de escribir si una transferencia tiene sentido: el
+ * disparador `transactions_transfer_group_balanced` ya rechaza dos monedas
+ * distintas, pero su mensaje habla de "patas" y de un id de grupo interno, que
+ * no es el lenguaje llano que el resto de la app usa con quien la usa.
+ */
+export async function obtenerMonedasDeCuentas(
+  ejecutor: Ejecutor,
+  usuarioId: string,
+  cuentaIds: readonly string[],
+): Promise<Map<string, string>> {
+  const filas = await ejecutor
+    .select({ id: accounts.id, currency: accounts.currency })
+    .from(accounts)
+    .where(and(eq(accounts.userId, usuarioId), inArray(accounts.id, [...cuentaIds])));
+
+  return new Map(filas.map((fila) => [fila.id, fila.currency.trim()]));
+}
+
+/**
+ * Señal interna para deshacer la transacción cuando alguna cuenta no existe.
+ *
+ * `db.transaction` solo hace ROLLBACK si el callback lanza: un simple
+ * `return null` adentro se toma como éxito y la transacción se confirma
+ * igual, dejando escrita la pata que sí alcanzó a insertarse. Se lanza esto
+ * para forzar el rollback, y se atrapa afuera para no cambiarle el contrato a
+ * quien llama (sigue devolviendo `null`, no un error).
+ */
+class CuentaDeTransferenciaInexistente extends Error {}
+
 /** Los dos movimientos de una transferencia entran juntos o no entra ninguno. */
 export async function registrarTransferencia(
   usuarioId: string,
@@ -216,36 +249,41 @@ export async function registrarTransferencia(
     descripcion?: string | null;
   },
 ): Promise<{ grupoId: string; patas: Movimiento[] } | null> {
-  return db.transaction(async (tx) => {
-    const grupoId = crypto.randomUUID();
-    const comun = {
-      ocurrioEn: datos.ocurrioEn,
-      descripcion: datos.descripcion ?? null,
-      tipo: 'transfer' as const,
-      grupoDeTransferencia: grupoId,
-    };
+  try {
+    return await db.transaction(async (tx) => {
+      const grupoId = crypto.randomUUID();
+      const comun = {
+        ocurrioEn: datos.ocurrioEn,
+        descripcion: datos.descripcion ?? null,
+        tipo: 'transfer' as const,
+        grupoDeTransferencia: grupoId,
+      };
 
-    const salida = await registrar(tx, usuarioId, {
-      ...comun,
-      cuentaId: datos.origenId,
-      monto: `-${datos.monto}`,
+      const salida = await registrar(tx, usuarioId, {
+        ...comun,
+        cuentaId: datos.origenId,
+        monto: `-${datos.monto}`,
+      });
+      if (!salida) throw new CuentaDeTransferenciaInexistente();
+
+      const entrada = await registrar(tx, usuarioId, {
+        ...comun,
+        cuentaId: datos.destinoId,
+        monto: datos.monto,
+      });
+      if (!entrada) throw new CuentaDeTransferenciaInexistente();
+
+      // El disparador que exige que la transferencia cuadre se ejecuta al
+      // confirmar. Se adelanta aquí para que el error salga dentro de este
+      // `try` y no al cerrar la transacción, donde ya no se puede explicar bien.
+      await tx.execute(sql`set constraints all immediate`);
+
+      return { grupoId, patas: [salida, entrada] };
     });
-    if (!salida) return null;
-
-    const entrada = await registrar(tx, usuarioId, {
-      ...comun,
-      cuentaId: datos.destinoId,
-      monto: datos.monto,
-    });
-    if (!entrada) return null;
-
-    // El disparador que exige que la transferencia cuadre se ejecuta al
-    // confirmar. Se adelanta aquí para que el error salga dentro de este
-    // `try` y no al cerrar la transacción, donde ya no se puede explicar bien.
-    await tx.execute(sql`set constraints all immediate`);
-
-    return { grupoId, patas: [salida, entrada] };
-  });
+  } catch (error) {
+    if (error instanceof CuentaDeTransferenciaInexistente) return null;
+    throw error;
+  }
 }
 
 /** Las dos patas de una transferencia, para poder anularla completa. */

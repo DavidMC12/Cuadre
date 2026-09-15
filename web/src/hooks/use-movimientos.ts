@@ -4,11 +4,12 @@ import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-q
 
 import {
   createTransaction,
+  createTransfer,
   fetchTransactions,
   reverseTransaction,
   updateTransactionCategory,
 } from "@/lib/api/transactions";
-import type { FiltrosMovimientos, NuevoMovimiento } from "@/lib/api/types";
+import type { FiltrosMovimientos, NuevaTransferencia, NuevoMovimiento } from "@/lib/api/types";
 import { clavesCuentas } from "@/hooks/use-cuentas";
 import { clavesReportes } from "@/hooks/use-reportes";
 
@@ -45,6 +46,16 @@ export function useCrearMovimiento() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: NuevoMovimiento) => createTransaction(input),
+    onSuccess: () => invalidarTrasEscritura(queryClient),
+  });
+}
+
+export function useCrearTransferencia() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: NuevaTransferencia) => createTransfer(input),
+    // Cambia el saldo de las dos cuentas a la vez: se invalida igual que un
+    // movimiento normal.
     onSuccess: () => invalidarTrasEscritura(queryClient),
   });
 }

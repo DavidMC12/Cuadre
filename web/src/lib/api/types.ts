@@ -54,6 +54,26 @@ export interface NuevoMovimiento {
   categoryId?: string;
 }
 
+/**
+ * Pasar plata entre dos cuentas propias. Sin signo: la dirección la dan las
+ * cuentas (`fromAccountId` sale, `toAccountId` entra), no el monto. Sin
+ * categoría: no es un gasto ni un ingreso.
+ */
+export interface NuevaTransferencia {
+  fromAccountId: string;
+  toAccountId: string;
+  /** Siempre positivo. Texto exacto. */
+  amount: string;
+  occurredAt: string;
+  description?: string;
+}
+
+/** Las dos patas que deja una transferencia, recién registrada. */
+export interface Transferencia {
+  transferGroupId: string;
+  legs: Movimiento[];
+}
+
 export interface FiltrosMovimientos {
   accountId?: string;
   categoryId?: string;

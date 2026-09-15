@@ -17,12 +17,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { SelectorMes } from "@/components/dashboard/selector-mes";
 import { MovimientoItem } from "@/components/movimientos/movimiento-item";
+import { TransferenciaItem } from "@/components/movimientos/transferencia-item";
 import { FormularioMovimiento } from "@/components/movimientos/formulario-movimiento";
 import { ConfirmarAnulacion } from "@/components/movimientos/confirmar-anulacion";
 import { useCuentas } from "@/hooks/use-cuentas";
 import { useCategorias } from "@/hooks/use-categorias";
 import { useAnularMovimiento, useMovimientos } from "@/hooks/use-movimientos";
 import { agruparMovimientosPorDia } from "@/lib/agrupar-movimientos";
+import { combinarTransferencias, esTransferencia } from "@/lib/combinar-transferencias";
 import { ApiError } from "@/lib/api/client";
 import type { FiltrosMovimientos, Movimiento } from "@/lib/api/types";
 import { etiquetaMes, mesActual, rangoDelMes } from "@/lib/fecha";
@@ -131,6 +133,18 @@ function ContenidoMovimientos() {
     parametros.delete(PARAM_CATEGORIA);
     router.replace(`/movimientos?${parametros.toString()}`, { scroll: false });
   }
+
+  // Se combina DESPUÉS de agrupar por día, no antes: las dos patas de una
+  // transferencia comparten la misma fecha, así que siempre caen en el mismo
+  // grupo, y así el agrupamiento por fecha no se toca para nada.
+  const gruposConTransferencias = useMemo(
+    () =>
+      grupos.map((grupo) => ({
+        etiqueta: grupo.etiqueta,
+        items: combinarTransferencias(grupo.items),
+      })),
+    [grupos]
+  );
 
   function confirmarAnulacion() {
     if (!movimientoAConfirmar) return;
@@ -254,26 +268,33 @@ function ContenidoMovimientos() {
         </EmptyState>
       )}
 
-      {!isLoading && grupos.length > 0 && (
+      {!isLoading && gruposConTransferencias.length > 0 && (
         <div className="flex flex-col gap-4">
-          {grupos.map((grupo) => (
+          {gruposConTransferencias.map((grupo) => (
             <div key={grupo.etiqueta} className="flex flex-col gap-1">
               <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 {grupo.etiqueta}
               </h2>
               <div className="flex flex-col divide-y divide-border">
-                {grupo.items.map((movimiento) => (
-                  <MovimientoItem
-                    key={movimiento.id}
-                    movimiento={movimiento}
-                    cuenta={cuentasPorId.get(movimiento.accountId)}
-                    categoria={
-                      movimiento.categoryId ? categoriasPorId.get(movimiento.categoryId) : undefined
-                    }
-                    mostrarCuenta={cuentaFiltro === TODAS_LAS_CUENTAS}
-                    onSolicitarAnular={setMovimientoAConfirmar}
-                  />
-                ))}
+                {grupo.items.map((item) =>
+                  esTransferencia(item) ? (
+                    <TransferenciaItem
+                      key={item.transferGroupId}
+                      par={item}
+                      cuentaOrigen={cuentasPorId.get(item.salida.accountId)}
+                      cuentaDestino={cuentasPorId.get(item.entrada.accountId)}
+                    />
+                  ) : (
+                    <MovimientoItem
+                      key={item.id}
+                      movimiento={item}
+                      cuenta={cuentasPorId.get(item.accountId)}
+                      categoria={item.categoryId ? categoriasPorId.get(item.categoryId) : undefined}
+                      mostrarCuenta={cuentaFiltro === TODAS_LAS_CUENTAS}
+                      onSolicitarAnular={setMovimientoAConfirmar}
+                    />
+                  )
+                )}
               </div>
             </div>
           ))}
