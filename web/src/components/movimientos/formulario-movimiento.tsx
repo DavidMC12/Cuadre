@@ -41,6 +41,7 @@ import type { Cuenta } from "@/lib/api/types";
 import { fechaParaInput, inputAIso } from "@/lib/fecha";
 import { cn } from "@/lib/utils";
 import { normalizarMontoIngresado, textoMonto } from "@/lib/money";
+import { cuentasDeDestino } from "@/lib/transferencias";
 
 type TipoMonto = "gasto" | "ingreso" | "transferencia";
 
@@ -89,27 +90,6 @@ function cuentaPorDefecto(cuentaIdPorDefecto: string | undefined, cuentas: Cuent
   const recordada = leerUltimaCuenta();
   if (recordada && cuentas.some((cuenta) => cuenta.id === recordada)) return recordada;
   return cuentas[0]?.id ?? "";
-}
-
-/** Las cuentas a las que se le puede pasar plata desde una cuenta dada: otra
- * cuenta, y de la misma moneda. Nunca se suman montos de monedas distintas, así
- * que ofrecer un destino de otra moneda sería ofrecer algo que va a fallar. */
-function cuentasDeDestino(cuentas: Cuenta[], cuentaOrigenId: string): Cuenta[] {
-  const monedaOrigen = cuentas.find((cuenta) => cuenta.id === cuentaOrigenId)?.currency;
-  return cuentas.filter(
-    (cuenta) => cuenta.id !== cuentaOrigenId && cuenta.currency === monedaOrigen
-  );
-}
-
-/** Si hay al menos dos cuentas de la misma moneda: la condición para que una
- * transferencia pueda completarse con alguna combinación de cuentas. */
-function hayParDeLaMismaMoneda(cuentas: Cuenta[]): boolean {
-  const monedasVistas = new Set<string>();
-  return cuentas.some((cuenta) => {
-    if (monedasVistas.has(cuenta.currency)) return true;
-    monedasVistas.add(cuenta.currency);
-    return false;
-  });
 }
 
 export function FormularioMovimiento({
@@ -188,10 +168,11 @@ export function FormularioMovimiento({
   const crearTransferencia = useCrearTransferencia();
   const registrando = crearMovimiento.isPending || crearTransferencia.isPending;
   const hayCuentas = cuentas.length > 0;
-  // "Entre cuentas" solo se ofrece si hay dos cuentas de la misma moneda: sin
-  // un par así una transferencia nunca se puede completar, y ofrecer una opción
-  // que nunca puede completarse es peor que no ofrecerla.
-  const puedeTransferir = hayParDeLaMismaMoneda(cuentas);
+  // "Entre cuentas" no tiene sentido con una sola cuenta: no habría hacia
+  // dónde transferir, y ofrecer una opción que nunca puede completarse es
+  // peor que no ofrecerla. Con dos cuentas de monedas distintas sí se ofrece y
+  // "Hacia" explica por qué no hay destino: esconderla no enseñaría la regla.
+  const puedeTransferir = cuentas.length >= 2;
 
   const { data: categorias } = useCategorias(false);
   // Una transferencia no lleva categoría: no hay chips que ofrecer ahí.
@@ -218,9 +199,11 @@ export function FormularioMovimiento({
   function manejarEnvioTransferencia() {
     const nuevosErrores: typeof errores = {};
     if (!cuentaOrigen) nuevosErrores.origen = "Elige la cuenta de origen.";
-    if (!cuentaDestino) {
+    // Sin destino posible el aviso de "Hacia" ya dice por qué; además no hay
+    // que dejar un error escondido que reaparezca bajo un selector ya válido.
+    if (!cuentaDestino && hayDestinoPosible) {
       nuevosErrores.destino = "Elige la cuenta de destino.";
-    } else if (cuentaOrigen && cuentaDestino.id === cuentaOrigen.id) {
+    } else if (cuentaOrigen && cuentaDestino && cuentaDestino.id === cuentaOrigen.id) {
       // Defensivo: el selector de destino ya excluye la cuenta de origen, así
       // que esto solo pasaría si las dos cuentas cambiaran entre un render y
       // el siguiente. Igual se revisa antes de mandar nada al servidor.
@@ -647,7 +630,12 @@ export function FormularioMovimiento({
       </div>
 
       <DrawerFooter>
-        <Button type="submit" disabled={registrando}>
+        {/* Sin destino posible no hay nada que registrar: en vez de un botón
+            que no hace nada, queda apagado mientras "Hacia" explica por qué. */}
+        <Button
+          type="submit"
+          disabled={registrando || (tipoMonto === "transferencia" && !hayDestinoPosible)}
+        >
           {registrando ? "Registrando…" : "Registrar"}
         </Button>
       </DrawerFooter>
