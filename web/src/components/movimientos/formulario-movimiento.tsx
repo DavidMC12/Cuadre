@@ -86,6 +86,27 @@ function cuentaPorDefecto(cuentaIdPorDefecto: string | undefined, cuentas: Cuent
   return cuentas[0]?.id ?? "";
 }
 
+/** Las cuentas a las que se le puede pasar plata desde una cuenta dada: otra
+ * cuenta, y de la misma moneda. Nunca se suman montos de monedas distintas, así
+ * que ofrecer un destino de otra moneda sería ofrecer algo que va a fallar. */
+function cuentasDeDestino(cuentas: Cuenta[], cuentaOrigenId: string): Cuenta[] {
+  const monedaOrigen = cuentas.find((cuenta) => cuenta.id === cuentaOrigenId)?.currency;
+  return cuentas.filter(
+    (cuenta) => cuenta.id !== cuentaOrigenId && cuenta.currency === monedaOrigen
+  );
+}
+
+/** Si hay al menos dos cuentas de la misma moneda: la condición para que una
+ * transferencia pueda completarse con alguna combinación de cuentas. */
+function hayParDeLaMismaMoneda(cuentas: Cuenta[]): boolean {
+  const monedasVistas = new Set<string>();
+  return cuentas.some((cuenta) => {
+    if (monedasVistas.has(cuenta.currency)) return true;
+    monedasVistas.add(cuenta.currency);
+    return false;
+  });
+}
+
 export function FormularioMovimiento({
   cuentas,
   cargandoCuentas = false,
@@ -142,13 +163,16 @@ export function FormularioMovimiento({
     origenElegidoAMano && cuentas.some((cuenta) => cuenta.id === origenElegidoAMano)
       ? origenElegidoAMano
       : cuentaPorDefecto(cuentaIdPorDefecto, cuentas);
-  const cuentaDestinoId =
-    destinoElegidoAMano &&
-    destinoElegidoAMano !== cuentaOrigenId &&
-    cuentas.some((cuenta) => cuenta.id === destinoElegidoAMano)
-      ? destinoElegidoAMano
-      : (cuentas.find((cuenta) => cuenta.id !== cuentaOrigenId)?.id ?? "");
   const cuentaOrigen = cuentas.find((cuenta) => cuenta.id === cuentaOrigenId);
+
+  // A dónde puede ir la plata: solo a otra cuenta de la misma moneda. Si no hay
+  // ninguna, abajo se dice por qué en vez de dejar el selector vacío.
+  const destinosPosibles = cuentasDeDestino(cuentas, cuentaOrigenId);
+  const cuentaDestinoId =
+    destinoElegidoAMano && destinosPosibles.some((cuenta) => cuenta.id === destinoElegidoAMano)
+      ? destinoElegidoAMano
+      : (destinosPosibles[0]?.id ?? "");
+  const hayDestinoPosible = destinosPosibles.length > 0;
   const cuentaDestino = cuentas.find((cuenta) => cuenta.id === cuentaDestinoId);
 
   // La cuenta que decide cómo se lee el monto escrito: la única elegida, o la
@@ -159,10 +183,10 @@ export function FormularioMovimiento({
   const crearTransferencia = useCrearTransferencia();
   const registrando = crearMovimiento.isPending || crearTransferencia.isPending;
   const hayCuentas = cuentas.length > 0;
-  // "Entre cuentas" no tiene sentido con una sola cuenta: no habría hacia
-  // dónde transferir, y ofrecer una opción que nunca puede completarse es
-  // peor que no ofrecerla.
-  const puedeTransferir = cuentas.length >= 2;
+  // "Entre cuentas" solo se ofrece si hay dos cuentas de la misma moneda: sin
+  // un par así una transferencia nunca se puede completar, y ofrecer una opción
+  // que nunca puede completarse es peor que no ofrecerla.
+  const puedeTransferir = hayParDeLaMismaMoneda(cuentas);
 
   const { data: categorias } = useCategorias(false);
   // Una transferencia no lleva categoría: no hay chips que ofrecer ahí.
@@ -485,36 +509,48 @@ export function FormularioMovimiento({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="destino-transferencia">Hacia</Label>
-              <Select
-                value={cuentaDestinoId}
-                onValueChange={(valor) => setDestinoElegidoAMano(valor ?? null)}
-              >
-                <SelectTrigger
-                  id="destino-transferencia"
-                  className="w-full"
-                  aria-invalid={Boolean(errores.destino)}
+              <Label htmlFor={hayDestinoPosible ? "destino-transferencia" : undefined}>Hacia</Label>
+              {hayDestinoPosible ? (
+                <Select
+                  value={cuentaDestinoId}
+                  onValueChange={(valor) => setDestinoElegidoAMano(valor ?? null)}
                 >
-                  <SelectValue placeholder="Elige una cuenta">
-                    {(valor: string) =>
-                      cuentas.find((cuenta) => cuenta.id === valor)?.name ?? valor
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {/* Sin la cuenta de origen: transferir de una cuenta a sí
-                      misma no tiene sentido, y así no hace falta ni mostrar
-                      el error de "elige una cuenta distinta". */}
-                  {cuentas
-                    .filter((cuenta) => cuenta.id !== cuentaOrigenId)
-                    .map((cuenta) => (
+                  <SelectTrigger
+                    id="destino-transferencia"
+                    className="w-full"
+                    aria-invalid={Boolean(errores.destino)}
+                  >
+                    {/* El popup de opciones vive en un portal que no está
+                        montado mientras el selector está cerrado: hay que
+                        resolver el nombre a mano, no asumir que lo encuentra solo. */}
+                    <SelectValue placeholder="Elige una cuenta">
+                      {(valor: string) =>
+                        cuentas.find((cuenta) => cuenta.id === valor)?.name ?? valor
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* Solo otra cuenta y de la misma moneda: a sí misma no
+                        tiene sentido, y a otra moneda el servidor no lo
+                        acepta. */}
+                    {destinosPosibles.map((cuenta) => (
                       <SelectItem key={cuenta.id} value={cuenta.id}>
                         {cuenta.name}
                       </SelectItem>
                     ))}
-                </SelectContent>
-              </Select>
-              {errores.destino && <p className="text-xs text-destructive">{errores.destino}</p>}
+                  </SelectContent>
+                </Select>
+              ) : (
+                // Sin destino posible el selector quedaría vacío y sin
+                // explicación: mejor decir por qué y qué se puede hacer.
+                <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                  No hay otra cuenta en {cuentaOrigen?.currency ?? "esa moneda"} a la que pasarle
+                  plata. Solo se puede transferir entre cuentas de la misma moneda.
+                </p>
+              )}
+              {hayDestinoPosible && errores.destino && (
+                <p className="text-xs text-destructive">{errores.destino}</p>
+              )}
             </div>
           </>
         ) : (
