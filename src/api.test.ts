@@ -86,6 +86,19 @@ async function saldoDe(cuentaId: string): Promise<string> {
   return cuerpo.data.balance;
 }
 
+/**
+ * Las categorías se siembran directo en la base y no por la API a propósito:
+ * el módulo de categorías lo está construyendo otro agente en paralelo, y
+ * estas pruebas son del libro de movimientos, no de aquel catálogo.
+ */
+async function crearCategoria(nombre: string, kind: 'income' | 'expense' = 'expense') {
+  const [fila] = await db
+    .insert(categories)
+    .values({ userId: usuarioId, name: `${nombre} ${randomUUID().slice(0, 8)}`, kind })
+    .returning({ id: categories.id });
+  return fila!.id;
+}
+
 // -----------------------------------------------------------------------------
 
 describe('salud y rutas inexistentes', () => {
@@ -420,6 +433,25 @@ describe('listar movimientos', () => {
     expect(cuerpo.data[0].amount).toBe('-200.0000');
   });
 
+  it('filtra por categoría junto con la cuenta', async () => {
+    const cuenta = await crearCuenta();
+    const comida = await crearCategoria('Comida');
+    const transporte = await crearCategoria('Transporte');
+
+    await registrarGasto(cuenta.id, '-1000', { categoryId: comida });
+    await registrarGasto(cuenta.id, '-2000', { categoryId: transporte });
+    await registrarGasto(cuenta.id, '-3000');
+
+    const { cuerpo } = await pedir(
+      'GET',
+      `/api/v1/transactions?accountId=${cuenta.id}&categoryId=${comida}`,
+    );
+
+    expect(cuerpo.data).toHaveLength(1);
+    expect(cuerpo.data[0].amount).toBe('-1000.0000');
+    expect(cuerpo.data[0].categoryId).toBe(comida);
+  });
+
   it('pagina con cursor sin repetir ni saltarse movimientos', async () => {
     const cuenta = await crearCuenta();
     for (let i = 1; i <= 5; i += 1) {
@@ -535,19 +567,6 @@ describe('los errores hablan español', () => {
 // -----------------------------------------------------------------------------
 
 describe('corregir la categoría de un movimiento', () => {
-  /**
-   * Las categorías se siembran directo en la base y no por la API a propósito:
-   * el módulo de categorías lo está construyendo otro agente en paralelo, y
-   * estas pruebas son del libro de movimientos, no de aquel catálogo.
-   */
-  async function crearCategoria(nombre: string, kind: 'income' | 'expense' = 'expense') {
-    const [fila] = await db
-      .insert(categories)
-      .values({ userId: usuarioId, name: `${nombre} ${randomUUID().slice(0, 8)}`, kind })
-      .returning({ id: categories.id });
-    return fila!.id;
-  }
-
   it('cambia la categoría de un gasto', async () => {
     const cuenta = await crearCuenta();
     const gasto = await registrarGasto(cuenta.id, '-50000');

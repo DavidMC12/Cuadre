@@ -68,6 +68,7 @@ export async function listarMovimientos(
 ): Promise<{ data: Movimiento[]; nextCursor: string | null }> {
   const { movimientos, hayMas } = await repositorio.listar(usuarioId, {
     cuentaId: filtros.accountId,
+    categoriaId: filtros.categoryId,
     desde: filtros.from,
     hasta: filtros.to,
     limite: filtros.limit,

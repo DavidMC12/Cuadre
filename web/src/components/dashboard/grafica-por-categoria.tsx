@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTheme } from "next-themes";
 
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -15,6 +16,8 @@ const CAPACIDAD = 7;
 
 interface FilaGrafica {
   id: string;
+  /** La categoría de verdad a la que lleva la fila, o null si es una agrupación. */
+  categoriaId: string | null;
   nombre: string;
   /** El texto exacto, para la etiqueta. */
   total: string;
@@ -75,6 +78,7 @@ export function GraficaPorCategoria({
 
   const datos: FilaGrafica[] = visibles.map((fila) => ({
     id: fila.categoryId!,
+    categoriaId: fila.categoryId,
     nombre: fila.categoryName!,
     total: fila.total,
     valorNumerico: Number(fila.total),
@@ -84,6 +88,7 @@ export function GraficaPorCategoria({
   if (filaSinCategoria) {
     datos.push({
       id: "sin-categoria",
+      categoriaId: null,
       nombre: SIN_CATEGORIA,
       total: filaSinCategoria.total,
       valorNumerico: Number(filaSinCategoria.total),
@@ -98,6 +103,7 @@ export function GraficaPorCategoria({
     const totalResto = resto.reduce((acumulado, fila) => acumulado + Number(fila.total), 0);
     datos.push({
       id: "otras-categorias",
+      categoriaId: null,
       // "Otras categorías" y no "Otros": el catálogo por defecto ya trae una
       // categoría de verdad llamada "Otros" y las dos no deben confundirse.
       nombre: "Otras categorías",
@@ -145,8 +151,8 @@ export function GraficaPorCategoria({
         <div className="flex flex-col gap-2.5">
           {datos.map((fila) => {
             const porcentaje = Math.max((fila.valorNumerico / valorMaximo) * 100, 4);
-            return (
-              <div key={fila.id} className="flex items-center gap-2">
+            const contenido = (
+              <>
                 <span
                   className="w-20 shrink-0 truncate text-xs text-muted-foreground"
                   title={fila.nombre}
@@ -162,6 +168,24 @@ export function GraficaPorCategoria({
                 <span className="shrink-0 font-mono text-right text-xs tabular-nums whitespace-nowrap">
                   {textoMonto(fila.total, moneda)}
                 </span>
+              </>
+            );
+
+            // Solo una categoría de verdad lleva a sus movimientos: "Sin
+            // categoría" y "Otras categorías" son agrupaciones, no algo por lo
+            // que se pueda filtrar.
+            return fila.categoriaId ? (
+              <Link
+                key={fila.id}
+                href={`/movimientos?mes=${mes}&categoria=${fila.categoriaId}`}
+                title={`Ver los movimientos de ${fila.nombre}`}
+                className="-mx-1 flex items-center gap-2 rounded-lg px-1 py-0.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
+              >
+                {contenido}
+              </Link>
+            ) : (
+              <div key={fila.id} className="-mx-1 flex items-center gap-2 px-1 py-0.5">
+                {contenido}
               </div>
             );
           })}
