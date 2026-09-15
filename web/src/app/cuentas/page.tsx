@@ -17,7 +17,7 @@ export default function PaginaCuentas() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Cuentas</h1>
         <FormularioCuenta>
-          <Button size="sm">
+          <Button size="sm" className="h-10 px-4">
             <Plus data-icon="inline-start" />
             Nueva
           </Button>

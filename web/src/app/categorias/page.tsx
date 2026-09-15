@@ -31,7 +31,7 @@ export default function PaginaCategorias() {
         <h1 className="text-xl font-semibold">Categorías</h1>
         {!verArchivadas && (
           <FormularioCategoria>
-            <Button size="sm">
+            <Button size="sm" className="h-10 px-4">
               <Plus data-icon="inline-start" />
               Nueva
             </Button>
