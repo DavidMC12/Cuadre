@@ -2,14 +2,16 @@
 
 import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Filter, Plus, Receipt, X } from "lucide-react";
+import { Filter, Plus, Receipt } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -30,6 +32,7 @@ import type { FiltrosMovimientos, Movimiento } from "@/lib/api/types";
 import { etiquetaMes, mesActual, rangoDelMes } from "@/lib/fecha";
 
 const TODAS_LAS_CUENTAS = "todas";
+const TODAS_LAS_CATEGORIAS = "todas";
 const PARAM_MES = "mes";
 const PARAM_CATEGORIA = "categoria";
 const FORMA_DE_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -115,6 +118,10 @@ function ContenidoMovimientos() {
     [categorias]
   );
 
+  // Para el selector de filtro: todas, separadas por tipo como en el catálogo.
+  const categoriasDeGasto = (categorias ?? []).filter((categoria) => categoria.kind === "expense");
+  const categoriasDeIngreso = (categorias ?? []).filter((categoria) => categoria.kind === "income");
+
   const grupos = useMemo(
     () => (movimientos ? agruparMovimientosPorDia(movimientos) : []),
     [movimientos]
@@ -128,9 +135,16 @@ function ContenidoMovimientos() {
     router.replace(`/movimientos?${parametros.toString()}`, { scroll: false });
   }
 
-  function quitarCategoria() {
+  // El filtro de categoría vive en la URL, igual que el mes: así el enlace de
+  // una barra del Resumen y este selector son el mismo camino, y la pantalla se
+  // puede recargar o compartir con el filtro puesto.
+  function cambiarCategoria(nuevaCategoria: string) {
     const parametros = new URLSearchParams(searchParams.toString());
-    parametros.delete(PARAM_CATEGORIA);
+    if (nuevaCategoria === TODAS_LAS_CATEGORIAS) {
+      parametros.delete(PARAM_CATEGORIA);
+    } else {
+      parametros.set(PARAM_CATEGORIA, nuevaCategoria);
+    }
     router.replace(`/movimientos?${parametros.toString()}`, { scroll: false });
   }
 
@@ -163,6 +177,7 @@ function ContenidoMovimientos() {
   }
 
   const hayCuentas = Boolean(cuentas && cuentas.length > 0);
+  const hayCategorias = (categorias?.length ?? 0) > 0;
   const esMesActual = mes === mesActual();
 
   return (
@@ -174,49 +189,83 @@ function ContenidoMovimientos() {
 
       <SelectorMes mes={mes} onCambiar={cambiarMes} />
 
-      {hayCuentas && (
-        <Select
-          value={cuentaFiltro}
-          onValueChange={(valor) => setCuentaFiltro(valor ?? TODAS_LAS_CUENTAS)}
-        >
-          <SelectTrigger className="w-full">
-            {/* El popup de opciones vive en un portal que no está montado
-                mientras el selector está cerrado: hay que resolver el nombre
-                a mano, no asumir que lo encuentra solo. */}
-            <SelectValue>
-              {(valor: string) =>
-                valor === TODAS_LAS_CUENTAS
-                  ? "Todas las cuentas"
-                  : (cuentasPorId.get(valor)?.name ?? valor)
-              }
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={TODAS_LAS_CUENTAS}>Todas las cuentas</SelectItem>
-            {cuentas!.map((cuenta) => (
-              <SelectItem key={cuenta.id} value={cuenta.id}>
-                {cuenta.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
+      {(hayCuentas || hayCategorias) && (
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {hayCuentas && (
+            <div className="sm:flex-1">
+              <Select
+                value={cuentaFiltro}
+                onValueChange={(valor) => setCuentaFiltro(valor ?? TODAS_LAS_CUENTAS)}
+              >
+                <SelectTrigger className="w-full" aria-label="Filtrar por cuenta">
+                  {/* El popup de opciones vive en un portal que no está montado
+                      mientras el selector está cerrado: hay que resolver el
+                      nombre a mano, no asumir que lo encuentra solo. */}
+                  <SelectValue>
+                    {(valor: string) =>
+                      valor === TODAS_LAS_CUENTAS
+                        ? "Todas las cuentas"
+                        : (cuentasPorId.get(valor)?.name ?? valor)
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={TODAS_LAS_CUENTAS}>Todas las cuentas</SelectItem>
+                  {cuentas!.map((cuenta) => (
+                    <SelectItem key={cuenta.id} value={cuenta.id}>
+                      {cuenta.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-      {categoriaFiltro && (
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Categoría
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={quitarCategoria}
-            aria-label="Quitar el filtro de categoría"
-          >
-            {categoriaActiva?.name ?? "Seleccionada"}
-            <X data-icon="inline-end" />
-          </Button>
+          {/* Mismo filtro que llega desde una barra del Resumen, pero a la
+              mano: los dos escriben el mismo parámetro de la URL. */}
+          {hayCategorias && (
+            <div className="sm:flex-1">
+              <Select
+                value={categoriaFiltro ?? TODAS_LAS_CATEGORIAS}
+                onValueChange={(valor) => cambiarCategoria(valor ?? TODAS_LAS_CATEGORIAS)}
+              >
+                <SelectTrigger className="w-full" aria-label="Filtrar por categoría">
+                  {/* Igual que el de cuentas: el popup no está montado hasta
+                      que se abre, así que el nombre se resuelve a mano. */}
+                  <SelectValue>
+                    {(valor: string) =>
+                      valor === TODAS_LAS_CATEGORIAS
+                        ? "Todas las categorías"
+                        : (categoriasPorId.get(valor)?.name ?? valor)
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={TODAS_LAS_CATEGORIAS}>Todas las categorías</SelectItem>
+                  {categoriasDeGasto.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Gastos</SelectLabel>
+                      {categoriasDeGasto.map((categoria) => (
+                        <SelectItem key={categoria.id} value={categoria.id}>
+                          {categoria.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                  {categoriasDeIngreso.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Ingresos</SelectLabel>
+                      {categoriasDeIngreso.map((categoria) => (
+                        <SelectItem key={categoria.id} value={categoria.id}>
+                          {categoria.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       )}
 
@@ -237,7 +286,12 @@ function ContenidoMovimientos() {
             categoriaActiva ? ` de ${categoriaActiva.name}` : ""
           } en ${etiquetaMes(mes)}.`}
         >
-          <Button type="button" variant="outline" size="sm" onClick={quitarCategoria}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => cambiarCategoria(TODAS_LAS_CATEGORIAS)}
+          >
             Quitar filtro
           </Button>
         </EmptyState>
