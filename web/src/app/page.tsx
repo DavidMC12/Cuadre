@@ -75,9 +75,11 @@ export default function PaginaResumen() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Resumen</h1>
-        {monedas.length > 1 && (
+      <h1 className="text-xl font-semibold">Resumen</h1>
+
+      {monedas.length > 1 && (
+        <div className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-sm">
+          <span className="text-muted-foreground">Mostrando</span>
           <Select value={moneda} onValueChange={(valor) => setMonedaElegida(valor ?? undefined)}>
             <SelectTrigger size="sm" className="w-20">
               <SelectValue />
@@ -90,8 +92,8 @@ export default function PaginaResumen() {
               ))}
             </SelectContent>
           </Select>
-        )}
-      </div>
+        </div>
+      )}
 
       <TotalCuentas cuentas={cuentas} moneda={moneda ?? ""} cargando={cargandoCuentas} />
 
