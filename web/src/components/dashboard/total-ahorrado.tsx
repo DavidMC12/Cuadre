@@ -19,6 +19,8 @@ export function TotalAhorrado({
   moneda: string;
   cargando: boolean;
 }) {
+  if (cargando) return <Skeleton className="h-[74px] w-full rounded-xl" />;
+
   const deAhorro = (cuentas ?? []).filter(
     (cuenta) => cuenta.isSavings && cuenta.currency === moneda
   );
@@ -26,8 +28,6 @@ export function TotalAhorrado({
   // Sin cuentas de ahorro en esta moneda no se muestra nada: ni la tarjeta ni
   // su lugar. Un hueco vacío sería peor que no estar.
   if (deAhorro.length === 0) return null;
-
-  if (cargando) return <Skeleton className="h-[74px] w-full rounded-xl" />;
 
   const total = sumarMontos(deAhorro.map((cuenta) => cuenta.balance));
 

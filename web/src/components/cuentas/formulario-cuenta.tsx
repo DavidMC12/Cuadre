@@ -192,7 +192,7 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
                   onCheckedChange={(valor) => setEsAhorro(valor)}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">{AYUDA_CUENTA_AHORRO}</p>{" "}
+              <p className="text-xs text-muted-foreground">{AYUDA_CUENTA_AHORRO}</p>
             </div>
 
             <div className="flex flex-col gap-1.5">

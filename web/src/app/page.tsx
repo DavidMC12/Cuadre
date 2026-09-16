@@ -43,13 +43,11 @@ export default function PaginaResumen() {
 
   const { data: cuentas, isLoading: cargandoCuentas } = useCuentas();
 
-  // La sección de ahorro solo existe si alguien marcó una cuenta como de
-  // ahorro. Si no, no se pide nada al servidor ni se muestra un hueco: el
-  // ahorro es una decisión, no un dato que se imponga.
-  const hayAhorro = cuentas?.some((cuenta) => cuenta.isSavings) ?? false;
   // Para el layout de las dos tarjetas de totales importa la moneda que se
   // está viendo: una cuenta de ahorro en dólares no pinta nada al lado de un
-  // total en pesos.
+  // total en pesos. Y la sección de ahorro (total y gráfica) solo existe si
+  // hay una cuenta de ahorro en esa moneda; si no, no se pide nada al servidor
+  // ni se muestra un hueco.
   const ahorroEnMoneda = (cuentas ?? []).some(
     (cuenta) => cuenta.isSavings && cuenta.currency === moneda
   );
@@ -164,9 +162,9 @@ export default function PaginaResumen() {
       </div>
 
       {/* Mismos meses que la tendencia: el selector de arriba manda en las dos
-          gráficas, para no multiplicar controles. Solo aparece si hay alguna
-          cuenta marcada como de ahorro. */}
-      {hayAhorro && (
+          gráficas, para no multiplicar controles. Solo aparece si hay una
+          cuenta de ahorro en la moneda que se está viendo. */}
+      {ahorroEnMoneda && (
         <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Ahorro</CardTitle>
