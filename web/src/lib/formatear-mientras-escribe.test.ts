@@ -181,6 +181,32 @@ describe("formatearMientrasEscribe — pegando (opciones.pegado: true)", () => {
     expect(formatearMientrasEscribe("0,5", "USD", pegado)).toBe("0,5");
   });
 
+  // Hallazgo crítico de una revisión anterior: una coma usada como separador
+  // de MILES (formato inglés, "1,500" = mil quinientos) se leía como decimal
+  // y perdía dígitos de verdad (quedaba en 1,50). El punto ya distinguía
+  // "agrupamiento completo" de "decimal suelto"; a la coma le faltaba el
+  // mismo chequeo.
+  it("una coma que agrupa de a tres por completo es de miles, no decimal", () => {
+    for (const [crudo, monto] of [
+      ["1,500", "1500"],
+      ["25,000", "25000"],
+      ["10,000", "10000"],
+      ["12,345", "12345"],
+      ["1,500,000", "1500000"],
+    ] as const) {
+      const formateado = formatearMientrasEscribe(crudo, "USD", pegado);
+      expect(leerMonto(formateado, "USD"), `pegando "${crudo}"`).toBe(monto);
+    }
+  });
+
+  it("una coma con más dígitos de los que la moneda admite, y que no agrupa de a tres, no se adivina", () => {
+    // "1,5000": ni es un decimal válido (4 dígitos > 2 que admite USD) ni un
+    // agrupamiento de miles (el grupo no tiene exactamente tres dígitos).
+    const formateado = formatearMientrasEscribe("1,5000", "USD", pegado);
+    expect(formateado).toBe("1,5000");
+    esperarError(formateado, "USD");
+  });
+
   it("solo la última coma separa decimales; una coma de más suma sus dígitos al entero", () => {
     expect(formatearMientrasEscribe("1,500,50", "USD", pegado)).toBe("1.500,50");
     expect(leerMonto(formatearMientrasEscribe("1,500,50", "USD", pegado), "USD")).toBe("1500.50");

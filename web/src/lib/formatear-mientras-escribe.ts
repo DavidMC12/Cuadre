@@ -147,26 +147,32 @@ function formatearPegadoConDecimales(sinSigno: string, decimales: number): strin
     return relevante;
   }
 
-  if (tieneComa) {
-    return formatearConSeparadorDecimal(relevante, ",", decimales);
+  // Solo aparece uno de los dos separadores. Puede ser un agrupamiento de
+  // miles completo (todos los grupos de a tres, con ese mismo separador) o
+  // el decimal — nunca las dos cosas, así que hay que decidir cuál es antes
+  // de tocar nada.
+  const separador = tieneComa ? "," : ".";
+  const regexDeAgrupamiento = tieneComa ? MILES_CON_COMA : MILES_CON_PUNTO;
+
+  // Agrupamiento completo: el separador nunca fue decimal, era de miles.
+  // "1,500" o "25,000" copiados de un sitio en inglés caen aquí — sin este
+  // chequeo se leían como 1,50 o 25,00, perdiendo dígitos de verdad.
+  if (regexDeAgrupamiento.test(relevante)) {
+    return agruparMiles(relevante.replaceAll(separador, ""));
   }
 
-  // Solo hay puntos. Sin coma, un ÚNICO punto seguido de como mucho
-  // `decimales` dígitos solo puede ser decimal —igual que ya tolera
-  // `normalizarMontoIngresado` al validar, pensado para pegar un monto
-  // copiado de un sitio con teclado numérico sin coma—. Cualquier otra forma
-  // (más de un punto, o uno seguido de más dígitos de los que la moneda
-  // admite) es un agrupamiento de miles o, si no calza ni con eso, algo que
-  // no se puede adivinar.
-  const partes = relevante.split(".");
-  const esUnicoPuntoDecimal =
-    partes.length === 2 && partes[1]!.length > 0 && partes[1]!.length <= decimales;
-  if (esUnicoPuntoDecimal) {
-    return formatearConSeparadorDecimal(relevante, ".", decimales);
+  // No es un agrupamiento completo: si lo que queda después del ÚLTIMO
+  // separador es como mucho los decimales que la moneda admite, es el
+  // decimal (un separador anterior, si lo hay, fue un descuido de tecleo y
+  // sus dígitos se suman al entero). Si deja más, no se puede leer con
+  // certeza — igual que ya tolera `normalizarMontoIngresado` al validar un
+  // único punto pegado desde un sitio con teclado numérico sin coma.
+  const posicion = relevante.lastIndexOf(separador);
+  const digitosDespues = soloDigitos(relevante.slice(posicion + 1));
+  if (digitosDespues.length > 0 && digitosDespues.length <= decimales) {
+    return formatearConSeparadorDecimal(relevante, separador, decimales);
   }
-  if (MILES_CON_PUNTO.test(relevante)) {
-    return agruparMiles(relevante.replace(/\./g, ""));
-  }
+
   return relevante;
 }
 

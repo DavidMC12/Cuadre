@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { clasificarEdicionDeMonto } from "@/lib/clasificar-edicion-de-monto";
-import { posicionParaSignificativos } from "@/lib/cursor-de-monto";
+import { formatearMientrasEscribe } from "@/lib/formatear-mientras-escribe";
 
 type PropsDeInput = Omit<
   React.ComponentProps<typeof Input>,
@@ -31,21 +31,27 @@ interface CampoMontoProps extends PropsDeInput {
  *
  * Toda la decisión de fondo (tecleo seguro vs. texto ajeno que no se puede
  * adivinar) vive en `clasificarEdicionDeMonto`, una función pura y probada
- * aparte — este componente solo la conecta al DOM: le pasa el texto y el
- * cursor de cada cambio, recuerda si lo que hay en pantalla sigue siendo
- * confiable, y recoloca el cursor cuando la función dice dónde.
+ * aparte. Este componente solo la conecta al DOM, y a propósito NO guarda
+ * nada en un `ref` entre cambios: si "confiable" viviera en un `ref`,
+ * desmontar y volver a montar el campo (por ejemplo, el formulario que pasa
+ * de `Drawer` a `Dialog` al cruzar cierto ancho de pantalla) lo reiniciaría
+ * a ciegas mientras el texto ambiguo de un pegado sigue en pantalla. Por eso
+ * se recalcula fresco a partir del propio `value` en cada render: no hay
+ * nada que se pueda desincronizar.
+ *
+ * El cursor siempre queda al final después de cualquier cambio — nunca se
+ * intenta recolocarlo en medio del texto. Contar dígitos para ubicarlo ahí
+ * fue la causa de un error de dinero real (ver el comentario en
+ * `clasificar-edicion-de-monto.ts`).
  */
 export function CampoMonto({ moneda, value, onChange, permiteSigno, ...resto }: CampoMontoProps) {
   const referencia = useRef<HTMLInputElement>(null);
-  const significativosDeseados = useRef<number | null>(null);
-  const confiable = useRef(true);
+  const confiable = formatearMientrasEscribe(value, moneda, { permiteSigno }) === value;
 
   useEffect(() => {
     const elemento = referencia.current;
-    const posicion = significativosDeseados.current;
-    if (elemento && document.activeElement === elemento && posicion !== null) {
-      const nueva = posicionParaSignificativos(elemento.value, posicion);
-      elemento.setSelectionRange(nueva, nueva);
+    if (elemento && document.activeElement === elemento) {
+      elemento.setSelectionRange(elemento.value.length, elemento.value.length);
     }
   }, [value]);
 
@@ -56,16 +62,10 @@ export function CampoMonto({ moneda, value, onChange, permiteSigno, ...resto }: 
       inputMode="decimal"
       value={value}
       onChange={(evento) => {
-        const crudo = evento.target.value;
-        const cursor = evento.target.selectionStart ?? crudo.length;
-
-        const resultado = clasificarEdicionDeMonto(value, crudo, cursor, moneda, {
+        const resultado = clasificarEdicionDeMonto(value, evento.target.value, moneda, {
           permiteSigno,
-          confiablePrevio: confiable.current,
+          confiablePrevio: confiable,
         });
-
-        confiable.current = resultado.confiable;
-        significativosDeseados.current = resultado.cursorSignificativos;
         onChange(resultado.texto);
       }}
     />

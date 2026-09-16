@@ -1,4 +1,3 @@
-import { contarSignificativos } from "./cursor-de-monto";
 import { diferenciaDeTexto } from "./diferencia-de-texto";
 import { formatearMientrasEscribe } from "./formatear-mientras-escribe";
 import { decimalesDe } from "./money";
@@ -8,12 +7,6 @@ export interface ResultadoDeEdicion {
   texto: string;
   /** Si `texto` es algo que este módulo ya normalizó — seguro seguir tecleando encima — o ajeno. */
   confiable: boolean;
-  /**
-   * Dónde debería quedar el cursor, contado en caracteres significativos.
-   * `null` cuando no se debe tocar: el navegador ya lo dejó donde
-   * corresponde (por ejemplo, justo después de un pegado).
-   */
-  cursorSignificativos: number | null;
 }
 
 /**
@@ -31,11 +24,20 @@ export interface ResultadoDeEdicion {
  * Cualquier otra cosa —incluido seguir editando un texto que todavía no se
  * pudo resolver— se trata con cuidado hasta que vuelva a ser una forma
  * reconocible.
+ *
+ * A propósito NO decide dónde va el cursor: `CampoMonto` lo manda siempre
+ * al final después de cualquier cambio. Una versión anterior intentaba
+ * recolocarlo contando dígitos, y eso fue justo la causa de un error de
+ * dinero real (escribir ".99" como primera tecla en dólares registraba
+ * 9.90): el formateador puede insertar un carácter que la persona nunca
+ * escribió (un "0" delante de la coma), y contar dígitos no tiene forma de
+ * saber que ese carácter es nuevo. Perder la posición exacta del cursor al
+ * editar en medio de un monto ya escrito es una molestia; equivocarse el
+ * monto no lo es.
  */
 export function clasificarEdicionDeMonto(
   anterior: string,
   crudo: string,
-  cursorCrudo: number,
   moneda: string,
   opciones: { permiteSigno?: boolean; confiablePrevio: boolean }
 ): ResultadoDeEdicion {
@@ -50,7 +52,7 @@ export function clasificarEdicionDeMonto(
     // hasta que la persona lo corrija lo suficiente.
     const texto = formatearMientrasEscribe(crudo, moneda, { permiteSigno, pegado: true });
     const confiable = formatearMientrasEscribe(texto, moneda, { permiteSigno }) === texto;
-    return { texto, confiable, cursorSignificativos: null };
+    return { texto, confiable };
   }
 
   let paraFormatear = crudo;
@@ -63,11 +65,7 @@ export function clasificarEdicionDeMonto(
       if (anterior.includes(",")) {
         // Un segundo separador decimal es un toque de más, no una intención
         // de correr los decimales: se ignora, sin reciclar sus dígitos.
-        return {
-          texto: anterior,
-          confiable: true,
-          cursorSignificativos: contarSignificativos(anterior, prefijoComun),
-        };
+        return { texto: anterior, confiable: true };
       }
       // Un punto tecleado —numérico de celular sin coma, o un IME que no
       // dispara un evento de tecla fiable— es el separador decimal.
@@ -80,6 +78,5 @@ export function clasificarEdicionDeMonto(
   return {
     texto: formatearMientrasEscribe(paraFormatear, moneda, { permiteSigno }),
     confiable: true,
-    cursorSignificativos: contarSignificativos(paraFormatear, cursorCrudo),
   };
 }
