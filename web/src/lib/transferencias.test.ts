@@ -12,6 +12,8 @@ function cuenta(datos: Partial<Cuenta> & Pick<Cuenta, "id">): Cuenta {
     lastMovementAt: null,
     archivedAt: null,
     isSavings: false,
+    creditLimit: null,
+    linkedAccountId: null,
     ...datos,
   };
 }

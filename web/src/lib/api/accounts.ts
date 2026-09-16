@@ -1,7 +1,7 @@
 /** Llamadas a la API de cuentas. */
 
 import { pedir } from "./client";
-import type { Cuenta, NuevaCuenta } from "./types";
+import type { CambiosDeCuenta, Cuenta, NuevaCuenta } from "./types";
 
 export function fetchAccounts(includeArchived = false): Promise<{ data: Cuenta[] }> {
   return pedir("/accounts", { parametros: { includeArchived: String(includeArchived) } });
@@ -27,4 +27,9 @@ export function unarchiveAccount(id: string): Promise<{ data: Cuenta }> {
 /** Marcar o desmarcar una cuenta como de ahorro. Es reversible con un toque. */
 export function updateAccountSavings(id: string, isSavings: boolean): Promise<{ data: Cuenta }> {
   return pedir(`/accounts/${id}/savings`, { metodo: "PATCH", cuerpo: { isSavings } });
+}
+
+/** Editar nombre, cupo de tarjeta o cuenta vinculada. Ver `CambiosDeCuenta`. */
+export function updateAccount(id: string, cambios: CambiosDeCuenta): Promise<{ data: Cuenta }> {
+  return pedir(`/accounts/${id}`, { metodo: "PATCH", cuerpo: cambios });
 }

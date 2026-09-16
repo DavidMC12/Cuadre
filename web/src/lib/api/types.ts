@@ -22,6 +22,10 @@ export interface Cuenta {
    * está apartada.
    */
   isSavings: boolean;
+  /** Solo en tarjetas. Texto exacto, nunca number, como balance. */
+  creditLimit: string | null;
+  /** Solo en tarjetas: la cuenta desde la que normalmente se paga. */
+  linkedAccountId: string | null;
 }
 
 export interface NuevaCuenta {
@@ -32,6 +36,20 @@ export interface NuevaCuenta {
   openingBalance?: string;
   /** Opcional al crear; si no viene, la cuenta no es de ahorro. */
   isSavings?: boolean;
+  /** Opcional. Texto exacto, nunca number. Solo en tarjetas. */
+  creditLimit?: string;
+  /** Opcional. Solo en tarjetas: la cuenta desde la que normalmente se paga. */
+  linkedAccountId?: string;
+}
+
+/**
+ * Solo lo que se puede cambiar de una cuenta. Un campo que no venga se deja
+ * igual; los que aceptan `null` se borran mandando `null`.
+ */
+export interface CambiosDeCuenta {
+  name?: string;
+  creditLimit?: string | null;
+  linkedAccountId?: string | null;
 }
 
 export type TipoMovimiento = "opening" | "standard" | "transfer";
