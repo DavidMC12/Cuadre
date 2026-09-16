@@ -13,25 +13,31 @@ import {
  * — así un cero de más se nota de inmediato en vez de esconderse en una fila
  * de dígitos sin puntuar.
  *
- * Dos reglas gobiernan todo este archivo, y la segunda importa tanto como la
- * primera:
+ * Hay DOS formas de que llegue texto nuevo a este campo, y se leen distinto
+ * a propósito:
  *
- * 1. Lo que esto produce sigue siendo exactamente lo que
- *    `normalizarMontoIngresado`/`normalizarMontoConSigno` (`money.ts`) ya
- *    saben leer, así que la validación y el envío a la API no cambian nada.
- * 2. **Nunca se adivina un monto distinto al que la persona escribió.** Si
- *    el texto trae una combinación de separadores que no se puede leer con
- *    certeza (por ejemplo "1500,50" en una moneda sin decimales, o
- *    "1,500.50" pegado con formato inglés), esta función NO reformatea: deja
- *    el texto tal cual, para que el validador de siempre lo detenga con su
- *    mensaje real. La alternativa —limpiar hasta que algo "se vea bien"— es
- *    peor: convierte un error visible en un monto equivocado por un factor
- *    de 100 o 1000, silencioso, y un movimiento ya registrado no se edita.
+ * - **Escribiendo** (`opciones.pegado` ausente o `false`): el texto que llega
+ *   es siempre "lo que este mismo campo ya había formateado, más una tecla".
+ *   Los separadores que ya están ahí los puso este código, no la persona, así
+ *   que es seguro deshacerlos y reagrupar desde cero en cada tecla — es
+ *   justamente lo que hace posible escribir un monto de cualquier largo.
+ * - **Pegando** (`opciones.pegado: true`): el texto llega de afuera, y puede
+ *   traer una convención de separadores distinta a la de la app ("1,500.50"
+ *   en inglés) o decimales en una moneda que no los usa. Ahí NO se adivina:
+ *   si la combinación de separadores no se puede leer con certeza, el texto
+ *   se deja tal cual, para que `normalizarMontoIngresado`/
+ *   `normalizarMontoConSigno` (`money.ts`) den su error real en vez de que
+ *   aquí se muestre un monto distinto y plausible. Confundir un pegado con
+ *   una tecla (o al revés) es exactamente el bug que hizo que esto se
+ *   reescribiera dos veces: tratar los propios puntos de miles como si
+ *   fueran ambiguos deja a la persona sin poder escribir nada de cinco
+ *   cifras para arriba; tratar un pegado como si fuera tecleo deja pasar un
+ *   monto cien veces distinto al que se pegó.
  */
 export function formatearMientrasEscribe(
   textoCrudo: string,
   moneda: string,
-  opciones: { permiteSigno?: boolean } = {}
+  opciones: { permiteSigno?: boolean; pegado?: boolean } = {}
 ): string {
   const permiteSigno = opciones.permiteSigno ?? false;
   const sinEspacios = textoCrudo.trim();
@@ -44,10 +50,11 @@ export function formatearMientrasEscribe(
   const prefijo = permiteSigno && tieneSigno ? "-" : "";
 
   const decimales = decimalesDe(moneda);
-  return (
-    prefijo +
-    (decimales === 0 ? formatearSinDecimales(sinSigno) : formatearConDecimales(sinSigno, decimales))
-  );
+  const cuerpo = opciones.pegado
+    ? formatearTextoPegado(sinSigno, decimales)
+    : formatearTextoEscrito(sinSigno, decimales);
+
+  return prefijo + cuerpo;
 }
 
 function soloDigitos(texto: string): string {
@@ -58,7 +65,49 @@ function quitarCerosALaIzquierda(digitos: string): string {
   return digitos.replace(/^0+(?=\d)/, "");
 }
 
-function formatearSinDecimales(sinSigno: string): string {
+// -----------------------------------------------------------------------------
+// Tecleando: siempre seguro reagrupar desde cero, porque el texto de entrada
+// es siempre una versión de lo que este mismo formateador ya produjo.
+
+function formatearTextoEscrito(sinSigno: string, decimales: number): string {
+  if (decimales === 0) {
+    const digitos = quitarCerosALaIzquierda(soloDigitos(sinSigno));
+    return digitos === "" ? "" : agruparMiles(digitos);
+  }
+
+  // El punto decimal se intercepta como tecla y llega ya convertido en coma
+  // (ver `CampoMonto`); si de todos modos aparece uno aquí —un teclado que no
+  // dispara ese evento— se descarta sin más, igual que cualquier otro
+  // carácter suelto: mientras se escribe, nunca hace falta adivinar qué
+  // significa un punto, porque nunca es la única pista de un decimal.
+  const filtrado = sinSigno.replace(/[^\d,]/g, "");
+  const posicionDeLaComa = filtrado.lastIndexOf(",");
+
+  if (posicionDeLaComa === -1) {
+    const digitos = quitarCerosALaIzquierda(filtrado);
+    return digitos === "" ? "" : agruparMiles(digitos);
+  }
+
+  // Cualquier coma anterior a la última fue un descuido de tecleo: sus
+  // dígitos SÍ se conservan y se suman al entero (perder un dígito que la
+  // persona de verdad escribió sería peor que agruparlo donde no tocaba).
+  const parteEntera = quitarCerosALaIzquierda(soloDigitos(filtrado.slice(0, posicionDeLaComa)));
+  const parteDecimal = soloDigitos(filtrado.slice(posicionDeLaComa + 1)).slice(0, decimales);
+  const enteroMostrado = parteEntera === "" ? "0" : agruparMiles(parteEntera);
+  return `${enteroMostrado},${parteDecimal}`;
+}
+
+// -----------------------------------------------------------------------------
+// Pegando: el texto viene de afuera, así que puede traer una convención de
+// separadores que no es la de la app. Nunca se adivina: o se puede leer con
+// certeza, o se deja tal cual para que el validador de siempre dé su error.
+
+function formatearTextoPegado(sinSigno: string, decimales: number): string {
+  if (decimales === 0) return formatearPegadoSinDecimales(sinSigno);
+  return formatearPegadoConDecimales(sinSigno, decimales);
+}
+
+function formatearPegadoSinDecimales(sinSigno: string): string {
   // Las letras, espacios sueltos, etc. no son ambiguos: nadie quiso decir
   // nada con ellos, así que se descartan sin más. Lo que sí importa
   // conservar tal cual es un separador (punto o coma) que no forma un
@@ -79,7 +128,7 @@ function formatearSinDecimales(sinSigno: string): string {
   return relevante;
 }
 
-function formatearConDecimales(sinSigno: string, decimales: number): string {
+function formatearPegadoConDecimales(sinSigno: string, decimales: number): string {
   const relevante = sinSigno.replace(/[^\d.,]/g, "");
   if (relevante === "") return "";
 
@@ -103,10 +152,11 @@ function formatearConDecimales(sinSigno: string, decimales: number): string {
 
   // Solo hay puntos. Sin coma, un ÚNICO punto seguido de como mucho
   // `decimales` dígitos solo puede ser decimal —igual que ya tolera
-  // `normalizarMontoIngresado` al validar, pensado para teclados numéricos
-  // de celular sin coma—. Cualquier otra forma (más de un punto, o uno
-  // seguido de más dígitos de los que la moneda admite) es un agrupamiento
-  // de miles o, si no calza ni con eso, algo que no se puede adivinar.
+  // `normalizarMontoIngresado` al validar, pensado para pegar un monto
+  // copiado de un sitio con teclado numérico sin coma—. Cualquier otra forma
+  // (más de un punto, o uno seguido de más dígitos de los que la moneda
+  // admite) es un agrupamiento de miles o, si no calza ni con eso, algo que
+  // no se puede adivinar.
   const partes = relevante.split(".");
   const esUnicoPuntoDecimal =
     partes.length === 2 && partes[1]!.length > 0 && partes[1]!.length <= decimales;
@@ -125,9 +175,6 @@ function formatearConSeparadorDecimal(
   decimales: number
 ): string {
   const posicion = relevante.lastIndexOf(separador);
-  // Cualquier separador anterior al último fue un descuido de tecleo: sus
-  // dígitos SÍ se conservan y se suman al entero (perder un dígito que la
-  // persona de verdad escribió sería peor que agruparlo donde no tocaba).
   const parteEntera = quitarCerosALaIzquierda(soloDigitos(relevante.slice(0, posicion)));
   const parteDecimal = soloDigitos(relevante.slice(posicion + 1)).slice(0, decimales);
   const enteroMostrado = parteEntera === "" ? "0" : agruparMiles(parteEntera);

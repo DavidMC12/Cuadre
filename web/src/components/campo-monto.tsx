@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
+import { contarSignificativos, posicionParaSignificativos } from "@/lib/cursor-de-monto";
 import { formatearMientrasEscribe } from "@/lib/formatear-mientras-escribe";
 import { decimalesDe } from "@/lib/money";
 
@@ -18,26 +19,10 @@ interface CampoMontoProps extends PropsDeInput {
   permiteSigno?: boolean;
 }
 
-/** Cuántos caracteres "significativos" (dígitos y coma decimal) hay antes de una posición. */
-function contarSignificativos(texto: string, hasta: number): number {
-  let cuenta = 0;
-  for (let i = 0; i < hasta && i < texto.length; i += 1) {
-    if (/[\d,]/.test(texto[i]!)) cuenta += 1;
-  }
-  return cuenta;
-}
-
-/** La posición, en un texto ya formateado, justo después del n-ésimo carácter significativo. */
-function posicionParaSignificativos(texto: string, n: number): number {
-  if (n <= 0) return 0;
-  let cuenta = 0;
-  for (let i = 0; i < texto.length; i += 1) {
-    if (/[\d,]/.test(texto[i]!)) {
-      cuenta += 1;
-      if (cuenta === n) return i + 1;
-    }
-  }
-  return texto.length;
+/** Pegar o soltar trae texto de afuera; cualquier otro tipo es tecla por tecla. */
+function esTextoPegado(evento: React.ChangeEvent<HTMLInputElement>): boolean {
+  const tipo = (evento.nativeEvent as InputEvent | undefined)?.inputType;
+  return tipo === "insertFromPaste" || tipo === "insertFromDrop";
 }
 
 /**
@@ -51,10 +36,15 @@ function posicionParaSignificativos(texto: string, n: number): number {
  * reemplazar un `<Input>` por este componente no cambia nada más en el
  * formulario que lo usa.
  *
- * El cursor se recoloca contando cuántos dígitos (y la coma, si la hay)
- * quedaban a su izquierda antes de la tecla, y ubicándolo después de esos
- * mismos dígitos en el texto ya reformateado — así escribir o borrar en
- * medio de un monto no desordena los dígitos que ya estaban.
+ * Tecleo y pegado se tratan distinto (ver `formatear-mientras-escribe.ts`):
+ * tecleando siempre es seguro reagrupar todo desde cero, porque el texto de
+ * entrada es siempre lo que este mismo campo ya había formateado más una
+ * tecla; pegando el texto viene de afuera y puede traer una convención de
+ * separadores distinta, así que ahí se es estricto en vez de adivinar.
+ *
+ * El cursor solo se recoloca en el camino de tecleo, contando cuántos
+ * dígitos (y la coma, si la hay) quedaban a su izquierda antes de la tecla —
+ * al pegar, el navegador ya deja el cursor donde corresponde.
  */
 export function CampoMonto({ moneda, value, onChange, permiteSigno, ...resto }: CampoMontoProps) {
   const referencia = useRef<HTMLInputElement>(null);
@@ -79,8 +69,8 @@ export function CampoMonto({ moneda, value, onChange, permiteSigno, ...resto }: 
         // Sin coma en el teclado, un numérico de celular solo tiene punto.
         // Convertirlo en coma AQUÍ (antes de que llegue a onChange) evita
         // por completo la ambigüedad de adivinar, más tarde, si un punto
-        // era decimal o de miles: nunca aparece un punto suelto en lo que
-        // se escribe a mano, solo en lo que se pega.
+        // era decimal o de miles: al escribir, nunca aparece un punto suelto
+        // en lo que llega a formatearMientrasEscribe.
         if (evento.key === "." && decimalesDe(moneda) > 0) {
           evento.preventDefault();
           const elemento = evento.currentTarget;
@@ -94,9 +84,13 @@ export function CampoMonto({ moneda, value, onChange, permiteSigno, ...resto }: 
       }}
       onChange={(evento) => {
         const crudo = evento.target.value;
-        const cursor = evento.target.selectionStart ?? crudo.length;
-        significativosDeseados.current = contarSignificativos(crudo, cursor);
-        onChange(formatearMientrasEscribe(crudo, moneda, { permiteSigno }));
+        const pegado = esTextoPegado(evento);
+
+        significativosDeseados.current = pegado
+          ? null
+          : contarSignificativos(crudo, evento.target.selectionStart ?? crudo.length);
+
+        onChange(formatearMientrasEscribe(crudo, moneda, { permiteSigno, pegado }));
       }}
     />
   );
