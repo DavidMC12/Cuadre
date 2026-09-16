@@ -2,9 +2,18 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Wallet } from "lucide-react";
+import { ListTodo, Wallet } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import {
   Select,
   SelectContent,
@@ -15,6 +24,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { EmptyState } from "@/components/empty-state";
+import { PanelPresupuesto } from "@/components/presupuesto/panel-presupuesto";
 import { SelectorMes } from "@/components/dashboard/selector-mes";
 import { ResumenCards } from "@/components/dashboard/resumen-cards";
 import { TotalCuentas } from "@/components/dashboard/total-cuentas";
@@ -26,7 +36,7 @@ import { useCuentas } from "@/hooks/use-cuentas";
 import { useIrAPantallaDeInicio } from "@/hooks/use-perfil";
 import { useMonedas, useResumenMes, useTendencia } from "@/hooks/use-reportes";
 import type { TipoCategoria } from "@/lib/api/types";
-import { mesActual } from "@/lib/fecha";
+import { etiquetaMes, mesActual } from "@/lib/fecha";
 import { cn } from "@/lib/utils";
 
 export default function PaginaResumen() {
@@ -86,8 +96,34 @@ export default function PaginaResumen() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <h1 className="text-xl font-semibold">Resumen</h1>
+    <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:gap-10">
+      <div className="flex min-w-0 flex-1 flex-col gap-5 xl:max-w-3xl">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold">Resumen</h1>
+
+          {/* En pantallas angostas el checklist vive en un cajón que entra
+              deslizándose desde la derecha; desde `xl` la columna de la
+              derecha lo muestra siempre, y el botón no hace falta. */}
+          {moneda && (
+            <Drawer swipeDirection="right">
+              <DrawerTrigger render={<Button variant="outline" size="sm" className="xl:hidden" />}>
+                <ListTodo />
+                Presupuesto
+              </DrawerTrigger>
+              <DrawerContent>
+                <DrawerHeader>
+                  <DrawerTitle>Presupuesto</DrawerTitle>
+                  <DrawerDescription>
+                    {etiquetaMes(mes)} · {moneda}
+                  </DrawerDescription>
+                </DrawerHeader>
+                <div className="overflow-y-auto px-4 pb-4">
+                  <PanelPresupuesto mes={mes} moneda={moneda} />
+                </div>
+              </DrawerContent>
+            </Drawer>
+          )}
+        </div>
 
       {monedas.length > 1 && (
         <div className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-sm">
@@ -183,6 +219,16 @@ export default function PaginaResumen() {
       >
         Editar categorías
       </Link>
+      </div>
+
+      {/* Columna del checklist: solo en pantallas anchas. El Resumen conserva
+          su ancho de lectura (max-w-3xl) y el espacio que sobra a la derecha
+          lo ocupa esta columna, que es la única pantalla que la usa. */}
+      {moneda && (
+        <aside className="hidden w-80 shrink-0 xl:sticky xl:top-8 xl:block">
+          <PanelPresupuesto mes={mes} moneda={moneda} />
+        </aside>
+      )}
     </div>
   );
 }

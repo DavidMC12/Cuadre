@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/transactions";
 import type { FiltrosMovimientos, NuevaTransferencia, NuevoMovimiento } from "@/lib/api/types";
 import { clavesCuentas } from "@/hooks/use-cuentas";
+import { clavesPresupuesto } from "@/hooks/use-presupuesto";
 import { clavesReportes } from "@/hooks/use-reportes";
 
 export const clavesMovimientos = {
@@ -35,11 +36,13 @@ export function useMovimientos(filtros: FiltrosMovimientos = {}) {
 }
 
 function invalidarTrasEscritura(queryClient: ReturnType<typeof useQueryClient>) {
-  // Un movimiento nuevo (o su anulación) cambia el saldo de la cuenta y lo que
-  // muestra el dashboard: invalidamos los tres catálogos.
+  // Un movimiento nuevo (o su anulación) cambia el saldo de la cuenta, lo que
+  // muestra el dashboard y el progreso del checklist de presupuesto: se
+  // invalidan los cuatro catálogos.
   queryClient.invalidateQueries({ queryKey: clavesMovimientos.todas() });
   queryClient.invalidateQueries({ queryKey: clavesCuentas.todas() });
   queryClient.invalidateQueries({ queryKey: clavesReportes.todas() });
+  queryClient.invalidateQueries({ queryKey: clavesPresupuesto.todas() });
 }
 
 export function useCrearMovimiento() {
@@ -74,9 +77,11 @@ export function useActualizarCategoriaMovimiento() {
     mutationFn: ({ id, categoryId }: { id: string; categoryId: string | null }) =>
       updateTransactionCategory(id, categoryId),
     onSuccess: () => {
-      // No cambia el saldo, pero sí el desglose por categoría del dashboard.
+      // No cambia el saldo, pero sí el desglose por categoría del dashboard y
+      // el progreso de un ítem del checklist que apunte a esa categoría.
       queryClient.invalidateQueries({ queryKey: clavesMovimientos.todas() });
       queryClient.invalidateQueries({ queryKey: clavesReportes.todas() });
+      queryClient.invalidateQueries({ queryKey: clavesPresupuesto.todas() });
     },
   });
 }

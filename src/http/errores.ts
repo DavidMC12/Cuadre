@@ -176,6 +176,53 @@ const POR_RESTRICCION: Record<string, Traduccion> = {
     codigo: 'CONFLICT',
     mensaje: 'Ese correo ya está registrado.',
   },
+
+  // Presupuesto
+  budget_items_kind_valid: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'Un ítem del presupuesto apunta a una categoría o a una cuenta, no a las dos.',
+  },
+  budget_items_currency_format: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'La moneda debe ser un código de tres letras en mayúsculas, como COP o USD.',
+  },
+  budget_items_label_not_blank: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'La etiqueta no puede quedar en blanco. Déjala vacía o escribe algo.',
+  },
+  budget_items_target_matches_kind: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'Un ítem del checklist apunta a una categoría o a una cuenta, no a las dos ni a ninguna.',
+  },
+  budget_items_category_kind_matches: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'El checklist de presupuesto es de gastos: elige una categoría de gastos.',
+  },
+  budget_item_targets_amount_positive: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'El monto del objetivo debe ser mayor que cero.',
+  },
+  budget_item_targets_effective_from_is_month_start: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'El monto de un ítem solo puede regir desde el comienzo de un mes.',
+  },
+  budget_items_category_fk: {
+    estado: 404,
+    codigo: 'NOT_FOUND',
+    mensaje: 'Esa categoría no existe.',
+  },
+  budget_items_account_fk: {
+    estado: 404,
+    codigo: 'NOT_FOUND',
+    mensaje: 'Esa cuenta no existe, o la moneda no es la de la cuenta.',
+  },
 };
 
 /** Códigos SQLSTATE que nos interesan. */

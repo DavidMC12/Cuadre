@@ -185,3 +185,70 @@ export interface CambiosDePerfil {
   defaultCurrency?: string | null;
   startPage?: PantallaDeInicio;
 }
+
+/** Las dos clases de ítem del checklist: un tope de gasto o un aporte a ahorro. */
+export type TipoItemPresupuesto = "category" | "savings";
+
+/** Un ítem ya guardado, tal como se muestra en la pantalla de gestión. */
+export interface ItemPresupuesto {
+  id: string;
+  kind: TipoItemPresupuesto;
+  currency: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  accountId: string | null;
+  accountName: string | null;
+  label: string | null;
+  /** El monto vigente hoy. Texto exacto, nunca number, igual que `balance`. */
+  currentAmount: string | null;
+  archivedAt: string | null;
+}
+
+/**
+ * Un ítem de categoría: un tope de gasto o un recordatorio de pago. La moneda
+ * hay que decirla, porque una categoría por sí sola no tiene una.
+ */
+export interface NuevoItemDeCategoria {
+  kind: "category";
+  categoryId: string;
+  currency: string;
+  /** Texto exacto, nunca number. */
+  amount: string;
+  label?: string;
+}
+
+/**
+ * Un ítem de ahorro: cuánto se espera aportarle este mes a una cuenta ya
+ * marcada como de ahorro. La moneda no se pide: es la de la cuenta.
+ */
+export interface NuevoItemDeAhorro {
+  kind: "savings";
+  accountId: string;
+  /** Texto exacto, nunca number. */
+  amount: string;
+  label?: string;
+}
+
+/** Un ítem nuevo, discriminado por `kind` igual que en el backend. */
+export type NuevoItemPresupuesto = NuevoItemDeCategoria | NuevoItemDeAhorro;
+
+/** Una fila del checklist de un mes. */
+export interface ItemDelChecklist {
+  id: string;
+  kind: TipoItemPresupuesto;
+  currency: string;
+  /** El nombre a mostrar, ya resuelto: nunca queda vacío. */
+  label: string;
+  /** Nulo si el ítem se creó después de ese mes: no aplica todavía. */
+  target: string | null;
+  /** Texto exacto, nunca number. */
+  progress: string;
+  checked: boolean;
+}
+
+/** El checklist completo de un mes, en una sola moneda. */
+export interface ChecklistDelMes {
+  month: string;
+  currency: string;
+  items: ItemDelChecklist[];
+}

@@ -109,8 +109,15 @@ export function textoMonto(monto: string, moneda: string): string {
 
 const ESCALA_DECIMAL = 10000n;
 
-/** "1234.5" -> 12345000n. Nunca pasa por `parseFloat`: cuenta enteros. */
-function aUnidadesMinimas(monto: string): bigint {
+/**
+ * "1234.5" -> 12345000n. Nunca pasa por `parseFloat`: cuenta enteros.
+ *
+ * Exportada para las comparaciones y proporciones de dinero que se hacen en
+ * las pantallas (el checklist la usa para el ancho de su barra): que exista
+ * una sola forma de partir un monto en enteros exactos, y no una por
+ * componente.
+ */
+export function aUnidadesMinimas(monto: string): bigint {
   const texto = monto.trim();
   const negativo = texto.startsWith("-");
   const sinSigno = texto.replace(/^[-+]/, "");

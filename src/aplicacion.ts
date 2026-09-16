@@ -17,6 +17,7 @@ import { registrarManejoDeErrores } from './http/errores.js';
 import { usuarioActual } from './http/usuario-actual.js';
 import { rutasDeCuentas } from './modules/accounts/routes.js';
 import { rutasDeAdmin } from './modules/admin/routes.js';
+import { rutasDePresupuesto } from './modules/budgets/routes.js';
 import { rutasDeCategorias } from './modules/categories/routes.js';
 import { rutasDePerfil } from './modules/profile/routes.js';
 import { rutasDeReportes } from './modules/reports/routes.js';
@@ -91,6 +92,7 @@ export async function construirApp(opciones: OpcionesDeApp = {}): Promise<Fastif
       await api.register(rutasDeCategorias);
       await api.register(rutasDeMovimientos);
       await api.register(rutasDeReportes);
+      await api.register(rutasDePresupuesto);
       await api.register(rutasDePerfil);
       await api.register(rutasDeAdmin);
     },
