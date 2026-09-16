@@ -111,7 +111,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             // Sin mx-auto: en escritorio el contenido queda pegado al menú
             // lateral, no flotando centrado en lo que sobra de la pantalla.
             "w-full flex-1 px-4 pt-4 pb-24 md:px-8 md:pt-8 md:pb-10",
-            ANCHO_CONTENIDO
+            // Solo el Resumen se ensancha desde `xl`: lleva a su derecha la
+            // columna del checklist, y sin este tramo la columna se quedaría
+            // dentro de max-w-3xl y las gráficas se aplastarían.
+            pathname === "/" ? cn(ANCHO_CONTENIDO, "xl:max-w-6xl") : ANCHO_CONTENIDO
           )}
         >
           {children}

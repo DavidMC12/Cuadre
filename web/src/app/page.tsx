@@ -97,7 +97,7 @@ export default function PaginaResumen() {
 
   return (
     <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:gap-10">
-      <div className="flex min-w-0 flex-1 flex-col gap-5">
+      <div className="flex min-w-0 flex-1 flex-col gap-5 xl:max-w-3xl">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-xl font-semibold">Resumen</h1>
 
@@ -221,9 +221,9 @@ export default function PaginaResumen() {
       </Link>
       </div>
 
-      {/* Columna del checklist: solo en pantallas anchas, donde el contenido
-          del Resumen (limitado a max-w-3xl) deja espacio de sobra a la
-          derecha. Esta pantalla es la única que la usa. */}
+      {/* Columna del checklist: solo en pantallas anchas. El Resumen conserva
+          su ancho de lectura (max-w-3xl) y el espacio que sobra a la derecha
+          lo ocupa esta columna, que es la única pantalla que la usa. */}
       {moneda && (
         <aside className="hidden w-80 shrink-0 xl:sticky xl:top-8 xl:block">
           <PanelPresupuesto mes={mes} moneda={moneda} />

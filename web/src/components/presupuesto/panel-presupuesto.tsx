@@ -13,21 +13,8 @@ import { useChecklistDelMes, useDesarchivarItemPresupuesto, usePresupuestoItems 
 import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { ItemDelChecklist } from "@/lib/api/types";
-import { textoMonto } from "@/lib/money";
+import { aUnidadesMinimas, textoMonto } from "@/lib/money";
 import { cn } from "@/lib/utils";
-
-const ESCALA = 10000n;
-
-/** "80000.0000" -> 800000n, en diezmilésimas. Nunca parseFloat. */
-function aUnidades(monto: string): bigint {
-  const texto = monto.trim();
-  const negativo = texto.startsWith("-");
-  const sinSigno = texto.replace(/^[-+]/, "");
-  const [entera = "0", decimal = ""] = sinSigno.split(".");
-  const decimalCompleto = (decimal + "0000").slice(0, 4);
-  const valor = BigInt(entera || "0") * ESCALA + BigInt(decimalCompleto || "0");
-  return negativo ? -valor : valor;
-}
 
 /**
  * Qué tan llena va la barra, en porcentaje para el CSS. Se calcula con
@@ -35,8 +22,8 @@ function aUnidades(monto: string): bigint {
  * no un monto de dinero.
  */
 function porcentajeBarra(progress: string, target: string): number {
-  const progreso = aUnidades(progress);
-  const objetivo = aUnidades(target);
+  const progreso = aUnidadesMinimas(progress);
+  const objetivo = aUnidadesMinimas(target);
 
   if (objetivo <= 0n) return 0;
   if (progreso <= 0n) return 0;

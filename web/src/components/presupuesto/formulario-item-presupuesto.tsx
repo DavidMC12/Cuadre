@@ -36,13 +36,16 @@ import { useCuentas } from "@/hooks/use-cuentas";
 import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { ItemPresupuesto } from "@/lib/api/types";
-import { formatearMonto, normalizarMontoIngresado } from "@/lib/money";
+import { aUnidadesMinimas, formatearMonto, normalizarMontoIngresado } from "@/lib/money";
 
 /** "100000.0000" -> "100.000" o "12.3400" -> "12.34": lo que CampoMonto sabe leer. */
 function textoEditable(monto: string, moneda: string): string {
   const { entero, decimales } = formatearMonto(monto, moneda);
   return `${entero}${decimales ? `,${decimales}` : ""}`;
 }
+
+/** El componente Select no acepta un value vacío; este valor marca "ninguna". */
+const NINGUNO = "__sin_elegir__";
 
 /**
  * Crear o editar un ítem del checklist.
@@ -56,9 +59,6 @@ function textoEditable(monto: string, moneda: string): string {
  * archivar o restaurar. Desde la cuenta de otra persona no se abre nada: el
  * servidor rechazaría la escritura de todos modos.
  */
-/** El componente Select no acepta un value vacío; este valor marca "ninguna". */
-const NINGUNO = "__sin_elegir__";
-
 export function FormularioItemPresupuesto({
   item,
   moneda,
@@ -136,7 +136,16 @@ export function FormularioItemPresupuesto({
 
     try {
       if (item) {
-        await cambiarObjetivo.mutateAsync({ id: item.id, amount: lectura.monto });
+        // El monto solo se manda si cambió de verdad: cada objetivo es una
+        // fila nueva e inmutable en la base, y guardar la misma cifra dos
+        // veces dejaría una fila idéntica que no cuenta nada.
+        const montoCambio =
+          !item.currentAmount ||
+          aUnidadesMinimas(lectura.monto) !== aUnidadesMinimas(item.currentAmount);
+
+        if (montoCambio) {
+          await cambiarObjetivo.mutateAsync({ id: item.id, amount: lectura.monto });
+        }
 
         // La etiqueta solo se manda si cambió de verdad: null significa
         // "usa el nombre de la categoría o cuenta otra vez".

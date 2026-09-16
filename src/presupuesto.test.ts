@@ -398,6 +398,16 @@ describe('cambiar el objetivo de un ítem', () => {
   });
 });
 
+describe('la forma de las peticiones', () => {
+  it('rechaza un mes mal escrito en el checklist', async () => {
+    const { estado } = await pedir(
+      'GET',
+      `/api/v1/budgets/checklist?month=2026-9&currency=COP`,
+    );
+    expect(estado).toBe(400);
+  });
+});
+
 describe('archivar un ítem', () => {
   it('lo saca del checklist y de la lista, pero queda con includeArchived', async () => {
     const mercado = await crearCategoria('Mercado');
@@ -422,7 +432,8 @@ describe('archivar un ítem', () => {
     const { cuerpo: lista } = await pedir('GET', '/api/v1/budgets/items?includeArchived=true');
     expect(lista.data.map((i: any) => i.id)).toContain(item.id);
 
-    expect((await pedir('GET', '/api/v1/budgets/items')).cuerpo.data).toEqual([]);
+    const { cuerpo: activos } = await pedir('GET', '/api/v1/budgets/items');
+    expect(activos.data).toEqual([]);
   });
 
   it('responde 409 si ya estaba archivado', async () => {

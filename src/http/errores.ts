@@ -198,10 +198,20 @@ const POR_RESTRICCION: Record<string, Traduccion> = {
     codigo: 'RULE_VIOLATION',
     mensaje: 'Un ítem del checklist apunta a una categoría o a una cuenta, no a las dos ni a ninguna.',
   },
+  budget_items_category_kind_matches: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'El checklist de presupuesto es de gastos: elige una categoría de gastos.',
+  },
   budget_item_targets_amount_positive: {
     estado: 422,
     codigo: 'RULE_VIOLATION',
     mensaje: 'El monto del objetivo debe ser mayor que cero.',
+  },
+  budget_item_targets_effective_from_is_month_start: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'El monto de un ítem solo puede regir desde el comienzo de un mes.',
   },
   budget_items_category_fk: {
     estado: 404,
