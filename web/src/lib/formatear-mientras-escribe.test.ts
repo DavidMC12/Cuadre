@@ -212,6 +212,21 @@ describe("formatearMientrasEscribe — pegando (opciones.pegado: true)", () => {
     expect(leerMonto(formatearMientrasEscribe("1,500,50", "USD", pegado), "USD")).toBe("1500.50");
   });
 
+  // Hallazgo crítico de una revisión anterior: al unificar la lógica de coma
+  // y punto para arreglar "1,500", el punto perdió sin querer la exigencia
+  // de que fuera ÚNICO. "1.234.56" (ni agrupamiento completo, ni un solo
+  // punto de más) pasaba a leerse como 1234,56 en vez de dar el error real.
+  // A diferencia de la coma —el decimal que la propia app enseña, donde una
+  // de más es un descuido de tecleo creíble— dos o más puntos sueltos son
+  // más señal de un pegado mal formado que de un error de dedo.
+  it("dos o más puntos que no completan un agrupamiento NO se adivinan como decimal", () => {
+    for (const crudo of ["1.234.56", "1.500.00", "10.20.30", "1.2.34", "0.1.23"]) {
+      const formateado = formatearMientrasEscribe(crudo, "USD", pegado);
+      expect(formateado, `pegando "${crudo}"`).toBe(crudo);
+      esperarError(formateado, "USD");
+    }
+  });
+
   it("con signo permitido, conserva el guion o el menos de la app", () => {
     expect(formatearMientrasEscribe("-1500,50", "USD", { ...pegado, permiteSigno: true })).toBe(
       "-1.500,50"

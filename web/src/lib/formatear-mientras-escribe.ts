@@ -147,32 +147,43 @@ function formatearPegadoConDecimales(sinSigno: string, decimales: number): strin
     return relevante;
   }
 
-  // Solo aparece uno de los dos separadores. Puede ser un agrupamiento de
-  // miles completo (todos los grupos de a tres, con ese mismo separador) o
-  // el decimal — nunca las dos cosas, así que hay que decidir cuál es antes
-  // de tocar nada.
-  const separador = tieneComa ? "," : ".";
-  const regexDeAgrupamiento = tieneComa ? MILES_CON_COMA : MILES_CON_PUNTO;
-
-  // Agrupamiento completo: el separador nunca fue decimal, era de miles.
-  // "1,500" o "25,000" copiados de un sitio en inglés caen aquí — sin este
-  // chequeo se leían como 1,50 o 25,00, perdiendo dígitos de verdad.
-  if (regexDeAgrupamiento.test(relevante)) {
-    return agruparMiles(relevante.replaceAll(separador, ""));
+  if (tieneComa) {
+    // Agrupamiento de miles completo con coma (formato inglés: "1,500",
+    // "25,000"): la coma nunca fue decimal, era de miles. Sin este chequeo
+    // se leían como 1,50 o 25,00, perdiendo dígitos de verdad.
+    if (MILES_CON_COMA.test(relevante)) {
+      return agruparMiles(relevante.replaceAll(",", ""));
+    }
+    // La coma es el separador decimal que la propia app enseña a usar
+    // ("usa punto para los miles y coma para los centavos"), así que una
+    // coma de más suele ser un descuido de tecleo —doble toque de la tecla
+    // decimal—, no texto genuinamente ajeno: la ÚLTIMA sigue siendo el
+    // decimal, y los dígitos de cualquier coma anterior se suman al
+    // entero en vez de perderse.
+    const posicion = relevante.lastIndexOf(",");
+    const digitosDespues = soloDigitos(relevante.slice(posicion + 1));
+    if (digitosDespues.length > 0 && digitosDespues.length <= decimales) {
+      return formatearConSeparadorDecimal(relevante, ",", decimales);
+    }
+    return relevante;
   }
 
-  // No es un agrupamiento completo: si lo que queda después del ÚLTIMO
-  // separador es como mucho los decimales que la moneda admite, es el
-  // decimal (un separador anterior, si lo hay, fue un descuido de tecleo y
-  // sus dígitos se suman al entero). Si deja más, no se puede leer con
-  // certeza — igual que ya tolera `normalizarMontoIngresado` al validar un
-  // único punto pegado desde un sitio con teclado numérico sin coma.
-  const posicion = relevante.lastIndexOf(separador);
-  const digitosDespues = soloDigitos(relevante.slice(posicion + 1));
-  if (digitosDespues.length > 0 && digitosDespues.length <= decimales) {
-    return formatearConSeparadorDecimal(relevante, separador, decimales);
+  // Solo hay puntos. Agrupamiento de miles completo: nunca fue decimal.
+  if (MILES_CON_PUNTO.test(relevante)) {
+    return agruparMiles(relevante.replaceAll(".", ""));
   }
-
+  // A diferencia de la coma, el punto TAMBIÉN es separador de miles en
+  // varios formatos — por eso aquí se exige un ÚNICO punto (no "el último
+  // de varios"): "1.234.56" no es un agrupamiento completo (el último grupo
+  // no tiene tres dígitos) ni un descuido de un solo punto de más, así que
+  // no hay forma segura de saber si faltó un dígito, sobró uno, o es otra
+  // cosa. Un único punto seguido de como mucho los decimales que la moneda
+  // admite sí es decimal —numérico de celular sin coma, o un pegado
+  // limpio—, igual que ya tolera `normalizarMontoIngresado` al validar.
+  const partes = relevante.split(".");
+  if (partes.length === 2 && partes[1]!.length > 0 && partes[1]!.length <= decimales) {
+    return formatearConSeparadorDecimal(relevante, ".", decimales);
+  }
   return relevante;
 }
 
