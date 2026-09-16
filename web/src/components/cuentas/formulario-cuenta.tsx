@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { CampoMonto } from "@/components/campo-monto";
 import { useCrearCuenta } from "@/hooks/use-cuentas";
 import { usePerfil, useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
@@ -197,12 +198,15 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="saldo-inicial">Saldo inicial (opcional)</Label>
-              <Input
+              <CampoMonto
                 id="saldo-inicial"
-                inputMode="decimal"
-                placeholder="0"
+                moneda={monedaElegida}
                 value={saldoInicial}
-                onChange={(evento) => setSaldoInicial(evento.target.value)}
+                onChange={setSaldoInicial}
+                // Una cuenta puede arrancar en deuda (ej. una tarjeta), así
+                // que el signo menos adelante sí vale.
+                permiteSigno={true}
+                placeholder="0"
                 aria-invalid={Boolean(errores.saldoInicial)}
               />
               {errores.saldoInicial ? (
