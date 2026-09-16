@@ -16,6 +16,12 @@ export interface Cuenta {
   movementCount: number;
   lastMovementAt: string | null;
   archivedAt: string | null;
+  /**
+   * Si esta cuenta cuenta como ahorro. Es solo una etiqueta: no cambia el
+   * comportamiento de nada más, sirve para que el Resumen sepa cuánta plata
+   * está apartada.
+   */
+  isSavings: boolean;
 }
 
 export interface NuevaCuenta {
@@ -24,6 +30,8 @@ export interface NuevaCuenta {
   currency: string;
   /** Opcional. Texto exacto, nunca number. */
   openingBalance?: string;
+  /** Opcional al crear; si no viene, la cuenta no es de ahorro. */
+  isSavings?: boolean;
 }
 
 export type TipoMovimiento = "opening" | "standard" | "transfer";
@@ -125,6 +133,17 @@ export interface TendenciaMes {
   month: string;
   income: string;
   expense: string;
+}
+
+/**
+ * Cuánto entró menos cuánto salió de las cuentas de ahorro en un mes. A
+ * diferencia del resumen de ingresos/gastos, este puede ser negativo: si ese
+ * mes se sacó más de lo que se metió, el monto viene con signo menos.
+ */
+export interface AhorroMes {
+  month: string;
+  /** Texto exacto, con signo. Ej. "150000.0000" o "-25000.0000". */
+  amount: string;
 }
 
 /** Las tres pantallas del menú de abajo, que son las que pueden abrir la app. */

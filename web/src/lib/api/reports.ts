@@ -1,7 +1,7 @@
 /** Llamadas a la API de reportes (dashboard). */
 
 import { pedir } from "./client";
-import type { CategoriaTotal, ResumenMes, TendenciaMes, TipoCategoria } from "./types";
+import type { AhorroMes, CategoriaTotal, ResumenMes, TendenciaMes, TipoCategoria } from "./types";
 
 /** Las monedas en las que el usuario tiene cuentas. */
 export function fetchCurrencies(): Promise<{ data: string[] }> {
@@ -26,4 +26,11 @@ export function fetchTrend(input: { months?: number; currency: string }): Promis
   data: TendenciaMes[];
 }> {
   return pedir("/reports/trend", { parametros: input });
+}
+
+/** Cuánto entró menos cuánto salió de las cuentas de ahorro, mes a mes. */
+export function fetchSavingsTrend(input: { months?: number; currency: string }): Promise<{
+  data: AhorroMes[];
+}> {
+  return pedir("/reports/savings-trend", { parametros: input });
 }
