@@ -45,6 +45,11 @@ export const categories = pgTable(
     // Destino de la llave foranea compuesta de `transactions`.
     unique('categories_tenant_unique').on(t.userId, t.id),
 
+    // Destino de la llave foranea compuesta de `budget_items`: un ítem de
+    // presupuesto de tipo "category" solo puede apuntar a una categoría cuyo
+    // `kind` sea realmente 'expense' — la base lo exige, no solo el service.
+    unique('categories_tenant_kind_unique').on(t.userId, t.id, t.kind),
+
     // La categoria padre tiene que ser del mismo usuario: al incluir `user_id`
     // en la llave foranea, la base impide colgar una categoria de la de otro.
     foreignKey({

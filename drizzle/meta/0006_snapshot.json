@@ -1,5 +1,5 @@
 {
-  "id": "d73591b1-0cd7-43da-9b3e-3dd436d1cdeb",
+  "id": "3077bb7d-2f21-40a0-b392-c177021db40c",
   "prevId": "213ea54c-1ae0-493b-bced-8dc57586fc11",
   "version": "7",
   "dialect": "postgresql",
@@ -417,6 +417,15 @@
             "user_id",
             "id"
           ]
+        },
+        "categories_tenant_kind_unique": {
+          "name": "categories_tenant_kind_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id",
+            "id",
+            "kind"
+          ]
         }
       },
       "policies": {},
@@ -785,7 +794,7 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "now()"
+          "default": "clock_timestamp()"
         }
       },
       "indexes": {
@@ -822,7 +831,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
@@ -873,6 +882,12 @@
         "category_id": {
           "name": "category_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "category_kind": {
+          "name": "category_kind",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -946,11 +961,13 @@
           "tableTo": "categories",
           "columnsFrom": [
             "user_id",
-            "category_id"
+            "category_id",
+            "category_kind"
           ],
           "columnsTo": [
             "user_id",
-            "id"
+            "id",
+            "kind"
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
@@ -992,6 +1009,10 @@
         "budget_items_target_matches_kind": {
           "name": "budget_items_target_matches_kind",
           "value": "(\"budget_items\".\"kind\" = 'category' and \"budget_items\".\"category_id\" is not null and \"budget_items\".\"account_id\" is null)\n       or (\"budget_items\".\"kind\" = 'savings'  and \"budget_items\".\"account_id\"  is not null and \"budget_items\".\"category_id\" is null)"
+        },
+        "budget_items_category_kind_matches": {
+          "name": "budget_items_category_kind_matches",
+          "value": "(\"budget_items\".\"kind\" = 'category' and \"budget_items\".\"category_kind\" = 'expense')\n       or (\"budget_items\".\"kind\" = 'savings'  and \"budget_items\".\"category_kind\" is null)"
         }
       },
       "isRLSEnabled": false

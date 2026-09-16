@@ -12,6 +12,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
+import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { construirApp } from '../../aplicacion.js';
 import { closeDb, db } from '../../db/client.js';
@@ -63,10 +64,33 @@ async function pedir(metodo: 'GET' | 'POST', url: string, cuerpo?: unknown): Pro
   return { estado: respuesta.statusCode, cuerpo: respuesta.json() };
 }
 
-const MES = '2026-09';
-const MES_ANTERIOR = '2026-08';
-const MES_SIGUIENTE = '2026-10';
-const DIA_5 = `${MES}-05T17:00:00Z`;
+/**
+ * Los meses se calculan relativos a "hoy" y no se escriben fijos: desde que
+ * `agregarObjetivo`/`crear` pasan por el disparador que rechaza un mes
+ * atrasado (ver la migración `drizzle/0006_fancy_magdalene.sql`), un mes
+ * escrito a mano dejaría de ser "el mes actual" el día en que estas pruebas
+ * corran después de esa fecha, y todo el archivo empezaría a fallar solo.
+ */
+function mesRelativo(desplazamiento: number): { etiqueta: string; fecha: string } {
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(new Date());
+
+  const anio = Number(partes.find((parte) => parte.type === 'year')!.value);
+  const mes = Number(partes.find((parte) => parte.type === 'month')!.value);
+
+  const corrido = anio * 12 + (mes - 1) + desplazamiento;
+  const etiqueta = `${Math.floor(corrido / 12)}-${String((corrido % 12) + 1).padStart(2, '0')}`;
+
+  return { etiqueta, fecha: `${etiqueta}-15T17:00:00Z` };
+}
+
+const MES = mesRelativo(0).etiqueta;
+const MES_ANTERIOR = mesRelativo(-1).etiqueta;
+const MES_SIGUIENTE = mesRelativo(1).etiqueta;
+const DIA_5 = mesRelativo(0).fecha;
 
 let contador = 0;
 
@@ -81,10 +105,13 @@ async function crearCuenta(extras: Record<string, unknown> = {}): Promise<any> {
   return cuerpo.data;
 }
 
-async function crearCategoria(nombre: string): Promise<any> {
+async function crearCategoria(
+  nombre: string,
+  kind: 'expense' | 'income' = 'expense',
+): Promise<any> {
   const { estado, cuerpo } = await pedir('POST', '/api/v1/categories', {
     name: `${nombre} ${(contador += 1)}`,
-    kind: 'expense',
+    kind,
   });
   expect(estado, JSON.stringify(cuerpo)).toBe(201);
   return cuerpo.data;
@@ -131,7 +158,7 @@ describe('gastado en categoría (reports)', () => {
     await registrar(cuenta.id, '-20000', { categoryId: otra.id });
     await registrar(cuenta.id, '-999000', {
       categoryId: comida.id,
-      occurredAt: '2026-08-05T17:00:00Z',
+      occurredAt: mesRelativo(-1).fecha,
     });
 
     expect(await reportes.gastadoEnCategoria(usuarioId, MES, 'COP', comida.id)).toBe('350000.0000');
@@ -200,13 +227,80 @@ describe('versionado del objetivo por mes', () => {
   });
 });
 
+describe('obtener', () => {
+  it('trae un ítem por id con el nombre de su categoría y su monto vigente', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '350000');
+
+    const item = await repositorio.obtener(usuarioId, itemId, MES);
+    expect(item).toMatchObject({
+      id: itemId,
+      kind: 'category',
+      categoryName: comida.name,
+      currentAmount: '350000.0000',
+    });
+  });
+
+  it('devuelve null si el ítem no existe o es de otro usuario', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '350000');
+    const otroUsuarioId = await crearUsuario();
+
+    expect(await repositorio.obtener(otroUsuarioId, itemId, MES)).toBeNull();
+  });
+});
+
+describe('listar', () => {
+  it('trae el monto vigente de cada ítem, no solo su existencia', async () => {
+    const comida = await crearCategoria('Comida');
+    await itemDeCategoria(comida.id, '350000');
+
+    const [item] = await repositorio.listar(usuarioId, MES, false);
+    expect(item!.currentAmount).toBe('350000.0000');
+  });
+});
+
+describe('ítem de ahorro', () => {
+  it('se crea contra una cuenta de ahorro real y se lee de vuelta con su nombre', async () => {
+    const ahorro = await crearCuenta({ isSavings: true });
+    const itemId = await repositorio.crear(usuarioId, {
+      kind: 'savings',
+      currency: 'COP',
+      categoryId: null,
+      accountId: ahorro.id,
+      label: null,
+      amount: '200000',
+      mesEfectivoDesde: MES,
+    });
+
+    const [item] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
+    expect(item).toMatchObject({
+      id: itemId,
+      kind: 'savings',
+      accountId: ahorro.id,
+      accountName: ahorro.name,
+      target: '200000.0000',
+    });
+  });
+});
+
 describe('archivar', () => {
-  it('un ítem archivado no sale en el checklist de ningún mes', async () => {
+  it('un ítem archivado sigue en el checklist de los meses en que estuvo activo', async () => {
     const comida = await crearCategoria('Comida');
     const itemId = await itemDeCategoria(comida.id, '350000');
 
     expect(await repositorio.archivar(usuarioId, itemId)).toBe(true);
-    expect(await repositorio.objetivosDelMes(usuarioId, MES, 'COP')).toEqual([]);
+
+    const [esteMes] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
+    expect(esteMes!.target).toBe('350000.0000');
+  });
+
+  it('un ítem archivado deja de aparecer desde el mes siguiente en adelante', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '350000');
+    await repositorio.archivar(usuarioId, itemId);
+
+    expect(await repositorio.objetivosDelMes(usuarioId, MES_SIGUIENTE, 'COP')).toEqual([]);
   });
 
   it('sí sale si se pide incluir archivados en el listado de gestión', async () => {
@@ -237,6 +331,23 @@ describe('aislamiento entre usuarios', () => {
 
     const otroUsuarioId = await crearUsuario();
     expect(await repositorio.archivar(otroUsuarioId, itemId)).toBe(false);
+  });
+
+  it('editarEtiqueta no deja tocar un ítem de otro usuario', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '350000');
+
+    const otroUsuarioId = await crearUsuario();
+    expect(await repositorio.editarEtiqueta(otroUsuarioId, itemId, 'Otro nombre')).toBe(false);
+  });
+
+  it('desarchivar no deja tocar un ítem de otro usuario', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '350000');
+    await repositorio.archivar(usuarioId, itemId);
+
+    const otroUsuarioId = await crearUsuario();
+    expect(await repositorio.desarchivar(otroUsuarioId, itemId)).toBe(false);
   });
 });
 
@@ -269,5 +380,67 @@ describe('la base exige que el ítem tenga sentido con su tipo', () => {
         mesEfectivoDesde: MES,
       }),
     ).rejects.toThrow();
+  });
+
+  it('rechaza un ítem de categoría cuya categoría es de ingresos', async () => {
+    const sueldo = await crearCategoria('Sueldo', 'income');
+
+    await expect(
+      repositorio.crear(usuarioId, {
+        kind: 'category',
+        currency: 'COP',
+        categoryId: sueldo.id,
+        accountId: null,
+        label: null,
+        amount: '100000',
+        mesEfectivoDesde: MES,
+      }),
+    ).rejects.toThrow();
+  });
+});
+
+describe('un monto de presupuesto nunca reescribe el pasado, ni siquiera a mano', () => {
+  it('rechaza crear un ítem con el monto efectivo en un mes ya pasado', async () => {
+    const comida = await crearCategoria('Comida');
+
+    await expect(
+      repositorio.crear(usuarioId, {
+        kind: 'category',
+        currency: 'COP',
+        categoryId: comida.id,
+        accountId: null,
+        label: null,
+        amount: '100000',
+        mesEfectivoDesde: MES_ANTERIOR,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('rechaza agregar un objetivo con el monto efectivo en un mes ya pasado', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '350000');
+
+    await expect(
+      repositorio.agregarObjetivo(usuarioId, itemId, '400000', MES_ANTERIOR),
+    ).rejects.toThrow();
+  });
+
+  it('rechaza modificar o borrar un monto ya guardado, incluso con SQL directo', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '350000');
+
+    await expect(
+      db.execute(
+        sql`update budget_item_targets set amount = '999999' where budget_item_id = ${itemId}::uuid`,
+      ),
+    ).rejects.toThrow();
+
+    await expect(
+      db.execute(sql`delete from budget_item_targets where budget_item_id = ${itemId}::uuid`),
+    ).rejects.toThrow();
+
+    // Ninguno de los dos intentos dejó rastro: el monto original sigue intacto.
+    const [item] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
+    expect(item!.target).toBe('350000.0000');
   });
 });

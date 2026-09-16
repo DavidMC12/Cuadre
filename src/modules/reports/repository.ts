@@ -135,7 +135,12 @@ export async function gastadoEnCategoria(
  *
  * A propósito no filtra por `is_savings`: el ítem del checklist ya eligió
  * esta cuenta puntual al crearse (ahí sí se exige que esté marcada), así que
- * aquí basta con que la cuenta sea de este usuario.
+ * aquí basta con que la cuenta sea de este usuario. Tampoco hace falta
+ * `deLaMoneda` (regla 4): una cuenta tiene una única moneda fija
+ * (`transactions_account_fk` la amarra), así que pedir "esta cuenta" ya
+ * implica una sola moneda sin tener que decirlo aparte. Y por la misma razón
+ * no hace falta unir contra `accounts`: filtrar `m.account_id` ya prueba que
+ * la cuenta es la pedida, sin necesitar ningún otro dato suyo.
  */
 export async function ahorroDeUnaCuentaEnElMes(
   usuarioId: string,
@@ -145,11 +150,8 @@ export async function ahorroDeUnaCuentaEnElMes(
   const filas = (await db.execute(sql`
     select coalesce(sum(m.amount), 0)::numeric(19,4)::text as amount
     from transactions m
-    inner join accounts a
-            on a.id = m.account_id
-           and a.user_id = m.user_id
     where m.user_id = ${usuarioId}::uuid
-      and a.id = ${cuentaId}::uuid
+      and m.account_id = ${cuentaId}::uuid
       and m.kind <> 'opening'
       and ${rangoDelMes(mes)}
   `)) as unknown as { amount: string }[];

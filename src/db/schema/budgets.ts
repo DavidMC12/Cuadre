@@ -45,6 +45,14 @@ export const budgetItems = pgTable(
 
     /** Solo cuando `kind = 'category'`. */
     categoryId: uuid('category_id'),
+    /**
+     * Copia de `categories.kind` en el momento de crear el ítem, siempre
+     * 'expense'. Existe solo para que `budget_items_category_fk` pueda exigir
+     * en la base —no solo en el service— que un ítem de presupuesto nunca
+     * apunte a una categoría de ingresos. La pone `repository.crear()`, nunca
+     * la persona que usa la API.
+     */
+    categoryKind: text('category_kind'),
     /** Solo cuando `kind = 'savings'`. */
     accountId: uuid('account_id'),
 
@@ -61,10 +69,12 @@ export const budgetItems = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => [
-    // La categoría, si hay, tiene que ser de este mismo usuario.
+    // La categoría, si hay, tiene que ser de este mismo usuario Y de gasto:
+    // `categories_tenant_kind_unique` es la llave de tres columnas que hace
+    // posible exigir el `kind` aquí mismo, igual que la cuenta exige moneda.
     foreignKey({
-      columns: [t.userId, t.categoryId],
-      foreignColumns: [categories.userId, categories.id],
+      columns: [t.userId, t.categoryId, t.categoryKind],
+      foreignColumns: [categories.userId, categories.id, categories.kind],
       name: 'budget_items_category_fk',
     }).onDelete('restrict'),
 
@@ -88,6 +98,13 @@ export const budgetItems = pgTable(
       sql`(${t.kind} = 'category' and ${t.categoryId} is not null and ${t.accountId} is null)
        or (${t.kind} = 'savings'  and ${t.accountId}  is not null and ${t.categoryId} is null)`,
     ),
+    // `category_kind` es 'expense' si y solo si el ítem es de categoría: es lo
+    // que hace cumplible la llave foránea de arriba.
+    check(
+      'budget_items_category_kind_matches',
+      sql`(${t.kind} = 'category' and ${t.categoryKind} = 'expense')
+       or (${t.kind} = 'savings'  and ${t.categoryKind} is null)`,
+    ),
   ],
 );
 
@@ -107,15 +124,28 @@ export const budgetItemTargets = pgTable(
   'budget_item_targets',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    // `restrict`, no `cascade`: esta tabla existe para que un monto nunca se
+    // pierda. Un ítem no se borra de verdad (se archiva), así que en la
+    // práctica nunca dispara — pero si algún día alguien sí lo borrara,
+    // llevarse su historial de montos de arrastre sería justo el error que
+    // esta tabla existe para evitar.
     budgetItemId: uuid('budget_item_id')
       .notNull()
-      .references(() => budgetItems.id, { onDelete: 'cascade' }),
+      .references(() => budgetItems.id, { onDelete: 'restrict' }),
 
     /** Primer día del mes desde el que aplica este monto, ej. 2026-09-01. */
     effectiveFrom: date('effective_from', { mode: 'string' }).notNull(),
     amount: numeric('amount', { precision: 19, scale: 4 }).notNull(),
 
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * `clock_timestamp()`, no `now()`: `now()` congela su valor al inicio de
+     * la transacción, así que dos filas insertadas en la misma transacción
+     * quedarían con el mismo instante y el desempate de `objetivoEnElMes`
+     * (repository.ts) no tendría cómo decidir cuál es la más nueva.
+     */
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .default(sql`clock_timestamp()`),
   },
   (t) => [
     index('budget_item_targets_item_idx').on(t.budgetItemId, t.effectiveFrom.desc()),

@@ -8,8 +8,9 @@
  * `objetivoEnElMes` más abajo, y todas las consultas que necesitan "el monto
  * de este ítem para este mes" reutilizan exactamente ese fragmento.
  */
-import { sql, type SQL } from 'drizzle-orm';
+import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { db } from '../../db/client.js';
+import { budgetItems } from '../../db/schema/index.js';
 import { ZONA_HORARIA } from '../../shared/zona-horaria.js';
 import type { BudgetItemKind } from './schemas.js';
 
@@ -125,12 +126,18 @@ export async function crear(
     mesEfectivoDesde: string;
   },
 ): Promise<string> {
+  // `category_kind` es puro plomería para la llave foránea que exige, en la
+  // base, que un ítem de categoría apunte de verdad a una de gasto — quien
+  // llama a `crear()` nunca la decide, siempre es 'expense' o nula según el
+  // tipo del ítem.
+  const categoryKind = datos.kind === 'category' ? 'expense' : null;
+
   return db.transaction(async (tx) => {
     const [fila] = (await tx.execute(sql`
-      insert into budget_items (user_id, kind, currency, category_id, account_id, label)
+      insert into budget_items (user_id, kind, currency, category_id, category_kind, account_id, label)
       values (
         ${usuarioId}::uuid, ${datos.kind}, ${datos.currency},
-        ${datos.categoryId}::uuid, ${datos.accountId}::uuid, ${datos.label}
+        ${datos.categoryId}::uuid, ${categoryKind}, ${datos.accountId}::uuid, ${datos.label}
       )
       returning id
     `)) as unknown as { id: string }[];
@@ -175,33 +182,40 @@ export async function editarEtiqueta(
   itemId: string,
   label: string | null,
 ): Promise<boolean> {
-  const [fila] = (await db.execute(sql`
-    update budget_items set label = ${label}
-    where user_id = ${usuarioId}::uuid and id = ${itemId}::uuid
-    returning id
-  `)) as unknown as { id: string }[];
+  const filas = await db
+    .update(budgetItems)
+    .set({ label })
+    .where(and(eq(budgetItems.userId, usuarioId), eq(budgetItems.id, itemId)))
+    .returning({ id: budgetItems.id });
 
-  return fila !== undefined;
+  return filas.length > 0;
 }
 
+/** Archivar, no borrar: el ítem tiene historia colgando (sus montos). */
 export async function archivar(usuarioId: string, itemId: string): Promise<boolean> {
-  const [fila] = (await db.execute(sql`
-    update budget_items set archived_at = now()
-    where user_id = ${usuarioId}::uuid and id = ${itemId}::uuid and archived_at is null
-    returning id
-  `)) as unknown as { id: string }[];
+  const filas = await db
+    .update(budgetItems)
+    .set({ archivedAt: sql`now()` })
+    .where(
+      and(
+        eq(budgetItems.userId, usuarioId),
+        eq(budgetItems.id, itemId),
+        sql`${budgetItems.archivedAt} is null`,
+      ),
+    )
+    .returning({ id: budgetItems.id });
 
-  return fila !== undefined;
+  return filas.length > 0;
 }
 
 export async function desarchivar(usuarioId: string, itemId: string): Promise<boolean> {
-  const [fila] = (await db.execute(sql`
-    update budget_items set archived_at = null
-    where user_id = ${usuarioId}::uuid and id = ${itemId}::uuid
-    returning id
-  `)) as unknown as { id: string }[];
+  const filas = await db
+    .update(budgetItems)
+    .set({ archivedAt: null })
+    .where(and(eq(budgetItems.userId, usuarioId), eq(budgetItems.id, itemId)))
+    .returning({ id: budgetItems.id });
 
-  return fila !== undefined;
+  return filas.length > 0;
 }
 
 export interface ObjetivoDelMes {
@@ -217,12 +231,23 @@ export interface ObjetivoDelMes {
   target: string | null;
 }
 
+const CAMPOS_DEL_OBJETIVO = sql`
+  bi.id, bi.kind, bi.currency, bi.category_id as "categoryId", cat.name as "categoryName",
+  bi.account_id as "accountId", acc.name as "accountName", bi.label
+`;
+
 /**
- * Los ítems activos de una moneda, con su monto vigente para `mes` — la
- * lista de "qué hay que revisar este mes", sin el progreso todavía: el
+ * Los ítems que seguían activos EN ese mes, con su monto vigente para `mes`
+ * — la lista de "qué había que revisar ese mes", sin el progreso todavía: el
  * progreso (cuánto se ha gastado o ahorrado) lo calcula el service llamando
  * al de `reports`, porque leer movimientos es su trabajo, no el de este
  * módulo.
+ *
+ * "Seguía activo" es más permisivo que "no está archivado hoy": un ítem
+ * archivado en diciembre sigue contando para septiembre, porque en
+ * septiembre sí estaba activo — archivarlo hoy no debe borrar cómo se vio un
+ * mes que ya pasó, el mismo principio que sostiene `objetivoEnElMes`. Solo
+ * deja de aparecer a partir del mes en que se archivó.
  */
 export async function objetivosDelMes(
   usuarioId: string,
@@ -230,11 +255,14 @@ export async function objetivosDelMes(
   moneda: string,
 ): Promise<ObjetivoDelMes[]> {
   const filas = (await db.execute(sql`
-    select ${CAMPOS_DEL_ITEM}, ${objetivoEnElMes(mes)}::text as target
+    select ${CAMPOS_DEL_OBJETIVO}, ${objetivoEnElMes(mes)}::text as target
     ${conNombres()}
     where bi.user_id = ${usuarioId}::uuid
       and bi.currency = ${moneda}::text
-      and bi.archived_at is null
+      and (
+        bi.archived_at is null
+        or bi.archived_at >= ((${mes}::text || '-01')::timestamp at time zone ${ZONA_HORARIA}::text)
+      )
     order by bi.created_at asc
   `)) as unknown as ObjetivoDelMes[];
 
