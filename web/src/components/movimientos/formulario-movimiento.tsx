@@ -21,6 +21,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
+import { CampoMonto } from "@/components/campo-monto";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -379,12 +380,12 @@ export function FormularioMovimiento({
                 {tipoMonto === "ingreso" ? "+" : "−"}
               </span>
             )}
-            <Input
+            <CampoMonto
               id="monto-movimiento"
-              inputMode="decimal"
+              moneda={cuentaParaMonto?.currency ?? ""}
               placeholder="0"
               value={monto}
-              onChange={(evento) => setMonto(evento.target.value)}
+              onChange={setMonto}
               aria-invalid={Boolean(errores.monto)}
               autoFocus
               className="h-auto w-40 border-none bg-transparent p-0 text-center font-mono text-4xl tabular-nums text-inherit shadow-none focus-visible:ring-0 dark:bg-transparent"
