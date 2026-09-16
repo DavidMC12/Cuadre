@@ -13,26 +13,28 @@ import {
  * — así un cero de más se nota de inmediato en vez de esconderse en una fila
  * de dígitos sin puntuar.
  *
- * Hay DOS formas de que llegue texto nuevo a este campo, y se leen distinto
- * a propósito:
+ * Esta función por sí sola NO decide si algo es tecleo o texto ajeno — eso
+ * ya lo decidió quien la llama, y se lo dice por `opciones.pegado`. Quien de
+ * verdad clasifica es `clasificarEdicionDeMonto`
+ * (`clasificar-edicion-de-monto.ts`), comparando el texto contra lo último
+ * que este módulo produjo; `inputType` del navegador no basta (un IME de
+ * celular, un gestor de contraseñas o un Deshacer pueden no reportarlo, o no
+ * encajar en "pegado" ni en "tecla"). Aquí solo hay dos formas de leer un
+ * texto una vez decidido qué es:
  *
- * - **Escribiendo** (`opciones.pegado` ausente o `false`): el texto que llega
- *   es siempre "lo que este mismo campo ya había formateado, más una tecla".
- *   Los separadores que ya están ahí los puso este código, no la persona, así
- *   que es seguro deshacerlos y reagrupar desde cero en cada tecla — es
- *   justamente lo que hace posible escribir un monto de cualquier largo.
- * - **Pegando** (`opciones.pegado: true`): el texto llega de afuera, y puede
- *   traer una convención de separadores distinta a la de la app ("1,500.50"
- *   en inglés) o decimales en una moneda que no los usa. Ahí NO se adivina:
- *   si la combinación de separadores no se puede leer con certeza, el texto
- *   se deja tal cual, para que `normalizarMontoIngresado`/
- *   `normalizarMontoConSigno` (`money.ts`) den su error real en vez de que
- *   aquí se muestre un monto distinto y plausible. Confundir un pegado con
- *   una tecla (o al revés) es exactamente el bug que hizo que esto se
- *   reescribiera dos veces: tratar los propios puntos de miles como si
- *   fueran ambiguos deja a la persona sin poder escribir nada de cinco
- *   cifras para arriba; tratar un pegado como si fuera tecleo deja pasar un
- *   monto cien veces distinto al que se pegó.
+ * - **`pegado` ausente o `false`**: se asume que el texto es "lo que este
+ *   módulo ya había formateado, más una tecla", así que es seguro deshacer
+ *   los separadores y reagrupar desde cero — es justamente lo que hace
+ *   posible escribir un monto de cualquier largo. Llamarla así con un texto
+ *   que en realidad vino de afuera es el error que hace que un pegado se
+ *   "arregle" solo en la siguiente tecla, convirtiéndolo en un monto
+ *   plausible pero distinto.
+ * - **`pegado: true`**: el texto puede traer una convención de separadores
+ *   distinta a la de la app ("1,500.50" en inglés) o decimales en una moneda
+ *   que no los usa. Ahí NO se adivina: si la combinación de separadores no
+ *   se puede leer con certeza, el texto se deja tal cual, para que
+ *   `normalizarMontoIngresado`/`normalizarMontoConSigno` (`money.ts`) den su
+ *   error real en vez de que aquí se muestre un monto distinto y plausible.
  */
 export function formatearMientrasEscribe(
   textoCrudo: string,
@@ -75,11 +77,10 @@ function formatearTextoEscrito(sinSigno: string, decimales: number): string {
     return digitos === "" ? "" : agruparMiles(digitos);
   }
 
-  // El punto decimal se intercepta como tecla y llega ya convertido en coma
-  // (ver `CampoMonto`); si de todos modos aparece uno aquí —un teclado que no
-  // dispara ese evento— se descarta sin más, igual que cualquier otro
-  // carácter suelto: mientras se escribe, nunca hace falta adivinar qué
-  // significa un punto, porque nunca es la única pista de un decimal.
+  // Un punto tecleado como decimal ya llega convertido en coma —lo hace
+  // `clasificarEdicionDeMonto` al detectar la tecla, no depende de un evento
+  // de teclado— así que si de todos modos aparece uno aquí se descarta sin
+  // más, igual que cualquier otro carácter suelto.
   const filtrado = sinSigno.replace(/[^\d,]/g, "");
   const posicionDeLaComa = filtrado.lastIndexOf(",");
 
