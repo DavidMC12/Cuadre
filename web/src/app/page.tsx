@@ -18,13 +18,16 @@ import { EmptyState } from "@/components/empty-state";
 import { SelectorMes } from "@/components/dashboard/selector-mes";
 import { ResumenCards } from "@/components/dashboard/resumen-cards";
 import { TotalCuentas } from "@/components/dashboard/total-cuentas";
+import { TotalAhorrado } from "@/components/dashboard/total-ahorrado";
 import { GraficaPorCategoria } from "@/components/dashboard/grafica-por-categoria";
 import { GraficaTendencia } from "@/components/dashboard/grafica-tendencia";
+import { GraficaAhorro } from "@/components/dashboard/grafica-ahorro";
 import { useCuentas } from "@/hooks/use-cuentas";
 import { useIrAPantallaDeInicio } from "@/hooks/use-perfil";
 import { useMonedas, useResumenMes, useTendencia } from "@/hooks/use-reportes";
 import type { TipoCategoria } from "@/lib/api/types";
 import { mesActual } from "@/lib/fecha";
+import { cn } from "@/lib/utils";
 
 export default function PaginaResumen() {
   const [mes, setMes] = useState(mesActual);
@@ -39,6 +42,17 @@ export default function PaginaResumen() {
   const moneda = monedaElegida ?? monedas?.[0];
 
   const { data: cuentas, isLoading: cargandoCuentas } = useCuentas();
+
+  // La sección de ahorro solo existe si alguien marcó una cuenta como de
+  // ahorro. Si no, no se pide nada al servidor ni se muestra un hueco: el
+  // ahorro es una decisión, no un dato que se imponga.
+  const hayAhorro = cuentas?.some((cuenta) => cuenta.isSavings) ?? false;
+  // Para el layout de las dos tarjetas de totales importa la moneda que se
+  // está viendo: una cuenta de ahorro en dólares no pinta nada al lado de un
+  // total en pesos.
+  const ahorroEnMoneda = (cuentas ?? []).some(
+    (cuenta) => cuenta.isSavings && cuenta.currency === moneda
+  );
 
   const { data: resumen, isLoading: cargandoResumen } = useResumenMes({
     month: mes,
@@ -93,7 +107,12 @@ export default function PaginaResumen() {
         )}
       </div>
 
-      <TotalCuentas cuentas={cuentas} moneda={moneda ?? ""} cargando={cargandoCuentas} />
+      <div className={cn("grid gap-5", ahorroEnMoneda && "sm:grid-cols-2")}>
+        <TotalCuentas cuentas={cuentas} moneda={moneda ?? ""} cargando={cargandoCuentas} />
+        {ahorroEnMoneda && (
+          <TotalAhorrado cuentas={cuentas} moneda={moneda ?? ""} cargando={cargandoCuentas} />
+        )}
+      </div>
 
       <SelectorMes mes={mes} onCambiar={setMes} />
 
@@ -143,6 +162,20 @@ export default function PaginaResumen() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Mismos meses que la tendencia: el selector de arriba manda en las dos
+          gráficas, para no multiplicar controles. Solo aparece si hay alguna
+          cuenta marcada como de ahorro. */}
+      {hayAhorro && (
+        <Card className="min-w-0">
+          <CardHeader>
+            <CardTitle>Ahorro</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <GraficaAhorro months={mesesTendencia} currency={moneda ?? ""} />
+          </CardContent>
+        </Card>
+      )}
 
       <Link
         href="/categorias"
