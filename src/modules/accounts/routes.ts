@@ -5,6 +5,7 @@ import {
   IdEnRutaSchema,
   ListaDeCuentasSchema,
   ListarCuentasSchema,
+  MarcarAhorroSchema,
   UnaCuentaSchema,
 } from './schemas.js';
 import * as servicio from './service.js';
@@ -47,6 +48,28 @@ export const rutasDeCuentas: FastifyPluginAsyncZod = async (app) => {
     { schema: { params: IdEnRutaSchema, response: { 200: UnaCuentaSchema } } },
     async (peticion) => ({
       data: await servicio.desarchivarCuenta(peticion.usuarioId, peticion.params.id),
+    }),
+  );
+
+  /**
+   * Sub-recurso explícito, no un PATCH genérico: hoy no existe edición de
+   * nombre/tipo/moneda de una cuenta, y esta ruta no abre esa puerta.
+   */
+  app.patch(
+    '/accounts/:id/savings',
+    {
+      schema: {
+        params: IdEnRutaSchema,
+        body: MarcarAhorroSchema,
+        response: { 200: UnaCuentaSchema },
+      },
+    },
+    async (peticion) => ({
+      data: await servicio.actualizarAhorro(
+        peticion.usuarioId,
+        peticion.params.id,
+        peticion.body.isSavings,
+      ),
     }),
   );
 };

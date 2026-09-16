@@ -523,3 +523,98 @@ describe('tendencia', () => {
     expect(estado).toBe(400);
   });
 });
+
+describe('ahorro mensual', () => {
+  it('un ingreso directo en la cuenta de ahorro cuenta ese mes', async () => {
+    const ahorro = await crearCuenta({ isSavings: true });
+    const esteMes = mesRelativo(0);
+    await registrar(ahorro.id, '200000', { occurredAt: esteMes.fecha });
+
+    const { cuerpo } = await pedir('GET', '/api/v1/reports/savings-trend?months=1&currency=COP');
+    expect(cuerpo.data).toEqual([{ month: esteMes.etiqueta, amount: '200000.0000' }]);
+  });
+
+  it('una cuenta normal (sin marcar) no aparece aunque tenga movimientos', async () => {
+    const normal = await crearCuenta();
+    await registrar(normal.id, '200000', { occurredAt: mesRelativo(0).fecha });
+
+    const { cuerpo } = await pedir('GET', '/api/v1/reports/savings-trend?months=1&currency=COP');
+    expect(cuerpo.data).toEqual([{ month: mesRelativo(0).etiqueta, amount: '0.0000' }]);
+  });
+
+  it('una transferencia entrante suma y una saliente resta, en el mismo mes', async () => {
+    const banco = await crearCuenta({ openingBalance: '1000000' });
+    const ahorro = await crearCuenta({ isSavings: true });
+    const esteMes = mesRelativo(0);
+
+    await pedir('POST', '/api/v1/transfers', {
+      fromAccountId: banco.id,
+      toAccountId: ahorro.id,
+      amount: '300000',
+      occurredAt: esteMes.fecha,
+    });
+
+    let resultado = await pedir('GET', '/api/v1/reports/savings-trend?months=1&currency=COP');
+    expect(resultado.cuerpo.data).toEqual([{ month: esteMes.etiqueta, amount: '300000.0000' }]);
+
+    await pedir('POST', '/api/v1/transfers', {
+      fromAccountId: ahorro.id,
+      toAccountId: banco.id,
+      amount: '120000',
+      occurredAt: esteMes.fecha,
+    });
+
+    resultado = await pedir('GET', '/api/v1/reports/savings-trend?months=1&currency=COP');
+    expect(resultado.cuerpo.data).toEqual([{ month: esteMes.etiqueta, amount: '180000.0000' }]);
+  });
+
+  it('anular una transferencia de ahorro deja el mes original como estaba', async () => {
+    const banco = await crearCuenta({ openingBalance: '1000000' });
+    const ahorro = await crearCuenta({ isSavings: true });
+    const esteMes = mesRelativo(0);
+
+    const { cuerpo: transferencia } = await pedir('POST', '/api/v1/transfers', {
+      fromAccountId: banco.id,
+      toAccountId: ahorro.id,
+      amount: '300000',
+      occurredAt: esteMes.fecha,
+    });
+
+    await pedir('POST', `/api/v1/transfers/${transferencia.data.transferGroupId}/reversal`);
+
+    const { cuerpo } = await pedir('GET', '/api/v1/reports/savings-trend?months=1&currency=COP');
+    expect(cuerpo.data).toEqual([{ month: esteMes.etiqueta, amount: '0.0000' }]);
+  });
+
+  it('el saldo inicial no cuenta como ahorro de ningún mes', async () => {
+    await crearCuenta({ isSavings: true, openingBalance: '900000' });
+
+    const { cuerpo } = await pedir('GET', `/api/v1/reports/savings-trend?months=1&currency=COP`);
+    expect(cuerpo.data).toEqual([{ month: mesRelativo(0).etiqueta, amount: '0.0000' }]);
+  });
+
+  it('nunca suma dos monedas distintas', async () => {
+    const ahorroCop = await crearCuenta({ isSavings: true });
+    const ahorroUsd = await crearCuenta({ isSavings: true, currency: 'USD' });
+    const esteMes = mesRelativo(0);
+
+    await registrar(ahorroCop.id, '200000', { occurredAt: esteMes.fecha });
+    await registrar(ahorroUsd.id, '50', { occurredAt: esteMes.fecha });
+
+    expect(
+      (await pedir('GET', '/api/v1/reports/savings-trend?months=1&currency=COP')).cuerpo.data,
+    ).toEqual([{ month: esteMes.etiqueta, amount: '200000.0000' }]);
+    expect(
+      (await pedir('GET', '/api/v1/reports/savings-trend?months=1&currency=USD')).cuerpo.data,
+    ).toEqual([{ month: esteMes.etiqueta, amount: '50.0000' }]);
+  });
+
+  it('sin ninguna cuenta de ahorro devuelve la ventana completa en cero', async () => {
+    const { cuerpo } = await pedir('GET', '/api/v1/reports/savings-trend?months=3&currency=COP');
+    expect(cuerpo.data).toEqual([
+      { month: mesRelativo(-2).etiqueta, amount: '0.0000' },
+      { month: mesRelativo(-1).etiqueta, amount: '0.0000' },
+      { month: mesRelativo(0).etiqueta, amount: '0.0000' },
+    ]);
+  });
+});

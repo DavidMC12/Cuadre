@@ -122,6 +122,12 @@ describe('crear cuentas', () => {
     expect(cuenta.movementCount).toBe(0);
     expect(cuenta.currency).toBe('COP');
     expect(cuenta.archivedAt).toBeNull();
+    expect(cuenta.isSavings).toBe(false);
+  });
+
+  it('se puede crear ya marcada como cuenta de ahorro', async () => {
+    const cuenta = await crearCuenta({ isSavings: true });
+    expect(cuenta.isSavings).toBe(true);
   });
 
   it('el saldo inicial queda como movimiento, no como columna', async () => {
@@ -520,6 +526,57 @@ describe('archivar cuentas', () => {
 
     const activas = await pedir('GET', '/api/v1/accounts');
     expect(activas.cuerpo.data.find((c: any) => c.id === cuenta.id)).toBeDefined();
+  });
+});
+
+describe('marcar cuenta de ahorro', () => {
+  it('marca y desmarca una cuenta existente, sin tocar nada más', async () => {
+    const cuenta = await crearCuenta({ openingBalance: '5000' });
+
+    const marcada = await pedir('PATCH', `/api/v1/accounts/${cuenta.id}/savings`, {
+      isSavings: true,
+    });
+    expect(marcada.estado).toBe(200);
+    expect(marcada.cuerpo.data.isSavings).toBe(true);
+    expect(marcada.cuerpo.data.balance).toBe('5000.0000');
+
+    const desmarcada = await pedir('PATCH', `/api/v1/accounts/${cuenta.id}/savings`, {
+      isSavings: false,
+    });
+    expect(desmarcada.cuerpo.data.isSavings).toBe(false);
+  });
+
+  it('da 404 sobre una cuenta que no existe', async () => {
+    const { estado } = await pedir('PATCH', `/api/v1/accounts/${randomUUID()}/savings`, {
+      isSavings: true,
+    });
+    expect(estado).toBe(404);
+  });
+
+  it('da 404 sobre la cuenta de otra persona', async () => {
+    const cuenta = await crearCuenta();
+
+    const otroUsuarioId = (
+      await db
+        .insert(users)
+        .values({ email: `otro-${randomUUID()}@cuadre.test`, displayName: 'Otra persona' })
+        .returning({ id: users.id })
+    )[0]!.id;
+
+    const otraApp = await construirApp({
+      silencioso: true,
+      resolverUsuario: async () => otroUsuarioId,
+    });
+    await otraApp.ready();
+
+    const respuesta = await otraApp.inject({
+      method: 'PATCH',
+      url: `/api/v1/accounts/${cuenta.id}/savings`,
+      payload: { isSavings: true },
+    });
+    expect(respuesta.statusCode).toBe(404);
+
+    await otraApp.close();
   });
 });
 

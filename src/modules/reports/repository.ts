@@ -148,6 +148,11 @@ export interface TotalDeUnMes {
   expense: string;
 }
 
+export interface AhorroDeUnMes {
+  month: string;
+  amount: string;
+}
+
 /**
  * Los últimos meses, terminando en el mes de hoy.
  *
@@ -197,6 +202,68 @@ export async function tendencia(
     left join totales on totales.mes = meses.mes
     order by meses.mes asc
   `)) as unknown as TotalDeUnMes[];
+
+  return filas;
+}
+
+/**
+ * Ahorro mensual, NO acumulado: cada mes es solo lo que le cambió el saldo
+ * ESE mes a las cuentas marcadas como ahorro (`accounts.is_savings`), con
+ * signo — igual que `tendencia`, un mes sin movimiento sale en cero en vez de
+ * desaparecer, y nunca se mezclan monedas (regla 4).
+ *
+ * Cuenta TODO lo que mueve esas cuentas —ingresos y gastos registrados
+ * directo ahí, y las dos patas de cualquier transferencia hacia o desde
+ * ellas— excepto el saldo inicial (`kind = 'opening'`), que es capital de
+ * partida y no "ahorro de este mes". No hace falta el patrón de
+ * `UNION_CON_EL_ANULADO`/`MONTO_QUE_CLASIFICA` de arriba: ahí existe para
+ * reclasificar una anulación bajo la categoría del movimiento que anula, y
+ * aquí no hay categoría que reclasificar — el signo del monto ya es la
+ * respuesta completa, y una anulación cae en el mismo mes que el movimiento
+ * original porque comparte su fecha.
+ */
+export async function ahorroMensual(
+  usuarioId: string,
+  cantidadDeMeses: number,
+  moneda: string,
+): Promise<AhorroDeUnMes[]> {
+  const filas = (await db.execute(sql`
+    with limites as (
+      select date_trunc('month', now() at time zone ${ZONA_HORARIA}::text) as mes_actual
+    ),
+    meses as (
+      select generate_series(
+               mes_actual - make_interval(months => ${cantidadDeMeses - 1}::int),
+               mes_actual,
+               interval '1 month'
+             ) as mes
+      from limites
+    ),
+    ventana as (
+      select min(mes) as desde, max(mes) + interval '1 month' as hasta from meses
+    ),
+    totales as (
+      select date_trunc('month', m.occurred_at at time zone ${ZONA_HORARIA}::text) as mes,
+             sum(m.amount) as amount
+      from transactions m
+      inner join accounts a
+              on a.id = m.account_id
+             and a.user_id = m.user_id
+      cross join ventana
+      where m.user_id = ${usuarioId}::uuid
+        and ${deLaMoneda(moneda)}
+        and m.kind <> 'opening'
+        and a.is_savings = true
+        and m.occurred_at >= (ventana.desde at time zone ${ZONA_HORARIA}::text)
+        and m.occurred_at <  (ventana.hasta at time zone ${ZONA_HORARIA}::text)
+      group by 1
+    )
+    select to_char(meses.mes, 'YYYY-MM')                    as month,
+           coalesce(totales.amount, 0)::numeric(19,4)::text as amount
+    from meses
+    left join totales on totales.mes = meses.mes
+    order by meses.mes asc
+  `)) as unknown as AhorroDeUnMes[];
 
   return filas;
 }
