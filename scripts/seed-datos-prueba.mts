@@ -463,8 +463,8 @@ for (let mesesAtras = 11; mesesAtras >= 0; mesesAtras--) {
     tarjetaVirtual.resta(monto);
   }
 
-  // Pago de la tarjeta: nunca más de lo que se debe.
-  {
+  // Pago de la tarjeta: nunca más de lo que se debe, y nunca en el futuro.
+  if (yaPaso(mesesAtras, 20)) {
     const deseado = entre(150000, 500000);
     const deuda = Math.max(0, -tarjetaVirtual.valor());
     const pago = Math.min(deseado, deuda);
