@@ -101,6 +101,64 @@ export async function totalesDelMes(
   return filas[0] ?? { income: '0.0000', expense: '0.0000' };
 }
 
+/**
+ * Cuánto se ha gastado en una categoría puntual, en un mes y una moneda
+ * puntuales. Es la misma cuenta que hace `totalesPorCategoria`, pero para
+ * una sola categoría y sin agrupar — la usa el checklist de presupuesto para
+ * comparar "lo gastado" contra el monto que la persona puso.
+ */
+export async function gastadoEnCategoria(
+  usuarioId: string,
+  mes: string,
+  moneda: string,
+  categoriaId: string,
+): Promise<string> {
+  const filas = (await db.execute(sql`
+    select coalesce(sum(- m.amount) filter (where ${MONTO_QUE_CLASIFICA} < 0), 0)::numeric(19,4)::text as total
+    from transactions m
+    ${UNION_CON_EL_ANULADO}
+    where m.user_id = ${usuarioId}::uuid
+      and ${deLaMoneda(moneda)}
+      and ${SOLO_INGRESOS_Y_GASTOS}
+      and ${rangoDelMes(mes)}
+      and ${CATEGORIA_QUE_CLASIFICA} = ${categoriaId}::uuid
+  `)) as unknown as { total: string }[];
+
+  return filas[0]?.total ?? '0.0000';
+}
+
+/**
+ * Ahorro de UNA cuenta puntual en UN mes puntual, con signo — la versión de
+ * `ahorroMensual` que usa el checklist de presupuesto, que compara una
+ * cuenta a la vez contra su propia meta en vez de sumar todas las cuentas de
+ * ahorro de una moneda.
+ *
+ * A propósito no filtra por `is_savings`: el ítem del checklist ya eligió
+ * esta cuenta puntual al crearse (ahí sí se exige que esté marcada), así que
+ * aquí basta con que la cuenta sea de este usuario. Tampoco hace falta
+ * `deLaMoneda` (regla 4): una cuenta tiene una única moneda fija
+ * (`transactions_account_fk` la amarra), así que pedir "esta cuenta" ya
+ * implica una sola moneda sin tener que decirlo aparte. Y por la misma razón
+ * no hace falta unir contra `accounts`: filtrar `m.account_id` ya prueba que
+ * la cuenta es la pedida, sin necesitar ningún otro dato suyo.
+ */
+export async function ahorroDeUnaCuentaEnElMes(
+  usuarioId: string,
+  mes: string,
+  cuentaId: string,
+): Promise<string> {
+  const filas = (await db.execute(sql`
+    select coalesce(sum(m.amount), 0)::numeric(19,4)::text as amount
+    from transactions m
+    where m.user_id = ${usuarioId}::uuid
+      and m.account_id = ${cuentaId}::uuid
+      and m.kind <> 'opening'
+      and ${rangoDelMes(mes)}
+  `)) as unknown as { amount: string }[];
+
+  return filas[0]?.amount ?? '0.0000';
+}
+
 export interface TotalDeCategoria {
   categoryId: string | null;
   categoryName: string | null;

@@ -68,3 +68,26 @@ export async function ahorroMensual(
 ): Promise<{ data: repositorio.AhorroDeUnMes[] }> {
   return { data: await repositorio.ahorroMensual(usuarioId, filtros.months, filtros.currency) };
 }
+
+/**
+ * Estas dos no tienen ruta HTTP propia: las usa el módulo `budgets` para
+ * calcular el progreso de un ítem del checklist, llamando a este service
+ * —nunca al repository de reportes directamente— como manda la regla de que
+ * un módulo solo habla con el service de otro.
+ */
+export async function gastadoEnCategoria(
+  usuarioId: string,
+  mes: string,
+  moneda: string,
+  categoriaId: string,
+): Promise<string> {
+  return repositorio.gastadoEnCategoria(usuarioId, mes, moneda, categoriaId);
+}
+
+export async function ahorroDeUnaCuentaEnElMes(
+  usuarioId: string,
+  mes: string,
+  cuentaId: string,
+): Promise<string> {
+  return repositorio.ahorroDeUnaCuentaEnElMes(usuarioId, mes, cuentaId);
+}
