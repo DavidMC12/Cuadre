@@ -115,25 +115,30 @@ describe('editar el nombre', () => {
     const { estado } = await editar(cuenta.id, { name: 'Robada' });
     expect(estado).toBe(404);
   });
+
+  it('rechaza el nombre de una cuenta que ya existe', async () => {
+    await crearCuenta({ name: 'Bancolombia' });
+    const otra = await crearCuenta({ name: 'Nu' });
+
+    const { estado } = await editar(otra.id, { name: 'Bancolombia' });
+    expect(estado).toBe(409);
+  });
 });
 
 describe('el saldo y el tipo no se pueden editar por aquí', () => {
-  it('ignora silenciosamente campos que no son editables', async () => {
+  it('rechaza campos que no son editables, en vez de ignorarlos en silencio', async () => {
     const cuenta = await crearCuenta({ openingBalance: '100000' });
 
-    const { estado, cuerpo } = await editar(cuenta.id, {
+    // Un 200 aquí sería peor que un 400: alguien podría creer que de verdad
+    // cambió el saldo o el tipo. Mejor que el formulario se entere ya mismo.
+    const { estado } = await editar(cuenta.id, {
       name: 'Igual pero con más nombre',
       type: 'cash',
       currency: 'USD',
       balance: '999999',
     });
 
-    expect(estado, JSON.stringify(cuerpo)).toBe(200);
-    expect(cuerpo.data).toMatchObject({
-      type: 'bank',
-      currency: 'COP',
-      balance: '100000.0000',
-    });
+    expect(estado).toBe(400);
   });
 });
 
@@ -229,9 +234,21 @@ describe('cuenta vinculada para pagar la tarjeta', () => {
     expect(estado).toBe(404);
   });
 
-  it('rechaza vincular una cuenta que no existe o es de otro usuario', async () => {
+  it('rechaza vincular una cuenta que no existe', async () => {
     const tarjeta = await crearCuenta({ type: 'card' });
     const { estado } = await editar(tarjeta.id, { linkedAccountId: randomUUID() });
+    expect(estado).toBe(404);
+  });
+
+  it('rechaza vincular una cuenta que sí existe, pero es de otro usuario', async () => {
+    const dueno = usuarioId;
+    const tarjeta = await crearCuenta({ type: 'card' });
+
+    usuarioId = await crearUsuario();
+    const bancoAjeno = await crearCuenta({ type: 'bank' });
+
+    usuarioId = dueno;
+    const { estado } = await editar(tarjeta.id, { linkedAccountId: bancoAjeno.id });
     expect(estado).toBe(404);
   });
 

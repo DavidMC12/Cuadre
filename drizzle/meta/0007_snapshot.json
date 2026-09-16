@@ -1,5 +1,5 @@
 {
-  "id": "0f839ea2-5e1c-4b9c-abe7-4dad9f06e439",
+  "id": "7fe6e676-3330-42d9-953b-9067631e1c8d",
   "prevId": "3077bb7d-2f21-40a0-b392-c177021db40c",
   "version": "7",
   "dialect": "postgresql",
@@ -273,7 +273,7 @@
             "id",
             "currency"
           ],
-          "onDelete": "set null",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },

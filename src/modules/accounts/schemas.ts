@@ -38,7 +38,7 @@ export const CrearCuentaSchema = z.object({
  * cuenta distinta.
  */
 export const ActualizarCuentaSchema = z
-  .object({
+  .strictObject({
     name: z.string().trim().min(1, 'la cuenta necesita un nombre').max(120).optional(),
     creditLimit: MontoPositivoSchema.nullable().optional(),
     linkedAccountId: z.uuid().nullable().optional(),

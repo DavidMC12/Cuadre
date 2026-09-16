@@ -86,11 +86,18 @@ export const accounts = pgTable(
 
     // La cuenta vinculada, si hay, tiene que ser del mismo usuario y de la
     // misma moneda — mismo truco que ya usa `budget_items_account_fk`.
+    //
+    // `restrict`, no `set null`: un `ON DELETE SET NULL` sin lista de columnas
+    // pone en null LAS TRES columnas de la llave (`user_id`, `linked_account_id`
+    // y `currency`), y las dos primeras son NOT NULL — la acción solo podría
+    // fallar, nunca limpiar el vínculo. Las cuentas tampoco se borran de
+    // verdad (se archivan), así que en la práctica esto nunca se dispara; que
+    // sea `restrict` es simplemente decir la verdad sobre lo que pasaría.
     foreignKey({
       columns: [t.userId, t.linkedAccountId, t.currency],
       foreignColumns: [t.userId, t.id, t.currency],
       name: 'accounts_linked_account_fk',
-    }).onDelete('set null'),
+    }).onDelete('restrict'),
 
     check('accounts_type_valid', sql`${t.type} in ('bank', 'card', 'cash')`),
     check('accounts_currency_format', sql`${t.currency} ~ '^[A-Z]{3}$'`),
@@ -106,6 +113,9 @@ export const accounts = pgTable(
     ),
     check('accounts_credit_limit_positive', sql`${t.creditLimit} is null or ${t.creditLimit} > 0`),
 
+    // Solo restringe el tipo de quien vincula, no el de la vinculada: pagar
+    // una tarjeta desde otra tarjeta no se prohíbe a propósito (hay quien
+    // traspasa saldo entre tarjetas), aunque el caso normal sea un banco.
     check(
       'accounts_linked_account_only_for_card',
       sql`${t.type} = 'card' or ${t.linkedAccountId} is null`,
