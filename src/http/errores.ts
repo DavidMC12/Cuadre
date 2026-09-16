@@ -147,6 +147,36 @@ const POR_RESTRICCION: Record<string, Traduccion> = {
     codigo: 'RULE_VIOLATION',
     mensaje: 'La cuenta necesita un nombre.',
   },
+  accounts_savings_not_for_card: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'Una tarjeta de crédito no se puede marcar como cuenta de ahorro.',
+  },
+  accounts_credit_limit_only_for_card: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'El cupo solo aplica a tarjetas de crédito.',
+  },
+  accounts_credit_limit_positive: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'El cupo debe ser mayor que cero.',
+  },
+  accounts_linked_account_only_for_card: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'Solo una tarjeta de crédito puede tener una cuenta vinculada.',
+  },
+  accounts_linked_account_not_self: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'Una tarjeta no puede estar vinculada a sí misma.',
+  },
+  accounts_linked_account_fk: {
+    estado: 404,
+    codigo: 'NOT_FOUND',
+    mensaje: 'Esa cuenta no existe, o no es de la misma moneda que la tarjeta.',
+  },
 
   // Categorías
   categories_user_kind_name_unique: {
@@ -196,7 +226,8 @@ const POR_RESTRICCION: Record<string, Traduccion> = {
   budget_items_target_matches_kind: {
     estado: 422,
     codigo: 'RULE_VIOLATION',
-    mensaje: 'Un ítem del checklist apunta a una categoría o a una cuenta, no a las dos ni a ninguna.',
+    mensaje:
+      'Un ítem del checklist apunta a una categoría o a una cuenta, no a las dos ni a ninguna.',
   },
   budget_items_category_kind_matches: {
     estado: 422,

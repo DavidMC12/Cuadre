@@ -50,6 +50,13 @@
       "when": 1789576899106,
       "tag": "0006_fancy_magdalene",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789596400333,
+      "tag": "0007_light_mentallo",
+      "breakpoints": true
     }
   ]
 }

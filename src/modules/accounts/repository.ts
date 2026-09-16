@@ -15,6 +15,8 @@ const CAMPOS = {
   currency: accounts.currency,
   archivedAt: accounts.archivedAt,
   isSavings: accounts.isSavings,
+  creditLimit: accounts.creditLimit,
+  linkedAccountId: accounts.linkedAccountId,
   balance: accountBalances.balance,
   movementCount: accountBalances.movementCount,
   lastMovementAt: accountBalances.lastMovementAt,
@@ -27,7 +29,11 @@ type FilaDeCuenta = {
       ? number
       : K extends 'isSavings'
         ? boolean
-        : string;
+        : K extends 'creditLimit'
+          ? string | null
+          : K extends 'linkedAccountId'
+            ? string | null
+            : string;
 };
 
 function aCuenta(fila: FilaDeCuenta): Cuenta {
@@ -41,6 +47,8 @@ function aCuenta(fila: FilaDeCuenta): Cuenta {
     lastMovementAt: fila.lastMovementAt?.toISOString() ?? null,
     archivedAt: fila.archivedAt?.toISOString() ?? null,
     isSavings: fila.isSavings,
+    creditLimit: fila.creditLimit,
+    linkedAccountId: fila.linkedAccountId,
   };
 }
 
@@ -83,7 +91,14 @@ export async function obtener(
 export async function crear(
   ejecutor: Ejecutor,
   usuarioId: string,
-  datos: { nombre: string; tipo: string; moneda: string; esAhorro: boolean },
+  datos: {
+    nombre: string;
+    tipo: string;
+    moneda: string;
+    esAhorro: boolean;
+    cupo: string | null;
+    cuentaVinculadaId: string | null;
+  },
 ): Promise<string> {
   const [fila] = await ejecutor
     .insert(accounts)
@@ -93,11 +108,40 @@ export async function crear(
       type: datos.tipo as 'bank' | 'card' | 'cash',
       currency: datos.moneda,
       isSavings: datos.esAhorro,
+      creditLimit: datos.cupo,
+      linkedAccountId: datos.cuentaVinculadaId,
     })
     .returning({ id: accounts.id });
 
   if (!fila) throw new Error('No se pudo crear la cuenta.');
   return fila.id;
+}
+
+/**
+ * Edita nombre, cupo y/o cuenta vinculada. Solo toca las columnas que de
+ * verdad vinieron en `cambios` — omitir una la deja como estaba, y pasarla en
+ * `null` (cupo/cuentaVinculadaId) la borra. Devuelve `false` si la cuenta no
+ * existe o no es de este usuario.
+ */
+export async function actualizar(
+  usuarioId: string,
+  cuentaId: string,
+  cambios: { nombre?: string; cupo?: string | null; cuentaVinculadaId?: string | null },
+): Promise<boolean> {
+  const cambiosParaGuardar: Partial<typeof accounts.$inferInsert> = {};
+  if (cambios.nombre !== undefined) cambiosParaGuardar.name = cambios.nombre;
+  if (cambios.cupo !== undefined) cambiosParaGuardar.creditLimit = cambios.cupo;
+  if (cambios.cuentaVinculadaId !== undefined) {
+    cambiosParaGuardar.linkedAccountId = cambios.cuentaVinculadaId;
+  }
+
+  const filas = await db
+    .update(accounts)
+    .set(cambiosParaGuardar)
+    .where(and(eq(accounts.userId, usuarioId), eq(accounts.id, cuentaId)))
+    .returning({ id: accounts.id });
+
+  return filas.length > 0;
 }
 
 /**

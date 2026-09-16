@@ -13,7 +13,7 @@ import { conflicto, noEncontrado } from '../../http/errores.js';
 import { esCero } from '../../shared/schemas.js';
 import * as movimientos from '../transactions/service.js';
 import * as repositorio from './repository.js';
-import type { CrearCuenta, Cuenta } from './schemas.js';
+import type { ActualizarCuenta, CrearCuenta, Cuenta } from './schemas.js';
 
 export async function listarCuentas(
   usuarioId: string,
@@ -35,6 +35,8 @@ export async function crearCuenta(usuarioId: string, datos: CrearCuenta): Promis
       tipo: datos.type,
       moneda: datos.currency,
       esAhorro: datos.isSavings,
+      cupo: datos.creditLimit ?? null,
+      cuentaVinculadaId: datos.linkedAccountId ?? null,
     });
 
     // Un saldo inicial de cero no es un movimiento: es no tener nada todavía.
@@ -70,6 +72,26 @@ export async function archivarCuenta(usuarioId: string, cuentaId: string): Promi
 
 export async function desarchivarCuenta(usuarioId: string, cuentaId: string): Promise<Cuenta> {
   const existe = await repositorio.desarchivar(usuarioId, cuentaId);
+  if (!existe) throw noEncontrado('Esa cuenta no existe.');
+  return obtenerCuenta(usuarioId, cuentaId);
+}
+
+/**
+ * Cambia nombre, cupo y/o cuenta vinculada. `type`, `currency` y el saldo no
+ * se pueden editar aquí: el saldo se deriva de los movimientos (nunca se
+ * guarda un número suelto), y cambiar de qué está hecha una cuenta o su
+ * moneda no es "editarla", es una cuenta distinta.
+ */
+export async function actualizarCuenta(
+  usuarioId: string,
+  cuentaId: string,
+  cambios: ActualizarCuenta,
+): Promise<Cuenta> {
+  const existe = await repositorio.actualizar(usuarioId, cuentaId, {
+    nombre: cambios.name,
+    cupo: cambios.creditLimit,
+    cuentaVinculadaId: cambios.linkedAccountId,
+  });
   if (!existe) throw noEncontrado('Esa cuenta no existe.');
   return obtenerCuenta(usuarioId, cuentaId);
 }

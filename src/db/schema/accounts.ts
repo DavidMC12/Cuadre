@@ -3,7 +3,9 @@ import {
   boolean,
   char,
   check,
+  foreignKey,
   index,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -49,6 +51,20 @@ export const accounts = pgTable(
      */
     isSavings: boolean('is_savings').notNull().default(false),
 
+    /** Solo para tarjetas. Cuánto usó y cuánto le queda se calculan al vuelo
+     *  (cupo + saldo, ya que el saldo de una tarjeta es negativo cuando debe),
+     *  nunca se guardan aparte: guardarlos sería la misma plata contada dos
+     *  veces, con el riesgo de que un día dejen de coincidir. */
+    creditLimit: numeric('credit_limit', { precision: 19, scale: 4 }),
+
+    /**
+     * Solo para tarjetas: de qué cuenta sale la plata cuando se paga esta
+     * tarjeta. Puramente una comodidad para precargar el formulario de
+     * transferencia — no cambia ninguna regla de negocio, y pagar desde
+     * cualquier otra cuenta sigue siendo una transferencia normal.
+     */
+    linkedAccountId: uuid('linked_account_id'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
@@ -68,9 +84,33 @@ export const accounts = pgTable(
 
     index('accounts_user_idx').on(t.userId),
 
+    // La cuenta vinculada, si hay, tiene que ser del mismo usuario y de la
+    // misma moneda — mismo truco que ya usa `budget_items_account_fk`.
+    foreignKey({
+      columns: [t.userId, t.linkedAccountId, t.currency],
+      foreignColumns: [t.userId, t.id, t.currency],
+      name: 'accounts_linked_account_fk',
+    }).onDelete('set null'),
+
     check('accounts_type_valid', sql`${t.type} in ('bank', 'card', 'cash')`),
     check('accounts_currency_format', sql`${t.currency} ~ '^[A-Z]{3}$'`),
     check('accounts_name_not_blank', sql`length(btrim(${t.name})) > 0`),
+
+    // "Ahorro" es plata que se aparta; una deuda no se aparta, se paga. No
+    // tiene sentido marcar una tarjeta como cuenta de ahorro.
+    check('accounts_savings_not_for_card', sql`${t.type} <> 'card' or not ${t.isSavings}`),
+
+    check(
+      'accounts_credit_limit_only_for_card',
+      sql`${t.type} = 'card' or ${t.creditLimit} is null`,
+    ),
+    check('accounts_credit_limit_positive', sql`${t.creditLimit} is null or ${t.creditLimit} > 0`),
+
+    check(
+      'accounts_linked_account_only_for_card',
+      sql`${t.type} = 'card' or ${t.linkedAccountId} is null`,
+    ),
+    check('accounts_linked_account_not_self', sql`${t.linkedAccountId} is distinct from ${t.id}`),
   ],
 );
 
