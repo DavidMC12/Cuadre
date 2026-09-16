@@ -221,6 +221,14 @@ export async function tendencia(
  * aquí no hay categoría que reclasificar — el signo del monto ya es la
  * respuesta completa, y una anulación cae en el mismo mes que el movimiento
  * original porque comparte su fecha.
+ *
+ * Ojo con esto: la marca de "ahorro" se lee al momento de la consulta, no al
+ * momento del movimiento. Desmarcar una cuenta vacía su historial completo
+ * de este reporte de golpe (todos los meses pasados vuelven a cero), y
+ * marcar una cuenta vieja hace aparecer de golpe todo lo que ya tenía. Es a
+ * propósito —"ahorro" es una etiqueta descriptiva de hoy, no algo que se
+ * pueda fechar retroactivamente— pero por eso esta gráfica no es estable en
+ * el tiempo: puede cambiar sin que nadie haya tocado un movimiento.
  */
 export async function ahorroMensual(
   usuarioId: string,

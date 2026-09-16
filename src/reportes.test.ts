@@ -534,6 +534,57 @@ describe('ahorro mensual', () => {
     expect(cuerpo.data).toEqual([{ month: esteMes.etiqueta, amount: '200000.0000' }]);
   });
 
+  it('NO es acumulado: cada mes cuenta solo lo suyo', async () => {
+    const ahorro = await crearCuenta({ isSavings: true });
+    const hace2 = mesRelativo(-2);
+    const esteMes = mesRelativo(0);
+
+    await registrar(ahorro.id, '100000', { occurredAt: hace2.fecha });
+    await registrar(ahorro.id, '50000', { occurredAt: esteMes.fecha });
+
+    const { cuerpo } = await pedir('GET', '/api/v1/reports/savings-trend?months=3&currency=COP');
+    expect(cuerpo.data).toEqual([
+      { month: hace2.etiqueta, amount: '100000.0000' },
+      { month: mesRelativo(-1).etiqueta, amount: '0.0000' },
+      { month: esteMes.etiqueta, amount: '50000.0000' },
+    ]);
+  });
+
+  it('un gasto directo desde la cuenta de ahorro resta ese mes', async () => {
+    const ahorro = await crearCuenta({ isSavings: true, openingBalance: '500000' });
+    const esteMes = mesRelativo(0);
+    await registrar(ahorro.id, '-80000', { occurredAt: esteMes.fecha });
+
+    const { cuerpo } = await pedir('GET', '/api/v1/reports/savings-trend?months=1&currency=COP');
+    expect(cuerpo.data).toEqual([{ month: esteMes.etiqueta, amount: '-80000.0000' }]);
+  });
+
+  it('una transferencia entre dos cuentas de ahorro no aumenta el total: solo se movió', async () => {
+    const ahorro1 = await crearCuenta({ isSavings: true, openingBalance: '500000' });
+    const ahorro2 = await crearCuenta({ isSavings: true });
+    const esteMes = mesRelativo(0);
+
+    await pedir('POST', '/api/v1/transfers', {
+      fromAccountId: ahorro1.id,
+      toAccountId: ahorro2.id,
+      amount: '200000',
+      occurredAt: esteMes.fecha,
+    });
+
+    const { cuerpo } = await pedir('GET', '/api/v1/reports/savings-trend?months=1&currency=COP');
+    expect(cuerpo.data).toEqual([{ month: esteMes.etiqueta, amount: '0.0000' }]);
+  });
+
+  it('no mezcla los datos de otra persona', async () => {
+    const ahorroDeOtro = await crearCuenta({ isSavings: true });
+    await registrar(ahorroDeOtro.id, '900000', { occurredAt: mesRelativo(0).fecha });
+
+    usuarioId = await crearUsuario();
+
+    const { cuerpo } = await pedir('GET', '/api/v1/reports/savings-trend?months=1&currency=COP');
+    expect(cuerpo.data).toEqual([{ month: mesRelativo(0).etiqueta, amount: '0.0000' }]);
+  });
+
   it('una cuenta normal (sin marcar) no aparece aunque tenga movimientos', async () => {
     const normal = await crearCuenta();
     await registrar(normal.id, '200000', { occurredAt: mesRelativo(0).fecha });
@@ -568,22 +619,28 @@ describe('ahorro mensual', () => {
     expect(resultado.cuerpo.data).toEqual([{ month: esteMes.etiqueta, amount: '180000.0000' }]);
   });
 
-  it('anular una transferencia de ahorro deja el mes original como estaba', async () => {
+  it('anular una transferencia vieja corrige SU mes, no el de hoy', async () => {
     const banco = await crearCuenta({ openingBalance: '1000000' });
     const ahorro = await crearCuenta({ isSavings: true });
-    const esteMes = mesRelativo(0);
+    const hace1 = mesRelativo(-1);
 
     const { cuerpo: transferencia } = await pedir('POST', '/api/v1/transfers', {
       fromAccountId: banco.id,
       toAccountId: ahorro.id,
       amount: '300000',
-      occurredAt: esteMes.fecha,
+      occurredAt: hace1.fecha,
     });
 
+    // La anulación se registra HOY, pero hereda la fecha del movimiento que
+    // anula: si cayera en el mes de hoy en vez de en el original, esta
+    // prueba lo detectaría (el mes de hoy quedaría en -300000, no en 0).
     await pedir('POST', `/api/v1/transfers/${transferencia.data.transferGroupId}/reversal`);
 
-    const { cuerpo } = await pedir('GET', '/api/v1/reports/savings-trend?months=1&currency=COP');
-    expect(cuerpo.data).toEqual([{ month: esteMes.etiqueta, amount: '0.0000' }]);
+    const { cuerpo } = await pedir('GET', '/api/v1/reports/savings-trend?months=2&currency=COP');
+    expect(cuerpo.data).toEqual([
+      { month: hace1.etiqueta, amount: '0.0000' },
+      { month: mesRelativo(0).etiqueta, amount: '0.0000' },
+    ]);
   });
 
   it('el saldo inicial no cuenta como ahorro de ningún mes', async () => {

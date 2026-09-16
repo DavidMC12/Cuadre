@@ -126,7 +126,14 @@ export async function desarchivar(usuarioId: string, cuentaId: string): Promise<
   return filas.length > 0;
 }
 
-/** Marca o desmarca una cuenta como cuenta de ahorro. Nada más cambia aquí. */
+/**
+ * Marca o desmarca una cuenta como cuenta de ahorro. Nada más cambia aquí.
+ *
+ * A propósito no exige `isNull(archivedAt)` como sí hace `archivar()`: una
+ * cuenta archivada puede marcarse igual, y su historia entra al reporte de
+ * ahorro completa. No hay caso de uso real para impedirlo, y bloquearlo
+ * obligaría a desarchivar solo para poner una etiqueta descriptiva.
+ */
 export async function marcarAhorro(
   usuarioId: string,
   cuentaId: string,
