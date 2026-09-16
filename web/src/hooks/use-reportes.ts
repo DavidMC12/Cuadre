@@ -2,7 +2,13 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { fetchByCategory, fetchCurrencies, fetchSummary, fetchTrend } from "@/lib/api/reports";
+import {
+  fetchByCategory,
+  fetchCurrencies,
+  fetchSavingsTrend,
+  fetchSummary,
+  fetchTrend,
+} from "@/lib/api/reports";
 import type { TipoCategoria } from "@/lib/api/types";
 
 export const clavesReportes = {
@@ -14,6 +20,8 @@ export const clavesReportes = {
     [...clavesReportes.todas(), "por-categoria", params] as const,
   tendencia: (params: { months: number; currency: string }) =>
     [...clavesReportes.todas(), "tendencia", params] as const,
+  ahorro: (params: { months: number; currency: string }) =>
+    [...clavesReportes.todas(), "ahorro", params] as const,
 };
 
 /** Solo se muestra un selector de moneda si el usuario tiene más de una. */
@@ -48,6 +56,16 @@ export function useTendencia(params: { months?: number; currency: string }) {
   return useQuery({
     queryKey: clavesReportes.tendencia({ months, currency: params.currency }),
     queryFn: () => fetchTrend({ months, currency: params.currency }),
+    select: (respuesta) => respuesta.data,
+    enabled: Boolean(params.currency),
+  });
+}
+
+export function useAhorroMensual(params: { months?: number; currency: string }) {
+  const months = params.months ?? 6;
+  return useQuery({
+    queryKey: clavesReportes.ahorro({ months, currency: params.currency }),
+    queryFn: () => fetchSavingsTrend({ months, currency: params.currency }),
     select: (respuesta) => respuesta.data,
     enabled: Boolean(params.currency),
   });

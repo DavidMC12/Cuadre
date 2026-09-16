@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -15,12 +15,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useCrearCuenta } from "@/hooks/use-cuentas";
 import { usePerfil, useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { TipoCuenta } from "@/lib/api/types";
-import { ETIQUETA_TIPO_CUENTA, MONEDAS } from "@/lib/labels";
+import { ETIQUETA_TIPO_CUENTA, AYUDA_CUENTA_AHORRO, MONEDAS } from "@/lib/labels";
 import { normalizarMontoConSigno } from "@/lib/money";
 
 const TIPOS: TipoCuenta[] = ["bank", "card", "cash"];
@@ -38,9 +39,11 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
   const [tipo, setTipo] = useState<TipoCuenta>("bank");
   const [moneda, setMoneda] = useState<string | null>(null);
   const [saldoInicial, setSaldoInicial] = useState("");
+  const [esAhorro, setEsAhorro] = useState(false);
   const [errores, setErrores] = useState<{ nombre?: string; saldoInicial?: string }>({});
 
   const crearCuenta = useCrearCuenta();
+  const idAhorro = useId();
 
   // Null significa "no la he tocado": así, si el perfil llega después de que se
   // abrió el formulario, la marcada se corrige sola, pero una moneda ya elegida
@@ -56,6 +59,7 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
     setTipo("bank");
     setMoneda(null);
     setSaldoInicial("");
+    setEsAhorro(false);
     setErrores({});
   }
 
@@ -88,6 +92,7 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
         type: tipo,
         currency: monedaElegida,
         openingBalance: saldoNormalizado,
+        isSavings: esAhorro,
       },
       {
         onSuccess: () => {
@@ -176,6 +181,18 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor={idAhorro}>Cuenta de ahorro</Label>
+                <Switch
+                  id={idAhorro}
+                  checked={esAhorro}
+                  onCheckedChange={(valor) => setEsAhorro(valor)}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">{AYUDA_CUENTA_AHORRO}</p>
             </div>
 
             <div className="flex flex-col gap-1.5">

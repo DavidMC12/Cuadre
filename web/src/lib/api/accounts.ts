@@ -23,3 +23,8 @@ export function archiveAccount(id: string): Promise<{ data: Cuenta }> {
 export function unarchiveAccount(id: string): Promise<{ data: Cuenta }> {
   return pedir(`/accounts/${id}/unarchive`, { metodo: "POST" });
 }
+
+/** Marcar o desmarcar una cuenta como de ahorro. Es reversible con un toque. */
+export function updateAccountSavings(id: string, isSavings: boolean): Promise<{ data: Cuenta }> {
+  return pedir(`/accounts/${id}/savings`, { metodo: "PATCH", cuerpo: { isSavings } });
+}

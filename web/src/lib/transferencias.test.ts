@@ -11,6 +11,7 @@ function cuenta(datos: Partial<Cuenta> & Pick<Cuenta, "id">): Cuenta {
     movementCount: 0,
     lastMovementAt: null,
     archivedAt: null,
+    isSavings: false,
     ...datos,
   };
 }
