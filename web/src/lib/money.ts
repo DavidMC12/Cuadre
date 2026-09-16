@@ -141,7 +141,7 @@ export function sumarMontos(montos: readonly string[]): string {
  */
 export type MontoLeido = { monto: string } | { error: string };
 
-const SOLO_DIGITOS = /^\d+$/;
+export const SOLO_DIGITOS = /^\d+$/;
 
 /**
  * "1.500.000" o "1,500,000": un primer grupo de uno a tres dígitos que no
@@ -149,8 +149,8 @@ const SOLO_DIGITOS = /^\d+$/;
  * separador. Un separador de miles nunca va seguido de menos de tres dígitos,
  * y eso es lo que permite distinguirlo de uno decimal.
  */
-const MILES_CON_PUNTO = /^[1-9]\d{0,2}(\.\d{3})+$/;
-const MILES_CON_COMA = /^[1-9]\d{0,2}(,\d{3})+$/;
+export const MILES_CON_PUNTO = /^[1-9]\d{0,2}(\.\d{3})+$/;
+export const MILES_CON_COMA = /^[1-9]\d{0,2}(,\d{3})+$/;
 
 /** Solo las monedas que las pantallas ofrecen; el resto se nombra en genérico. */
 const MONEDA_EN_PLURAL: Record<string, string> = {
