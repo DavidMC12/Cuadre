@@ -34,6 +34,7 @@ export async function crearCuenta(usuarioId: string, datos: CrearCuenta): Promis
       nombre: datos.name,
       tipo: datos.type,
       moneda: datos.currency,
+      esAhorro: datos.isSavings,
     });
 
     // Un saldo inicial de cero no es un movimiento: es no tener nada todavía.
@@ -69,6 +70,20 @@ export async function archivarCuenta(usuarioId: string, cuentaId: string): Promi
 
 export async function desarchivarCuenta(usuarioId: string, cuentaId: string): Promise<Cuenta> {
   const existe = await repositorio.desarchivar(usuarioId, cuentaId);
+  if (!existe) throw noEncontrado('Esa cuenta no existe.');
+  return obtenerCuenta(usuarioId, cuentaId);
+}
+
+/**
+ * Marca o desmarca una cuenta como cuenta de ahorro. Puramente descriptivo:
+ * no cambia ninguna otra regla de negocio de la cuenta.
+ */
+export async function actualizarAhorro(
+  usuarioId: string,
+  cuentaId: string,
+  esAhorro: boolean,
+): Promise<Cuenta> {
+  const existe = await repositorio.marcarAhorro(usuarioId, cuentaId, esAhorro);
   if (!existe) throw noEncontrado('Esa cuenta no existe.');
   return obtenerCuenta(usuarioId, cuentaId);
 }

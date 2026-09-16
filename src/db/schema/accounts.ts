@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   char,
   check,
   index,
@@ -37,6 +38,16 @@ export const accounts = pgTable(
 
     /** Las cuentas no se borran: se archivan, porque tienen historia colgando. */
     archivedAt: timestamp('archived_at', { withTimezone: true }),
+
+    /**
+     * Puramente descriptivo: para que el Resumen sepa cuánto tienes ahorrado.
+     * No cambia ninguna regla de negocio (una cuenta de ahorro se comporta
+     * exactamente igual que cualquier otra) y no tiene nada que ver con
+     * `type` — `type` dice dónde vive la plata (banco, tarjeta, efectivo),
+     * esto dice para qué la usa la persona. No hay metas ni avisos colgando
+     * de este campo, a propósito.
+     */
+    isSavings: boolean('is_savings').notNull().default(false),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })

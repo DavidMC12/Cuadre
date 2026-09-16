@@ -18,6 +18,11 @@ export const CrearCuentaSchema = z.object({
    * se registra nada.
    */
   openingBalance: MontoConCeroSchema.optional(),
+  /**
+   * Puramente descriptivo: para que el Resumen sepa cuánto tienes ahorrado.
+   * No es una meta ni cambia ninguna otra regla.
+   */
+  isSavings: z.boolean().default(false),
 });
 
 export const ListarCuentasSchema = z.object({
@@ -28,6 +33,9 @@ export const ListarCuentasSchema = z.object({
 });
 
 export const IdEnRutaSchema = z.object({ id: z.uuid() });
+
+/** Marca o desmarca una cuenta como cuenta de ahorro. Nada más cambia aquí. */
+export const MarcarAhorroSchema = z.object({ isSavings: z.boolean() });
 
 // -----------------------------------------------------------------------------
 // Respuestas
@@ -42,6 +50,7 @@ export const CuentaSchema = z.object({
   movementCount: z.number().int(),
   lastMovementAt: z.string().nullable(),
   archivedAt: z.string().nullable(),
+  isSavings: z.boolean(),
 });
 
 export const ListaDeCuentasSchema = z.object({ data: z.array(CuentaSchema) });
@@ -49,3 +58,4 @@ export const UnaCuentaSchema = z.object({ data: CuentaSchema });
 
 export type CrearCuenta = z.infer<typeof CrearCuentaSchema>;
 export type Cuenta = z.infer<typeof CuentaSchema>;
+export type MarcarAhorro = z.infer<typeof MarcarAhorroSchema>;

@@ -14,6 +14,7 @@ const CAMPOS = {
   type: accounts.type,
   currency: accounts.currency,
   archivedAt: accounts.archivedAt,
+  isSavings: accounts.isSavings,
   balance: accountBalances.balance,
   movementCount: accountBalances.movementCount,
   lastMovementAt: accountBalances.lastMovementAt,
@@ -24,7 +25,9 @@ type FilaDeCuenta = {
     ? Date | null
     : K extends 'movementCount'
       ? number
-      : string;
+      : K extends 'isSavings'
+        ? boolean
+        : string;
 };
 
 function aCuenta(fila: FilaDeCuenta): Cuenta {
@@ -37,6 +40,7 @@ function aCuenta(fila: FilaDeCuenta): Cuenta {
     movementCount: Number(fila.movementCount),
     lastMovementAt: fila.lastMovementAt?.toISOString() ?? null,
     archivedAt: fila.archivedAt?.toISOString() ?? null,
+    isSavings: fila.isSavings,
   };
 }
 
@@ -79,7 +83,7 @@ export async function obtener(
 export async function crear(
   ejecutor: Ejecutor,
   usuarioId: string,
-  datos: { nombre: string; tipo: string; moneda: string },
+  datos: { nombre: string; tipo: string; moneda: string; esAhorro: boolean },
 ): Promise<string> {
   const [fila] = await ejecutor
     .insert(accounts)
@@ -88,6 +92,7 @@ export async function crear(
       name: datos.nombre,
       type: datos.tipo as 'bank' | 'card' | 'cash',
       currency: datos.moneda,
+      isSavings: datos.esAhorro,
     })
     .returning({ id: accounts.id });
 
@@ -115,6 +120,28 @@ export async function desarchivar(usuarioId: string, cuentaId: string): Promise<
   const filas = await db
     .update(accounts)
     .set({ archivedAt: null })
+    .where(and(eq(accounts.userId, usuarioId), eq(accounts.id, cuentaId)))
+    .returning({ id: accounts.id });
+
+  return filas.length > 0;
+}
+
+/**
+ * Marca o desmarca una cuenta como cuenta de ahorro. Nada más cambia aquí.
+ *
+ * A propósito no exige `isNull(archivedAt)` como sí hace `archivar()`: una
+ * cuenta archivada puede marcarse igual, y su historia entra al reporte de
+ * ahorro completa. No hay caso de uso real para impedirlo, y bloquearlo
+ * obligaría a desarchivar solo para poner una etiqueta descriptiva.
+ */
+export async function marcarAhorro(
+  usuarioId: string,
+  cuentaId: string,
+  esAhorro: boolean,
+): Promise<boolean> {
+  const filas = await db
+    .update(accounts)
+    .set({ isSavings: esAhorro })
     .where(and(eq(accounts.userId, usuarioId), eq(accounts.id, cuentaId)))
     .returning({ id: accounts.id });
 

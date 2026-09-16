@@ -1,8 +1,10 @@
 /** Capa HTTP de los reportes: recibe, valida con Zod, responde. */
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import {
+  AhorroMensualSchema,
   MonedasSchema,
   PorCategoriaSchema,
+  RespuestaDeAhorroMensualSchema,
   RespuestaDeResumenSchema,
   RespuestaDeTendenciaSchema,
   RespuestaPorCategoriaSchema,
@@ -39,5 +41,16 @@ export const rutasDeReportes: FastifyPluginAsyncZod = async (app) => {
     '/reports/trend',
     { schema: { querystring: TendenciaSchema, response: { 200: RespuestaDeTendenciaSchema } } },
     async (peticion) => servicio.tendencia(peticion.usuarioId, peticion.query),
+  );
+
+  app.get(
+    '/reports/savings-trend',
+    {
+      schema: {
+        querystring: AhorroMensualSchema,
+        response: { 200: RespuestaDeAhorroMensualSchema },
+      },
+    },
+    async (peticion) => servicio.ahorroMensual(peticion.usuarioId, peticion.query),
   );
 };

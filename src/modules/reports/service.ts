@@ -9,7 +9,7 @@
  */
 import { add, negate } from '../../shared/money.js';
 import * as repositorio from './repository.js';
-import type { PorCategoria, ResumenDelMes, Tendencia } from './schemas.js';
+import type { AhorroMensual, PorCategoria, ResumenDelMes, Tendencia } from './schemas.js';
 
 export async function monedasDisponibles(usuarioId: string): Promise<{ data: string[] }> {
   return { data: await repositorio.monedasConCuentas(usuarioId) };
@@ -60,4 +60,11 @@ export async function tendencia(
   filtros: Tendencia,
 ): Promise<{ data: repositorio.TotalDeUnMes[] }> {
   return { data: await repositorio.tendencia(usuarioId, filtros.months, filtros.currency) };
+}
+
+export async function ahorroMensual(
+  usuarioId: string,
+  filtros: AhorroMensual,
+): Promise<{ data: repositorio.AhorroDeUnMes[] }> {
+  return { data: await repositorio.ahorroMensual(usuarioId, filtros.months, filtros.currency) };
 }

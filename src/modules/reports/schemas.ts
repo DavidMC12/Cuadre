@@ -37,6 +37,11 @@ export const TendenciaSchema = z.object({
   currency: MonedaSchema,
 });
 
+export const AhorroMensualSchema = z.object({
+  months: z.coerce.number().int().min(1).max(24).default(6),
+  currency: MonedaSchema,
+});
+
 // -----------------------------------------------------------------------------
 // Respuestas
 
@@ -76,7 +81,18 @@ export const RespuestaDeTendenciaSchema = z.object({
   ),
 });
 
+export const RespuestaDeAhorroMensualSchema = z.object({
+  data: z.array(
+    z.object({
+      month: z.string(),
+      /** Con signo: negativo si ese mes se sacó más de lo que se metió. */
+      amount: z.string(),
+    }),
+  ),
+});
+
 export type ResumenDelMes = z.infer<typeof ResumenDelMesSchema>;
 export type PorCategoria = z.infer<typeof PorCategoriaSchema>;
 export type Tendencia = z.infer<typeof TendenciaSchema>;
+export type AhorroMensual = z.infer<typeof AhorroMensualSchema>;
 export type TipoDeCategoria = z.infer<typeof TipoDeCategoriaSchema>;
