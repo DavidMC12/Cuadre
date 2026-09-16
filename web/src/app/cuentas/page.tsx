@@ -8,9 +8,15 @@ import { EmptyState } from "@/components/empty-state";
 import { CuentaCard } from "@/components/cuentas/cuenta-card";
 import { FormularioCuenta } from "@/components/cuentas/formulario-cuenta";
 import { useCuentas } from "@/hooks/use-cuentas";
+import { agruparCuentasPorMoneda } from "@/lib/agrupar-cuentas";
 
 export default function PaginaCuentas() {
   const { data: cuentas, isLoading } = useCuentas();
+
+  const grupos = agruparCuentasPorMoneda(cuentas ?? []);
+  // Con una sola moneda el encabezado no dice nada que la pantalla ya no
+  // diga: solo aparece si hay más de un grupo.
+  const mostrarEncabezadoDeMoneda = grupos.size > 1;
 
   return (
     <div className="flex flex-col gap-4">
@@ -51,9 +57,20 @@ export default function PaginaCuentas() {
       )}
 
       {!isLoading && cuentas && cuentas.length > 0 && (
-        <div className="grid gap-2 lg:grid-cols-2">
-          {cuentas.map((cuenta) => (
-            <CuentaCard key={cuenta.id} cuenta={cuenta} />
+        <div className="flex flex-col gap-4">
+          {[...grupos].map(([moneda, cuentasDeMoneda]) => (
+            <div key={moneda} className="flex flex-col gap-2">
+              {mostrarEncabezadoDeMoneda && (
+                <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  {moneda}
+                </span>
+              )}
+              <div className="grid gap-2 lg:grid-cols-2">
+                {cuentasDeMoneda.map((cuenta) => (
+                  <CuentaCard key={cuenta.id} cuenta={cuenta} />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
