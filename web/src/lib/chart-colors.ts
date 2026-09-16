@@ -1,3 +1,5 @@
+import { esCero } from "@/lib/money";
+
 /**
  * Colores para las gráficas del dashboard.
  *
@@ -41,6 +43,17 @@ export const COLOR_NEUTRO = { claro: "#898781", oscuro: "#898781" } as const;
  * no una alarma. El rojo queda libre para lo que de verdad es un error. */
 export const COLOR_INGRESO = { claro: "#059669", oscuro: "#34d399" } as const;
 export const COLOR_GASTO = { claro: "#171717", oscuro: "#fafafa" } as const;
+
+/**
+ * El color de una barra según el signo de su monto, con el mismo criterio que
+ * el componente `Monto`: verde si suma, tinta normal si resta, gris si es
+ * cero. Un ahorro que se sacó no es una alarma: por eso el negativo no va en
+ * rojo, igual que un gasto.
+ */
+export function colorPorSigno(monto: string, modo: ModoColor): string {
+  if (esCero(monto)) return COLOR_NEUTRO[modo];
+  return monto.trim().startsWith("-") ? COLOR_GASTO[modo] : COLOR_INGRESO[modo];
+}
 
 export type ModoColor = "claro" | "oscuro";
 
