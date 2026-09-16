@@ -52,7 +52,7 @@ export function decimalesDe(moneda: string): number {
  * una vez al pasar por un script, y un separador de miles perdido hace que
  * dos millones y medio se lean como veinticinco millones.
  */
-function agruparMiles(digitos: string): string {
+export function agruparMiles(digitos: string): string {
   let salida = "";
   for (let i = 0; i < digitos.length; i += 1) {
     if (i > 0 && (digitos.length - i) % 3 === 0) salida += ".";
