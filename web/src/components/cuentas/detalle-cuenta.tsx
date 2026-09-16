@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -34,6 +34,10 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
   const soloMirar = useSoloMirar();
   const marcarAhorro = useMarcarAhorro();
   const [abierto, setAbierto] = useState(false);
+  // Cada tarjeta monta su propio detalle, así que el id del interruptor no
+  // puede ser fijo: varios a la vez harían que la etiqueta apunte al de otra
+  // cuenta.
+  const idAhorro = useId();
 
   function cambiarAhorro(valor: boolean) {
     marcarAhorro.mutate(
@@ -76,9 +80,9 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
 
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between gap-3">
-              <Label htmlFor="detalle-cuenta-ahorro">Cuenta de ahorro</Label>
+              <Label htmlFor={idAhorro}>Cuenta de ahorro</Label>
               <Switch
-                id="detalle-cuenta-ahorro"
+                id={idAhorro}
                 checked={cuenta.isSavings}
                 disabled={soloMirar || marcarAhorro.isPending}
                 onCheckedChange={cambiarAhorro}

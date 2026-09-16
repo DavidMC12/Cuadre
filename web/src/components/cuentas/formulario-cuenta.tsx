@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -43,6 +43,7 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
   const [errores, setErrores] = useState<{ nombre?: string; saldoInicial?: string }>({});
 
   const crearCuenta = useCrearCuenta();
+  const idAhorro = useId();
 
   // Null significa "no la he tocado": así, si el perfil llega después de que se
   // abrió el formulario, la marcada se corrige sola, pero una moneda ya elegida
@@ -184,9 +185,9 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
 
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between gap-3">
-                <Label htmlFor="cuenta-ahorro">Cuenta de ahorro</Label>
+                <Label htmlFor={idAhorro}>Cuenta de ahorro</Label>
                 <Switch
-                  id="cuenta-ahorro"
+                  id={idAhorro}
                   checked={esAhorro}
                   onCheckedChange={(valor) => setEsAhorro(valor)}
                 />
