@@ -1,6 +1,7 @@
 /** Capa HTTP de las cuentas: recibe, valida con Zod, responde. */
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import {
+  ActualizarCuentaSchema,
   CrearCuentaSchema,
   IdEnRutaSchema,
   ListaDeCuentasSchema,
@@ -52,9 +53,27 @@ export const rutasDeCuentas: FastifyPluginAsyncZod = async (app) => {
   );
 
   /**
-   * Sub-recurso explícito, no un PATCH genérico: hoy no existe edición de
-   * nombre/tipo/moneda de una cuenta, y esta ruta no abre esa puerta.
+   * Nombre, cupo y cuenta vinculada — nunca `type`, `currency` ni el saldo
+   * (ese se deriva, no se edita). A diferencia de `/savings` de abajo, este sí
+   * es un PATCH de varios campos a la vez: todos son "datos descriptivos de la
+   * cuenta" que tiene sentido cambiar juntos desde un mismo formulario.
    */
+  app.patch(
+    '/accounts/:id',
+    {
+      schema: {
+        params: IdEnRutaSchema,
+        body: ActualizarCuentaSchema,
+        response: { 200: UnaCuentaSchema },
+      },
+    },
+    async (peticion) => ({
+      data: await servicio.actualizarCuenta(peticion.usuarioId, peticion.params.id, peticion.body),
+    }),
+  );
+
+  /** Sub-recurso aparte porque es la única edición que existía antes de que
+   *  `/accounts/:id` de arriba se abriera: se deja igual para no romper nada. */
   app.patch(
     '/accounts/:id/savings',
     {

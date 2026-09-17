@@ -53,6 +53,40 @@ Cómo se hace, con las skills que ya están en el repositorio:
 - Para una mirada más honda existe además `/code-review` (la skill del propio
   Claude Code), útil cuando el cambio es grande o el riesgo es alto.
 
+## Entorno de trabajo: Herdr
+
+Desde 2026-09-16 el trabajo corre sobre Herdr, que organiza el proyecto en
+paneles de terminal: el agente principal (el "supervisor", con quien habla el
+dueño) y uno o más workers de OpenCode (`worker1`, `worker2`, y los que se
+agreguen), cada uno en su propio panel y su propio worktree.
+
+**El supervisor optimiza para gastar pocos tokens de Claude, no para escribir
+poco código.** Un worker de OpenCode es el recurso barato; el supervisor es el
+caro. Por eso el supervisor se limita a **repartir órdenes** — definir la
+tarea, entregarle a cada worker un encargo completo y autocontenido, y decidir
+cuándo fusionar a `main` — y deja que sean los workers quienes **planeen,
+implementen, pidan su propia revisión de código (con `requesting-code-review`,
+nunca revisándose a sí mismos) y entreguen el resultado terminado**. El
+supervisor no debería quedarse escribiendo código él mismo salvo por la
+excepción de abajo.
+
+**Excepción: el núcleo del módulo de dinero lo sigue escribiendo el
+supervisor directamente**, sin delegar — esto no cambia con Herdr. Diseño de
+esquema, migraciones y el `repository.ts` de un módulo que toca montos siguen
+siendo del supervisor (ver "Nunca paralelizar sobre el módulo de dinero" y
+"Opus: diseño de esquema, lógica de dinero" en el Protocolo de fase). Todo lo
+demás — `service.ts`, `routes.ts`, el frontend completo, los tipos y clientes
+de API, y las pruebas que no sean sobre ese núcleo — se le encarga a un
+worker.
+
+**El supervisor tampoco lanza él mismo el agente de revisión**, ni para el
+código de un worker ni para el núcleo de dinero que escribió él mismo: pedir
+la revisión (`requesting-code-review`) se lo encarga a un worker, incluso
+cuando el código a revisar es del supervisor. Lanzar esa revisión desde el
+supervisor es exactamente el tipo de trabajo que esta sección existe para
+sacarle — sigue siendo alguien aparte quien revisa, solo que quien pide la
+revisión nunca es el supervisor.
+
 ## Principio rector
 
 **Simplicidad para el usuario.** Si una pantalla necesita explicación, está
