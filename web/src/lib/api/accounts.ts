@@ -1,7 +1,7 @@
 /** Llamadas a la API de cuentas. */
 
 import { pedir } from "./client";
-import type { Cuenta, NuevaCuenta } from "./types";
+import type { CambiosDeCuenta, Cuenta, NuevaCuenta } from "./types";
 
 export function fetchAccounts(includeArchived = false): Promise<{ data: Cuenta[] }> {
   return pedir("/accounts", { parametros: { includeArchived: String(includeArchived) } });
@@ -13,6 +13,14 @@ export function fetchAccount(id: string): Promise<{ data: Cuenta }> {
 
 export function createAccount(input: NuevaCuenta): Promise<{ data: Cuenta }> {
   return pedir("/accounts", { metodo: "POST", cuerpo: input });
+}
+
+/**
+ * Editar nombre, cupo y cuenta vinculada — nunca el saldo, el tipo ni la
+ * moneda. `null` en creditLimit/linkedAccountId borra el valor.
+ */
+export function updateAccount(id: string, cambios: CambiosDeCuenta): Promise<{ data: Cuenta }> {
+  return pedir(`/accounts/${id}`, { metodo: "PATCH", cuerpo: cambios });
 }
 
 /** Archivar, no borrar: la cuenta tiene historia y la historia no se toca. */

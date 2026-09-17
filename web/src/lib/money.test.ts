@@ -9,9 +9,12 @@ import {
   decimalesDe,
   esCero,
   formatearMonto,
+  negar,
   normalizarMontoConSigno,
   normalizarMontoIngresado,
+  restar,
   sumarMontos,
+  textoEditable,
   textoMonto,
 } from "./money";
 
@@ -250,5 +253,43 @@ describe("sumar los saldos de varias cuentas", () => {
 
   it("un solo monto se devuelve tal cual, con cuatro decimales", () => {
     expect(sumarMontos(["1234.5"])).toBe("1234.5000");
+  });
+});
+
+describe("el disponible de una tarjeta es una resta exacta", () => {
+  it("voltea solo el signo, sin tocar el monto", () => {
+    expect(negar("5.0000")).toBe("-5.0000");
+    expect(negar("-5.0000")).toBe("5.0000");
+    expect(negar("0.0000")).toBe("-0.0000");
+  });
+
+  it("resta sin perder centavos", () => {
+    expect(restar("1000.0000", "250.5000")).toBe("749.5000");
+    expect(restar("100.0000", "250.0000")).toBe("-150.0000");
+  });
+
+  it("resta montos grandes sin que Number los redondee antes", () => {
+    expect(restar("999999999999999.9999", "0.0001")).toBe("999999999999999.9998");
+  });
+
+  it("cupo menos deuda da el disponible: deuda negativa, disponible positivo", () => {
+    // Tarjeta con cupo de 3.000.000 y saldo -1.200.000 debe 1.200.000.
+    const cupo = "3000000.0000";
+    const saldo = "-1200000.0000";
+    const disponible = sumarMontos([cupo, saldo]);
+    expect(disponible).toBe("1800000.0000");
+    expect(restar(cupo, disponible)).toBe("1200000.0000");
+  });
+});
+
+describe("prellenar un campo de monto con lo que ya vive en el servidor", () => {
+  it("quita los cuatro decimales y agrupa igual que en pantalla", () => {
+    expect(textoEditable("100000.0000", "COP")).toBe("100.000");
+    expect(textoEditable("12.3400", "USD")).toBe("12,34");
+    expect(textoEditable("0.0000", "COP")).toBe("0");
+  });
+
+  it("conserva el menos si el monto llegara en negativo", () => {
+    expect(textoEditable("-1500.0000", "COP")).toBe("-1.500");
   });
 });

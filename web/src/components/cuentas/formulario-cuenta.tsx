@@ -16,20 +16,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CampoMonto } from "@/components/campo-monto";
-import { useCrearCuenta } from "@/hooks/use-cuentas";
+import { useCrearCuenta, useCuentas } from "@/hooks/use-cuentas";
 import { usePerfil, useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { TipoCuenta } from "@/lib/api/types";
 import { ETIQUETA_TIPO_CUENTA, AYUDA_CUENTA_AHORRO, MONEDAS } from "@/lib/labels";
-import { normalizarMontoConSigno } from "@/lib/money";
+import { normalizarMontoConSigno, normalizarMontoIngresado } from "@/lib/money";
 
 const TIPOS: TipoCuenta[] = ["bank", "card", "cash"];
 
 export function FormularioCuenta({ children }: { children: React.ReactNode }) {
   const soloMirar = useSoloMirar();
   const { data: perfil } = usePerfil();
+  const { data: cuentas } = useCuentas();
 
   // La preferencia de los ajustes decide cuál viene marcada. Si no hay ninguna
   // elegida —o el perfil todavía no llega— manda la primera de la lista.
@@ -41,7 +49,11 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
   const [moneda, setMoneda] = useState<string | null>(null);
   const [saldoInicial, setSaldoInicial] = useState("");
   const [esAhorro, setEsAhorro] = useState(false);
-  const [errores, setErrores] = useState<{ nombre?: string; saldoInicial?: string }>({});
+  const [cupo, setCupo] = useState("");
+  const [cuentaVinculada, setCuentaVinculada] = useState<string | undefined>(undefined);
+  const [errores, setErrores] = useState<{ nombre?: string; saldoInicial?: string; cupo?: string }>(
+    {}
+  );
 
   const crearCuenta = useCrearCuenta();
   const idAhorro = useId();
@@ -50,6 +62,13 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
   // abrió el formulario, la marcada se corrige sola, pero una moneda ya elegida
   // a mano no se pisa.
   const monedaElegida = moneda ?? monedaPreferida;
+
+  // Solo importa cuando es una tarjeta: de dónde puede salir la plata para
+  // pagarla. De la misma moneda, y nunca otra tarjeta — una tarjeta no paga
+  // con otra tarjeta.
+  const cuentasParaVincular = (cuentas ?? []).filter(
+    (cuenta) => cuenta.type !== "card" && cuenta.currency === monedaElegida && !cuenta.archivedAt
+  );
 
   const monedasOfrecidas: string[] = (MONEDAS as readonly string[]).includes(monedaPreferida)
     ? [...MONEDAS]
@@ -61,6 +80,8 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
     setMoneda(null);
     setSaldoInicial("");
     setEsAhorro(false);
+    setCupo("");
+    setCuentaVinculada(undefined);
     setErrores({});
   }
 
@@ -84,6 +105,16 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
       }
     }
 
+    let cupoNormalizado: string | undefined;
+    if (tipo === "card" && cupo.trim() !== "") {
+      const lectura = normalizarMontoIngresado(cupo, monedaElegida);
+      if ("error" in lectura) {
+        nuevosErrores.cupo = lectura.error;
+      } else {
+        cupoNormalizado = lectura.monto;
+      }
+    }
+
     setErrores(nuevosErrores);
     if (Object.keys(nuevosErrores).length > 0) return;
 
@@ -93,7 +124,11 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
         type: tipo,
         currency: monedaElegida,
         openingBalance: saldoNormalizado,
-        isSavings: esAhorro,
+        // Una tarjeta no puede ser de ahorro; en su lugar se manda el cupo
+        // si lo pusieron, y de dónde se paga si eligieron una.
+        isSavings: tipo === "card" ? false : esAhorro,
+        creditLimit: tipo === "card" ? cupoNormalizado : undefined,
+        linkedAccountId: tipo === "card" ? cuentaVinculada : undefined,
       },
       {
         onSuccess: () => {
@@ -171,7 +206,12 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
               <ToggleGroup
                 value={[monedaElegida]}
                 onValueChange={(valores) => {
-                  if (valores.length > 0) setMoneda(valores[0]!);
+                  if (valores.length > 0) {
+                    setMoneda(valores[0]!);
+                    // La cuenta vinculada tiene que ser de la misma moneda: al
+                    // cambiarla, la que estaba elegida deja de servir.
+                    setCuentaVinculada(undefined);
+                  }
                 }}
                 variant="outline"
                 className="w-full"
@@ -184,17 +224,84 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
               </ToggleGroup>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between gap-3">
-                <Label htmlFor={idAhorro}>Cuenta de ahorro</Label>
-                <Switch
-                  id={idAhorro}
-                  checked={esAhorro}
-                  onCheckedChange={(valor) => setEsAhorro(valor)}
-                />
+            {/* El interruptor de ahorro solo existe para lo que no es tarjeta:
+                no se deja apagado ni deshabilitado, se quita — en una tarjeta
+                la pregunta no tiene sentido y responderla confunde. */}
+            {tipo !== "card" && (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor={idAhorro}>Cuenta de ahorro</Label>
+                  <Switch
+                    id={idAhorro}
+                    checked={esAhorro}
+                    onCheckedChange={(valor) => setEsAhorro(valor)}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">{AYUDA_CUENTA_AHORRO}</p>
               </div>
-              <p className="text-xs text-muted-foreground">{AYUDA_CUENTA_AHORRO}</p>
-            </div>
+            )}
+
+            {tipo === "card" && (
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="cupo">Cupo (opcional)</Label>
+                  <CampoMonto
+                    id="cupo"
+                    moneda={monedaElegida}
+                    value={cupo}
+                    onChange={setCupo}
+                    // El cupo es lo máximo que puede deberse: siempre positivo.
+                    permiteSigno={false}
+                    placeholder="0"
+                    aria-invalid={Boolean(errores.cupo)}
+                  />
+                  {errores.cupo ? (
+                    <p className="text-xs text-destructive">{errores.cupo}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Cuánto puedes deber como máximo. Con esto la tarjeta muestra cuánto te queda
+                      disponible.
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="cuenta-vinculada">Cuenta desde la que pagas (opcional)</Label>
+                  {cuentasParaVincular.length > 0 ? (
+                    <Select
+                      value={cuentaVinculada}
+                      onValueChange={(valor) =>
+                        setCuentaVinculada(valor === null ? undefined : valor)
+                      }
+                    >
+                      <SelectTrigger id="cuenta-vinculada" className="w-full">
+                        <SelectValue placeholder="Elige una cuenta">
+                          {(valor: string) =>
+                            cuentasParaVincular.find((cuenta) => cuenta.id === valor)?.name ?? valor
+                          }
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cuentasParaVincular.map((cuenta) => (
+                          <SelectItem key={cuenta.id} value={cuenta.id}>
+                            {cuenta.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                      Primero crea una cuenta en {monedaElegida} para vincularla: desde ahí se
+                      pagará esta tarjeta. Puedes vincularla después.
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Se usa para precargar el botón de pagar tarjeta. La puedes cambiar cuando
+                    quieras.
+                  </p>
+                </div>
+              </>
+            )}
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="saldo-inicial">Saldo inicial (opcional)</Label>
@@ -213,7 +320,9 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
                 <p className="text-xs text-destructive">{errores.saldoInicial}</p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Lo que ya tienes hoy en esta cuenta. Si es una deuda, escríbelo con signo menos.
+                  {tipo === "card"
+                    ? "Cuánto debes hoy en esta tarjeta. Deuda nueva, escríbelo con signo menos."
+                    : "Lo que ya tienes hoy en esta cuenta. Si es una deuda, escríbelo con signo menos."}
                 </p>
               )}
             </div>

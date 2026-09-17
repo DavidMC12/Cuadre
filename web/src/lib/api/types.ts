@@ -19,9 +19,13 @@ export interface Cuenta {
   /**
    * Si esta cuenta cuenta como ahorro. Es solo una etiqueta: no cambia el
    * comportamiento de nada más, sirve para que el Resumen sepa cuánta plata
-   * está apartada.
+   * está apartada. Una tarjeta nunca puede marcarse.
    */
   isSavings: boolean;
+  /** Solo en tarjetas: el cupo. Texto exacto, nunca number. Nulo si no hay. */
+  creditLimit: string | null;
+  /** Solo en tarjetas: la cuenta desde la que normalmente se paga. */
+  linkedAccountId: string | null;
 }
 
 export interface NuevaCuenta {
@@ -32,6 +36,22 @@ export interface NuevaCuenta {
   openingBalance?: string;
   /** Opcional al crear; si no viene, la cuenta no es de ahorro. */
   isSavings?: boolean;
+  /** Solo para tarjetas. Opcional; texto exacto, siempre positivo. */
+  creditLimit?: string;
+  /** Solo para tarjetas: de qué cuenta sale la plata cuando se paga. */
+  linkedAccountId?: string;
+}
+
+/**
+ * Lo que se puede editar de una cuenta ya creada: nombre, cupo y cuenta
+ * vinculada — nunca el saldo (se deriva, no se guarda) ni el tipo ni la
+ * moneda, que son "de qué está hecha" la cuenta, no datos editables.
+ * `null` en creditLimit/linkedAccountId borra el valor; omitirlos lo deja.
+ */
+export interface CambiosDeCuenta {
+  name?: string;
+  creditLimit?: string | null;
+  linkedAccountId?: string | null;
 }
 
 export type TipoMovimiento = "opening" | "standard" | "transfer";

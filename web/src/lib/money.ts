@@ -141,6 +141,27 @@ export function sumarMontos(montos: readonly string[]): string {
   return `${negativo ? "-" : ""}${entero}.${decimales}`;
 }
 
+/** El monto opuesto, solo volteando el signo del texto: nunca una cuenta. */
+export function negar(monto: string): string {
+  const texto = monto.trim();
+  return texto.startsWith("-") ? texto.slice(1) : `-${texto}`;
+}
+
+/** Resta exacta de la misma moneda: `a - b`, con enteros grandes. */
+export function restar(a: string, b: string): string {
+  return sumarMontos([a, negar(b)]);
+}
+
+/**
+ * "100000.0000" -> "100.000" o "12.3400" -> "12.34": lo que un CampoMonto
+ * sabe leer de vuelta, para prellenar un campo de monto editable con un valor
+ * que ya vive en el servidor.
+ */
+export function textoEditable(monto: string, moneda: string): string {
+  const { negativo, entero, decimales } = formatearMonto(monto, moneda);
+  return `${negativo ? "-" : ""}${entero}${decimales ? `,${decimales}` : ""}`;
+}
+
 /**
  * Lo que sale de leer un monto escrito a mano: o el monto listo para mandarlo
  * a la API ("25000", "1500.50"), o una frase que le dice a la persona qué
