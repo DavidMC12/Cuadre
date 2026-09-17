@@ -87,8 +87,9 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
   const soloMirar = useSoloMirar();
   const marcarAhorro = useMarcarAhorro();
   const actualizar = useActualizarCuenta();
-  // Con los archivados también: la cuenta vinculada puede estar archivada y
-  // hay que poder verla (y desvincularla) igual.
+  // Con los archivados también: así el detalle puede mostrar el nombre de una
+  // cuenta vinculada que ya se archivó (las opciones del selector solo
+  // ofrecen las activas, pero la elegida tiene que seguir mostrándose).
   const { data: cuentas } = useCuentas(true);
 
   const [abierto, setAbierto] = useState(false);
@@ -118,6 +119,14 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
   const errorDeApi = (error: unknown, respaldo: string): string =>
     error instanceof ApiError ? error.message : respaldo;
 
+  // Cerrar sin guardar descarta lo que se estaba escribiendo: reabrir tiene que
+  // mostrar lo que hay en el servidor, no una edición a medias.
+  function reiniciarEdicion() {
+    setNombre(cuenta.name);
+    setCupo(cuenta.creditLimit ? textoEditable(cuenta.creditLimit, cuenta.currency) : "");
+    setErrorCupo(null);
+  }
+
   function guardarNombre() {
     const limpio = nombre.trim();
     if (!limpio || limpio === cuenta.name) return;
@@ -132,11 +141,34 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
   }
 
   function guardarCupo() {
-    const normalizado = normalizarMontoIngresado(cupo, cuenta.currency);
+    const limpio = cupo.trim();
+    // Vaciar el campo quita el cupo: `null` lo borra, que es como el servidor
+    // distingue "sin cupo" de "no lo toques".
+    if (limpio === "") {
+      setErrorCupo(null);
+      actualizar.mutate(
+        { id: cuenta.id, cambios: { creditLimit: null } },
+        {
+          onSuccess: () => toast.success("Cupo quitado."),
+          onError: (error) =>
+            toast.error(errorDeApi(error, "No se pudo guardar. Intenta de nuevo.")),
+        }
+      );
+      return;
+    }
+
+    const normalizado = normalizarMontoIngresado(limpio, cuenta.currency);
     if ("error" in normalizado) {
       setErrorCupo(normalizado.error);
       return;
     }
+    if (aUnidadesMinimas(normalizado.monto) <= 0n) {
+      setErrorCupo("El cupo tiene que ser mayor que cero.");
+      return;
+    }
+    // Guardar sin cambios era un viaje de ida y vuelta que no cambiaba nada.
+    if (cupoActual && aUnidadesMinimas(normalizado.monto) === aUnidadesMinimas(cupoActual)) return;
+
     setErrorCupo(null);
     actualizar.mutate(
       { id: cuenta.id, cambios: { creditLimit: normalizado.monto } },
@@ -173,7 +205,13 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
   }
 
   return (
-    <Drawer open={abierto} onOpenChange={setAbierto}>
+    <Drawer
+      open={abierto}
+      onOpenChange={(valor) => {
+        setAbierto(valor);
+        if (!valor) reiniciarEdicion();
+      }}
+    >
       <DrawerTrigger render={children as React.ReactElement} />
       <DrawerContent>
         <DrawerHeader>
@@ -288,7 +326,7 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
                       variant="outline"
                       size="sm"
                       onClick={guardarCupo}
-                      disabled={actualizar.isPending || cupo.trim() === ""}
+                      disabled={actualizar.isPending || (cupo.trim() === "" && !cupoActual)}
                     >
                       Guardar
                     </Button>

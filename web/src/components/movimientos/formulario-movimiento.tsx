@@ -158,10 +158,18 @@ export function FormularioMovimiento({
   const [destinoElegidoAMano, setDestinoElegidoAMano] = useState<string | null>(
     transferenciaInicial?.destino ?? null
   );
+  // La cuenta propuesta como origen nunca puede ser la de destino: al pagar
+  // una tarjeta desde "Pagar tarjeta" sin cuenta vinculada, el origen caía en
+  // la última cuenta usada —que podía ser la propia tarjeta— y el formulario
+  // abría la transferencia al revés, un movimiento que no se puede editar.
+  const destinoPrecargado = transferenciaInicial?.destino;
+  const candidatasAOrigen = destinoPrecargado
+    ? cuentas.filter((cuenta) => cuenta.id !== destinoPrecargado)
+    : cuentas;
   const cuentaOrigenId =
     origenElegidoAMano && cuentas.some((cuenta) => cuenta.id === origenElegidoAMano)
       ? origenElegidoAMano
-      : cuentaPorDefecto(cuentaIdPorDefecto, cuentas);
+      : cuentaPorDefecto(cuentaIdPorDefecto, candidatasAOrigen);
   const cuentaOrigen = cuentas.find((cuenta) => cuenta.id === cuentaOrigenId);
 
   // A dónde puede ir la plata: solo a otra cuenta de la misma moneda. Si no hay
