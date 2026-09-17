@@ -36,13 +36,7 @@ import { useCuentas } from "@/hooks/use-cuentas";
 import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { ItemPresupuesto } from "@/lib/api/types";
-import { aUnidadesMinimas, formatearMonto, normalizarMontoIngresado } from "@/lib/money";
-
-/** "100000.0000" -> "100.000" o "12.3400" -> "12.34": lo que CampoMonto sabe leer. */
-function textoEditable(monto: string, moneda: string): string {
-  const { entero, decimales } = formatearMonto(monto, moneda);
-  return `${entero}${decimales ? `,${decimales}` : ""}`;
-}
+import { aUnidadesMinimas, normalizarMontoIngresado, textoEditable } from "@/lib/money";
 
 /** El componente Select no acepta un value vacío; este valor marca "ninguna". */
 const NINGUNO = "__sin_elegir__";

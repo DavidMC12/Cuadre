@@ -97,6 +97,8 @@ export function FormularioMovimiento({
   cuentas,
   cargandoCuentas = false,
   cuentaIdPorDefecto,
+  tipoInicial,
+  transferenciaInicial,
   children,
 }: {
   cuentas: Cuenta[];
@@ -104,6 +106,13 @@ export function FormularioMovimiento({
    * antes de que carguen diría "no tienes cuentas" aunque sí tengas. */
   cargandoCuentas?: boolean;
   cuentaIdPorDefecto?: string;
+  /** El tipo con el que abre el formulario ("transferencia" para pagar una
+   * tarjeta). Cada quien que lo abre monta su propia instancia, así que la
+   * precarga de uno no le pisa a la del botón de registrar. */
+  tipoInicial?: TipoMonto;
+  /** Cuentas precargadas de "Entre cuentas": de dónde sale la plata y a dónde
+   * va. Solo se proponen; la persona puede cambiarlas antes de guardar. */
+  transferenciaInicial?: { origen?: string; destino?: string };
   children: React.ReactNode;
 }) {
   const hoyInput = () => fechaParaInput(new Date().toISOString());
@@ -113,7 +122,7 @@ export function FormularioMovimiento({
   // un cajón pegado al borde de abajo de un monitor desperdicia el espacio.
   const pantallaGrande = usePantallaGrande();
   const [abierto, setAbierto] = useState(false);
-  const [tipoMonto, setTipoMonto] = useState<TipoMonto>("gasto");
+  const [tipoMonto, setTipoMonto] = useState<TipoMonto>(tipoInicial ?? "gasto");
   const [monto, setMonto] = useState("");
   const [masDetalles, setMasDetalles] = useState(false);
   const [fecha, setFecha] = useState(hoyInput);
@@ -143,8 +152,12 @@ export function FormularioMovimiento({
   // y la de destino nunca puede quedar igual a la de origen (si la persona no
   // ha elegido una a mano, o si cambió el origen y la que tenía elegida quedó
   // repetida, se propone la primera cuenta distinta que haya).
-  const [origenElegidoAMano, setOrigenElegidoAMano] = useState<string | null>(null);
-  const [destinoElegidoAMano, setDestinoElegidoAMano] = useState<string | null>(null);
+  const [origenElegidoAMano, setOrigenElegidoAMano] = useState<string | null>(
+    transferenciaInicial?.origen ?? null
+  );
+  const [destinoElegidoAMano, setDestinoElegidoAMano] = useState<string | null>(
+    transferenciaInicial?.destino ?? null
+  );
   const cuentaOrigenId =
     origenElegidoAMano && cuentas.some((cuenta) => cuenta.id === origenElegidoAMano)
       ? origenElegidoAMano
@@ -186,9 +199,11 @@ export function FormularioMovimiento({
 
   function reiniciar() {
     setCuentaElegidaAMano(null);
-    setOrigenElegidoAMano(null);
-    setDestinoElegidoAMano(null);
-    setTipoMonto("gasto");
+    // La precarga vuelve a proponerla: cerrar y reabrir el formulario debe
+    // abrirlo precargado otra vez, no con lo último que se tocó a mano.
+    setOrigenElegidoAMano(transferenciaInicial?.origen ?? null);
+    setDestinoElegidoAMano(transferenciaInicial?.destino ?? null);
+    setTipoMonto(tipoInicial ?? "gasto");
     setMonto("");
     setMasDetalles(false);
     setFecha(hoyInput());

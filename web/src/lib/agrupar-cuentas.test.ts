@@ -10,6 +10,8 @@ function cuenta(datos: Partial<Cuenta> & Pick<Cuenta, "id" | "name" | "currency"
     lastMovementAt: null,
     archivedAt: null,
     isSavings: false,
+    creditLimit: null,
+    linkedAccountId: null,
     ...datos,
   };
 }
