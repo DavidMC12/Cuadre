@@ -134,7 +134,10 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
     actualizar.mutate(
       { id: cuenta.id, cambios: { name: limpio } },
       {
-        onSuccess: () => toast.success("Nombre actualizado."),
+        onSuccess: (respuesta) => {
+          setNombre(respuesta.data.name);
+          toast.success("Nombre actualizado.");
+        },
         onError: (error) => toast.error(errorDeApi(error, "No se pudo guardar. Intenta de nuevo.")),
       }
     );
@@ -149,7 +152,14 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
       actualizar.mutate(
         { id: cuenta.id, cambios: { creditLimit: null } },
         {
-          onSuccess: () => toast.success("Cupo quitado."),
+          onSuccess: (respuesta) => {
+            setCupo(
+              respuesta.data.creditLimit
+                ? textoEditable(respuesta.data.creditLimit, cuenta.currency)
+                : ""
+            );
+            toast.success("Cupo quitado.");
+          },
           onError: (error) =>
             toast.error(errorDeApi(error, "No se pudo guardar. Intenta de nuevo.")),
         }
@@ -173,7 +183,14 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
     actualizar.mutate(
       { id: cuenta.id, cambios: { creditLimit: normalizado.monto } },
       {
-        onSuccess: () => toast.success("Cupo actualizado."),
+        onSuccess: (respuesta) => {
+          setCupo(
+            respuesta.data.creditLimit
+              ? textoEditable(respuesta.data.creditLimit, cuenta.currency)
+              : ""
+          );
+          toast.success("Cupo actualizado.");
+        },
         onError: (error) => toast.error(errorDeApi(error, "No se pudo guardar. Intenta de nuevo.")),
       }
     );
