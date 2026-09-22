@@ -7,85 +7,66 @@ producto multiusuario con integraciones externas.
 
 ## Estilo de comunicación
 
-Responde siempre en lenguaje simple y conversacional, evitando jerga técnica sin explicarla. Si algo es necesariamente técnico, tradúcelo a términos cotidianos y da ejemplos concretos cuando ayuden a entenderlo.
+Lenguaje simple y conversacional, sin jerga sin explicar. Lo técnico se
+traduce a términos cotidianos, con ejemplos concretos.
 
-## Flujo de Git: permisos sobre la rama `main`
+## Flujo de Git: permisos sobre `main`
 
-Este proyecto puede tener varios agentes trabajando al mismo tiempo, cada uno en su propia rama y en su propia copia aislada del proyecto (worktree), para no pisarse archivos entre sí. Reglas:
+Varios agentes trabajan a la vez, cada uno en su propia rama y worktree
+(nunca comparten carpeta).
 
-- Los sub-agentes que implementan una funcionalidad **nunca** tienen permiso de hacer `push`, merge, ni ningún cambio directo sobre `main`. Solo trabajan y suben cambios dentro de su propia rama.
-- Solo el agente principal (con quien el usuario habla directamente) puede subir cambios a `main`, y lo hace en cuanto se cumple lo siguiente — **no hace falta que el usuario dé permiso caso por caso**:
-  - La rama ya fue revisada por un agente aparte (`requesting-code-review`), y los hallazgos de esa revisión ya se atendieron.
-  - El agente principal confirmó que el cambio no choca ni con otras ramas activas ni con trabajo en curso de otros agentes.
-  (Cambiado 2026-09-14 a pedido del dueño: antes cada integración necesitaba su
-  visto bueno; ahora, revisado y sin conflictos es suficiente. Como Vercel
-  despliega automático desde `main`, esto significa que cada integración pasa
-  a producción sin una pausa previa.)
-- Cada funcionalidad se desarrolla en su propia copia/worktree separada del proyecto — nunca dos agentes comparten la misma carpeta de trabajo al mismo tiempo.
-- **Los arreglos de errores también van en su propia rama**, por pequeños que parezcan. Nada se corrige escribiendo directo sobre `main`, ni siquiera un cambio de una línea: si vale la pena arreglarlo, vale la pena que quede revisado y con su historia aparte.
-- Para que el perfil de GitHub del usuario se vea activo, se debe comitear seguido: cada vez que una parte pequeña y completa del trabajo esté lista (una función, una corrección, un ajuste), en vez de acumular varios cambios en un solo commit grande al final. No se deben crear commits vacíos o sin cambios reales solo para inflar el conteo.
-- **Cada commit se sube (`push`) a su rama de inmediato**, en la misma acción, no al final de la sesión. Un commit que se queda en la máquina no existe para nadie más y no aparece en el perfil de GitHub. La primera vez en una rama nueva: `git push -u origin <rama>`; después, `git push` a secas. Si el push falla (por ejemplo, sin red), se avisa al usuario en vez de seguir acumulando commits en silencio.
-- Esa regla de subir siempre aplica también a `main`: en cuanto una rama está revisada y sin conflictos, el agente principal la integra sin esperar una confirmación aparte del usuario.
+- Los sub-agentes **nunca** hacen `push`/merge a `main`; solo suben a su
+  propia rama, y lo hacen de inmediato al comitear (no al final de la
+  sesión) — primer push `git push -u origin <rama>`, luego `git push`. Push
+  fallido se avisa, no se acumula en silencio.
+- Solo el agente principal integra a `main`, y lo hace sin pedir permiso
+  caso por caso en cuanto: la rama ya fue revisada (ver abajo) y los
+  hallazgos atendidos, y no choca con otras ramas/trabajo en curso. Como
+  Vercel despliega automático desde `main`, cada integración pasa a
+  producción sin pausa previa.
+- Hasta los arreglos de un error van en su propia rama, por chicos que sean.
+- Comitear seguido (cada pieza chica y completa, no un commit gigante al
+  final) para que el perfil de GitHub se vea activo — sin commits vacíos.
 
-## Revisión de código: nunca la hace quien escribió el código
+## Revisión de código: nunca la hace quien escribió el cambio
 
-Ninguna rama se integra a `main` sin revisión, y **quien revisa jamás es quien
-escribió el cambio**. Un agente revisando su propio trabajo arrastra los mismos
-supuestos que lo llevaron al error: no está leyendo el código, está recordando
-lo que quiso escribir. Por eso la separación no es una formalidad, es de dónde
-sale todo el valor de la revisión.
+Quien revisa jamás es quien escribió: revisarse a sí mismo arrastra los
+mismos supuestos que llevaron al error.
 
-Cómo se hace, con las skills que ya están en el repositorio:
-
-- Quien implementa termina su rama y pide la revisión con la skill
-  **`requesting-code-review`**, que despacha un revisor aparte pasándole los SHA
-  a comparar y el contexto mínimo — **nunca** el historial de la conversación en
-  la que se escribió el código. Ese aislamiento es justamente el punto.
-- El revisor es un agente distinto y sin memoria del trabajo previo. Si el
-  cambio toca dinero o autenticación, se le pide con esfuerzo alto.
-- Quien recibe los comentarios los procesa con la skill
-  **`receiving-code-review`**: cada punto se verifica antes de aplicarlo. Ni se
-  acepta por cortesía ni se descarta por orgullo; si un comentario está
-  equivocado, se responde con el porqué.
-- La revisión ocurre **antes** de integrar a `main`, no después: el agente
-  principal mezcla la rama ya revisada sin esperar una confirmación aparte
-  del usuario, y le avisa lo que quedó integrado.
-- Para una mirada más honda existe además `/code-review` (la skill del propio
-  Claude Code), útil cuando el cambio es grande o el riesgo es alto.
+- Quien implementa pide la revisión con la skill `requesting-code-review`,
+  que despacha un revisor aparte con los SHA y el contexto mínimo — nunca el
+  historial de la conversación donde se escribió el código.
+- El revisor no tiene memoria del trabajo previo. Esfuerzo alto si el cambio
+  toca dinero o autenticación.
+- Quien recibe los comentarios los procesa con `receiving-code-review`: cada
+  punto se verifica antes de aplicarlo (ni cortesía, ni orgullo).
+- La revisión ocurre antes de integrar a `main`; el agente principal
+  fusiona sin esperar confirmación aparte y avisa qué quedó integrado.
+- `/code-review` (Claude Code) para una mirada más honda en cambios grandes
+  o de riesgo alto.
 
 ## Entorno de trabajo: Herdr
 
-Desde 2026-09-16 el trabajo corre sobre Herdr, que organiza el proyecto en
-paneles de terminal: el agente principal (el "supervisor", con quien habla el
-dueño) y uno o más workers de OpenCode (`worker1`, `worker2`, y los que se
-agreguen), cada uno en su propio panel y su propio worktree.
+Desde 2026-09-16 el trabajo corre en Herdr: paneles de terminal, cada uno con
+su worktree — el "supervisor" (con quien habla el dueño) y uno o más workers
+de OpenCode (`worker1`, `worker2`, ...).
 
-**El supervisor optimiza para gastar pocos tokens de Claude, no para escribir
-poco código.** Un worker de OpenCode es el recurso barato; el supervisor es el
-caro. Por eso el supervisor se limita a **repartir órdenes** — definir la
-tarea, entregarle a cada worker un encargo completo y autocontenido, y decidir
-cuándo fusionar a `main` — y deja que sean los workers quienes **planeen,
-implementen, pidan su propia revisión de código (con `requesting-code-review`,
-nunca revisándose a sí mismos) y entreguen el resultado terminado**. El
-supervisor no debería quedarse escribiendo código él mismo salvo por la
-excepción de abajo.
+**El supervisor optimiza tokens de Claude, no líneas de código.** Un worker
+es el recurso barato; el supervisor es el caro. Por eso el supervisor solo
+**reparte órdenes** — define la tarea, entrega un encargo completo y
+autocontenido a cada worker, decide cuándo fusionar a `main` — y deja que el
+worker **planee, implemente, pida su propia revisión y entregue el
+resultado terminado**. El supervisor no escribe código salvo la excepción de
+abajo, y **tampoco lanza él mismo el agente de revisión** ni siquiera para
+su propio código: pedirla (`requesting-code-review`) también se le encarga a
+un worker.
 
-**Excepción: el núcleo del módulo de dinero lo sigue escribiendo el
-supervisor directamente**, sin delegar — esto no cambia con Herdr. Diseño de
-esquema, migraciones y el `repository.ts` de un módulo que toca montos siguen
-siendo del supervisor (ver "Nunca paralelizar sobre el módulo de dinero" y
-"Opus: diseño de esquema, lógica de dinero" en el Protocolo de fase). Todo lo
-demás — `service.ts`, `routes.ts`, el frontend completo, los tipos y clientes
-de API, y las pruebas que no sean sobre ese núcleo — se le encarga a un
-worker.
-
-**El supervisor tampoco lanza él mismo el agente de revisión**, ni para el
-código de un worker ni para el núcleo de dinero que escribió él mismo: pedir
-la revisión (`requesting-code-review`) se lo encarga a un worker, incluso
-cuando el código a revisar es del supervisor. Lanzar esa revisión desde el
-supervisor es exactamente el tipo de trabajo que esta sección existe para
-sacarle — sigue siendo alguien aparte quien revisa, solo que quien pide la
-revisión nunca es el supervisor.
+**Excepción: el núcleo del módulo de dinero** (diseño de esquema,
+migraciones, `repository.ts` de un módulo que toca montos) lo sigue
+escribiendo el supervisor directamente, sin delegar — ver "Nunca
+paralelizar sobre el módulo de dinero" abajo. Todo lo demás (`service.ts`,
+`routes.ts`, frontend, tipos/clientes de API, pruebas fuera de ese núcleo)
+va a un worker.
 
 ## Principio rector
 
@@ -95,9 +76,9 @@ mal diseñada. Entre lo potente y lo obvio, gana lo obvio.
 ## Fases
 
 **El proyecto está al 100% cuando la app le sirve a su dueño para llevar sus
-cuentas.** Ese es el alcance completo, no una versión recortada de algo más
-grande. Lo que viene después son pasos adicionales, opcionales, y ninguno se
-empieza sin que él lo pida explícitamente.
+cuentas.** Alcance completo, no una versión recortada de algo más grande. Lo
+de después son pasos opcionales que no se empiezan sin que el dueño lo pida
+explícitamente.
 
 ### Hasta el 100%
 
@@ -108,101 +89,71 @@ empieza sin que él lo pida explícitamente.
 | 2   | Autenticación y despliegue                 | hecha  |
 | 3   | Uso real y ajustes de diseño               | activa |
 
-### Bitácora de diseño (Fase 3)
+### Bitácora (Fase 3)
 
-Decisión 2026-09-14: sin ronda de mockups — ya existe `DESIGN.md`, un sistema
-de neutros + un acento, y la app corre en modo Operar. Se implementa directo
-con `impeccable` sobre el critique de 27/40
-(`.impeccable/critique/2026-09-14T02-14-20Z__web-src-app.md`).
+Se trabaja directo sobre el código con `impeccable` (sin ronda de mockups) y
+en features de negocio pedidas por el dueño sobre la marcha. Historial
+completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
 
-- [x] Color semántico ($0, signo menos, contraste, foco) — `colorize` + `audit`
-- [x] Detalle de movimiento (saca Anular/Categorizar de la fila) — `distill`
-- [x] Escritorio: panel lateral, desglose y tendencia lado a lado — `layout`
-- [x] Pulido menor (texto, meses, tabular, orden saldo inicial) — `clarify`
+- Tres rondas de `impeccable critique` (27/40 → 25/40 → 29/40) ya resueltas
+  y en `main`: color semántico, detalle de movimiento, layout de escritorio,
+  historial con filtros, transferencias entre cuentas propias, gráfica de
+  tendencia en oscuro, entrar/registrarse con recuperación de contraseña.
+  Los P1 de auth se probaron en producción con correo real.
+- **Cuentas agrupadas por moneda + selector de moneda como filtro visible +
+  ahorro simple** (marcar una cuenta como "de ahorro", total ahorrado y
+  gráfica mensual en el Resumen) — en `main`.
+- **Editar cuentas y modelar tarjetas de crédito** (2026-09-21): nombre
+  editable; tarjetas ya no pueden marcarse como ahorro (el ahorro en tarjeta
+  no tiene sentido); cupo opcional y cuenta vinculada ("desde dónde se
+  paga") para tarjetas, con disponible/usado calculado en el cliente, nunca
+  guardado. Usar o pagar una tarjeta no necesitó movimientos nuevos: un
+  gasto ya sube la deuda, una transferencia ya la baja. Reglas reforzadas a
+  nivel de base de datos (checks + FK compuesta), no solo en la app. En
+  `main`.
 
-Las 4 tareas del critique 27/40 ya están en `main`.
-
-**Segunda vuelta:** el critique nuevo (25/40,
-`.impeccable/critique/2026-09-14T21-25-26Z__web-src-app.md`) bajó el puntaje
-sin deshacer lo anterior — encontró una clase de problema distinta, empezando
-por un P0 de dinero que la primera vuelta no había buscado.
-
-- [x] [P0] Separador de miles mal leído al escribir un monto — `harden`
-- [x] [P1] Historial sin límite, filtro de mes y de categoría — `shape`
-- [x] [P1] Gráfica de tendencia ilegible en modo oscuro — `colorize`
-- [x] [P1] Transferencias entre cuentas propias — `shape`
-- [x] [P2] Registrar rápido: categoría escondida y controles chicos — `adapt`
-
-Los 5 problemas prioritarios de esta vuelta ya están en `main`.
-
-**Tercera vuelta:** el critique nuevo (29/40,
-`.impeccable/critique/2026-09-15T17-11-28Z__web-src-app.md`) subió el puntaje
-sin deshacer lo anterior — esta vez encontró que `/entrar` y `/registrarse`
-nunca habían pasado por revisión de diseño.
-
-- [x] [P1] Entrar/registrarse sin encabezados reales ni controles de tamaño
-  táctil adecuado — `harden`
-- [x] [P1] Sin recuperación de contraseña — `shape`
-- [x] [P2] Transferencia: el selector "Hacia" no filtra por moneda — `harden`
-- [x] [P2] Registrar rápido: 8 opciones visibles a la vez (tipo + chips) —
-  `distill`
-- [x] [P3] Movimientos no filtra por categoría desde su propia pantalla —
-  `adapt`
-
-Los 5 problemas prioritarios de esta vuelta ya están en `main`; los P1 de
-auth se probaron en producción con un correo real. Pendiente, aparte: otro
-`$impeccable critique` para medir cuánto subió esta vez.
+Pendiente, sin fecha: otro `$impeccable critique` para medir el puntaje
+actual.
 
 ### Pasos adicionales, ya pasado el 100%
 
-Congelados. Que la fase anterior se vea terminada **no** es razón para
-arrancar ninguno de estos: hace falta que el dueño lo diga con todas las
-letras.
+Congelados — que la fase anterior se vea terminada no es razón para
+arrancarlos; hace falta que el dueño lo diga con todas las letras.
 
 | #   | Alcance                                   | Por qué está afuera                                                                                                          |
-| --- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 4   | Pruebas de punta a punta (Playwright)     | Las pruebas que ya existen cubren el dinero, que es lo que importa. Un navegador automatizado protege sobre todo del trabajo de otras personas sobre el mismo código, y aquí no hay otras personas. |
-| 5   | Apertura a usuarios reales                | Cambia el proyecto de cosa personal a servicio: soporte, privacidad y costos ajenos. Se decide aparte, nunca por inercia. Aquí vive también el botón de "entrar con Google": con un solo dueño no le ahorra nada a nadie, y obliga a configurar credenciales en Google Cloud para mantener algo que hoy no se usa. |
+| --- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| 4   | Pruebas de punta a punta (Playwright)     | Las pruebas actuales cubren el dinero. Un navegador automatizado protege sobre todo de otras personas tocando el mismo código, y aquí no hay otras personas. |
+| 5   | Apertura a usuarios reales                | Cambia el proyecto de cosa personal a servicio: soporte, privacidad, costos ajenos. Aquí vive también "entrar con Google" (con un solo dueño no ahorra nada). |
 | 6   | Integraciones externas + workers y outbox | Qué tanta falta hacen se sabe usando la app, no suponiéndolo antes.                                                          |
 
-**El paso 5 ya está empezado a medias, y conviene saber qué parte.** El dueño
-pidió el panel de administración *antes* de abrir la app, para tener la
-herramienta lista cuando llegue gente. Así que existe `/admin`: la lista de
-quién puede entrar y un botón para ver la app como esa persona, con registro
-de cada vez que pasa. Lo que **no** está hecho del paso 5 es lo demás —
-términos, política de privacidad, soporte, costos, registro abierto—, y sigue
-congelado igual que antes.
+El paso 5 está empezado a medias: existe `/admin` (lista de quién entra +
+"ver como esa persona", con registro), porque el dueño lo pidió antes de
+abrir la app. Lo que falta del paso 5 — términos, privacidad, soporte,
+costos, registro abierto — sigue congelado.
 
-El esquema es multi-tenant desde la Fase 0, aunque los usuarios de la Fase 5
-quizá no lleguen nunca. Ya está hecho y quitarlo costaría más que dejarlo.
-
-El orden no es caprichoso: la app se despliega y se usa de verdad (2 y 3) antes
-de construir nada más. La importación de extractos CSV se sacó del plan por la
-misma razón que el resto: vuelve solo si usar la app demuestra que hace falta.
-
-Los workers y el outbox viven dentro de la fase de integraciones y no antes:
-son la plomería que las hace seguras, y construirlos sin nada externo que
-llamar sería una fase entera sin nada que mostrar.
+El esquema es multi-tenant desde la Fase 0 aunque los usuarios de la Fase 5
+quizá no lleguen nunca; ya está hecho y quitarlo costaría más que dejarlo.
+El orden no es caprichoso: se despliega y se usa de verdad (2 y 3) antes de
+construir nada más — CSV, workers y outbox vuelven solo si usar la app
+demuestra que hacen falta.
 
 ## Protocolo de fase
 
-Antes de escribir código en cualquier fase o integración, presentar y esperar
-confirmación:
+Antes de escribir código en cualquier fase o integración, presentar y
+esperar confirmación:
 
-1. **Estimación** — tiempo total y desglose por tarea. Señalar qué es
-   incierto y por qué.
-2. **Paralelización** — cuántos subagentes lanzar y qué hace cada uno:
-   - 1 agente: tareas acopladas o que tocan los mismos archivos
-   - 2–3 agentes: módulos independientes (ej. backend / frontend / tests)
-   - 4+: solo si son verdaderamente aislados. Justificarlo.
-   - Nunca paralelizar sobre el módulo de dinero.
-3. **Modelo y esfuerzo** — proponer y confirmar:
-   - Haiku: scaffolding, boilerplate, renombrados
-   - Sonnet: desarrollo normal de features
-   - Opus: diseño de esquema, lógica de dinero, decisiones de arquitectura
-   - Esfuerzo: bajo / medio / alto según el riesgo de la tarea
-4. **Cuestionar el alcance** — si la fase se puede recortar sin perder
-   valor, decirlo antes de empezar.
+1. **Estimación** — tiempo total y desglose por tarea; qué es incierto y
+   por qué.
+2. **Paralelización** — cuántos subagentes y qué hace cada uno: 1 si las
+   tareas están acopladas o tocan los mismos archivos; 2–3 para módulos
+   independientes (backend/frontend/tests); 4+ solo si son verdaderamente
+   aislados, justificándolo. **Nunca paralelizar sobre el módulo de
+   dinero.**
+3. **Modelo y esfuerzo** — Haiku: scaffolding/boilerplate/renombrados.
+   Sonnet: desarrollo normal. Opus: esquema, lógica de dinero, arquitectura.
+   Esfuerzo bajo/medio/alto según riesgo.
+4. **Cuestionar el alcance** — si se puede recortar sin perder valor,
+   decirlo antes de empezar.
 
 ## Stack
 
@@ -212,39 +163,34 @@ confirmación:
 - **Auth:** Neon Auth / Auth.js — no construir autenticación propia
 - **Jobs:** worker en el mismo proceso; se separa cuando compita con las requests
 - **Móvil:** PWA responsive. No hay app nativa.
-- **Infra:** Vercel Hobby (pantallas y API) + Neon Free (base) = $0/mes.
-  Todo vive en la misma dirección, y eso quita de raíz tres problemas: CORS
-  entre dominios, la sesión viajando entre dos servidores, y un servidor que se
-  duerme por inactividad y tarda casi un minuto en despertar.
-  Vercel Hobby es no comercial: al monetizar, migrar a Cloudflare Pages.
+- **Infra:** Vercel Hobby (pantallas y API) + Neon Free (base) = $0/mes, todo
+  en la misma dirección (sin CORS entre dominios, sin sesión viajando entre
+  servidores, sin cold start). Vercel Hobby es no comercial: al monetizar,
+  migrar a Cloudflare Pages.
 
 ## Arquitectura
 
 Monolito modular. Un deploy, módulos internos.
 
-src/modules/
-accounts/ bancos, tarjetas, efectivo
-transactions/ movimientos (núcleo) + exportación del historial
-categories/ catálogo + reglas automáticas
-profile/ nombre y preferencias de quien usa la app
-admin/ registro de quién entró a la cuenta de quién
-imports/ parseo, preview, confirmación
-reports/ dashboard y gráficas
-budgets/ límites por categoría
-integrations/ conectores externos y webhooks
+    src/modules/
+    accounts/       bancos, tarjetas, efectivo
+    transactions/    movimientos (núcleo) + exportación del historial
+    categories/      catálogo + reglas automáticas
+    profile/         nombre y preferencias de quien usa la app
+    admin/           registro de quién entró a la cuenta de quién
+    imports/         parseo, preview, confirmación
+    reports/         dashboard y gráficas
+    budgets/         límites por categoría
+    integrations/    conectores externos y webhooks
 
-Tres capas por módulo:
+Tres capas por módulo: `routes.ts` (HTTP, valida con Zod, responde),
+`service.ts` (lógica de negocio, no conoce HTTP), `repository.ts` (SQL, nada
+más). **Regla:** un módulo nunca llama al repository de otro, solo al
+service.
 
-routes.ts HTTP: recibe, valida (Zod), responde
-service.ts lógica de negocio. No conoce HTTP.
-repository.ts SQL. Nada más.
-
-**Regla:** un módulo nunca llama al repository de otro. Solo al service.
-
-Sin microservicios. Sin CQRS. Sin event sourcing.
-
-**Patrones:** Repository · Service layer · Strategy (proveedores externos) ·
-Outbox (eventos a tabla en la misma transacción, worker los procesa después).
+Sin microservicios, sin CQRS, sin event sourcing. **Patrones:** Repository ·
+Service layer · Strategy (proveedores externos) · Outbox (eventos a tabla en
+la misma transacción, worker los procesa después).
 
 ## Reglas no negociables
 
@@ -252,32 +198,27 @@ Outbox (eventos a tabla en la misma transacción, worker los procesa después).
 
 - `NUMERIC(19,4)`, nunca float
 - Movimientos inmutables: se corrige creando otro, jamás con `UPDATE`
-- Los saldos se derivan, no se almacenan
+- Los saldos (y cualquier derivado, como cupo disponible) se calculan;
+  nunca se almacenan
 
 **Multi-tenancy**
 
-- `user_id` en toda tabla del núcleo
-- `user_id` obligatorio en cada método del repository, nunca implícito
+- `user_id` en toda tabla del núcleo, obligatorio en cada método del
+  repository, nunca implícito
 - **Ni siquiera un administrador lee los datos de otro con una consulta
   especial.** Para ver las cuentas de alguien, se convierte en esa persona
-  (`/admin` → "Entrar") y usa la app tal cual: así toda consulta sigue pidiendo
-  su `user_id`, igual que siempre. Unas pantallas de administración que leyeran
-  movimientos de cualquiera serían la excepción a la regla de arriba, y las
-  excepciones a esa regla son por donde se cuela una fuga. Si alguna vez hace
-  falta un número agregado del sistema, se piensa dos veces antes de abrir esa
-  puerta.
-- Suplantar no da acceso al panel: durante la suplantación la sesión es la de
-  la otra persona, así que `esAdmin` vale `false`. Es a propósito — si no,
-  desde la cuenta de alguien se podría saltar a una tercera sin dejar rastro.
-- **Desde la cuenta de otra persona solo se mira.** Cualquier método que
-  escriba (`POST`, `PATCH`, `PUT`, `DELETE`) responde 403 mientras la sesión
-  sea suplantada, y el corte está en el borde —por método, no ruta por ruta—
-  para que una ruta nueva nazca protegida en vez de acordarse de protegerla.
-  Con precisión: lo que queda cerrado es la API de Cuadre. El proveedor de
-  identidad tiene su propia puerta (`/api/auth/*`), que no pasa por aquí.
-  La razón es el libro de movimientos: no se edita, así que un gasto
-  registrado por error en la cuenta equivocada queda escrito para siempre.
-  Esa clase de error no se evita con cuidado, se evita haciéndolo imposible.
+  (`/admin` → "Entrar") y usa la app tal cual, así toda consulta sigue
+  pidiendo su `user_id`. Un agregado del sistema se piensa dos veces antes
+  de abrir esa puerta.
+- Suplantar no da acceso al panel (`esAdmin` vale `false` durante la
+  suplantación) — si no, se podría saltar de una cuenta a otra sin rastro.
+- **Desde la cuenta de otra persona solo se mira.** Todo método que escriba
+  (`POST`/`PATCH`/`PUT`/`DELETE`) responde 403 mientras la sesión esté
+  suplantada, cortado por método (no ruta por ruta) para que una ruta nueva
+  nazca protegida. Lo que queda cerrado es la API de Cuadre; `/api/auth/*`
+  tiene su propia puerta. Razón: el libro de movimientos no se edita, así
+  que un gasto mal registrado queda escrito para siempre — se evita
+  haciéndolo imposible, no con cuidado.
 
 **Integraciones**
 
@@ -313,13 +254,12 @@ Outbox (eventos a tabla en la misma transacción, worker los procesa después).
   como job diario en producción.
 - **Concurrencia:** escrituras simultáneas sobre la misma cuenta sin perder
   actualizaciones.
-- **Integración BD:** cada tanda de pruebas trabaja sobre una rama efímera de
-  Neon, creada al empezar y borrada al terminar. Se descartó Testcontainers
-  porque exige Docker en la máquina de desarrollo y porque una rama de Neon
-  prueba contra el mismo Postgres exacto que corre en producción.
+- **Integración BD:** cada tanda trabaja sobre una rama efímera de Neon,
+  creada al empezar y borrada al terminar — mismo Postgres exacto que
+  producción, sin depender de Docker.
 
-Cobertura alta en dinero e integraciones, laxa en handlers y UI. No perseguir
-un porcentaje global.
+Cobertura alta en dinero e integraciones, laxa en handlers y UI. No
+perseguir un porcentaje global.
 
 ## Convenciones
 
