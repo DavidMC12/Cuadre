@@ -86,6 +86,7 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
     cuenta.creditLimit ? textoEditable(cuenta.creditLimit, cuenta.currency) : ""
   );
   const [errorCupo, setErrorCupo] = useState<string | null>(null);
+  const [errorNombre, setErrorNombre] = useState<string | null>(null);
   const [recienGuardado, setRecienGuardado] = useState(false);
   const [avisoCierre, setAvisoCierre] = useState(false);
 
@@ -97,10 +98,9 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
   const idCupo = useId();
   const idVinculada = useId();
 
-  // Cerrar es un pedido del Drawer que a veces negamos (para avisar). Estas
-  // banderas distinguen un cierre que pedimos nosotros de uno que pide quien
-  // usa la pantalla, y evitan que el blur de un campo guarde justo cuando se
-  // está descartando.
+  // Cerrar es un pedido del Drawer que a veces negamos (para avisar). Esta
+  // bandera evita interceptar dos veces el mismo pedido: el que hacemos
+  // nosotros desde `cerrar()` y el que el Drawer pudiera devolver.
   const cierreForzado = useRef(false);
 
   // Línea base de lo último guardado: contra esto se compara lo escrito, sin
@@ -139,6 +139,7 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
     setNombre(cuenta.name);
     setCupo(cupoBase);
     setErrorCupo(null);
+    setErrorNombre(null);
     setRecienGuardado(false);
     setAvisoCierre(false);
     nombreGuardado.current = cuenta.name;
@@ -149,7 +150,7 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
   function cerrar() {
     cierreForzado.current = true;
     setAbierto(false);
-    reiniciarEdicion();
+    setAvisoCierre(false);
   }
 
   function manejarApertura(valor: boolean) {
@@ -165,6 +166,10 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
       return;
     }
 
+    // Cualquier texto pendiente se avisa antes de perderlo: el guardado es al
+    // salir del campo, así que lo que siga aquí sin guardar —válido o no— se
+    // perdería al cerrar. No se guarda al cerrar a propósito: si la red falla
+    // justo en ese momento, lo escrito se perdería sin que nadie lo note.
     const pendiente = hayCambiosSinGuardar({
       nombre,
       cupo,
@@ -175,28 +180,24 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
     });
 
     if (pendiente) {
-      const lecturaCupo = esTarjeta ? cupoNormalizado(cupo, cuenta.currency) : null;
-      // Lo válido se guarda y el cajón se cierra sin molestar. Lo que no se
-      // puede guardar (un nombre vacío, un cupo mal escrito o en cero) sí se
-      // pregunta antes de tirarlo.
-      const noSePuedeGuardar =
-        nombre.trim() === "" ||
-        (lecturaCupo !== null &&
-          ("error" in lecturaCupo || aUnidadesMinimas(lecturaCupo.monto) <= 0n));
-      if (noSePuedeGuardar) {
-        setAvisoCierre(true);
-        return;
-      }
-      guardarNombre();
-      guardarCupo();
+      setAvisoCierre(true);
+      return;
     }
 
     cerrar();
   }
 
   function guardarNombre() {
+    // Mientras se está descartando no se guarda nada: "Descartar" descarta.
+    if (avisoCierre || cierreForzado.current) return;
+
     const limpio = nombre.trim();
-    if (!limpio || limpio === nombreGuardado.current) return;
+    if (limpio === "") {
+      setErrorNombre("Ponle un nombre a la cuenta.");
+      return;
+    }
+    setErrorNombre(null);
+    if (limpio === nombreGuardado.current) return;
 
     const previo = nombreGuardado.current;
     nombreGuardado.current = limpio;
@@ -219,6 +220,9 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
   }
 
   function guardarCupo() {
+    // Mientras se está descartando no se guarda nada: "Descartar" descarta.
+    if (avisoCierre || cierreForzado.current) return;
+
     const lectura = cupoNormalizado(cupo, cuenta.currency);
     if (lectura && "error" in lectura) {
       setErrorCupo(lectura.error);
@@ -295,23 +299,25 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
         </DrawerHeader>
 
         <div className="flex flex-col gap-4 px-4 py-4">
-          {!soloMirar && (guardando || recienGuardado) && (
+          {!soloMirar && (
+            /* Montado siempre (aunque esté vacío): un `role="status"` que
+               aparece con el texto ya puesto no siempre se anuncia. */
             <p
               role="status"
               aria-live="polite"
-              className="flex items-center gap-1.5 text-xs text-muted-foreground"
+              className="flex min-h-4 items-center gap-1.5 text-xs text-muted-foreground"
             >
               {guardando ? (
                 <>
                   <Loader2 className="size-3.5 animate-spin" aria-hidden />
                   Guardando…
                 </>
-              ) : (
+              ) : recienGuardado ? (
                 <>
                   <Check className="size-3.5" aria-hidden />
                   Guardado
                 </>
-              )}
+              ) : null}
             </p>
           )}
 
@@ -327,14 +333,10 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
                 <Button variant="ghost" size="sm" onClick={() => setAvisoCierre(false)}>
                   Seguir editando
                 </Button>
-                {/* Sin `mousedown` el campo enfocado perdería el foco y se
-                    guardaría solo, justo cuando se está descartando. */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onMouseDown={(evento) => evento.preventDefault()}
-                  onClick={cerrar}
-                >
+                {/* No hace falta impedir el blur: con el aviso visible los
+                    guardados están en pausa, así que "Descartar" descarta de
+                    verdad con mouse, tacto o teclado. */}
+                <Button variant="outline" size="sm" onClick={cerrar}>
                   Descartar
                 </Button>
               </div>
@@ -391,22 +393,27 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
             {soloMirar ? (
               <p className="text-sm">{cuenta.name}</p>
             ) : (
-              <Input
-                id={idNombre}
-                value={nombre}
-                onChange={(evento) => {
-                  setNombre(evento.target.value);
-                  setRecienGuardado(false);
-                }}
-                onBlur={guardarNombre}
-                onKeyDown={(evento) => {
-                  if (evento.key === "Enter") {
-                    evento.preventDefault();
-                    evento.currentTarget.blur();
-                  }
-                }}
-                disabled={actualizar.isPending}
-              />
+              <>
+                <Input
+                  id={idNombre}
+                  value={nombre}
+                  onChange={(evento) => {
+                    setNombre(evento.target.value);
+                    setErrorNombre(null);
+                    setRecienGuardado(false);
+                  }}
+                  onBlur={guardarNombre}
+                  onKeyDown={(evento) => {
+                    if (evento.key === "Enter") {
+                      evento.preventDefault();
+                      guardarNombre();
+                    }
+                  }}
+                  disabled={actualizar.isPending}
+                  aria-invalid={Boolean(errorNombre)}
+                />
+                {errorNombre && <p className="text-xs text-destructive">{errorNombre}</p>}
+              </>
             )}
           </div>
 
@@ -436,7 +443,7 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
                     onKeyDown={(evento) => {
                       if (evento.key === "Enter") {
                         evento.preventDefault();
-                        evento.currentTarget.blur();
+                        guardarCupo();
                       }
                     }}
                     // El cupo es lo máximo que puede deberse: siempre positivo.

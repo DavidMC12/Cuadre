@@ -36,13 +36,14 @@ export function porcentajeUsado(usado: string, cupo: string): number {
 }
 
 /**
- * El tono de la barra del cupo. Neutro mientras hay margen, ámbar al acercarse
- * al tope (para que 95% no se vea igual que 5%) y rojo al pasarlo. El rojo y el
- * ámbar son de aviso: no se usa el verde, que está reservado para el ingreso.
+ * El tono de la barra del cupo. Neutro mientras hay margen, ámbar de aviso al
+ * acercarse al tope (para que 95% no se vea igual que 5%) y rojo al pasarlo.
+ * El ámbar es el token `warning` de DESIGN.md, la única excepción a "el único
+ * color es el verde del ingreso"; el verde no se usa aquí.
  */
 export function tonoBarraCupo(porcentaje: number): string {
   if (porcentaje >= 100) return "bg-destructive";
-  if (porcentaje >= UMBRAL_AVISO_CUPO) return "bg-amber-500";
+  if (porcentaje >= UMBRAL_AVISO_CUPO) return "bg-warning";
   return "bg-foreground/60";
 }
 

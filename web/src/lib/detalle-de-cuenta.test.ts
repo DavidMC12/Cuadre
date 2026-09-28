@@ -22,11 +22,11 @@ describe("porcentajeUsado", () => {
 });
 
 describe("tonoBarraCupo", () => {
-  it("neutro con margen, ámbar cerca del tope y rojo al pasarlo", () => {
+  it("neutro con margen, ámbar de aviso cerca del tope y rojo al pasarlo", () => {
     expect(tonoBarraCupo(5)).toBe("bg-foreground/60");
     expect(tonoBarraCupo(UMBRAL_AVISO_CUPO - 1)).toBe("bg-foreground/60");
-    expect(tonoBarraCupo(UMBRAL_AVISO_CUPO)).toBe("bg-amber-500");
-    expect(tonoBarraCupo(95)).toBe("bg-amber-500");
+    expect(tonoBarraCupo(UMBRAL_AVISO_CUPO)).toBe("bg-warning");
+    expect(tonoBarraCupo(95)).toBe("bg-warning");
     expect(tonoBarraCupo(100)).toBe("bg-destructive");
   });
 });

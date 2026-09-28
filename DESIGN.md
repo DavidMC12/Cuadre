@@ -154,6 +154,7 @@ Los grupos siguen Primary/Secondary/Tertiary/Neutral, y a propósito se agregan 
 - **Verde Entrada** (`#059669`, token `money-in`; `#34d399` en oscuro): montos positivos y la barra de ingresos en la tendencia.
 - **Tinta de Salida** (`oklch(0.145 0 0)`, token `money-out`; el mismo `ink`/`foreground` del texto normal, también en oscuro): montos negativos y la barra de gastos. Un gasto se lee, no alarma.
 - **Rojo** (`oklch(0.52 0.245 27.325)`, token `destructive`; `oklch(0.704 0.191 22.216)` en oscuro): reservado para errores, "Cerrar sesión" y el aviso de suplantación — lo que de verdad es una alarma o no se puede deshacer. Ya no se usa para un gasto normal. El tono claro se oscureció desde `oklch(0.577 0.245 27.325)`: como texto sobre su propio fondo tenue (p. ej. "Sí, anular" con `bg-destructive/10`) llegaba solo a 3,99:1, bajo el mínimo de 4,5:1 para texto — y ni con cero fondo pasaba de 4,76:1, así que ajustar la opacidad del tinte no alcanzaba. Con el tono más oscuro da 4,68:1 en claro y 5,46:1 en oscuro (donde además se simplificó el botón destructivo para usar el mismo tinte en ambos temas).
+- **Ámbar de Aviso** (`oklch(0.769 0.188 70.08)`, token `warning`; `oklch(0.828 0.189 84.429)` en oscuro): la barra del cupo de una tarjeta cuando el uso llega al 80% y todavía no al 100% (ahí pasa a rojo). No celebra ni cobra: avisa que un límite se está por alcanzar. Es una excepción deliberada a "el único color es el verde del ingreso".
 - **Gris Sin Categoría** (`#898781`, token `uncategorized-gray`): el balde "Sin categoría" en las gráficas.
 
 ### Categorical (charts)
@@ -162,7 +163,7 @@ Paleta fija de 8 tonos para categorías, validada para que tonos vecinos se dist
 
 ### Named Rules
 
-**The Only Income Is Colored Rule.** Fuera de las gráficas, el único color saturado en pantalla es el verde de un ingreso. Un gasto resta en tinta normal, con signo. El resto es gris.
+**The Only Income Is Colored Rule.** Fuera de las gráficas, el único color saturado en pantalla es el verde de un ingreso. Un gasto resta en tinta normal, con signo. El resto es gris. La única excepción es el **ámbar de aviso** de la barra del cupo (ver Colors): señala que un límite se está por alcanzar, sin celebrar ni cobrar.
 
 **The Red Is Reserved Rule.** El rojo no se gasta en algo tan cotidiano como un movimiento. Se guarda para un error, cerrar sesión, o algo que de verdad no se puede deshacer.
 

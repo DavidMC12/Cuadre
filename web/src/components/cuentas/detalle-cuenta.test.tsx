@@ -8,6 +8,11 @@ import type { Cuenta } from "@/lib/api/types";
 
 type ConHijos = { children?: ReactNode };
 
+interface OpcionesMutacion {
+  onSuccess?: (respuesta: { data: Cuenta }) => void;
+  onError?: (error: unknown) => void;
+}
+
 const holders = vi.hoisted(() => ({
   drawerOnOpenChange: undefined as undefined | ((valor: boolean) => void),
   actualizar: vi.fn(),
@@ -108,44 +113,105 @@ describe("DetalleCuenta: una sola gramática de guardado", () => {
     });
   });
 
+  it("Enter guarda el nombre igual que salir del campo", () => {
+    renderDetalle(banco);
+    const input = screen.getByLabelText("Nombre");
+    fireEvent.change(input, { target: { value: "Banco Nuevo" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(holders.actualizar).toHaveBeenCalledTimes(1);
+    expect(holders.actualizar.mock.calls[0][0]).toEqual({
+      id: "c1",
+      cambios: { name: "Banco Nuevo" },
+    });
+  });
+
   it("no guarda si el nombre no cambió", () => {
     renderDetalle(banco);
     fireEvent.blur(screen.getByLabelText("Nombre"));
     expect(holders.actualizar).not.toHaveBeenCalled();
   });
 
-  it("cerrar con texto válido sin guardar lo guarda y no avisa", () => {
+  it("un nombre vacío al salir del campo se avisa en línea", () => {
+    renderDetalle(banco);
+    const input = screen.getByLabelText("Nombre");
+    fireEvent.change(input, { target: { value: "   " } });
+    fireEvent.blur(input);
+
+    expect(screen.getByText("Ponle un nombre a la cuenta.")).toBeInTheDocument();
+    expect(holders.actualizar).not.toHaveBeenCalled();
+  });
+
+  it("al guardar bien, el indicador dice Guardado y el campo queda con lo del servidor", () => {
+    renderDetalle(banco);
+    holders.actualizar.mockImplementationOnce(
+      (_variables: unknown, opciones: OpcionesMutacion) => {
+        opciones.onSuccess?.({ data: { ...banco, name: "Banco Nuevo" } });
+      }
+    );
+
+    const input = screen.getByLabelText("Nombre");
+    fireEvent.change(input, { target: { value: "Banco Nuevo" } });
+    fireEvent.blur(input);
+
+    expect(screen.getByText("Guardado")).toBeInTheDocument();
+    expect(input).toHaveValue("Banco Nuevo");
+  });
+
+  it("si el guardado falla, el texto no se pierde y al cerrar avisa", () => {
+    renderDetalle(banco);
+    holders.actualizar.mockImplementationOnce(
+      (_variables: unknown, opciones: OpcionesMutacion) => {
+        opciones.onError?.(new Error("boom"));
+      }
+    );
+
+    const input = screen.getByLabelText("Nombre");
+    fireEvent.change(input, { target: { value: "Banco Nuevo" } });
+    fireEvent.blur(input);
+
+    expect(input).toHaveValue("Banco Nuevo");
+    expect(screen.queryByText("Guardado")).not.toBeInTheDocument();
+    pedirCierre();
+    expect(screen.getByText(/cambios sin guardar/i)).toBeInTheDocument();
+  });
+
+  it("avisa antes de cerrar con texto válido sin guardar y no lo pierde", () => {
     renderDetalle(banco);
     fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Banco Nuevo" } });
 
     pedirCierre();
 
-    expect(screen.queryByText(/cambios sin guardar/i)).not.toBeInTheDocument();
-    expect(holders.actualizar).toHaveBeenCalledWith(
-      { id: "c1", cambios: { name: "Banco Nuevo" } },
-      expect.anything()
-    );
-  });
-
-  it("avisa antes de cerrar con un nombre vacío", () => {
-    renderDetalle(banco);
-    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "   " } });
-
-    pedirCierre();
-
     expect(screen.getByText(/cambios sin guardar/i)).toBeInTheDocument();
     expect(holders.actualizar).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Nombre")).toHaveValue("Banco Nuevo");
   });
 
-  it("'Seguir editando' deja el cajón abierto con el texto", () => {
+  it("'Seguir editando' deja el cajón abierto y luego el blur guarda", () => {
     renderDetalle(banco);
-    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "   " } });
+    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Banco Nuevo" } });
     pedirCierre();
 
     fireEvent.click(screen.getByRole("button", { name: "Seguir editando" }));
+    expect(screen.queryByText(/cambios sin guardar/i)).not.toBeInTheDocument();
+
+    fireEvent.blur(screen.getByLabelText("Nombre"));
+    expect(holders.actualizar).toHaveBeenCalledTimes(1);
+  });
+
+  it("'Descartar' cierra y al reabrir vuelve al valor del servidor", () => {
+    renderDetalle(banco);
+    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Banco Nuevo" } });
+    pedirCierre();
+
+    fireEvent.click(screen.getByRole("button", { name: "Descartar" }));
 
     expect(screen.queryByText(/cambios sin guardar/i)).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Nombre")).toHaveValue("   ");
+    expect(holders.actualizar).not.toHaveBeenCalled();
+
+    // Reabrir muestra lo del servidor, no lo descartado.
+    act(() => holders.drawerOnOpenChange?.(true));
+    expect(screen.getByLabelText("Nombre")).toHaveValue("Bancolombia");
   });
 
   it("cerrar sin cambios no muestra aviso", () => {
@@ -177,7 +243,7 @@ describe("DetalleCuenta: un cupo inválido no se pierde en silencio", () => {
     expect(holders.actualizar).not.toHaveBeenCalled();
   });
 
-  it("'Descartar' cierra y vuelve al cupo del servidor", () => {
+  it("'Descartar' cierra y al reabrir vuelve al cupo del servidor", () => {
     renderDetalle(visa);
     fireEvent.change(screen.getByLabelText("Cupo"), { target: { value: "0" } });
     pedirCierre();
@@ -185,20 +251,18 @@ describe("DetalleCuenta: un cupo inválido no se pierde en silencio", () => {
     fireEvent.click(screen.getByRole("button", { name: "Descartar" }));
 
     expect(screen.queryByText(/cambios sin guardar/i)).not.toBeInTheDocument();
+    act(() => holders.drawerOnOpenChange?.(true));
     expect(screen.getByLabelText("Cupo")).toHaveValue("2.000.000");
   });
 
-  it("cerrar con un cupo válido lo guarda y no avisa", () => {
+  it("avisa antes de cerrar con un cupo válido sin guardar", () => {
     renderDetalle(visa);
     fireEvent.change(screen.getByLabelText("Cupo"), { target: { value: "3.000.000" } });
 
     pedirCierre();
 
-    expect(screen.queryByText(/cambios sin guardar/i)).not.toBeInTheDocument();
-    expect(holders.actualizar).toHaveBeenCalledWith(
-      { id: "c2", cambios: { creditLimit: "3000000" } },
-      expect.anything()
-    );
+    expect(screen.getByText(/cambios sin guardar/i)).toBeInTheDocument();
+    expect(holders.actualizar).not.toHaveBeenCalled();
   });
 });
 
@@ -218,7 +282,7 @@ describe("DetalleCuenta: el saldo real de una tarjeta", () => {
   it("la barra del cupo avisa en ámbar cerca del límite", () => {
     renderDetalle({ ...visa, balance: "-1800000.0000" });
     const relleno = screen.getByRole("progressbar").querySelector("div");
-    expect(relleno).toHaveClass("bg-amber-500");
+    expect(relleno).toHaveClass("bg-warning");
   });
 
   it("la barra del cupo pasa a rojo al llegar al límite", () => {
