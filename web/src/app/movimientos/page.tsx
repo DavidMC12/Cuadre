@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
+import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
 import { SelectorMes } from "@/components/dashboard/selector-mes";
 import { MovimientoItem } from "@/components/movimientos/movimiento-item";
 import { TransferenciaItem } from "@/components/movimientos/transferencia-item";
@@ -102,6 +103,10 @@ function ContenidoMovimientos() {
   const {
     data: movimientos,
     isLoading,
+    isError,
+    error,
+    isFetching,
+    refetch,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -282,6 +287,22 @@ function ContenidoMovimientos() {
           <Skeleton className="h-14 w-full rounded-lg" />
           <Skeleton className="h-14 w-full rounded-lg" />
         </div>
+      )}
+
+      {/* La consulta no se pudo leer y no hay nada que mostrar: se dice y se
+          ofrece reintentar, sin ningún estado vacío fingiendo que el mes
+          quedó en blanco. Con datos viejos en la memoria —un refetch en
+          fondo o un "Cargar más" que falló— el historial se sigue
+          mostrando: el error no borra lo que ya está en el libro. */}
+      {!isLoading && isError && !movimientos && (
+        <FalloConsulta
+          mensaje={mensajeDeFallo(
+            error,
+            "No pudimos cargar tus movimientos. Puede ser que el servidor esté dormido."
+          )}
+          reintento={isFetching}
+          onReintentar={() => refetch()}
+        />
       )}
 
       {!isLoading && movimientos?.length === 0 && categoriaFiltro && (

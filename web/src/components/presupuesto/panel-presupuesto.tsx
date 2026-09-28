@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
+import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
 import { FormularioItemPresupuesto } from "@/components/presupuesto/formulario-item-presupuesto";
 import { useChecklistDelMes, useDesarchivarItemPresupuesto, usePresupuestoItems } from "@/hooks/use-presupuesto";
 import { useSoloMirar } from "@/hooks/use-perfil";
@@ -42,7 +43,14 @@ function porcentajeBarra(progress: string, target: string): number {
  */
 export function PanelPresupuesto({ mes, moneda }: { mes: string; moneda: string }) {
   const soloMirar = useSoloMirar();
-  const { data: checklist, isLoading } = useChecklistDelMes({ month: mes, currency: moneda });
+  const {
+    data: checklist,
+    isLoading,
+    isError,
+    error,
+    isFetching,
+    refetch,
+  } = useChecklistDelMes({ month: mes, currency: moneda });
   const { data: todosLosItems } = usePresupuestoItems(true);
   const desarchivar = useDesarchivarItemPresupuesto();
 
@@ -67,7 +75,18 @@ export function PanelPresupuesto({ mes, moneda }: { mes: string; moneda: string 
         )}
       </CardHeader>
       <CardContent>
-        {isLoading ? (
+        {/* La consulta del checklist no se pudo leer: se dice y se ofrece
+            reintentar. "Nada por revisar" sería mentir con el mes en blanco. */}
+        {isError && !checklist && !isLoading ? (
+          <FalloConsulta
+            mensaje={mensajeDeFallo(
+              error,
+              "No pudimos cargar el checklist del mes. Puede ser que el servidor esté dormido."
+            )}
+            reintento={isFetching}
+            onReintentar={() => refetch()}
+          />
+        ) : isLoading ? (
           <div className="flex flex-col gap-3">
             <Skeleton className="h-10 w-full rounded-lg" />
             <Skeleton className="h-10 w-full rounded-lg" />

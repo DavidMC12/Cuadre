@@ -1,19 +1,37 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Monto } from "@/components/monto";
+import { FalloConsulta } from "@/components/fallo-consulta";
 import type { ResumenMes } from "@/lib/api/types";
 
 export function ResumenCards({
   resumen,
   moneda,
   cargando,
+  fallo,
 }: {
   resumen: ResumenMes | undefined;
   moneda: string;
   cargando: boolean;
+  /**
+   * La consulta del resumen no se pudo leer: no es lo mismo que un mes en
+   * cero. Es un objeto a propósito: quien declara un fallo se ve obligado a
+   * traer también qué decir y cómo reintentar — nunca un botón mudo.
+   */
+  fallo?: { mensaje: string; reintento?: boolean; onReintentar: () => void };
 }) {
   // En el celular: ingresos y gastos lado a lado, y el balance debajo a lo
   // ancho. Desde `md` los tres caben en una fila.
+  if (fallo) {
+    return (
+      <FalloConsulta
+        mensaje={fallo.mensaje}
+        reintento={fallo.reintento}
+        onReintentar={fallo.onReintentar}
+      />
+    );
+  }
+
   if (cargando) {
     return (
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
