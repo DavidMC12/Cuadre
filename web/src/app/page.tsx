@@ -177,8 +177,8 @@ export default function PaginaResumen() {
                   </DrawerDescription>
                 </DrawerHeader>
                 <div className="overflow-y-auto px-4 pb-4">
-{/* Sin Card ni encabezado propio: el cajón ya trae título y los dos
-                      contenedores peleaban por encabezar la misma pantalla. */}
+              {/* Sin Card ni encabezado propio: el cajón ya trae título y los
+                  dos contenedores peleaban por encabezar la misma pantalla. */}
                   <PanelPresupuesto mes={mes} moneda={moneda} variante="suelta" />
                 </div>
               </DrawerContent>
@@ -296,6 +296,7 @@ export default function PaginaResumen() {
                       ),
                       reintento: recargandoTendencia,
                       onReintentar: () => recargarTendencia(),
+                      etiquetaBoton: "Reintentar tendencia",
                     }
                   : undefined
               }

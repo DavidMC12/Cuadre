@@ -27,10 +27,12 @@ describe("Navegación: el checklist tiene casa propia en el menú", () => {
     );
 
     const entradas = screen.getAllByRole("link", { name: "Presupuesto" });
-    // Una en el menú lateral (escritorio) y otra en la barra inferior (celular):
-    // las dos viven del mismo listado.
-    expect(entradas.length).toBeGreaterThanOrEqual(1);
-    expect(entradas[0]).toHaveAttribute("href", "/presupuesto");
+    // Exactamente dos: una en el menú lateral (escritorio) y otra en la
+    // barra inferior (celular). Las dos viven del mismo listado.
+    expect(entradas).toHaveLength(2);
+    for (const entrada of entradas) {
+      expect(entrada).toHaveAttribute("href", "/presupuesto");
+    }
 
     // Las cuatro de siempre siguen ahí.
     expect(screen.getAllByRole("link", { name: "Resumen" }).length).toBeGreaterThanOrEqual(1);

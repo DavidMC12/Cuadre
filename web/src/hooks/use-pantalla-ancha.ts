@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 
 /**
- * ¿La ventana está en el tramo `xl` (desde 1280px)?
+ * ¿La ventana está en el tramo `xl` (desde 1280px, el mismo tramo que usa
+ * Tailwind para descargar la columna del checklist)? Si el tema cambia el
+ * breakpoint, este número es el que hay que tocar a la par.
  *
  * Con un `hidden xl:block` el contenido oculto se seguiría montando —y
  * consultando al servidor— aunque nadie lo vea. Este gancho solo monta lo

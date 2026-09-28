@@ -147,6 +147,7 @@ export function GraficaPorCategoria({
 
       {falloDeConsulta && (
         <FalloConsulta
+          etiquetaBoton="Reintentar por categoría"
           mensaje={mensajeDeFallo(
             error,
             `No pudimos cargar los ${tipo === "expense" ? "gastos" : "ingresos"} por categoría. Puede ser que el servidor esté dormido.`

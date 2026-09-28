@@ -61,12 +61,12 @@ describe("GraficaPorCategoria: un fallo de red no es 'sin gastos este mes'", () 
         "No pudimos cargar los gastos por categoría. Puede ser que el servidor esté dormido."
       )
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar por categoría" })).toBeInTheDocument();
     // El texto de siempre mentía: presentaba una lectura fallida como un
     // mes sin gastos.
     expect(screen.queryByText("Sin gastos este mes.")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar por categoría" }));
     expect(recargar).toHaveBeenCalledTimes(1);
   });
 

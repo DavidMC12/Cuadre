@@ -73,6 +73,7 @@ export function GraficaAhorro({ months, currency }: { months: number; currency: 
   if (isError && !ahorro && !isLoading) {
     return (
       <FalloConsulta
+        etiquetaBoton="Reintentar ahorro"
         mensaje={mensajeDeFallo(
           error,
           "No pudimos cargar el ahorro. Puede ser que el servidor esté dormido."

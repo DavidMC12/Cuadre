@@ -64,8 +64,15 @@ export function GraficaTendencia({
   moneda: string;
   cargando: boolean;
   /** La consulta de la tendencia no se pudo leer: no es lo mismo que meses
-   * sin movimientos. Objeto a propósito: mensaje y reintentar van juntos. */
-  fallo?: { mensaje: string; reintento?: boolean; onReintentar: () => void };
+   * sin movimientos. Objeto a propósito: mensaje y reintentar van juntos.
+   * `etiquetaBoton` para cuando pueda convivir con otro Reintentar en
+   * pantalla y se distinga de oído. */
+  fallo?: {
+    mensaje: string;
+    reintento?: boolean;
+    onReintentar: () => void;
+    etiquetaBoton?: string;
+  };
 }) {
   const { resolvedTheme } = useTheme();
   const modo = modoDeTema(resolvedTheme);
@@ -76,6 +83,7 @@ export function GraficaTendencia({
         mensaje={fallo.mensaje}
         reintento={fallo.reintento}
         onReintentar={fallo.onReintentar}
+        etiquetaBoton={fallo.etiquetaBoton}
       />
     );
   }

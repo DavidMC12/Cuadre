@@ -49,7 +49,10 @@ export function FalloConsulta({
         size="sm"
         onClick={onReintentar}
         disabled={reintento}
-        aria-label={etiquetaBoton}
+        // Mientras reintenta se le quita la etiqueta: el nombre audible pasa a
+        // ser el texto visible "Reintentando…", para que el cambio de estado
+        // se oiga también.
+        aria-label={reintento ? undefined : etiquetaBoton}
       >
         {reintento ? "Reintentando…" : "Reintentar"}
       </Button>

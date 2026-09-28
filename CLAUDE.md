@@ -106,9 +106,15 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   rojo cuánto te pasaste. Resumen, Movimientos y el panel de presupuesto ya
   no confunden un fallo de red con "no tienes nada" — aparece un mensaje de
   error con Reintentar (`FalloConsulta`), y un refetch fallido con datos ya
-  en pantalla no los borra. Quedan sin atacar los P2/P3 de esa ronda
-  (consistencia del cajón de editar cuenta, entrada de navegación del
-  checklist en celular, detalles menores).
+  en pantalla no los borra.
+- **Casa propia del checklist + `FalloConsulta` extendido** (2026-09-28):
+  entrada "Presupuesto" en el menú (página con mes y moneda, `panel` en
+  variante suelta para no anidar contenedores); el aside oculto del Resumen
+  se monta solo cuando la pantalla es xl. El bloque `FalloConsulta` es ya la
+  única fuente del patrón: Ajustes migrado, gráficas del Resumen y los
+  ítems archivados del panel avisan con Reintentar, y un fallo de conexión
+  usa el mensaje exacto del cliente HTTP. Quedan de esa ronda la
+  consistencia del cajón de editar cuenta y detalles menores.
 - **Cuentas agrupadas por moneda + selector de moneda como filtro visible +
   ahorro simple** (marcar una cuenta como "de ahorro", total ahorrado y
   gráfica mensual en el Resumen) — en `main`.
