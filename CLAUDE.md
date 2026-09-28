@@ -113,15 +113,25 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   se monta solo cuando la pantalla es xl. El bloque `FalloConsulta` es ya la
   única fuente del patrón: Ajustes migrado, gráficas del Resumen y los
   ítems archivados del panel avisan con Reintentar, y un fallo de conexión
-  usa el mensaje exacto del cliente HTTP. Quedan de esa ronda la
-  consistencia del cajón de editar cuenta y detalles menores.
+  usa el mensaje exacto del cliente HTTP.
+- **Una sola gramática de guardado en el cajón de cuenta + detalles P3**
+  (2026-09-28): nombre y cupo ya guardan al salir del campo o con Enter,
+  igual que la cuenta vinculada y el switch de ahorro (antes mezclaban
+  botón, guardado automático y descarte silencioso); avisa siempre si hay
+  texto sin guardar al cerrar. El saldo de una tarjeta se etiqueta según su
+  signo real (ya no dice "Debes" si está sobrepagada), la barra de cupo
+  avisa en ámbar antes del límite, el FAB perdió la sombra y los toggles de
+  Gasto/Ingreso y Tipo/Moneda suben a 44px. Con esto quedan resueltos todos
+  los P1/P2/P3 de la cuarta ronda de critique; quedan solo detalles
+  menores anotados en esas dos ramas (extraer `SelectorMoneda` si una
+  tercera pantalla lo repite, mes en la URL de `/presupuesto`).
 - **Cuentas agrupadas por moneda + selector de moneda como filtro visible +
   ahorro simple** (marcar una cuenta como "de ahorro", total ahorrado y
   gráfica mensual en el Resumen) — en `main`.
 - **Checklist de presupuesto** (2026-09-16): módulo `budgets/` completo
   (esquema, servicio, rutas y pruebas de punta a punta) con su panel en el
   Resumen; renglones por mes con objetivo, progreso y opción de archivar. En
-  `main`, sin pasar aún por una ronda de `impeccable critique`.
+  `main`; ya pasó por la cuarta ronda de `impeccable critique` (arriba).
 - **Editar cuentas y modelar tarjetas de crédito** (2026-09-21): nombre
   editable; tarjetas ya no pueden marcarse como ahorro (el ahorro en tarjeta
   no tiene sentido); cupo opcional y cuenta vinculada ("desde dónde se
@@ -131,8 +141,8 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   nivel de base de datos (checks + FK compuesta), no solo en la app. En
   `main`.
 
-Pendiente, sin fecha: los P2/P3 de la cuarta ronda de critique (arriba) y
-otra ronda de `impeccable critique` más adelante para medir el puntaje.
+Pendiente, sin fecha: otra ronda de `impeccable critique` más adelante
+para medir el puntaje tras estos arreglos.
 
 ### Pasos adicionales, ya pasado el 100%
 
