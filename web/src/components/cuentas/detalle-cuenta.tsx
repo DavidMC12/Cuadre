@@ -1,8 +1,8 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CreditCard } from "lucide-react";
+import { Check, CreditCard, Loader2 } from "lucide-react";
 
 import {
   Drawer,
@@ -37,34 +37,18 @@ import type { Cuenta } from "@/lib/api/types";
 import { AYUDA_CUENTA_AHORRO, ETIQUETA_TIPO_CUENTA } from "@/lib/labels";
 import { Monto } from "@/components/monto";
 import {
-  aUnidadesMinimas,
-  normalizarMontoIngresado,
-  restar,
-  sumarMontos,
-  textoEditable,
-  textoMonto,
-} from "@/lib/money";
+  cambióElCupo,
+  cupoNormalizado,
+  estadoCupo,
+  etiquetaSaldo,
+  hayCambiosSinGuardar,
+  tonoBarraCupo,
+} from "@/lib/detalle-de-cuenta";
+import { aUnidadesMinimas, textoEditable, textoMonto } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 /** El componente Select no acepta un value vacío; este valor marca "ninguna". */
 const SIN_VINCULADA = "__sin_vinculada__";
-
-/**
- * Qué tan lleno va el cupo de la tarjeta, en porcentaje para el CSS. La
- * cuenta es con enteros grandes y el número solo aparece aquí — es un ancho
- * de barra, no un monto de dinero.
- */
-function porcentajeUsado(usado: string, cupo: string): number {
-  const gastado = aUnidadesMinimas(usado);
-  const limite = aUnidadesMinimas(cupo);
-
-  if (limite <= 0n) return 0;
-  if (gastado <= 0n) return 0;
-  if (gastado >= limite) return 100;
-
-  // Puntos básicos: (usado / cupo) * 10000, con enteros exactos.
-  return Number((gastado * 10000n) / limite) / 100;
-}
 
 /**
  * Lo de una cuenta, un toque adentro de la lista.
@@ -79,9 +63,13 @@ function porcentajeUsado(usado: string, cupo: string): number {
  * cupo y el saldo, no pedido al servidor — y el botón de pagarla, que abre el
  * formulario de transferencia ya apuntando a esta tarjeta.
  *
- * El interruptor de ahorro escribe al instante, sin botón de guardar: no
- * rompe nada y se deshace con otro toque, igual que archivar. Desde la cuenta
- * de otra persona se ve todo, pero nada se edita.
+ * UNA sola gramática de guardado: todo se guarda al cambiar. El nombre y el
+ * cupo al salir del campo (o con Enter); el selector y el interruptor, al
+ * cambiarlos. Un indicador breve dice "Guardando…"/"Guardado", y no hay
+ * botón aparte por campo. Si al cerrar queda texto sin guardar —por ejemplo
+ * porque se pulsó Escape con el campo enfocado, o el monto no era válido— se
+ * avisa antes de descartarlo. Desde la cuenta de otra persona se ve todo,
+ * pero nada se edita.
  */
 export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: React.ReactNode }) {
   const soloMirar = useSoloMirar();
@@ -98,6 +86,8 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
     cuenta.creditLimit ? textoEditable(cuenta.creditLimit, cuenta.currency) : ""
   );
   const [errorCupo, setErrorCupo] = useState<string | null>(null);
+  const [recienGuardado, setRecienGuardado] = useState(false);
+  const [avisoCierre, setAvisoCierre] = useState(false);
 
   // Cada tarjeta monta su propio detalle, así que los ids de los controles no
   // pueden ser fijos: varios a la vez harían que la etiqueta apunte al de
@@ -105,111 +95,183 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
   const idAhorro = useId();
   const idNombre = useId();
   const idCupo = useId();
+  const idVinculada = useId();
+
+  // Cerrar es un pedido del Drawer que a veces negamos (para avisar). Estas
+  // banderas distinguen un cierre que pedimos nosotros de uno que pide quien
+  // usa la pantalla, y evitan que el blur de un campo guarde justo cuando se
+  // está descartando.
+  const cierreForzado = useRef(false);
+
+  // Línea base de lo último guardado: contra esto se compara lo escrito, sin
+  // depender de que la prop `cuenta` ya haya vuelto del servidor (mientras el
+  // guardado viaja, la prop todavía trae el valor viejo).
+  const nombreGuardado = useRef(cuenta.name);
+  const cupoGuardado = useRef(
+    cuenta.creditLimit ? textoEditable(cuenta.creditLimit, cuenta.currency) : ""
+  );
 
   const esTarjeta = cuenta.type === "card";
+  const guardando = actualizar.isPending || marcarAhorro.isPending;
 
-  // Disponible y usado NUNCA se piden al servidor: se derivan aquí del cupo
-  // y del saldo, con la aritmética exacta de money.ts. El saldo de una
-  // tarjeta es negativo cuando debe, así que cupo + saldo es lo que queda.
+  // Disponible, usado y porcentaje NUNCA se piden al servidor: se derivan del
+  // cupo y del saldo, con la aritmética exacta de money.ts.
   const cupoActual = cuenta.creditLimit;
-  const disponible = cupoActual ? sumarMontos([cupoActual, cuenta.balance]) : null;
-  const usado = cupoActual && disponible ? restar(cupoActual, disponible) : null;
-  const porcentaje = cupoActual && usado ? porcentajeUsado(usado, cupoActual) : 0;
+  const estadoDeCupo = esTarjeta ? estadoCupo(cupoActual, cuenta.balance) : null;
+  const saldoEtiqueta = etiquetaSaldo(cuenta);
+
+  // "Guardado" es breve a propósito: se va solo, sin pedir que nadie lo cierre.
+  useEffect(() => {
+    if (!recienGuardado) return;
+    const temporizador = setTimeout(() => setRecienGuardado(false), 2000);
+    return () => clearTimeout(temporizador);
+  }, [recienGuardado]);
 
   const errorDeApi = (error: unknown, respaldo: string): string =>
     error instanceof ApiError ? error.message : respaldo;
 
-  // Cerrar sin guardar descarta lo que se estaba escribiendo: reabrir tiene que
-  // mostrar lo que hay en el servidor, no una edición a medias.
+  // Cerrar descarta lo que quedó a medias: reabrir tiene que mostrar lo que
+  // hay en el servidor, no una edición a medias.
   function reiniciarEdicion() {
+    const cupoBase = cuenta.creditLimit
+      ? textoEditable(cuenta.creditLimit, cuenta.currency)
+      : "";
     setNombre(cuenta.name);
-    setCupo(cuenta.creditLimit ? textoEditable(cuenta.creditLimit, cuenta.currency) : "");
+    setCupo(cupoBase);
     setErrorCupo(null);
+    setRecienGuardado(false);
+    setAvisoCierre(false);
+    nombreGuardado.current = cuenta.name;
+    cupoGuardado.current = cupoBase;
+  }
+
+  /** Cierre definitivo: no había nada pendiente, o se confirmó descartar. */
+  function cerrar() {
+    cierreForzado.current = true;
+    setAbierto(false);
+    reiniciarEdicion();
+  }
+
+  function manejarApertura(valor: boolean) {
+    if (valor) {
+      cierreForzado.current = false;
+      reiniciarEdicion();
+      setAbierto(true);
+      return;
+    }
+    // El propio `cerrar()` ya resolvió: no volver a interceptar.
+    if (cierreForzado.current) {
+      cierreForzado.current = false;
+      return;
+    }
+
+    const pendiente = hayCambiosSinGuardar({
+      nombre,
+      cupo,
+      nombreGuardado: nombreGuardado.current,
+      cupoGuardado: cupoGuardado.current,
+      esTarjeta,
+      moneda: cuenta.currency,
+    });
+
+    if (pendiente) {
+      const lecturaCupo = esTarjeta ? cupoNormalizado(cupo, cuenta.currency) : null;
+      // Lo válido se guarda y el cajón se cierra sin molestar. Lo que no se
+      // puede guardar (un nombre vacío, un cupo mal escrito o en cero) sí se
+      // pregunta antes de tirarlo.
+      const noSePuedeGuardar =
+        nombre.trim() === "" ||
+        (lecturaCupo !== null &&
+          ("error" in lecturaCupo || aUnidadesMinimas(lecturaCupo.monto) <= 0n));
+      if (noSePuedeGuardar) {
+        setAvisoCierre(true);
+        return;
+      }
+      guardarNombre();
+      guardarCupo();
+    }
+
+    cerrar();
   }
 
   function guardarNombre() {
     const limpio = nombre.trim();
-    if (!limpio || limpio === cuenta.name) return;
+    if (!limpio || limpio === nombreGuardado.current) return;
+
+    const previo = nombreGuardado.current;
+    nombreGuardado.current = limpio;
+    setRecienGuardado(false);
 
     actualizar.mutate(
       { id: cuenta.id, cambios: { name: limpio } },
       {
         onSuccess: (respuesta) => {
+          nombreGuardado.current = respuesta.data.name;
           setNombre(respuesta.data.name);
-          toast.success("Nombre actualizado.");
+          setRecienGuardado(true);
         },
-        onError: (error) => toast.error(errorDeApi(error, "No se pudo guardar. Intenta de nuevo.")),
+        onError: (error) => {
+          nombreGuardado.current = previo;
+          toast.error(errorDeApi(error, "No se pudo guardar. Intenta de nuevo."));
+        },
       }
     );
   }
 
   function guardarCupo() {
-    const limpio = cupo.trim();
-    // Vaciar el campo quita el cupo: `null` lo borra, que es como el servidor
-    // distingue "sin cupo" de "no lo toques".
-    if (limpio === "") {
-      setErrorCupo(null);
-      actualizar.mutate(
-        { id: cuenta.id, cambios: { creditLimit: null } },
-        {
-          onSuccess: (respuesta) => {
-            setCupo(
-              respuesta.data.creditLimit
-                ? textoEditable(respuesta.data.creditLimit, cuenta.currency)
-                : ""
-            );
-            toast.success("Cupo quitado.");
-          },
-          onError: (error) =>
-            toast.error(errorDeApi(error, "No se pudo guardar. Intenta de nuevo.")),
-        }
-      );
+    const lectura = cupoNormalizado(cupo, cuenta.currency);
+    if (lectura && "error" in lectura) {
+      setErrorCupo(lectura.error);
       return;
     }
-
-    const normalizado = normalizarMontoIngresado(limpio, cuenta.currency);
-    if ("error" in normalizado) {
-      setErrorCupo(normalizado.error);
-      return;
-    }
-    if (aUnidadesMinimas(normalizado.monto) <= 0n) {
+    if (lectura && aUnidadesMinimas(lectura.monto) <= 0n) {
       setErrorCupo("El cupo tiene que ser mayor que cero.");
       return;
     }
     // Guardar sin cambios era un viaje de ida y vuelta que no cambiaba nada.
-    if (cupoActual && aUnidadesMinimas(normalizado.monto) === aUnidadesMinimas(cupoActual)) return;
+    if (!cambióElCupo(cupo, cupoGuardado.current, cuenta.currency)) return;
 
+    const previo = cupoGuardado.current;
+    cupoGuardado.current = cupo;
     setErrorCupo(null);
+    setRecienGuardado(false);
+
     actualizar.mutate(
-      { id: cuenta.id, cambios: { creditLimit: normalizado.monto } },
+      { id: cuenta.id, cambios: { creditLimit: lectura ? lectura.monto : null } },
       {
         onSuccess: (respuesta) => {
-          setCupo(
-            respuesta.data.creditLimit
-              ? textoEditable(respuesta.data.creditLimit, cuenta.currency)
-              : ""
-          );
-          toast.success("Cupo actualizado.");
+          const guardado = respuesta.data.creditLimit
+            ? textoEditable(respuesta.data.creditLimit, cuenta.currency)
+            : "";
+          cupoGuardado.current = guardado;
+          setCupo(guardado);
+          setRecienGuardado(true);
         },
-        onError: (error) => toast.error(errorDeApi(error, "No se pudo guardar. Intenta de nuevo.")),
+        onError: (error) => {
+          cupoGuardado.current = previo;
+          toast.error(errorDeApi(error, "No se pudo guardar. Intenta de nuevo."));
+        },
       }
     );
   }
 
   function cambiarVinculada(valor: string | null) {
+    setRecienGuardado(false);
     actualizar.mutate(
       { id: cuenta.id, cambios: { linkedAccountId: valor } },
       {
-        onSuccess: () => toast.success("Cuenta vinculada actualizada."),
+        onSuccess: () => setRecienGuardado(true),
         onError: (error) => toast.error(errorDeApi(error, "No se pudo guardar. Intenta de nuevo.")),
       }
     );
   }
 
   function cambiarAhorro(valor: boolean) {
+    setRecienGuardado(false);
     marcarAhorro.mutate(
       { id: cuenta.id, isSavings: valor },
       {
+        onSuccess: () => setRecienGuardado(true),
         onError: (error) => {
           if (error instanceof ApiError) {
             toast.error(error.message);
@@ -222,13 +284,7 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
   }
 
   return (
-    <Drawer
-      open={abierto}
-      onOpenChange={(valor) => {
-        setAbierto(valor);
-        if (!valor) reiniciarEdicion();
-      }}
-    >
+    <Drawer open={abierto} onOpenChange={manejarApertura}>
       <DrawerTrigger render={children as React.ReactElement} />
       <DrawerContent>
         <DrawerHeader>
@@ -239,44 +295,90 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
         </DrawerHeader>
 
         <div className="flex flex-col gap-4 px-4 py-4">
+          {!soloMirar && (guardando || recienGuardado) && (
+            <p
+              role="status"
+              aria-live="polite"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground"
+            >
+              {guardando ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  Guardando…
+                </>
+              ) : (
+                <>
+                  <Check className="size-3.5" aria-hidden />
+                  Guardado
+                </>
+              )}
+            </p>
+          )}
+
+          {avisoCierre && (
+            <div
+              role="alert"
+              className="flex flex-col gap-2 rounded-lg border border-border bg-muted/50 p-3"
+            >
+              <p className="text-sm">
+                Tienes cambios sin guardar. Si cierras ahora, se pierden.
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setAvisoCierre(false)}>
+                  Seguir editando
+                </Button>
+                {/* Sin `mousedown` el campo enfocado perdería el foco y se
+                    guardaría solo, justo cuando se está descartando. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onMouseDown={(evento) => evento.preventDefault()}
+                  onClick={cerrar}
+                >
+                  Descartar
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col items-center gap-0.5 py-2">
             <span className="text-xs text-muted-foreground uppercase tracking-wide">
-              {esTarjeta ? "Debes" : "Saldo"}
+              {saldoEtiqueta}
             </span>
             <MontoSaldo cuenta={cuenta} />
           </div>
 
           {/* El cupo dice cuánto de la deuda cabe: sin él, "te queda" no
               significa nada y mejor no fingir que sí. */}
-          {esTarjeta && cupoActual && disponible && usado && (
+          {esTarjeta && estadoDeCupo && (
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs text-muted-foreground">Usado</span>
                 <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                  {textoMonto(usado, cuenta.currency)} de{" "}
-                  {textoMonto(cupoActual, cuenta.currency)}
+                  {textoMonto(estadoDeCupo.usado, cuenta.currency)} de{" "}
+                  {textoMonto(cupoActual!, cuenta.currency)}
                 </span>
               </div>
               <div
                 role="progressbar"
-                aria-valuenow={Math.round(porcentaje)}
+                aria-valuenow={Math.round(estadoDeCupo.porcentaje)}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-label={`Cupo de ${cuenta.name}: usado ${textoMonto(usado, cuenta.currency)} de ${textoMonto(cupoActual, cuenta.currency)}`}
+                aria-label={`Cupo de ${cuenta.name}: usado ${textoMonto(estadoDeCupo.usado, cuenta.currency)} de ${textoMonto(cupoActual!, cuenta.currency)}`}
                 className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
               >
                 <div
                   className={cn(
                     "h-full rounded-full transition-[width]",
-                    porcentaje >= 100 ? "bg-destructive" : "bg-foreground/60"
+                    tonoBarraCupo(estadoDeCupo.porcentaje)
                   )}
-                  style={{ width: `${porcentaje}%` }}
+                  style={{ width: `${estadoDeCupo.porcentaje}%` }}
                 />
               </div>
               <p className="text-xs text-muted-foreground">
                 Disponible:{" "}
                 <span className="font-mono tabular-nums">
-                  {textoMonto(disponible, cuenta.currency)}
+                  {textoMonto(estadoDeCupo.disponible, cuenta.currency)}
                 </span>
               </p>
             </div>
@@ -289,28 +391,22 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
             {soloMirar ? (
               <p className="text-sm">{cuenta.name}</p>
             ) : (
-              <div className="flex items-center gap-2">
-                <Input
-                  id={idNombre}
-                  value={nombre}
-                  onChange={(evento) => setNombre(evento.target.value)}
-                  disabled={actualizar.isPending}
-                  onKeyDown={(evento) => {
-                    if (evento.key === "Enter") {
-                      evento.preventDefault();
-                      guardarNombre();
-                    }
-                  }}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={guardarNombre}
-                  disabled={actualizar.isPending || !nombre.trim() || nombre.trim() === cuenta.name}
-                >
-                  Guardar
-                </Button>
-              </div>
+              <Input
+                id={idNombre}
+                value={nombre}
+                onChange={(evento) => {
+                  setNombre(evento.target.value);
+                  setRecienGuardado(false);
+                }}
+                onBlur={guardarNombre}
+                onKeyDown={(evento) => {
+                  if (evento.key === "Enter") {
+                    evento.preventDefault();
+                    evento.currentTarget.blur();
+                  }
+                }}
+                disabled={actualizar.isPending}
+              />
             )}
           </div>
 
@@ -328,26 +424,27 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
               ) : (
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor={idCupo}>Cupo</Label>
-                  <div className="flex items-center gap-2">
-                    <CampoMonto
-                      id={idCupo}
-                      moneda={cuenta.currency}
-                      value={cupo}
-                      onChange={setCupo}
-                      // El cupo es lo máximo que puede deberse: siempre positivo.
-                      permiteSigno={false}
-                      placeholder="0"
-                      aria-invalid={Boolean(errorCupo)}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={guardarCupo}
-                      disabled={actualizar.isPending || (cupo.trim() === "" && !cupoActual)}
-                    >
-                      Guardar
-                    </Button>
-                  </div>
+                  <CampoMonto
+                    id={idCupo}
+                    moneda={cuenta.currency}
+                    value={cupo}
+                    onChange={(valor) => {
+                      setCupo(valor);
+                      setRecienGuardado(false);
+                    }}
+                    onBlur={guardarCupo}
+                    onKeyDown={(evento) => {
+                      if (evento.key === "Enter") {
+                        evento.preventDefault();
+                        evento.currentTarget.blur();
+                      }
+                    }}
+                    // El cupo es lo máximo que puede deberse: siempre positivo.
+                    permiteSigno={false}
+                    placeholder="0"
+                    aria-invalid={Boolean(errorCupo)}
+                    disabled={actualizar.isPending}
+                  />
                   {errorCupo ? (
                     <p className="text-xs text-destructive">{errorCupo}</p>
                   ) : (
@@ -361,7 +458,7 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
               )}
 
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="cuenta-vinculada">Cuenta desde la que pagas</Label>
+                <Label htmlFor={idVinculada}>Cuenta desde la que pagas</Label>
                 {soloMirar ? (
                   <p className="text-sm text-muted-foreground">
                     {(cuentas ?? []).find((c) => c.id === cuenta.linkedAccountId)?.name ??
@@ -375,7 +472,7 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
                     }
                     disabled={actualizar.isPending}
                   >
-                    <SelectTrigger id="cuenta-vinculada" className="w-full">
+                    <SelectTrigger id={idVinculada} className="w-full">
                       <SelectValue placeholder="Elige una cuenta">
                         {(valor: string) =>
                           (cuentas ?? []).find((c) => c.id === valor)?.name ??
@@ -446,7 +543,7 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
   );
 }
 
-function MontoSaldo({ cuenta }: { cuenta: Cuenta }) {
+export function MontoSaldo({ cuenta }: { cuenta: Cuenta }) {
   return (
     <Monto
       valor={cuenta.balance}
