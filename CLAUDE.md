@@ -100,6 +100,15 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   historial con filtros, transferencias entre cuentas propias, gráfica de
   tendencia en oscuro, entrar/registrarse con recuperación de contraseña.
   Los P1 de auth se probaron en producción con correo real.
+- **Cuarta ronda de `impeccable critique`** (2026-09-28, 25/40 → 27/40, sin
+  P0): los dos P1 ya resueltos y en `main`. Un tope de gasto excedido ya no
+  se marca "cumplido" en verde (queda para metas de ahorro); ahora avisa en
+  rojo cuánto te pasaste. Resumen, Movimientos y el panel de presupuesto ya
+  no confunden un fallo de red con "no tienes nada" — aparece un mensaje de
+  error con Reintentar (`FalloConsulta`), y un refetch fallido con datos ya
+  en pantalla no los borra. Quedan sin atacar los P2/P3 de esa ronda
+  (consistencia del cajón de editar cuenta, entrada de navegación del
+  checklist en celular, detalles menores).
 - **Cuentas agrupadas por moneda + selector de moneda como filtro visible +
   ahorro simple** (marcar una cuenta como "de ahorro", total ahorrado y
   gráfica mensual en el Resumen) — en `main`.
@@ -116,8 +125,8 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   nivel de base de datos (checks + FK compuesta), no solo en la app. En
   `main`.
 
-Pendiente, sin fecha: otro `$impeccable critique` para medir el puntaje
-actual.
+Pendiente, sin fecha: los P2/P3 de la cuarta ronda de critique (arriba) y
+otra ronda de `impeccable critique` más adelante para medir el puntaje.
 
 ### Pasos adicionales, ya pasado el 100%
 
