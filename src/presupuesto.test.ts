@@ -238,12 +238,12 @@ describe('crear ítems', () => {
 });
 
 describe('el checklist del mes', () => {
-  it('un ítem de categoría se cumple al llegar o pasar el objetivo', async () => {
+  it('un tope de gasto no se cumple: solo puede excederse', async () => {
     const mercado = await crearCategoria('Mercado');
     const cuenta = await crearCuenta();
     await crearItemDeCategoria(mercado.id, '100000');
 
-    // La mitad: no está cumplido todavía.
+    // La mitad: dentro del tope, sin aviso ni logro.
     await registrar(cuenta.id, '-50000', { categoryId: mercado.id });
 
     const primerVistazo = await checklist(mesRelativo(0).etiqueta);
@@ -256,18 +256,76 @@ describe('el checklist del mes', () => {
         target: '100000.0000',
         progress: '50000.0000',
         checked: false,
+        exceeded: false,
       },
     ]);
 
-    // Al llegar justo al objetivo ya cuenta como cumplido: no hay que pasarse.
+    // Justo en el tope: no es un logro (un tope no se "cumple" gastando) y
+    // todavía no es un exceso.
     await registrar(cuenta.id, '-50000', { categoryId: mercado.id });
     const alLlegar = await checklist(mesRelativo(0).etiqueta);
-    expect(alLlegar.items[0]).toMatchObject({ progress: '100000.0000', checked: true });
+    expect(alLlegar.items[0]).toMatchObject({
+      progress: '100000.0000',
+      checked: false,
+      exceeded: false,
+    });
 
-    // Y pasarse no lo desmarca.
+    // Pasarse sí enciende el aviso, y nunca el check verde.
     await registrar(cuenta.id, '-30000', { categoryId: mercado.id });
     const alPasar = await checklist(mesRelativo(0).etiqueta);
-    expect(alPasar.items[0]).toMatchObject({ progress: '130000.0000', checked: true });
+    expect(alPasar.items[0]).toMatchObject({
+      progress: '130000.0000',
+      checked: false,
+      exceeded: true,
+    });
+  });
+
+  it('una meta de ahorro se cumple al alcanzarla, sin marcarse como excedida', async () => {
+    const banco = await crearCuenta({ openingBalance: '1000000' });
+    const ahorro = await crearCuenta({ isSavings: true });
+    await crearItemDeAhorro(ahorro.id, '200000');
+
+    // Todavía no llega: ni cumplida ni excedida.
+    await pedir('POST', '/api/v1/transfers', {
+      fromAccountId: banco.id,
+      toAccountId: ahorro.id,
+      amount: '150000',
+      occurredAt: mesRelativo(0).fecha,
+    });
+    const aMedias = await checklist(mesRelativo(0).etiqueta);
+    expect(aMedias.items[0]).toMatchObject({
+      progress: '150000.0000',
+      checked: false,
+      exceeded: false,
+    });
+
+    // Llega justo: se cumple.
+    await pedir('POST', '/api/v1/transfers', {
+      fromAccountId: banco.id,
+      toAccountId: ahorro.id,
+      amount: '50000',
+      occurredAt: mesRelativo(0).fecha,
+    });
+    const alLlegar = await checklist(mesRelativo(0).etiqueta);
+    expect(alLlegar.items[0]).toMatchObject({
+      progress: '200000.0000',
+      checked: true,
+      exceeded: false,
+    });
+
+    // Y ahorrar de más sigue siendo un logro, nunca un exceso.
+    await pedir('POST', '/api/v1/transfers', {
+      fromAccountId: banco.id,
+      toAccountId: ahorro.id,
+      amount: '100000',
+      occurredAt: mesRelativo(0).fecha,
+    });
+    const deMas = await checklist(mesRelativo(0).etiqueta);
+    expect(deMas.items[0]).toMatchObject({
+      progress: '300000.0000',
+      checked: true,
+      exceeded: false,
+    });
   });
 
   it('sin movimientos el progreso es cero, no un hueco', async () => {
@@ -275,7 +333,7 @@ describe('el checklist del mes', () => {
     await crearItemDeCategoria(mercado.id, '100000');
 
     const { items } = await checklist(mesRelativo(0).etiqueta);
-    expect(items[0]).toMatchObject({ progress: '0.0000', checked: false });
+    expect(items[0]).toMatchObject({ progress: '0.0000', checked: false, exceeded: false });
   });
 
   it('un ítem de ahorro cuenta lo que entró a la cuenta en el mes', async () => {
@@ -295,6 +353,7 @@ describe('el checklist del mes', () => {
       kind: 'savings',
       progress: '150000.0000',
       checked: false,
+      exceeded: false,
     });
     expect(items[0].label).toBe(ahorro.name);
   });
@@ -313,7 +372,12 @@ describe('el checklist del mes', () => {
 
     const pasado = await checklist(mesRelativo(-1).etiqueta);
     expect(pasado.items).toHaveLength(1);
-    expect(pasado.items[0]).toMatchObject({ target: null, progress: '0.0000', checked: false });
+    expect(pasado.items[0]).toMatchObject({
+      target: null,
+      progress: '0.0000',
+      checked: false,
+      exceeded: false,
+    });
   });
 
   it('no mezcla los datos de otra persona', async () => {
@@ -400,10 +464,7 @@ describe('cambiar el objetivo de un ítem', () => {
 
 describe('la forma de las peticiones', () => {
   it('rechaza un mes mal escrito en el checklist', async () => {
-    const { estado } = await pedir(
-      'GET',
-      `/api/v1/budgets/checklist?month=2026-9&currency=COP`,
-    );
+    const { estado } = await pedir('GET', `/api/v1/budgets/checklist?month=2026-9&currency=COP`);
     expect(estado).toBe(400);
   });
 });
@@ -471,11 +532,9 @@ describe('la etiqueta de un ítem', () => {
     expect(cuerpo.data.label).toBe('Mercado del mes');
 
     // Null significa "usa el nombre de la categoría otra vez".
-    const { cuerpo: sinEtiqueta } = await pedir(
-      'PATCH',
-      `/api/v1/budgets/items/${item.id}/label`,
-      { label: null },
-    );
+    const { cuerpo: sinEtiqueta } = await pedir('PATCH', `/api/v1/budgets/items/${item.id}/label`, {
+      label: null,
+    });
     expect(sinEtiqueta.data.label).toBeNull();
   });
 });

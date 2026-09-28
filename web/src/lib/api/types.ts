@@ -263,7 +263,16 @@ export interface ItemDelChecklist {
   target: string | null;
   /** Texto exacto, nunca number. */
   progress: string;
+  /**
+   * La meta se alcanzó. Solo puede ser `true` en un ítem de ahorro: un tope
+   * de gasto no se "cumple", por eso no se pinta en verde al gastarlo.
+   */
   checked: boolean;
+  /**
+   * El tope se pasó. Solo puede ser `true` en un ítem de categoría: es la
+   * señal para avisar, no para celebrar.
+   */
+  exceeded: boolean;
 }
 
 /** El checklist completo de un mes, en una sola moneda. */

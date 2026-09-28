@@ -98,8 +98,19 @@ export const ItemDelChecklistSchema = z.object({
   target: z.string().nullable(),
   /** Cuánto se ha gastado (categoría) o ahorrado (cuenta) este mes. */
   progress: z.string(),
-  /** `progress` llegó o pasó de `target`. Siempre `false` si `target` es nulo. */
+  /**
+   * La meta se alcanzó: `progress` llegó o pasó de `target`. Solo tiene
+   * sentido en una meta de ahorro; en un tope de gasto siempre es `false`,
+   * porque un tope no se "cumple" gastando. Siempre `false` si `target` es
+   * nulo.
+   */
   checked: z.boolean(),
+  /**
+   * El tope se pasó: `progress` superó `target`. Solo tiene sentido en un
+   * tope de gasto; en una meta de ahorro siempre es `false`, porque ahorrar
+   * de más no es un problema. Siempre `false` si `target` es nulo.
+   */
+  exceeded: z.boolean(),
 });
 
 export const ChecklistSchema = z.object({

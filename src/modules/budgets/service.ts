@@ -151,12 +151,21 @@ export async function checklistDelMes(
               objetivo.accountId as string,
             );
 
-      // Nulo significa que el ítem todavía no existía ese mes: no aplica, y un
-      // "no aplica" nunca está cumplido. La comparación es exacta y en
-      // enteros: un string menor que otro en JavaScript ordenaría como texto,
-      // y "100000" < "20000" es verdad leído así — ahí queda un check falso.
-      const checked =
-        objetivo.target !== null && compare(progress, objetivo.target) >= 0;
+      // Un tope de gasto y una meta de ahorro no se leen igual: en una meta,
+      // llegar o pasar el objetivo es un logro; en un tope, pasarse es lo que
+      // hay que avisar. Por eso `checked` (logro) solo se enciende en ahorro y
+      // `exceeded` (aviso) solo en un tope: nunca se pinta de verde a quien se
+      // pasó del límite. Nulo significa que el ítem todavía no existía ese mes:
+      // no aplica, y un "no aplica" no es ni logro ni exceso.
+      //
+      // La comparación es exacta y en enteros: comparar los strings con `<`/`>`
+      // de JavaScript ordenaría como texto, y "100000" < "20000" sería verdad
+      // leído así — de ahí el `compare`.
+      const llegoAlObjetivo = objetivo.target !== null && compare(progress, objetivo.target) >= 0;
+      const pasoElTope = objetivo.target !== null && compare(progress, objetivo.target) > 0;
+
+      const checked = objetivo.kind === 'savings' && llegoAlObjetivo;
+      const exceeded = objetivo.kind === 'category' && pasoElTope;
 
       const label =
         objetivo.label ?? objetivo.categoryName ?? objetivo.accountName ?? 'Ítem de presupuesto';
@@ -169,6 +178,7 @@ export async function checklistDelMes(
         target: objetivo.target,
         progress,
         checked,
+        exceeded,
       };
     }),
   );
