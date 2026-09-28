@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { CheckIcon, ListTodo, Plus } from "lucide-react";
+import { CheckIcon, ListTodo, Plus, TriangleAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { useChecklistDelMes, useDesarchivarItemPresupuesto, usePresupuestoItems 
 import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { ItemDelChecklist } from "@/lib/api/types";
-import { aUnidadesMinimas, textoMonto } from "@/lib/money";
+import { aUnidadesMinimas, restar, textoMonto } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 /**
@@ -77,7 +77,7 @@ export function PanelPresupuesto({ mes, moneda }: { mes: string; moneda: string 
           <EmptyState
             Icono={ListTodo}
             titulo="Nada por revisar este mes"
-            descripcion="Agrega un tope para una categoría, o una meta para tus ahorros, y márcalos conforme los vayas cumpliendo."
+            descripcion="Agrega un tope de gasto para una categoría, o una meta para tus ahorros. El progreso se calcula solo con tus movimientos."
             className="border-0 px-2 py-8"
           />
         ) : (
@@ -171,9 +171,18 @@ function ContenidoRenglon({
     <>
       <div className="flex items-center justify-between gap-3">
         <span className="truncate text-sm font-medium">{renglon.label}</span>
+        {/* Logro y aviso nunca coinciden: `checked` solo se enciende en una
+            meta de ahorro y `exceeded` solo al pasarse de un tope de gasto. */}
         {renglon.checked && (
           <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-600/15 text-emerald-600 dark:text-emerald-400">
-            <CheckIcon className="size-3.5" />
+            <CheckIcon className="size-3.5" aria-hidden />
+            <span className="sr-only">Meta alcanzada</span>
+          </span>
+        )}
+        {renglon.exceeded && (
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+            <TriangleAlert className="size-3.5" aria-hidden />
+            <span className="sr-only">Tope excedido</span>
           </span>
         )}
       </div>
@@ -187,13 +196,24 @@ function ContenidoRenglon({
             aria-valuenow={Math.round(porcentaje ?? 0)}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label={`${renglon.label}: ${textoMonto(renglon.progress, renglon.currency)} de ${textoMonto(renglon.target, renglon.currency)}`}
+            aria-label={
+              renglon.exceeded
+                ? `${renglon.label}: tope excedido, ${textoMonto(renglon.progress, renglon.currency)} de ${textoMonto(renglon.target, renglon.currency)}`
+                : `${renglon.label}: ${textoMonto(renglon.progress, renglon.currency)} de ${textoMonto(renglon.target, renglon.currency)}`
+            }
             className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
           >
             <div
               className={cn(
                 "h-full rounded-full transition-[width]",
-                renglon.checked ? "bg-emerald-600" : "bg-foreground/60"
+                // El exceso no se celebra: se avisa en rojo (el mismo tono
+                // de error que usa el resto de la app). El verde queda para
+                // una meta de ahorro alcanzada.
+                renglon.exceeded
+                  ? "bg-destructive"
+                  : renglon.checked
+                    ? "bg-emerald-600"
+                    : "bg-foreground/60"
               )}
               style={{ width: `${porcentaje ?? 0}%` }}
             />
@@ -211,6 +231,14 @@ function ContenidoRenglon({
               {textoMonto(renglon.target, renglon.currency)}
             </span>
           </p>
+          {renglon.exceeded && (
+            <p className="text-xs font-medium text-destructive">
+              Te pasaste por{" "}
+              <span className="font-mono tabular-nums">
+                {textoMonto(restar(renglon.progress, renglon.target), renglon.currency)}
+              </span>
+            </p>
+          )}
         </>
       )}
     </>
