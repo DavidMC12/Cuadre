@@ -438,6 +438,7 @@ export function FormularioMovimiento({
             }
           }}
           variant="outline"
+          size="tap"
           className="w-full"
         >
           <ToggleGroupItem

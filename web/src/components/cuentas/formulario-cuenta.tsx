@@ -191,6 +191,7 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
                   if (valores.length > 0) setTipo(valores[0] as TipoCuenta);
                 }}
                 variant="outline"
+                size="tap"
                 className="w-full"
               >
                 {TIPOS.map((valor) => (
@@ -214,6 +215,7 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
                   }
                 }}
                 variant="outline"
+                size="tap"
                 className="w-full"
               >
                 {monedasOfrecidas.map((valor) => (
