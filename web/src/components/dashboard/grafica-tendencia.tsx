@@ -14,6 +14,7 @@ import {
 } from "recharts";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { FalloConsulta } from "@/components/fallo-consulta";
 import type { TendenciaMes } from "@/lib/api/types";
 import { etiquetaMesCorta } from "@/lib/fecha";
 import { textoMonto } from "@/lib/money";
@@ -57,13 +58,27 @@ export function GraficaTendencia({
   tendencia,
   moneda,
   cargando,
+  fallo,
 }: {
   tendencia: TendenciaMes[] | undefined;
   moneda: string;
   cargando: boolean;
+  /** La consulta de la tendencia no se pudo leer: no es lo mismo que meses
+   * sin movimientos. Objeto a propósito: mensaje y reintentar van juntos. */
+  fallo?: { mensaje: string; reintento?: boolean; onReintentar: () => void };
 }) {
   const { resolvedTheme } = useTheme();
   const modo = modoDeTema(resolvedTheme);
+
+  if (fallo) {
+    return (
+      <FalloConsulta
+        mensaje={fallo.mensaje}
+        reintento={fallo.reintento}
+        onReintentar={fallo.onReintentar}
+      />
+    );
+  }
 
   if (cargando) {
     return <Skeleton className="h-48 w-full rounded-lg" />;

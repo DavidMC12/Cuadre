@@ -118,11 +118,11 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
         "No pudimos cargar las monedas. Puede ser que el servidor esté dormido."
       )
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Reintentar/ })).toBeInTheDocument();
     // Esto era verdad antes y sería lo grave: presentaba un fallo como si no hubiera nada.
     expect(screen.queryByText("Todavía no hay nada que resumir")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    fireEvent.click(screen.getByRole("button", { name: /Reintentar/ }));
     expect(recargar).toHaveBeenCalledTimes(1);
   });
 
@@ -166,7 +166,7 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
         "No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido."
       )
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Reintentar/ })).toBeInTheDocument();
     // El disgusto completo del hallazgo: hasta que enfrenta el fallo, el
     // resumen entero se dibujaba como un mes sin plata.
     expect(screen.queryByText("$0")).not.toBeInTheDocument();
@@ -174,7 +174,7 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     expect(screen.queryByText("Gastos")).not.toBeInTheDocument();
     expect(screen.queryByText("Balance del mes")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    fireEvent.click(screen.getByRole("button", { name: /Reintentar/ }));
     expect(recargar).toHaveBeenCalledTimes(1);
   });
 

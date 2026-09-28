@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, ChartPie, Settings, Wallet } from "lucide-react";
+import { ArrowLeftRight, ChartPie, ListTodo, Settings, Wallet } from "lucide-react";
 
 import { BannerSuplantacion } from "@/components/admin/banner-suplantacion";
 import { AccionRegistrar } from "@/components/movimientos/accion-registrar";
@@ -13,6 +13,9 @@ const ELEMENTOS_NAV = [
   { href: "/", etiqueta: "Resumen", Icono: ChartPie, hijas: [] },
   { href: "/cuentas", etiqueta: "Cuentas", Icono: Wallet, hijas: [] },
   { href: "/movimientos", etiqueta: "Movimientos", Icono: ArrowLeftRight, hijas: [] },
+  // El checklist tenía una sola puerta —un botón arriba a la derecha del
+  // Resumen, la zona más difícil del pulgar en celular. Casa propia.
+  { href: "/presupuesto", etiqueta: "Presupuesto", Icono: ListTodo, hijas: [] },
   // Categorías y el panel de administración se abren desde Ajustes, así que
   // estando ahí el menú tiene que seguir diciendo dónde está uno.
   { href: "/ajustes", etiqueta: "Ajustes", Icono: Settings, hijas: ["/categorias", "/admin"] },

@@ -14,6 +14,7 @@ import {
 } from "recharts";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
 import { useAhorroMensual } from "@/hooks/use-reportes";
 import { etiquetaMesCorta } from "@/lib/fecha";
 import { textoMonto } from "@/lib/money";
@@ -58,7 +59,29 @@ function TooltipAhorro({
 export function GraficaAhorro({ months, currency }: { months: number; currency: string }) {
   const { resolvedTheme } = useTheme();
   const modo = modoDeTema(resolvedTheme);
-  const { data: ahorro, isLoading } = useAhorroMensual({ months, currency });
+  const {
+    data: ahorro,
+    isLoading,
+    isError,
+    error,
+    isFetching,
+    refetch,
+  } = useAhorroMensual({ months, currency });
+
+  // La consulta del ahorro no se pudo leer: no es lo mismo que una cuenta
+  // de ahorro quieta. Se dice y se ofrece reintentar.
+  if (isError && !ahorro && !isLoading) {
+    return (
+      <FalloConsulta
+        mensaje={mensajeDeFallo(
+          error,
+          "No pudimos cargar el ahorro. Puede ser que el servidor esté dormido."
+        )}
+        reintento={isFetching}
+        onReintentar={() => refetch()}
+      />
+    );
+  }
 
   if (isLoading) {
     return <Skeleton className="h-48 w-full rounded-lg" />;

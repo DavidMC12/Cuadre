@@ -3,15 +3,14 @@
 import { ChevronRight } from "lucide-react";
 
 import { BotonExportar } from "@/components/ajustes/boton-exportar";
+import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
 import { EditarNombre } from "@/components/ajustes/editar-nombre";
 import { OpcionGuardada } from "@/components/ajustes/opcion-guardada";
 import { Fila, FilaEnlace, Seccion, ValorFijo } from "@/components/ajustes/seccion";
 import { SelectorTema } from "@/components/ajustes/selector-tema";
 import { BotonSalir } from "@/components/auth/boton-salir";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePerfil } from "@/hooks/use-perfil";
-import { ApiError } from "@/lib/api/client";
 import { etiquetaMesDeFecha } from "@/lib/fecha";
 import { MONEDAS } from "@/lib/labels";
 import type { PantallaDeInicio } from "@/lib/api/types";
@@ -44,13 +43,6 @@ const PANTALLAS = [
 export default function PaginaAjustes() {
   const { data: perfil, isPending, isError, error, isFetching, refetch } = usePerfil();
 
-  // Una sesión vencida no es un servidor dormido, y el servidor ya lo dice en
-  // español. Para todo lo demás el mensaje propio explica mejor lo que pasa.
-  const porQueFallo =
-    error instanceof ApiError && error.code === "UNAUTHORIZED"
-      ? error.message
-      : "No pudimos cargar tus ajustes. Puede ser que el servidor esté dormido.";
-
   return (
     <div className="flex flex-col gap-5 pb-4">
       <h1 className="text-xl font-semibold">Ajustes</h1>
@@ -63,19 +55,17 @@ export default function PaginaAjustes() {
         </div>
       )}
 
+      {/* El mismo bloque de fallo que el resto de la app: la respuesta a "no
+          se pudo cargar" es una sola, no una por pantalla. */}
       {isError && (
-        <div className="flex flex-col items-start gap-3 rounded-lg border border-border p-4">
-          <p className="text-sm text-muted-foreground">{porQueFallo}</p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-          >
-            {isFetching ? "Reintentando…" : "Reintentar"}
-          </Button>
-        </div>
+        <FalloConsulta
+          mensaje={mensajeDeFallo(
+            error,
+            "No pudimos cargar tus ajustes. Puede ser que el servidor esté dormido."
+          )}
+          reintento={isFetching}
+          onReintentar={() => refetch()}
+        />
       )}
 
       {perfil && (

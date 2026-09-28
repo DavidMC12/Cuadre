@@ -40,8 +40,21 @@ function porcentajeBarra(progress: string, target: string): number {
  * Cada renglón es tocable para editar su monto o archivarlo, y en el
  * encabezado vive el botón para agregar uno nuevo. `mes` y `moneda` son los
  * que la pantalla de Resumen ya tiene elegidos.
+ *
+ * Dos variantes: como tarjeta propia (columna de escritorio, pantalla de
+ * Presupuesto) y "suelta" — sin Card ni título — para cuando el panel vive
+ * dentro de un cajón que ya trae su propio encabezado: que el cajón sea el
+ * único contenedor.
  */
-export function PanelPresupuesto({ mes, moneda }: { mes: string; moneda: string }) {
+export function PanelPresupuesto({
+  mes,
+  moneda,
+  variante = "tarjeta",
+}: {
+  mes: string;
+  moneda: string;
+  variante?: "tarjeta" | "suelta";
+}) {
   const soloMirar = useSoloMirar();
   const {
     data: checklist,
@@ -51,7 +64,16 @@ export function PanelPresupuesto({ mes, moneda }: { mes: string; moneda: string 
     isFetching,
     refetch,
   } = useChecklistDelMes({ month: mes, currency: moneda });
-  const { data: todosLosItems } = usePresupuestoItems(true);
+  // Los archivados no son el plato principal pero sí parte de la pantalla:
+  // si su consulta falla también se dice, no se esconden como nunca
+  // archivados.
+  const {
+    data: todosLosItems,
+    isError: errorDeItems,
+    error: porqueFalloItems,
+    isFetching: recargandoItems,
+    refetch: recargarItems,
+  } = usePresupuestoItems(true);
   const desarchivar = useDesarchivarItemPresupuesto();
 
   const [viendoArchivados, setViendoArchivados] = useState(false);
@@ -59,34 +81,30 @@ export function PanelPresupuesto({ mes, moneda }: { mes: string; moneda: string 
   const archivados = (todosLosItems ?? []).filter((item) => item.archivedAt !== null);
   const itemPorId = new Map((todosLosItems ?? []).map((item) => [item.id, item]));
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Checklist del mes</CardTitle>
-        {!soloMirar && (
-          <CardAction>
-            <FormularioItemPresupuesto moneda={moneda}>
-              <Button variant="outline" size="sm">
-                <Plus />
-                Agregar
-              </Button>
-            </FormularioItemPresupuesto>
-          </CardAction>
-        )}
-      </CardHeader>
-      <CardContent>
-        {/* La consulta del checklist no se pudo leer: se dice y se ofrece
-            reintentar. "Nada por revisar" sería mentir con el mes en blanco. */}
-        {isError && !checklist && !isLoading ? (
-          <FalloConsulta
-            mensaje={mensajeDeFallo(
-              error,
-              "No pudimos cargar el checklist del mes. Puede ser que el servidor esté dormido."
-            )}
-            reintento={isFetching}
-            onReintentar={() => refetch()}
-          />
-        ) : isLoading ? (
+  const accionAgregar = !soloMirar && (
+    <FormularioItemPresupuesto moneda={moneda}>
+      <Button variant="outline" size="sm">
+        <Plus />
+        Agregar
+      </Button>
+    </FormularioItemPresupuesto>
+  );
+
+  const cuerpo = (
+    <>
+      {/* La consulta del checklist no se pudo leer: se dice y se ofrece
+          reintentar. "Nada por revisar" sería mentir con el mes en blanco. */}
+      {isError && !checklist && !isLoading ? (
+        <FalloConsulta
+          etiquetaBoton="Reintentar checklist"
+          mensaje={mensajeDeFallo(
+            error,
+            "No pudimos cargar el checklist del mes. Puede ser que el servidor esté dormido."
+          )}
+          reintento={isFetching}
+          onReintentar={() => refetch()}
+        />
+      ) : isLoading ? (
           <div className="flex flex-col gap-3">
             <Skeleton className="h-10 w-full rounded-lg" />
             <Skeleton className="h-10 w-full rounded-lg" />
@@ -138,7 +156,23 @@ export function PanelPresupuesto({ mes, moneda }: { mes: string; moneda: string 
           </ul>
         )}
 
-        {archivados.length > 0 && (
+        {/* La consulta de los ítems falló: sin ella no sabemos qué hay
+            archivado, y que el bloque desaparezca en silencio diría un "no
+            archivaste nada" que quizá sea mentira. Se dice y se ofrece
+            reintentar. */}
+        {errorDeItems && !todosLosItems ? (
+          <div className="mt-3 border-t border-border pt-3">
+            <FalloConsulta
+              etiquetaBoton="Reintentar archivados"
+              mensaje={mensajeDeFallo(
+                porqueFalloItems,
+                "No pudimos cargar los ítems archivados. Puede ser que el servidor esté dormido."
+              )}
+              reintento={recargandoItems}
+              onReintentar={() => recargarItems()}
+            />
+          </div>
+        ) : archivados.length > 0 ? (
           <div className="mt-3 border-t border-border pt-3">
             {viendoArchivados ? (
               <ul className="flex flex-col gap-1 pb-1">
@@ -173,8 +207,29 @@ export function PanelPresupuesto({ mes, moneda }: { mes: string; moneda: string 
               {viendoArchivados ? "Ocultar archivados" : `Archivados (${archivados.length})`}
             </Button>
           </div>
-        )}
-      </CardContent>
+        ) : null}
+    </>
+  );
+
+  // Variante "suelta": sin Card ni título, para vivos dentro de un cajón o
+  // de una pantalla que ya traen su propio encabezado — el cajón (o la
+  // pantalla) queda siendo el único contenedor del panel.
+  if (variante === "suelta") {
+    return (
+      <div className="flex flex-col">
+        {accionAgregar && <div className="flex justify-end pb-3">{accionAgregar}</div>}
+        {cuerpo}
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Checklist del mes</CardTitle>
+        {accionAgregar && <CardAction>{accionAgregar}</CardAction>}
+      </CardHeader>
+      <CardContent>{cuerpo}</CardContent>
     </Card>
   );
 }

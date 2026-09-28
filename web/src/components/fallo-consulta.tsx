@@ -4,13 +4,17 @@ import { ApiError } from "@/lib/api/client";
 /**
  * Qué decirle a quien está mirando una consulta que no pudo cargar.
  *
- * Una sesión vencida no es un servidor dormido, y el servidor ya lo dice en
- * español. Para todo lo demás el mensaje propio explica mejor lo que pasa.
- * Mismo criterio que Ajustes; aquí solo vive aparte porque varias pantallas
- * consultan cosas y todas merecen esta misma respuesta.
+ * Una sesión vencida y una conexión caída saben decirse solos: el servidor
+ * ya trae el "vuelve a entrar" en español, y el cliente produce el
+ * "sin conexión" cuando ni siquiera se alcanzó a enviar la pregunta. Para
+ * todo lo demás el mensaje propio explica mejor lo que pasa. Mismo criterio
+ * que Ajustes; aquí solo vive aparte porque varias pantallas consultan
+ * cosas y todas merecen esta misma respuesta.
  */
 export function mensajeDeFallo(error: unknown, mensaje: string): string {
-  return error instanceof ApiError && error.code === "UNAUTHORIZED" ? error.message : mensaje;
+  return error instanceof ApiError && (error.code === "UNAUTHORIZED" || error.code === "SIN_CONEXION")
+    ? error.message
+    : mensaje;
 }
 
 /**
