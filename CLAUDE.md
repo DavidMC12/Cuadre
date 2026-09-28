@@ -103,6 +103,10 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
 - **Cuentas agrupadas por moneda + selector de moneda como filtro visible +
   ahorro simple** (marcar una cuenta como "de ahorro", total ahorrado y
   gráfica mensual en el Resumen) — en `main`.
+- **Checklist de presupuesto** (2026-09-16): módulo `budgets/` completo
+  (esquema, servicio, rutas y pruebas de punta a punta) con su panel en el
+  Resumen; renglones por mes con objetivo, progreso y opción de archivar. En
+  `main`, sin pasar aún por una ronda de `impeccable critique`.
 - **Editar cuentas y modelar tarjetas de crédito** (2026-09-21): nombre
   editable; tarjetas ya no pueden marcarse como ahorro (el ahorro en tarjeta
   no tiene sentido); cupo opcional y cuenta vinculada ("desde dónde se
