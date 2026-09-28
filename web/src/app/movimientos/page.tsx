@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
+import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
 import { SelectorMes } from "@/components/dashboard/selector-mes";
 import { MovimientoItem } from "@/components/movimientos/movimiento-item";
 import { TransferenciaItem } from "@/components/movimientos/transferencia-item";
@@ -102,6 +103,10 @@ function ContenidoMovimientos() {
   const {
     data: movimientos,
     isLoading,
+    isError,
+    error,
+    isFetching,
+    refetch,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -284,7 +289,21 @@ function ContenidoMovimientos() {
         </div>
       )}
 
-      {!isLoading && movimientos?.length === 0 && categoriaFiltro && (
+      {/* Un historial que no se pudo leer no es un mes sin movimientos: se dice
+          y se ofrece reintentar, sin ningún estado vacío fingiendo que el mes
+          quedó en blanco. */}
+      {!isLoading && isError && (
+        <FalloConsulta
+          mensaje={mensajeDeFallo(
+            error,
+            "No pudimos cargar tus movimientos. Puede ser que el servidor esté dormido."
+          )}
+          reintento={isFetching}
+          onReintentar={() => refetch()}
+        />
+      )}
+
+      {!isLoading && !isError && movimientos?.length === 0 && categoriaFiltro && (
         <EmptyState
           Icono={Filter}
           titulo="Sin movimientos con ese filtro"
@@ -303,7 +322,7 @@ function ContenidoMovimientos() {
         </EmptyState>
       )}
 
-      {!isLoading && movimientos?.length === 0 && !categoriaFiltro && (
+      {!isLoading && !isError && movimientos?.length === 0 && !categoriaFiltro && (
         <EmptyState
           Icono={Receipt}
           titulo={
@@ -328,7 +347,7 @@ function ContenidoMovimientos() {
         </EmptyState>
       )}
 
-      {!isLoading && gruposConTransferencias.length > 0 && (
+      {!isLoading && !isError && gruposConTransferencias.length > 0 && (
         <div className="flex flex-col gap-4">
           {gruposConTransferencias.map((grupo) => (
             <div key={grupo.etiqueta} className="flex flex-col gap-1">

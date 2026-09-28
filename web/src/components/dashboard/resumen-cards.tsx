@@ -1,19 +1,39 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Monto } from "@/components/monto";
+import { FalloConsulta } from "@/components/fallo-consulta";
 import type { ResumenMes } from "@/lib/api/types";
 
 export function ResumenCards({
   resumen,
   moneda,
   cargando,
+  fallo = false,
+  mensajeFallo,
+  reintento = false,
+  onReintentar,
 }: {
   resumen: ResumenMes | undefined;
   moneda: string;
   cargando: boolean;
+  /** La consulta del resumen no se pudo leer: no es lo mismo que un mes en cero. */
+  fallo?: boolean;
+  mensajeFallo?: string;
+  reintento?: boolean;
+  onReintentar?: () => void;
 }) {
   // En el celular: ingresos y gastos lado a lado, y el balance debajo a lo
   // ancho. Desde `md` los tres caben en una fila.
+  if (fallo) {
+    return (
+      <FalloConsulta
+        mensaje={mensajeFallo ?? ""}
+        reintento={reintento}
+        onReintentar={onReintentar ?? (() => {})}
+      />
+    );
+  }
+
   if (cargando) {
     return (
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">

@@ -1,0 +1,47 @@
+import { Button } from "@/components/ui/button";
+import { ApiError } from "@/lib/api/client";
+
+/**
+ * Qué decirle a quien está mirando una consulta que no pudo cargar.
+ *
+ * Una sesión vencida no es un servidor dormido, y el servidor ya lo dice en
+ * español. Para todo lo demás el mensaje propio explica mejor lo que pasa.
+ * Mismo criterio que Ajustes; aquí solo vive aparte porque varias pantallas
+ * consultan cosas y todas merecen esta misma respuesta.
+ */
+export function mensajeDeFallo(error: unknown, mensaje: string): string {
+  return error instanceof ApiError && error.code === "UNAUTHORIZED" ? error.message : mensaje;
+}
+
+/**
+ * El bloque de fallo: mensaje y botón para reintentar. Nunca un cero ni un
+ * vacío fingiendo que todo está bien — "la cifra es la verdad", y si la
+ * consulta no se pudo leer, la cifra no existe todavía.
+ */
+export function FalloConsulta({
+  mensaje,
+  reintento = false,
+  onReintentar,
+}: {
+  mensaje: string;
+  reintento?: boolean;
+  onReintentar: () => void;
+}) {
+  return (
+    <div
+      role="alert"
+      className="flex flex-col items-start gap-3 rounded-lg border border-border p-4"
+    >
+      <p className="text-sm text-muted-foreground">{mensaje}</p>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={onReintentar}
+        disabled={reintento}
+      >
+        {reintento ? "Reintentando…" : "Reintentar"}
+      </Button>
+    </div>
+  );
+}

@@ -24,6 +24,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { EmptyState } from "@/components/empty-state";
+import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
 import { PanelPresupuesto } from "@/components/presupuesto/panel-presupuesto";
 import { SelectorMes } from "@/components/dashboard/selector-mes";
 import { ResumenCards } from "@/components/dashboard/resumen-cards";
@@ -48,10 +49,24 @@ export default function PaginaResumen() {
   // Quien eligió abrir en otra pantalla se va de aquí antes de que esto pinte.
   const yendoseAOtraPantalla = useIrAPantallaDeInicio();
 
-  const { data: monedas, isLoading: cargandoMonedas } = useMonedas();
+  const {
+    data: monedas,
+    isLoading: cargandoMonedas,
+    isError: errorMonedas,
+    error: porqueFalloMonedas,
+    isFetching: recargandoMonedas,
+    refetch: recargarMonedas,
+  } = useMonedas();
   const moneda = monedaElegida ?? monedas?.[0];
 
-  const { data: cuentas, isLoading: cargandoCuentas } = useCuentas();
+  const {
+    data: cuentas,
+    isLoading: cargandoCuentas,
+    isError: errorCuentas,
+    error: porqueFalloCuentas,
+    isFetching: recargandoCuentas,
+    refetch: recargarCuentas,
+  } = useCuentas();
 
   // Para el layout de las dos tarjetas de totales importa la moneda que se
   // está viendo: una cuenta de ahorro en dólares no pinta nada al lado de un
@@ -62,7 +77,14 @@ export default function PaginaResumen() {
     (cuenta) => cuenta.isSavings && cuenta.currency === moneda
   );
 
-  const { data: resumen, isLoading: cargandoResumen } = useResumenMes({
+  const {
+    data: resumen,
+    isLoading: cargandoResumen,
+    isError: errorResumen,
+    error: porqueFalloResumen,
+    isFetching: recargandoResumen,
+    refetch: recargarResumen,
+  } = useResumenMes({
     month: mes,
     currency: moneda ?? "",
   });
@@ -71,6 +93,13 @@ export default function PaginaResumen() {
     currency: moneda ?? "",
   });
 
+  // Un fallo no es un dato: si una consulta no se pudo leer, no hay cifra que
+  // mostrar. Con datos viejos en la memoria se siguen mostrando esos (stale,
+  // no falsos); aquí importan solo los casos en que no hay nada que mostrar.
+  const falloMonedas = errorMonedas && !monedas;
+  const falloCuentas = errorCuentas && !cuentas;
+  const falloResumen = errorResumen && !resumen;
+
   if (cargandoMonedas || yendoseAOtraPantalla) {
     return (
       <div className="flex flex-col gap-4">
@@ -78,6 +107,25 @@ export default function PaginaResumen() {
         <Skeleton className="h-16 w-full rounded-xl" />
         <Skeleton className="h-40 w-full rounded-xl" />
         <Skeleton className="h-48 w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  // La consulta de monedas no pudo cargar: decirlo y ofrecer reintentar.
+  // Mostrar aquí el "Todavía no hay nada que resumir" diría que la CUA no
+  // empezó cuando quizá el problema es la conexión.
+  if (falloMonedas) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-xl font-semibold">Resumen</h1>
+        <FalloConsulta
+          mensaje={mensajeDeFallo(
+            porqueFalloMonedas,
+            "No pudimos cargar las monedas. Puede ser que el servidor esté dormido."
+          )}
+          reintento={recargandoMonedas}
+          onReintentar={() => recargarMonedas()}
+        />
       </div>
     );
   }
@@ -143,16 +191,41 @@ export default function PaginaResumen() {
         </div>
       )}
 
-      <div className={cn("grid gap-5", ahorroEnMoneda && "sm:grid-cols-2")}>
-        <TotalCuentas cuentas={cuentas} moneda={moneda ?? ""} cargando={cargandoCuentas} />
-        {ahorroEnMoneda && (
-          <TotalAhorrado cuentas={cuentas} moneda={moneda ?? ""} cargando={cargandoCuentas} />
+      <div className={cn("grid gap-5", !falloCuentas && ahorroEnMoneda && "sm:grid-cols-2")}>
+        {/* Sin datos de cuentas no se suma: el "Tienes" no se inventa un cero. */}
+        {falloCuentas ? (
+          <FalloConsulta
+            mensaje={mensajeDeFallo(
+              porqueFalloCuentas,
+              "No pudimos cargar tus cuentas. Puede ser que el servidor esté dormido."
+            )}
+            reintento={recargandoCuentas}
+            onReintentar={() => recargarCuentas()}
+          />
+        ) : (
+          <>
+            <TotalCuentas cuentas={cuentas} moneda={moneda ?? ""} cargando={cargandoCuentas} />
+            {ahorroEnMoneda && (
+              <TotalAhorrado cuentas={cuentas} moneda={moneda ?? ""} cargando={cargandoCuentas} />
+            )}
+          </>
         )}
       </div>
 
       <SelectorMes mes={mes} onCambiar={setMes} />
 
-      <ResumenCards resumen={resumen} moneda={moneda ?? ""} cargando={cargandoResumen} />
+      <ResumenCards
+        resumen={resumen}
+        moneda={moneda ?? ""}
+        cargando={cargandoResumen}
+        fallo={falloResumen}
+        mensajeFallo={mensajeDeFallo(
+          porqueFalloResumen,
+          "No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido."
+        )}
+        reintento={recargandoResumen}
+        onReintentar={() => recargarResumen()}
+      />
 
       {/* Desde `lg` van lado a lado: apiladas dejaban media pantalla vacía
           en escritorio. `min-w-0` para que la gráfica de tendencia pueda
