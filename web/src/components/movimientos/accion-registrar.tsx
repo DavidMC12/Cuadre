@@ -26,7 +26,9 @@ export function AccionRegistrar({ variante }: { variante: "flotante" | "lateral"
           aria-label="Registrar movimiento"
           className={cn(
             "fixed right-4 z-40 flex size-14 items-center justify-center rounded-full",
-            "bg-primary text-primary-foreground shadow-[0_8px_24px_-4px_rgba(0,0,0,0.35)]",
+            // Sin sombra (The Flat Ledger Rule): la profundidad se marca con
+            // un anillo de 1px al 10% de la tinta, igual que las tarjetas.
+            "bg-primary text-primary-foreground ring-1 ring-foreground/10",
             "transition-transform active:scale-95 md:hidden",
             "bottom-[calc(4rem+env(safe-area-inset-bottom)+16px)]"
           )}
