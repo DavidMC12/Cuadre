@@ -13,12 +13,15 @@ export function ResumenCards({
   resumen: ResumenMes | undefined;
   moneda: string;
   cargando: boolean;
-  /**
-   * La consulta del resumen no se pudo leer: no es lo mismo que un mes en
-   * cero. Es un objeto a propósito: quien declara un fallo se ve obligado a
-   * traer también qué decir y cómo reintentar — nunca un botón mudo.
-   */
-  fallo?: { mensaje: string; reintento?: boolean; onReintentar: () => void };
+  /** El bloque de fallo: mensaje y reintentar, siempre juntos. Es un objeto
+   * a propósito: quien declara un fallo se ve obligado a traer también qué
+   * decir y cómo reintentar — nunca un botón mudo. */
+  fallo?: {
+    mensaje: string;
+    reintento?: boolean;
+    onReintentar: () => void;
+    etiquetaBoton?: string;
+  };
 }) {
   // En el celular: ingresos y gastos lado a lado, y el balance debajo a lo
   // ancho. Desde `md` los tres caben en una fila.
@@ -28,6 +31,7 @@ export function ResumenCards({
         mensaje={fallo.mensaje}
         reintento={fallo.reintento}
         onReintentar={fallo.onReintentar}
+        etiquetaBoton={fallo.etiquetaBoton}
       />
     );
   }

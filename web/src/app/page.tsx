@@ -35,6 +35,7 @@ import { GraficaTendencia } from "@/components/dashboard/grafica-tendencia";
 import { GraficaAhorro } from "@/components/dashboard/grafica-ahorro";
 import { useCuentas } from "@/hooks/use-cuentas";
 import { useIrAPantallaDeInicio } from "@/hooks/use-perfil";
+import { usePantallaAncha } from "@/hooks/use-pantalla-ancha";
 import { useMonedas, useResumenMes, useTendencia } from "@/hooks/use-reportes";
 import type { TipoCategoria } from "@/lib/api/types";
 import { etiquetaMes, mesActual } from "@/lib/fecha";
@@ -45,6 +46,7 @@ export default function PaginaResumen() {
   const [monedaElegida, setMonedaElegida] = useState<string | undefined>(undefined);
   const [tipoCategoria, setTipoCategoria] = useState<TipoCategoria>("expense");
   const [mesesTendencia, setMesesTendencia] = useState<6 | 12>(6);
+  const pantallaAncha = usePantallaAncha();
 
   // Quien eligió abrir en otra pantalla se va de aquí antes de que esto pinte.
   const yendoseAOtraPantalla = useIrAPantallaDeInicio();
@@ -88,7 +90,14 @@ export default function PaginaResumen() {
     month: mes,
     currency: moneda ?? "",
   });
-  const { data: tendencia, isLoading: cargandoTendencia } = useTendencia({
+  const {
+    data: tendencia,
+    isLoading: cargandoTendencia,
+    isError: errorTendencia,
+    error: porqueFalloTendencia,
+    isFetching: recargandoTendencia,
+    refetch: recargarTendencia,
+  } = useTendencia({
     months: mesesTendencia,
     currency: moneda ?? "",
   });
@@ -99,6 +108,7 @@ export default function PaginaResumen() {
   const falloMonedas = errorMonedas && !monedas;
   const falloCuentas = errorCuentas && !cuentas;
   const falloResumen = errorResumen && !resumen;
+  const falloTendencia = errorTendencia && !tendencia;
 
   if (cargandoMonedas || yendoseAOtraPantalla) {
     return (
@@ -119,6 +129,7 @@ export default function PaginaResumen() {
       <div className="flex flex-col gap-4">
         <h1 className="text-xl font-semibold">Resumen</h1>
         <FalloConsulta
+          etiquetaBoton="Reintentar monedas"
           mensaje={mensajeDeFallo(
             porqueFalloMonedas,
             "No pudimos cargar las monedas. Puede ser que el servidor esté dormido."
@@ -166,7 +177,9 @@ export default function PaginaResumen() {
                   </DrawerDescription>
                 </DrawerHeader>
                 <div className="overflow-y-auto px-4 pb-4">
-                  <PanelPresupuesto mes={mes} moneda={moneda} />
+              {/* Sin Card ni encabezado propio: el cajón ya trae título y los
+                  dos contenedores peleaban por encabezar la misma pantalla. */}
+                  <PanelPresupuesto mes={mes} moneda={moneda} variante="suelta" />
                 </div>
               </DrawerContent>
             </Drawer>
@@ -228,6 +241,7 @@ export default function PaginaResumen() {
                 ),
                 reintento: recargandoResumen,
                 onReintentar: () => recargarResumen(),
+                etiquetaBoton: "Reintentar resumen",
               }
             : undefined
         }
@@ -273,6 +287,19 @@ export default function PaginaResumen() {
               tendencia={tendencia}
               moneda={moneda ?? ""}
               cargando={cargandoTendencia}
+              fallo={
+                falloTendencia
+                  ? {
+                      mensaje: mensajeDeFallo(
+                        porqueFalloTendencia,
+                        "No pudimos cargar la tendencia. Puede ser que el servidor esté dormido."
+                      ),
+                      reintento: recargandoTendencia,
+                      onReintentar: () => recargarTendencia(),
+                      etiquetaBoton: "Reintentar tendencia",
+                    }
+                  : undefined
+              }
             />
           </CardContent>
         </Card>
@@ -303,8 +330,10 @@ export default function PaginaResumen() {
       {/* Columna del checklist: solo en pantallas anchas. El Resumen conserva
           su ancho de lectura (max-w-3xl) y el espacio que sobra a la derecha
           lo ocupa esta columna, que es la única pantalla que la usa. */}
-      {moneda && (
-        <aside className="hidden w-80 shrink-0 xl:sticky xl:top-8 xl:block">
+      {/* Montado solo cuando de verdad se ve: un aside oculto con CSS
+          consultaba al servidor igual, aunque nadie lo mirara. */}
+      {pantallaAncha && moneda && (
+        <aside className="w-80 shrink-0 xl:sticky xl:top-8">
           <PanelPresupuesto mes={mes} moneda={moneda} />
         </aside>
       )}

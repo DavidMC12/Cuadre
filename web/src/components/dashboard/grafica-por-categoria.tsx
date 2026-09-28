@@ -5,6 +5,7 @@ import { useTheme } from "next-themes";
 
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
 import { useCategorias } from "@/hooks/use-categorias";
 import { usePorCategoria } from "@/hooks/use-reportes";
 import type { TipoCategoria } from "@/lib/api/types";
@@ -51,7 +52,14 @@ export function GraficaPorCategoria({
   // categoría que hoy ya está archivada, y necesita el mismo color de
   // siempre para que no "salte" de un mes a otro.
   const { data: catalogoCompleto } = useCategorias(true);
-  const { data: porCategoria, isLoading } = usePorCategoria({
+  const {
+    data: porCategoria,
+    isLoading,
+    isError,
+    error,
+    isFetching,
+    refetch,
+  } = usePorCategoria({
     month: mes,
     currency: moneda,
     kind: tipo,
@@ -115,6 +123,10 @@ export function GraficaPorCategoria({
 
   const valorMaximo = Math.max(1, ...datos.map((fila) => fila.valorNumerico));
 
+  // La consulta no se pudo leer: no es lo mismo que "no hubo gastos este
+  // mes" — eso solo el servidor lo puede decir, y aquí no contestó.
+  const falloDeConsulta = isError && !porCategoria && !isLoading;
+
   return (
     <div className="flex flex-col gap-3">
       <ToggleGroup
@@ -133,6 +145,18 @@ export function GraficaPorCategoria({
         </ToggleGroupItem>
       </ToggleGroup>
 
+      {falloDeConsulta && (
+        <FalloConsulta
+          etiquetaBoton="Reintentar por categoría"
+          mensaje={mensajeDeFallo(
+            error,
+            `No pudimos cargar los ${tipo === "expense" ? "gastos" : "ingresos"} por categoría. Puede ser que el servidor esté dormido.`
+          )}
+          reintento={isFetching}
+          onReintentar={() => refetch()}
+        />
+      )}
+
       {isLoading && (
         <div className="flex flex-col gap-2">
           <Skeleton className="h-5 w-full rounded-full" />
@@ -141,13 +165,13 @@ export function GraficaPorCategoria({
         </div>
       )}
 
-      {!isLoading && datos.length === 0 && (
+      {!isLoading && !falloDeConsulta && datos.length === 0 && (
         <p className="py-6 text-center text-sm text-muted-foreground">
           {tipo === "expense" ? "Sin gastos este mes." : "Sin ingresos este mes."}
         </p>
       )}
 
-      {!isLoading && datos.length > 0 && (
+      {!isLoading && !falloDeConsulta && datos.length > 0 && (
         <div className="flex flex-col gap-2.5">
           {datos.map((fila) => {
             const porcentaje = Math.max((fila.valorNumerico / valorMaximo) * 100, 4);
