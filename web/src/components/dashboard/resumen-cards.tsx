@@ -8,28 +8,26 @@ export function ResumenCards({
   resumen,
   moneda,
   cargando,
-  fallo = false,
-  mensajeFallo,
-  reintento = false,
-  onReintentar,
+  fallo,
 }: {
   resumen: ResumenMes | undefined;
   moneda: string;
   cargando: boolean;
-  /** La consulta del resumen no se pudo leer: no es lo mismo que un mes en cero. */
-  fallo?: boolean;
-  mensajeFallo?: string;
-  reintento?: boolean;
-  onReintentar?: () => void;
+  /**
+   * La consulta del resumen no se pudo leer: no es lo mismo que un mes en
+   * cero. Es un objeto a propósito: quien declara un fallo se ve obligado a
+   * traer también qué decir y cómo reintentar — nunca un botón mudo.
+   */
+  fallo?: { mensaje: string; reintento?: boolean; onReintentar: () => void };
 }) {
   // En el celular: ingresos y gastos lado a lado, y el balance debajo a lo
   // ancho. Desde `md` los tres caben en una fila.
   if (fallo) {
     return (
       <FalloConsulta
-        mensaje={mensajeFallo ?? ""}
-        reintento={reintento}
-        onReintentar={onReintentar ?? (() => {})}
+        mensaje={fallo.mensaje}
+        reintento={fallo.reintento}
+        onReintentar={fallo.onReintentar}
       />
     );
   }

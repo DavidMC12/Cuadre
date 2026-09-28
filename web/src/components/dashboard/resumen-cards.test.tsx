@@ -17,10 +17,10 @@ describe("ResumenCards", () => {
         resumen={undefined}
         moneda="COP"
         cargando={false}
-        fallo
-        mensajeFallo="No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido."
-        reintento={false}
-        onReintentar={reintentar}
+        fallo={{
+          mensaje: "No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido.",
+          onReintentar: reintentar,
+        }}
       />
     );
 
@@ -44,9 +44,7 @@ describe("ResumenCards", () => {
         resumen={undefined}
         moneda="COP"
         cargando={false}
-        fallo
-        mensajeFallo="Tu sesión expiró."
-        onReintentar={vi.fn()}
+        fallo={{ mensaje: "Tu sesión expiró.", onReintentar: vi.fn() }}
       />
     );
 

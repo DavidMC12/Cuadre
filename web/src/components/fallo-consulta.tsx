@@ -22,10 +22,16 @@ export function FalloConsulta({
   mensaje,
   reintento = false,
   onReintentar,
+  etiquetaBoton,
 }: {
   mensaje: string;
   reintento?: boolean;
   onReintentar: () => void;
+  /**
+   * Para cuando hay más de un bloque de fallo en la misma pantalla: dos
+   * botones idénticos no se distinguen de oído (ni de mano).
+   */
+  etiquetaBoton?: string;
 }) {
   return (
     <div
@@ -39,6 +45,7 @@ export function FalloConsulta({
         size="sm"
         onClick={onReintentar}
         disabled={reintento}
+        aria-label={etiquetaBoton}
       >
         {reintento ? "Reintentando…" : "Reintentar"}
       </Button>

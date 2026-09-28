@@ -289,10 +289,12 @@ function ContenidoMovimientos() {
         </div>
       )}
 
-      {/* Un historial que no se pudo leer no es un mes sin movimientos: se dice
-          y se ofrece reintentar, sin ningún estado vacío fingiendo que el mes
-          quedó en blanco. */}
-      {!isLoading && isError && (
+      {/* La consulta no se pudo leer y no hay nada que mostrar: se dice y se
+          ofrece reintentar, sin ningún estado vacío fingiendo que el mes
+          quedó en blanco. Con datos viejos en la memoria —un refetch en
+          fondo o un "Cargar más" que falló— el historial se sigue
+          mostrando: el error no borra lo que ya está en el libro. */}
+      {!isLoading && isError && !movimientos && (
         <FalloConsulta
           mensaje={mensajeDeFallo(
             error,
@@ -303,7 +305,7 @@ function ContenidoMovimientos() {
         />
       )}
 
-      {!isLoading && !isError && movimientos?.length === 0 && categoriaFiltro && (
+      {!isLoading && movimientos?.length === 0 && categoriaFiltro && (
         <EmptyState
           Icono={Filter}
           titulo="Sin movimientos con ese filtro"
@@ -322,7 +324,7 @@ function ContenidoMovimientos() {
         </EmptyState>
       )}
 
-      {!isLoading && !isError && movimientos?.length === 0 && !categoriaFiltro && (
+      {!isLoading && movimientos?.length === 0 && !categoriaFiltro && (
         <EmptyState
           Icono={Receipt}
           titulo={
@@ -347,7 +349,7 @@ function ContenidoMovimientos() {
         </EmptyState>
       )}
 
-      {!isLoading && !isError && gruposConTransferencias.length > 0 && (
+      {!isLoading && gruposConTransferencias.length > 0 && (
         <div className="flex flex-col gap-4">
           {gruposConTransferencias.map((grupo) => (
             <div key={grupo.etiqueta} className="flex flex-col gap-1">

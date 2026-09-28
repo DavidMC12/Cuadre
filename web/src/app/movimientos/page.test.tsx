@@ -6,6 +6,7 @@ import PaginaMovimientos from "./page";
 import * as useMovimientosModule from "@/hooks/use-movimientos";
 import * as useCuentasModule from "@/hooks/use-cuentas";
 import * as useCategoriasModule from "@/hooks/use-categorias";
+import type { Movimiento } from "@/lib/api/types";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn() }),
@@ -98,11 +99,30 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
     expect(recargar).toHaveBeenCalledTimes(1);
   });
 
-  it("un fallo con datos viejos sigue mostrando los datos y no interrumpe con error", () => {
-    ajustar({ data: [] });
+  it("si un refetch o un 'Cargar más' fracasa con el historial ya en pantalla, el error no borra los datos", () => {
+    const comprobante: Movimiento = {
+      id: "m-1",
+      accountId: "a-1",
+      categoryId: null,
+      kind: "standard",
+      amount: "-12500",
+      currency: "COP",
+      occurredAt: "2026-09-10T12:00:00Z",
+      description: null,
+      transferGroupId: null,
+      reversesTransactionId: null,
+      reversedByTransactionId: null,
+    };
+    ajustar({
+      data: [comprobante],
+      isError: true,
+      error: new Error("boom"),
+    });
 
     render(<PaginaMovimientos />);
 
+    // El renglón que ya tenía el libro sigue en su sitio.
+    expect(screen.getByText("movimiento")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText("Reintentar")).not.toBeInTheDocument();
   });

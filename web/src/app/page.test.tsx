@@ -159,7 +159,7 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
       },
     });
 
-    const { container } = render(<PaginaResumen />);
+    render(<PaginaResumen />);
 
     expect(
       screen.getByText(
@@ -176,7 +176,6 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
     expect(recargar).toHaveBeenCalledTimes(1);
-    expect(container).toBeInTheDocument();
   });
 
   it("con todo cargado muestra la pantalla de siempre, sin error ni Reintentar", () => {

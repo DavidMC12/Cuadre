@@ -195,6 +195,7 @@ export default function PaginaResumen() {
         {/* Sin datos de cuentas no se suma: el "Tienes" no se inventa un cero. */}
         {falloCuentas ? (
           <FalloConsulta
+            etiquetaBoton="Reintentar cuentas"
             mensaje={mensajeDeFallo(
               porqueFalloCuentas,
               "No pudimos cargar tus cuentas. Puede ser que el servidor esté dormido."
@@ -218,13 +219,18 @@ export default function PaginaResumen() {
         resumen={resumen}
         moneda={moneda ?? ""}
         cargando={cargandoResumen}
-        fallo={falloResumen}
-        mensajeFallo={mensajeDeFallo(
-          porqueFalloResumen,
-          "No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido."
-        )}
-        reintento={recargandoResumen}
-        onReintentar={() => recargarResumen()}
+        fallo={
+          falloResumen
+            ? {
+                mensaje: mensajeDeFallo(
+                  porqueFalloResumen,
+                  "No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido."
+                ),
+                reintento: recargandoResumen,
+                onReintentar: () => recargarResumen(),
+              }
+            : undefined
+        }
       />
 
       {/* Desde `lg` van lado a lado: apiladas dejaban media pantalla vacía
