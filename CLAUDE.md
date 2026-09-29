@@ -174,11 +174,16 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   servidor ya bloquea anular en cuenta archivada); y `FalloConsulta`
   gana `compartePantalla`, que baja el bloque a `role="group"` cuando
   conviven varios fallos, así el Resumen compone un único
-  `role="status"` en vez de disparar hasta seis anuncios a la vez.
+  `role="status"` en vez de disparar hasta seis anuncios a la vez. Los
+  dos P3 también resueltos: todo el texto visible del presupuesto dice
+  "Presupuesto" (antes convivía con "Checklist del mes"), y la barra de
+  5 pestañas mantiene `grow` (el ancho por contenido que evitó el bug de
+  `flex-1` a 320px) pero con un piso de toque de 44px físicos, no en
+  `rem` — verificado con un script propio (`npm run medir:nav`, Chromium
+  headless por CDP) a 320px con letra del sistema del 100% al 200%. Con
+  esto quedan resueltos todos los P0/P1/P2/P3 de la sexta ronda.
 
-Pendiente, sin fecha: dos P3 de la sexta ronda (deriva de nombre
-"Presupuesto" vs "Checklist del mes"; la barra de 5 pestañas ya no es
-de ancho igual) y, más adelante, otra ronda de `impeccable critique`
+Pendiente, sin fecha: otra ronda de `impeccable critique` más adelante
 para medir el puntaje tras estos arreglos.
 
 ### Pasos adicionales, ya pasado el 100%
