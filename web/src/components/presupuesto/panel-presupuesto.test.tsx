@@ -64,7 +64,7 @@ describe("PanelPresupuesto: una variante por contenedor", () => {
 
     render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
 
-    expect(screen.getByText("Checklist del mes")).toBeInTheDocument();
+    expect(screen.getByText("Presupuesto del mes")).toBeInTheDocument();
     expect(screen.getByText("Mercado")).toBeInTheDocument();
   });
 
@@ -73,7 +73,7 @@ describe("PanelPresupuesto: una variante por contenedor", () => {
 
     render(<PanelPresupuesto mes="2026-09" moneda="COP" variante="suelta" />);
 
-    expect(screen.queryByText("Checklist del mes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Presupuesto del mes")).not.toBeInTheDocument();
     expect(screen.getByText("Mercado")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Agregar" })).toBeInTheDocument();
   });
@@ -111,12 +111,12 @@ describe("PanelPresupuesto: una variante por contenedor", () => {
     // otra queda visible y navegable, con su Reintentar propio.
     expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "No pudimos cargar el checklist del mes. Puede ser que el servidor esté dormido."
+      "No pudimos cargar tu presupuesto del mes. Puede ser que el servidor esté dormido."
     );
     expect(screen.getByRole("group")).toHaveTextContent(
       "No pudimos cargar los ítems archivados. Puede ser que el servidor esté dormido."
     );
-    expect(screen.getByRole("button", { name: "Reintentar checklist" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar presupuesto" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar archivados" })).toBeInTheDocument();
   });
 
@@ -130,7 +130,7 @@ describe("PanelPresupuesto: una variante por contenedor", () => {
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getAllByRole("group")).toHaveLength(2);
-    expect(screen.getByRole("button", { name: "Reintentar checklist" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar presupuesto" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar archivados" })).toBeInTheDocument();
   });
 

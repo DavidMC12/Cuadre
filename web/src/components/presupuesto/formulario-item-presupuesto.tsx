@@ -174,7 +174,7 @@ export function FormularioItemPresupuesto({
             label: etiquetaFinal,
           });
         }
-        toast.success("Ítem agregado al checklist.");
+        toast.success("Ítem agregado al presupuesto.");
       }
 
       cerrarYReiniciar();
@@ -220,7 +220,7 @@ export function FormularioItemPresupuesto({
       <DrawerContent>
         <form onSubmit={manejarEnvio} className="flex min-h-0 flex-1 flex-col">
           <DrawerHeader>
-            <DrawerTitle>{item ? "Editar ítem" : "Agregar al checklist"}</DrawerTitle>
+            <DrawerTitle>{item ? "Editar ítem" : "Agregar al presupuesto"}</DrawerTitle>
             <DrawerDescription>
               {item
                 ? "El monto nuevo rige desde este mes en adelante. Los meses que ya pasaron no cambian."
