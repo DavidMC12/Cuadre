@@ -168,15 +168,18 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   `sr-only`), así que un reenvío sin cambios podía recrear en silencio
   la entrada recién anulada. Ahora la cabecera se ve en modo corrección
   y "Registrar" queda apagado (con aviso) hasta que cambie al menos un
-  campo respecto a la precarga.
+  campo respecto a la precarga. Los dos P2 también resueltos: corregir
+  un movimiento de una cuenta archivada ya conserva esa cuenta en el
+  selector en vez de caer por fallback silencioso a otra (defensivo: el
+  servidor ya bloquea anular en cuenta archivada); y `FalloConsulta`
+  gana `compartePantalla`, que baja el bloque a `role="group"` cuando
+  conviven varios fallos, así el Resumen compone un único
+  `role="status"` en vez de disparar hasta seis anuncios a la vez.
 
-Pendiente, sin fecha: de la sexta ronda, dos P2 (corregir un movimiento
-de una cuenta archivada redirige la escritura a otra cuenta sin avisar;
-el Resumen puede disparar hasta 6 `role="alert"` a la vez en una caída)
-y dos P3 (deriva de nombre "Presupuesto" vs "Checklist del mes"; la
-barra de 5 pestañas ya no es de ancho igual). También, más adelante,
-otra ronda de `impeccable critique` para medir el puntaje tras estos
-arreglos.
+Pendiente, sin fecha: dos P3 de la sexta ronda (deriva de nombre
+"Presupuesto" vs "Checklist del mes"; la barra de 5 pestañas ya no es
+de ancho igual) y, más adelante, otra ronda de `impeccable critique`
+para medir el puntaje tras estos arreglos.
 
 ### Pasos adicionales, ya pasado el 100%
 
