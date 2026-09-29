@@ -299,6 +299,11 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
     ajustar({ data: [comprobanteEnCuenta("a-vieja")] }, [cuentaActiva, cuentaArchivada]);
 
     render(<PaginaMovimientos />);
+
+    // La pantalla tiene que pedir las archivadas: si vuelve a `useCuentas()`
+    // (solo activas), la cuenta original nunca llega al formulario.
+    expect(useCuentasModule.useCuentas).toHaveBeenCalledWith(true);
+
     fireEvent.click(screen.getByRole("button", { name: "anular-fila" }));
     fireEvent.click(screen.getByRole("button", { name: "confirmar-anulacion" }));
 

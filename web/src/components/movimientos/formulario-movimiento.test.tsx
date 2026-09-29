@@ -241,7 +241,7 @@ describe("FormularioMovimiento: la corrección conserva la cuenta original", () 
 
     expect(screen.getByLabelText("Cuenta")).toHaveTextContent("Cuenta vieja");
     expect(
-      screen.getByText("Esta cuenta está archivada: la corrección quedará registrada en ella.")
+      screen.getByText("Esta cuenta está archivada: desarchívala para poder registrar la corrección.")
     ).toBeInTheDocument();
   });
 
@@ -255,8 +255,6 @@ describe("FormularioMovimiento: la corrección conserva la cuenta original", () 
     );
 
     expect(screen.getByLabelText("Cuenta")).toHaveTextContent("Efectivo");
-    expect(
-      screen.queryByText("Esta cuenta está archivada: la corrección quedará registrada en ella.")
-    ).not.toBeInTheDocument();
+    expect(document.getElementById("cuenta-archivada-aviso")).toBeNull();
   });
 });

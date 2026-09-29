@@ -133,7 +133,10 @@ function ContenidoMovimientos() {
   // Lo que ve el formulario de corrección: las activas, más la cuenta original
   // si está archivada. Es la que hay que conservar seleccionada; sin meterla
   // en la lista, el formulario cae solo a otra cuenta y la corrección aterriza
-  // donde nadie pidió.
+  // donde nadie pidió. Hoy el servidor rechaza anular un movimiento de una
+  // cuenta archivada, así que el camino normal no llega aquí; esto sigue
+  // cubriendo que la archiven justo mientras se corrige (o si esa regla
+  // cambia), que es cuando el fallback silencioso haría daño.
   const cuentasParaCorregir = useMemo(() => {
     if (!movimientoACorregir) return cuentas;
     const original = (todasLasCuentas ?? []).find(

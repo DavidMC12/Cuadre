@@ -688,6 +688,7 @@ export function FormularioMovimiento({
                 id="cuenta-movimiento"
                 className="w-full"
                 aria-invalid={Boolean(errores.cuenta)}
+                aria-describedby={cuentaElegida?.archivedAt ? "cuenta-archivada-aviso" : undefined}
               >
                 {/* El popup de opciones vive en un portal que no está
                           montado mientras el selector está cerrado: hay que
@@ -706,11 +707,16 @@ export function FormularioMovimiento({
             </Select>
             {/* Corregir un movimiento de una cuenta ya retirada no es un
                 error: la cuenta original se conserva seleccionada. Pero se
-                dice que está archivada, para que no parezca una cuenta viva
-                ni una elección equivocada. */}
+                dice que está archivada y que hay que desarchivarla: el
+                servidor rechaza registrar en cuentas archivadas (la misma
+                regla que aplica al anular), así que prometer que la corrección
+                "quedará en ella" sería mentir. Hoy el camino normal ni
+                siquiera llega aquí —anular ya falla si la cuenta está
+                archivada—, pero esto cubre que la archive mientras se
+                corrige. */}
             {cuentaElegida?.archivedAt && (
-              <p className="text-xs text-muted-foreground">
-                Esta cuenta está archivada: la corrección quedará registrada en ella.
+              <p id="cuenta-archivada-aviso" className="text-xs text-muted-foreground">
+                Esta cuenta está archivada: desarchívala para poder registrar la corrección.
               </p>
             )}
             {errores.cuenta && <p className="text-xs text-destructive">{errores.cuenta}</p>}
