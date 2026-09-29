@@ -40,4 +40,23 @@ describe("Navegación: el checklist tiene casa propia en el menú", () => {
     expect(screen.getAllByRole("link", { name: "Movimientos" }).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByRole("link", { name: "Ajustes" }).length).toBeGreaterThanOrEqual(1);
   });
+
+  it("la barra de abajo tiene red de seguridad: cada rótulo se recorta en vez de desbordar", () => {
+    render(
+      <AppShell>
+        <p>contenido</p>
+      </AppShell>
+    );
+
+    const navMovil = screen
+      .getAllByRole("navigation")
+      .find((nav) => nav.className.includes("fixed"));
+    expect(navMovil).toBeDefined();
+
+    // Con cinco (o más) pestañas cada una puede encogerse (`min-w-0`) y su
+    // rótulo se recorta con puntos suspensivos (`truncate`), en vez de
+    // empujar la barra de ancho.
+    expect(navMovil!.querySelectorAll("a.min-w-0")).toHaveLength(5);
+    expect(navMovil!.querySelectorAll("span.truncate")).toHaveLength(5);
+  });
 });

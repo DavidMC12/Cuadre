@@ -138,16 +138,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={href}
                 className={cn(
-                  "flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors",
+                  // `min-w-0` + el `truncate` del rótulo son la red de
+                  // seguridad de la barra: a 320px las cinco etiquetas caben
+                  // (suman ~285px), pero sin margen; con un sexto ítem o con
+                  // la letra del sistema más grande, el nombre se recorta con
+                  // puntos suspensivos en vez de desbordar la barra.
+                  "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors",
                   activo ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
                 aria-current={activo ? "page" : undefined}
               >
                 <Icono
-                  className={cn("size-5", activo && "text-primary")}
+                  className={cn("size-5 shrink-0", activo && "text-primary")}
                   strokeWidth={activo ? 2.5 : 2}
                 />
-                {etiqueta}
+                <span className="w-full truncate text-center">{etiqueta}</span>
               </Link>
             );
           })}

@@ -5,13 +5,18 @@ import { Plus, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
+import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
 import { CuentaCard } from "@/components/cuentas/cuenta-card";
 import { FormularioCuenta } from "@/components/cuentas/formulario-cuenta";
 import { useCuentas } from "@/hooks/use-cuentas";
 import { agruparCuentasPorMoneda } from "@/lib/agrupar-cuentas";
 
 export default function PaginaCuentas() {
-  const { data: cuentas, isLoading } = useCuentas();
+  const { data: cuentas, isLoading, isError, error, isFetching, refetch } = useCuentas();
+
+  // Un fallo no es "no tienes cuentas": mientras no haya nada que mostrar, se
+  // dice. Con datos ya en memoria (un refetch fallido) se siguen mostrando.
+  const fallo = isError && !cuentas;
 
   const grupos = agruparCuentasPorMoneda(cuentas ?? []);
   // Con una sola moneda el encabezado no dice nada que la pantalla ya no
@@ -41,7 +46,22 @@ export default function PaginaCuentas() {
         </div>
       )}
 
-      {!isLoading && cuentas && cuentas.length === 0 && (
+      {/* La consulta no se pudo leer y no hay nada que mostrar: se dice y se
+          ofrece reintentar. Sin esto la pantalla quedaba en blanco, con solo
+          el encabezado, como si no existiera nada. */}
+      {fallo && (
+        <FalloConsulta
+          etiquetaBoton="Reintentar cuentas"
+          mensaje={mensajeDeFallo(
+            error,
+            "No pudimos cargar tus cuentas. Puede ser que el servidor esté dormido."
+          )}
+          reintento={isFetching}
+          onReintentar={() => refetch()}
+        />
+      )}
+
+      {!isLoading && !fallo && cuentas && cuentas.length === 0 && (
         <EmptyState
           Icono={Wallet}
           titulo="Todavía no tienes cuentas"
@@ -56,7 +76,7 @@ export default function PaginaCuentas() {
         </EmptyState>
       )}
 
-      {!isLoading && cuentas && cuentas.length > 0 && (
+      {!isLoading && !fallo && cuentas && cuentas.length > 0 && (
         <div className="flex flex-col gap-4">
           {[...grupos].map(([moneda, cuentasDeMoneda]) => (
             <div key={moneda} className="flex flex-col gap-2">
