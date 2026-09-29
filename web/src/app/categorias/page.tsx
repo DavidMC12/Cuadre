@@ -59,7 +59,7 @@ export default function PaginaCategorias() {
       {/* La consulta no se pudo leer y no hay nada que mostrar: se dice y se
           ofrece reintentar. Sin esto, "No pudimos cargar" se veía como
           "Todavía no tienes categorías", una afirmación falsa. */}
-      {!isLoading && fallo && (
+      {fallo && (
         <FalloConsulta
           etiquetaBoton="Reintentar categorías"
           mensaje={mensajeDeFallo(

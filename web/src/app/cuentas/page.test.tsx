@@ -94,4 +94,14 @@ describe("Cuentas: un fallo de red no es 'todavía no tienes cuentas'", () => {
     expect(screen.getByText("Bancolombia")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
+
+  it("con cuentas ya cargadas, un refetch fallido no las borra", () => {
+    ajustar({ data: [bancolombia], isError: true, error: new Error("boom") });
+
+    render(<PaginaCuentas />);
+
+    // La promesa de la política: el error solo reemplaza cuando no hay datos.
+    expect(screen.getByText("Bancolombia")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });

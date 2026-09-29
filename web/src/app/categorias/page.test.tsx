@@ -24,16 +24,16 @@ interface Stub {
   refetch?: () => void;
 }
 
-function ajustar(stub: Stub = {}) {
+function ajustar(stub: Stub = {}, stubArchivadas: Stub = {}) {
   vi.mocked(useCategoriasModule.useCategorias).mockImplementation(
-    () =>
+    (includeArchived = false) =>
       ({
         isLoading: false,
         isError: false,
         error: null,
         isFetching: false,
         refetch: vi.fn(),
-        ...stub,
+        ...(includeArchived ? stubArchivadas : stub),
       }) as never
   );
 }
@@ -91,5 +91,25 @@ describe("Categorías: un fallo de red no es 'no tienes categorías'", () => {
 
     expect(screen.getByText("Mercado")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("con categorías ya cargadas, un refetch fallido no las borra", () => {
+    ajustar({ data: [mercado], isError: true, error: new Error("boom") });
+
+    render(<PaginaCategorias />);
+
+    expect(screen.getByText("Mercado")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("si falla la consulta de archivadas, no dice 'No hay categorías archivadas'", () => {
+    ajustar({ data: [] }, { data: undefined, isError: true, error: new Error("boom") });
+
+    render(<PaginaCategorias />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Ver categorías archivadas" }));
+
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByText("No hay categorías archivadas")).not.toBeInTheDocument();
   });
 });
