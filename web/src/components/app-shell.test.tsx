@@ -34,14 +34,15 @@ describe("Navegación: el checklist tiene casa propia en el menú", () => {
       expect(entrada).toHaveAttribute("href", "/presupuesto");
     }
 
-    // Las cuatro de siempre siguen ahí.
+    // Las otras cuatro entradas (las que había antes de Presupuesto) siguen
+    // ahí.
     expect(screen.getAllByRole("link", { name: "Resumen" }).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByRole("link", { name: "Cuentas" }).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByRole("link", { name: "Movimientos" }).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByRole("link", { name: "Ajustes" }).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("la barra de abajo tiene red de seguridad: cada rótulo se recorta en vez de desbordar", () => {
+  it("la barra de abajo tiene piso de toque y red de seguridad: se encoge hasta 44px y el rótulo se recorta, no el objetivo", () => {
     render(
       <AppShell>
         <p>contenido</p>
@@ -53,23 +54,29 @@ describe("Navegación: el checklist tiene casa propia en el menú", () => {
       .find((nav) => nav.className.includes("fixed"));
     expect(navMovil).toBeDefined();
 
-    // Con cinco (o más) pestañas cada una puede encogerse (`min-w-0`) y su
-    // rótulo se recorta con puntos suspensivos (`truncate`), en vez de
-    // empujar la barra de ancho. Se mira la propiedad, no un número fijo, para
-    // que añadir una pestaña no rompa la prueba del patrón.
+    // Con cinco (o más) pestañas cada una puede encogerse (`grow` reparte por
+    // contenido; nunca `flex-1`, que a 320px clava 64px por pestaña y recorta
+    // "Movimientos"/"Presupuesto") pero no por debajo del toque mínimo de
+    // 44px — en píxeles fijos (`min-w-[44px]`), no en rem: un objetivo de
+    // toque es una constante física del dedo, y con piso en rem cinco pisos
+    // dejarían de caber a 320px desde ~145% de escala. Ahí el rótulo se
+    // recorta con puntos suspensivos (`truncate`), nunca el objetivo.
+    // jsdom no calcula layout, así que se fijan las clases que garantizan el
+    // piso y el recorte; los anchos reales se miden con Chromium headless en
+    // web/scripts/medir-nav-pestanas.mjs (320px, letra al 100%–200%).
     const enlaces = navMovil!.querySelectorAll("a");
     expect(enlaces.length).toBeGreaterThanOrEqual(5);
     for (const enlace of enlaces) {
-      // `min-w-0` + `truncate`: red de seguridad (el rótulo se recorta en vez
-      // de desbordar si algún día sobran pestañas).
-      expect(enlace.className).toContain("min-w-0");
-      expect(enlace.querySelector("span.truncate")).not.toBeNull();
-      // `grow`, nunca `flex-1`: con `flex-1` cada pestaña queda clavada en
-      // 320/5 = 64px y "Movimientos"/"Presupuesto" (72/71px) se recortan a
-      // 320px. jsdom no calcula layout, así que se fija la clase que garantiza
-      // que cada pestaña mida su contenido.
+      // `grow`, nunca `flex-1`: el ancho por contenido es la decisión de la
+      // ronda anterior y la que evitó el recorte real a 320px.
       expect(enlace.className).toContain("grow");
       expect(enlace.className).not.toContain("flex-1");
+      // El piso del pulgar, fijo y no rem.
+      expect(enlace.className).toContain("min-w-[44px]");
+      expect(enlace.className).not.toContain("min-w-0");
+      expect(enlace.className).not.toContain("min-w-11");
+      // Red de seguridad: el rótulo se recorta en vez de desbordar.
+      expect(enlace.querySelector("span.truncate")).not.toBeNull();
     }
   });
 });

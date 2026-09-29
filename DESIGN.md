@@ -191,7 +191,7 @@ Paleta fija de 8 tonos para categorías, validada para que tonos vecinos se dist
 
 ## Layout
 
-Móvil primero, con una sola columna de 448px de ancho máximo y márgenes laterales de 16px. Hay encabezado fijo arriba y menú de cuatro pestañas fijo abajo, respetando el área segura del dispositivo; el contenido deja 96px libres al final para no quedar debajo del menú.
+Móvil primero, con una sola columna de 448px de ancho máximo y márgenes laterales de 16px. Hay encabezado fijo arriba y menú de cinco pestañas fijo abajo, respetando el área segura del dispositivo; el contenido deja 96px libres al final para no quedar debajo del menú.
 
 Desde **768px** (`md`) el menú pasa a una barra lateral fija de 224px (240px desde 1024px) y el encabezado móvil desaparece. El contenido crece a 672px, y a 768px desde **1024px** (`lg`), con márgenes de 32px. Tiene tope a propósito: las listas pierden legibilidad si se estiran.
 
@@ -245,8 +245,8 @@ Las secciones de Ajustes usan un contenedor con borde y filas divididas por hilo
 
 ### Navigation
 
-- **Mobile:** barra inferior fija de 64px con cuatro pestañas iguales (icono de 20px sobre etiqueta de 12px). La activa usa texto Tinta e icono con trazo más grueso; las demás van en Grafito Suave.
-- **Desktop:** barra lateral con el nombre "Cuadre" arriba (18px, 600 — un tamaño propio, entre Headline y Title, que no comparte con ningún otro texto de la app) y las mismas cuatro entradas en fila, con etiqueta en Body (14px, 500) e icono de 18px. La activa lleva fondo Niebla y esquinas de 10px. "Ajustes" también se marca en Categorías y en Administración.
+- **Mobile:** barra inferior fija de 64px con cinco pestañas de ancho por contenido: crecen con lo que sobra (`grow`) en vez de repartirse iguales — a 320px, clavar cinco de 64px (`flex-1`) recorta "Movimientos" y "Presupuesto". El piso del toque es de 44px por pestaña, en píxeles fijos y no en rem: si creciera con la letra del sistema, cinco pisos dejarían de caber a 320px desde ~145% de escala y la última pestaña quedaría fuera de pantalla; con piso fijo, cinco objetivos caben siempre y lo que se recorta con puntos suspensivos (`truncate`) es el rótulo, nunca el objetivo. Icono de 20px sobre etiqueta de 12px; la activa usa texto Tinta e icono con trazo más grueso, las demás van en Grafito Suave.
+- **Desktop:** barra lateral con el nombre "Cuadre" arriba (18px, 600 — un tamaño propio, entre Headline y Title, que no comparte con ningún otro texto de la app) y las mismas cinco entradas en fila, con etiqueta en Body (14px, 500) e icono de 18px. La activa lleva fondo Niebla y esquinas de 10px. "Ajustes" también se marca en Categorías y en Administración.
 
 ### Monto (signature)
 
