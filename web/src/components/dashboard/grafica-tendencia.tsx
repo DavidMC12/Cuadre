@@ -59,6 +59,7 @@ export function GraficaTendencia({
   moneda,
   cargando,
   fallo,
+  compartePantalla,
 }: {
   tendencia: TendenciaMes[] | undefined;
   moneda: string;
@@ -73,6 +74,9 @@ export function GraficaTendencia({
     onReintentar: () => void;
     etiquetaBoton?: string;
   };
+  /** `true` cuando otros fallos conviven en la misma pantalla: el bloque
+   * deja de anunciar solo y la pantalla ya trae el anuncio único. */
+  compartePantalla?: boolean;
 }) {
   const { resolvedTheme } = useTheme();
   const modo = modoDeTema(resolvedTheme);
@@ -84,6 +88,7 @@ export function GraficaTendencia({
         reintento={fallo.reintento}
         onReintentar={fallo.onReintentar}
         etiquetaBoton={fallo.etiquetaBoton}
+        compartePantalla={compartePantalla}
       />
     );
   }

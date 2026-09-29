@@ -72,3 +72,34 @@ describe("GraficaTendencia: la gráfica también se puede leer sin verla", () =>
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 });
+
+describe("GraficaTendencia: el anuncio del fallo depende de la compañía", () => {
+  const fallo = {
+    mensaje: "No pudimos cargar la tendencia. Puede ser que el servidor esté dormido.",
+    onReintentar: vi.fn(),
+    etiquetaBoton: "Reintentar tendencia",
+  };
+
+  it("sola en pantalla, su fallo interrumpe con role=alert", () => {
+    render(<GraficaTendencia tendencia={undefined} moneda="COP" cargando={false} fallo={fallo} />);
+
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar tendencia" })).toBeInTheDocument();
+  });
+
+  it("cuando comparte pantalla con otro fallo, deja de anunciar solo (group, no alert)", () => {
+    render(
+      <GraficaTendencia
+        tendencia={undefined}
+        moneda="COP"
+        cargando={false}
+        fallo={fallo}
+        compartePantalla
+      />
+    );
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("group")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar tendencia" })).toBeInTheDocument();
+  });
+});

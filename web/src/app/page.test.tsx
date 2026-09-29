@@ -188,4 +188,68 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     expect(screen.getByText("Gastos")).toBeInTheDocument();
     expect(screen.getByText("Balance del mes")).toBeInTheDocument();
   });
+
+  it("con un solo fallo se sigue anunciando él solo, con role=alert y sin resumen compuesto", () => {
+    ajustar({ deCuentas: { data: undefined, isError: true, error: new Error("boom") } });
+
+    render(<PaginaResumen />);
+
+    // El comportamiento de siempre: una alerta, ninguna composición.
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Reintentar cuentas" })).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Varias partes del Resumen/)).not.toBeInTheDocument();
+  });
+
+  it("con dos o más fallos a la vez no hay alertas compitiendo: un solo anuncio y bloques en group", () => {
+    ajustar({
+      deCuentas: { data: undefined, isError: true, error: new Error("boom") },
+      deResumen: { data: undefined, isError: true, error: new Error("boom") },
+    });
+
+    render(<PaginaResumen />);
+
+    // Ningún bloque interrumpe por su cuenta: la tormenta de alertas se
+    // vuelve un único anuncio de la pantalla.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    // (El ToggleGroup del encabezado también es role=group: cada bloque de
+    // fallo se busca por su mensaje.)
+    expect(
+      screen
+        .getByText("No pudimos cargar tus cuentas. Puede ser que el servidor esté dormido.")
+        .closest('[role="group"]')
+    ).not.toBeNull();
+    expect(
+      screen
+        .getByText("No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido.")
+        .closest('[role="group"]')
+    ).not.toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Varias partes del Resumen no cargaron. Revisa abajo: cada parte tiene su Reintentar."
+    );
+    // Las etiquetas de Reintentar distintas sobreviven: se distinguen de oído
+    // al recorrer los bloques.
+    expect(screen.getByRole("button", { name: "Reintentar cuentas" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar resumen" })).toBeInTheDocument();
+  });
+
+  it("tres fallos a la vez componen igual: un anuncio, ningún alert", () => {
+    ajustar({
+      deCuentas: { data: undefined, isError: true, error: new Error("boom") },
+      deResumen: { data: undefined, isError: true, error: new Error("boom") },
+      deTendencia: { data: undefined, isError: true, error: new Error("boom") },
+    });
+
+    render(<PaginaResumen />);
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    // El bloque de la tendencia vive dentro de la gráfica, que aquí está
+    // maqueteada; sus dos compañeros bastan para fijar la política.
+    expect(
+      screen
+        .getByText("No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido.")
+        .closest('[role="group"]')
+    ).not.toBeNull();
+  });
 });

@@ -50,10 +50,15 @@ export function PanelPresupuesto({
   mes,
   moneda,
   variante = "tarjeta",
+  compartePantalla,
 }: {
   mes: string;
   moneda: string;
   variante?: "tarjeta" | "suelta";
+  /** `true` cuando otros fallos conviven en la pantalla (el Resumen puede
+   * tener varios a la vez): los bloques de este panel dejan de anunciar cada
+   * uno por su cuenta porque la pantalla ya trae el anuncio único. */
+  compartePantalla?: boolean;
 }) {
   const soloMirar = useSoloMirar();
   const {
@@ -93,7 +98,9 @@ export function PanelPresupuesto({
   const cuerpo = (
     <>
       {/* La consulta del checklist no se pudo leer: se dice y se ofrece
-          reintentar. "Nada por revisar" sería mentir con el mes en blanco. */}
+          reintentar. "Nada por revisar" sería mentir con el mes en blanco.
+          Este es el anuncio principal del panel: conserva su alerta salvo que
+          la pantalla ya esté componiendo el anuncio único de varios fallos. */}
       {isError && !checklist && !isLoading ? (
         <FalloConsulta
           etiquetaBoton="Reintentar checklist"
@@ -103,6 +110,7 @@ export function PanelPresupuesto({
           )}
           reintento={isFetching}
           onReintentar={() => refetch()}
+          compartePantalla={compartePantalla}
         />
       ) : isLoading ? (
           <div className="flex flex-col gap-3">
@@ -159,7 +167,9 @@ export function PanelPresupuesto({
         {/* La consulta de los ítems falló: sin ella no sabemos qué hay
             archivado, y que el bloque desaparezca en silencio diría un "no
             archivaste nada" que quizá sea mentira. Se dice y se ofrece
-            reintentar. */}
+            reintentar. Si el checklist también falló, este bloque cede el
+            anuncio: dos alertas del mismo panel serían una tormenta — queda
+            visible, con su Reintentar, pero no interrumpe dos veces. */}
         {errorDeItems && !todosLosItems ? (
           <div className="mt-3 border-t border-border pt-3">
             <FalloConsulta
@@ -170,6 +180,9 @@ export function PanelPresupuesto({
               )}
               reintento={recargandoItems}
               onReintentar={() => recargarItems()}
+              compartePantalla={
+                compartePantalla || Boolean(isError && !checklist && !isLoading)
+              }
             />
           </div>
         ) : archivados.length > 0 ? (

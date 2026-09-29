@@ -89,3 +89,35 @@ describe("GraficaAhorro: la gráfica también se puede leer sin verla", () => {
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 });
+
+describe("GraficaAhorro: el anuncio del fallo depende de la compañía", () => {
+  function ajustarFallo() {
+    vi.mocked(reportes.useAhorroMensual).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: new Error("boom"),
+      isFetching: false,
+      refetch: vi.fn(),
+    } as never);
+  }
+
+  it("sola en pantalla, su fallo interrumpe con role=alert", () => {
+    ajustarFallo();
+
+    render(<GraficaAhorro months={2} currency="COP" />);
+
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar ahorro" })).toBeInTheDocument();
+  });
+
+  it("cuando comparte pantalla con otro fallo, deja de anunciar solo (group, no alert)", () => {
+    ajustarFallo();
+
+    render(<GraficaAhorro months={2} currency="COP" compartePantalla />);
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("group")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar ahorro" })).toBeInTheDocument();
+  });
+});
