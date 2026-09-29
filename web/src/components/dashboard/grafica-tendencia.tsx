@@ -139,7 +139,16 @@ export function GraficaTendencia({
       <div role="img" aria-label={resumen}>
         <div aria-hidden>
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={datos} margin={{ top: 0, right: 0, bottom: 0, left: 0 }} barGap={4}>
+            {/* `accessibilityLayer` por defecto envuelve el SVG en
+                role="application" y lo hace enfocable; aquí el dato ya está en
+                el aria-label y en la tabla de abajo, así que la capa queda
+                apagada y el SVG es puramente decorativo. */}
+            <BarChart
+              data={datos}
+              margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+              barGap={4}
+              accessibilityLayer={false}
+            >
               <CartesianGrid vertical={false} stroke="var(--border)" />
               <XAxis
                 dataKey="etiqueta"

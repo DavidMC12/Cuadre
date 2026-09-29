@@ -71,4 +71,23 @@ describe("FormularioMovimiento abierto desde afuera (corregir un movimiento)", (
       "true"
     );
   });
+
+  it("precarga un ingreso con su monto y se anuncia como corrección, no como registro nuevo", () => {
+    render(
+      <FormularioMovimiento
+        cuentas={cuentas}
+        abierto
+        valoresIniciales={{ monto: "12.500", cuentaId: "a-1", tipo: "ingreso" }}
+        tituloCabecera="Corregir movimiento"
+        descripcionCabecera="Registra el movimiento correcto: el original ya quedó anulado."
+      />
+    );
+
+    expect(screen.getByLabelText("Monto")).toHaveValue("12.500");
+    expect(screen.getByRole("button", { name: "Ingreso" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(screen.getByText("Corregir movimiento")).toBeInTheDocument();
+  });
 });

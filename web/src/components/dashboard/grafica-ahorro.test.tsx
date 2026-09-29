@@ -10,10 +10,17 @@ vi.mock("next-themes", () => ({
   useTheme: () => ({ resolvedTheme: "light" }),
 }));
 
-// Igual que en la tendencia: el SVG de Recharts no aporta a lo que se prueba.
+// Igual que en la tendencia: el SVG de Recharts no aporta a lo que se prueba,
+// y se guardan las props para comprobar que su capa de accesibilidad queda
+// apagada.
+const { propsBarChart } = vi.hoisted(() => ({ propsBarChart: [] as Record<string, unknown>[] }));
+
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
-  BarChart: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  BarChart: (props: Record<string, unknown> & { children?: React.ReactNode }) => {
+    propsBarChart.push(props);
+    return <div>{props.children}</div>;
+  },
   CartesianGrid: () => null,
   XAxis: () => null,
   YAxis: () => null,
@@ -54,6 +61,9 @@ describe("GraficaAhorro: la gráfica también se puede leer sin verla", () => {
         name: "Ahorro de 2 meses, de Agosto de 2026 a Septiembre de 2026. Total $50.000.",
       })
     ).toBeInTheDocument();
+    // La capa de accesibilidad de Recharts dejaría el SVG enfocable dentro del
+    // aria-hidden; aquí queda apagada.
+    expect(propsBarChart.at(-1)?.accessibilityLayer).toBe(false);
   });
 
   it("ofrece los mismos datos en una tabla para lectores de pantalla", () => {

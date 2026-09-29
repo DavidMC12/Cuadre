@@ -11,10 +11,17 @@ vi.mock("next-themes", () => ({
 
 // Recharts mide su contenedor y dibuja un SVG que en jsdom no aporta nada a lo
 // que se prueba aquí —que exista un nombre accesible y una tabla con los
-// mismos datos—, así que se reemplaza por contenedores simples.
+// mismos datos—, así que se reemplaza por contenedores simples. El `BarChart`
+// guarda sus props para poder comprobar que la capa de accesibilidad de
+// Recharts queda apagada.
+const { propsBarChart } = vi.hoisted(() => ({ propsBarChart: [] as Record<string, unknown>[] }));
+
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
-  BarChart: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  BarChart: (props: Record<string, unknown> & { children?: React.ReactNode }) => {
+    propsBarChart.push(props);
+    return <div>{props.children}</div>;
+  },
   CartesianGrid: () => null,
   XAxis: () => null,
   YAxis: () => null,
@@ -40,6 +47,9 @@ describe("GraficaTendencia: la gráfica también se puede leer sin verla", () =>
         name: "Tendencia de 2 meses, de Agosto de 2026 a Septiembre de 2026. Ingresos $800.000; gastos $650.000.",
       })
     ).toBeInTheDocument();
+    // Sin esto, Recharts envolvería el SVG en role="application" y lo dejaría
+    // enfocable dentro de un contenedor aria-hidden.
+    expect(propsBarChart.at(-1)?.accessibilityLayer).toBe(false);
   });
 
   it("ofrece los mismos datos en una tabla para lectores de pantalla", () => {

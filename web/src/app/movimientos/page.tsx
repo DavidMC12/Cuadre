@@ -88,7 +88,7 @@ function ContenidoMovimientos() {
   // precargado. Se limpia al cerrarlo, y así se desmonta.
   const [movimientoACorregir, setMovimientoACorregir] = useState<Movimiento | null>(null);
 
-  const { data: cuentas } = useCuentas();
+  const { data: cuentas, isLoading: cargandoCuentas } = useCuentas();
   // Con archivadas incluidas: la lista puede estar filtrada por una categoría
   // que ya se archivó, y sus movimientos deben seguir mostrando el nombre.
   const { data: categorias } = useCategorias(true);
@@ -429,12 +429,14 @@ function ContenidoMovimientos() {
         <FormularioMovimiento
           key={movimientoACorregir.id}
           cuentas={cuentas ?? []}
-          cargandoCuentas={cuentas === undefined}
+          cargandoCuentas={cargandoCuentas}
           abierto
           onAbiertoChange={(estaAbierto) => {
             if (!estaAbierto) setMovimientoACorregir(null);
           }}
           valoresIniciales={{
+            // El signo lo pone el tipo (Gasto / Ingreso), así que el monto va
+            // sin él. `textoEditable` lo deja como lo escribe un CampoMonto.
             monto: textoEditable(
               movimientoACorregir.amount.replace(/^-/, ""),
               movimientoACorregir.currency
@@ -445,6 +447,8 @@ function ContenidoMovimientos() {
             descripcion: movimientoACorregir.description ?? "",
             tipo: movimientoACorregir.amount.startsWith("-") ? "gasto" : "ingreso",
           }}
+          tituloCabecera="Corregir movimiento"
+          descripcionCabecera="Registra el movimiento correcto: el original ya quedó anulado."
         />
       )}
     </div>

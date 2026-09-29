@@ -129,7 +129,14 @@ export function GraficaAhorro({ months, currency }: { months: number; currency: 
       <div role="img" aria-label={resumen}>
         <div aria-hidden>
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={datos} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+            {/* Misma razón que en la tendencia: el dato vive en el aria-label
+                y en la tabla, y la capa de accesibilidad de Recharts dejaría
+                un SVG enfocable dentro de un contenedor aria-hidden. */}
+            <BarChart
+              data={datos}
+              margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+              accessibilityLayer={false}
+            >
               <CartesianGrid vertical={false} stroke="var(--border)" />
               <XAxis
                 dataKey="etiqueta"

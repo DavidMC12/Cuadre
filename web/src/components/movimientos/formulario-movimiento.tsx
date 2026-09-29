@@ -122,6 +122,8 @@ export function FormularioMovimiento({
   abierto,
   onAbiertoChange,
   children,
+  tituloCabecera,
+  descripcionCabecera,
 }: {
   cuentas: Cuenta[];
   /** Si `cuentas` todavía se está pidiendo. Sin esto, abrir el formulario
@@ -148,6 +150,11 @@ export function FormularioMovimiento({
   /** El disparador visible. Opcional cuando el formulario se abre controlado,
    * como al corregir un movimiento: ahí no hay botón que lo abra. */
   children?: React.ReactNode;
+  /** Título y descripción para lectores de pantalla. Por defecto, los de un
+   * registro nuevo; corregir un movimiento pasa los suyos para que el cajón no
+   * se anuncie como "Nuevo movimiento" justo después de anular. */
+  tituloCabecera?: string;
+  descripcionCabecera?: string;
 }) {
   const hoyInput = () => fechaParaInput(new Date().toISOString());
 
@@ -430,8 +437,10 @@ export function FormularioMovimiento({
   ) : (
     <form onSubmit={manejarEnvio} className="flex min-h-0 flex-1 flex-col">
       <DrawerHeader className="sr-only">
-        <Titulo>Nuevo movimiento</Titulo>
-        <Descripcion>Registra un gasto, un ingreso, o pasa plata entre tus cuentas.</Descripcion>
+        <Titulo>{tituloCabecera ?? "Nuevo movimiento"}</Titulo>
+        <Descripcion>
+          {descripcionCabecera ?? "Registra un gasto, un ingreso, o pasa plata entre tus cuentas."}
+        </Descripcion>
       </DrawerHeader>
 
       <div className="flex flex-col gap-5 overflow-y-auto px-4 pt-2 pb-4">
