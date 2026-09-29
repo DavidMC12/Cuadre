@@ -141,8 +141,27 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   nivel de base de datos (checks + FK compuesta), no solo en la app. En
   `main`.
 
-Pendiente, sin fecha: otra ronda de `impeccable critique` más adelante
-para medir el puntaje tras estos arreglos.
+- **Quinta ronda de `impeccable critique`** (2026-09-29, 27/40 → 31/40,
+  "Bueno", sin P0): confirmó que los cuatro arreglos del día anterior
+  aterrizaron de fondo, no fue maquillaje. Hallazgos resueltos en `main`:
+  Cuentas y Categorías eran las dos únicas pantallas sin el patrón
+  `FalloConsulta` (un fallo de red se veía como cuerpo en blanco o como
+  "Todavía no tienes categorías"); las gráficas de tendencia y ahorro no
+  tenían nombre accesible (ahora `role="img"` + tabla `sr-only` +
+  `accessibilityLayer={false}` para que el SVG decorativo no quede
+  enfocable); corregir un movimiento costaba anular y reescribir todo a
+  mano (ahora "Sí, anular" abre el formulario precargado con los mismos
+  datos); la barra de navegación de 5 pestañas recortaba etiquetas a
+  320px (`flex-1` → `grow`); y la deriva P3 (una cifra de dinero en
+  flotante en "Otras categorías", el botón "Close" en inglés, toggles de
+  28/32px) quedó pareja con el resto de la app en 44px. Ajustes y el
+  panel de administración también adoptaron la política de datos
+  obsoletos. Queda sin atacar, anotado por el propio worker: el toggle de
+  `formulario-categoria.tsx` (32px).
+
+Pendiente, sin fecha: el toggle de `formulario-categoria.tsx` a 44px, y
+otra ronda de `impeccable critique` más adelante para medir el puntaje
+tras estos arreglos.
 
 ### Pasos adicionales, ya pasado el 100%
 
