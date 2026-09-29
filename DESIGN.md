@@ -245,7 +245,7 @@ Las secciones de Ajustes usan un contenedor con borde y filas divididas por hilo
 
 ### Navigation
 
-- **Mobile:** barra inferior fija de 64px con cinco pestañas de ancho por contenido: crecen con lo que sobra (`grow`) en vez de repartirse iguales — a 320px, clavar cinco de 64px (`flex-1`) recorta "Movimientos" y "Presupuesto". El piso es el toque mínimo: ninguna pestaña baja de 44px (`min-w-11`), y si la letra del sistema crece o llega un sexto ítem, el rótulo se recorta con puntos suspensivos (`truncate`) en vez de desbordar la barra. Icono de 20px sobre etiqueta de 12px; la activa usa texto Tinta e icono con trazo más grueso, las demás van en Grafito Suave.
+- **Mobile:** barra inferior fija de 64px con cinco pestañas de ancho por contenido: crecen con lo que sobra (`grow`) en vez de repartirse iguales — a 320px, clavar cinco de 64px (`flex-1`) recorta "Movimientos" y "Presupuesto". El piso del toque es de 44px por pestaña, en píxeles fijos y no en rem: si creciera con la letra del sistema, cinco pisos dejarían de caber a 320px desde ~145% de escala y la última pestaña quedaría fuera de pantalla; con piso fijo, cinco objetivos caben siempre y lo que se recorta con puntos suspensivos (`truncate`) es el rótulo, nunca el objetivo. Icono de 20px sobre etiqueta de 12px; la activa usa texto Tinta e icono con trazo más grueso, las demás van en Grafito Suave.
 - **Desktop:** barra lateral con el nombre "Cuadre" arriba (18px, 600 — un tamaño propio, entre Headline y Title, que no comparte con ningún otro texto de la app) y las mismas cinco entradas en fila, con etiqueta en Body (14px, 500) e icono de 18px. La activa lleva fondo Niebla y esquinas de 10px. "Ajustes" también se marca en Categorías y en Administración.
 
 ### Monto (signature)

@@ -141,12 +141,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   // `grow` (no `flex-1`, que repartiría cinco pestañas
                   // iguales de 64px) deja que cada una mida su contenido y se
                   // reparta el sobrante: los cinco rótulos se leen completos a
-                  // 320px. El piso `min-w-11` es la contraparte: cuando la
-                  // letra del sistema crece o llega un sexto ítem y hay que
-                  // encoger, ninguna pestaña baja del toque mínimo de 44px —
-                  // ahí el rótulo se recorta con puntos suspensivos
-                  // (`truncate`), nunca el objetivo.
-                  "flex min-w-11 grow flex-col items-center justify-center gap-1 text-xs font-medium transition-colors",
+                  // 320px. El piso es en píxeles fijos y no en rem a propósito:
+                  // un objetivo de toque es una constante física del dedo, no
+                  // un tamaño tipográfico — si fuera `min-w-11`, con la letra
+                  // del sistema al 150% cinco pisos de 66px ya no caben en
+                  // 320px y la última pestaña (la puerta de Ajustes) se saldría
+                  // de la pantalla. Con 44px fijos, cinco objetivos caben
+                  // siempre; cuando hay que encoger, lo que se recorta es el
+                  // rótulo (`truncate`), nunca el objetivo.
+                  "flex min-w-[44px] grow flex-col items-center justify-center gap-1 text-xs font-medium transition-colors",
                   activo ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
                 aria-current={activo ? "page" : undefined}

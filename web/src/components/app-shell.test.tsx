@@ -34,7 +34,8 @@ describe("Navegación: el checklist tiene casa propia en el menú", () => {
       expect(entrada).toHaveAttribute("href", "/presupuesto");
     }
 
-    // Las cuatro de siempre siguen ahí.
+    // Las otras cuatro entradas (las que había antes de Presupuesto) siguen
+    // ahí.
     expect(screen.getAllByRole("link", { name: "Resumen" }).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByRole("link", { name: "Cuentas" }).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByRole("link", { name: "Movimientos" }).length).toBeGreaterThanOrEqual(1);
@@ -56,8 +57,10 @@ describe("Navegación: el checklist tiene casa propia en el menú", () => {
     // Con cinco (o más) pestañas cada una puede encogerse (`grow` reparte por
     // contenido; nunca `flex-1`, que a 320px clava 64px por pestaña y recorta
     // "Movimientos"/"Presupuesto") pero no por debajo del toque mínimo de
-    // 44px (`min-w-11`): con letra del sistema más grande o un sexto ítem, el
-    // rótulo se recorta con puntos suspensivos (`truncate`), nunca el objetivo.
+    // 44px — en píxeles fijos (`min-w-[44px]`), no en rem: un objetivo de
+    // toque es una constante física del dedo, y con piso en rem cinco pisos
+    // dejarían de caber a 320px desde ~145% de escala. Ahí el rótulo se
+    // recorta con puntos suspensivos (`truncate`), nunca el objetivo.
     // jsdom no calcula layout, así que se fijan las clases que garantizan el
     // piso y el recorte; los anchos reales se miden con Chromium headless en
     // web/scripts/medir-nav-pestanas.mjs (320px, letra al 100%–200%).
@@ -68,9 +71,10 @@ describe("Navegación: el checklist tiene casa propia en el menú", () => {
       // ronda anterior y la que evitó el recorte real a 320px.
       expect(enlace.className).toContain("grow");
       expect(enlace.className).not.toContain("flex-1");
-      // El piso del pulgar, el mismo 44px que el resto de la app.
-      expect(enlace.className).toContain("min-w-11");
+      // El piso del pulgar, fijo y no rem.
+      expect(enlace.className).toContain("min-w-[44px]");
       expect(enlace.className).not.toContain("min-w-0");
+      expect(enlace.className).not.toContain("min-w-11");
       // Red de seguridad: el rótulo se recorta en vez de desbordar.
       expect(enlace.querySelector("span.truncate")).not.toBeNull();
     }
