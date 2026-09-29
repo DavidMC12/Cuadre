@@ -5,6 +5,8 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import PaginaResumen from "./page";
 import * as reportes from "@/hooks/use-reportes";
 import * as ordenCuentas from "@/hooks/use-cuentas";
+import { GraficaTendencia } from "@/components/dashboard/grafica-tendencia";
+import { GraficaPorCategoria } from "@/components/dashboard/grafica-por-categoria";
 import { ApiError } from "@/lib/api/client";
 import type { Cuenta, ResumenMes } from "@/lib/api/types";
 
@@ -33,9 +35,9 @@ vi.mock("@/components/dashboard/selector-mes", () => ({ SelectorMes: () => null 
 vi.mock("@/components/dashboard/total-cuentas", () => ({ TotalCuentas: () => null }));
 vi.mock("@/components/dashboard/total-ahorrado", () => ({ TotalAhorrado: () => null }));
 vi.mock("@/components/dashboard/grafica-por-categoria", () => ({
-  GraficaPorCategoria: () => null,
+  GraficaPorCategoria: vi.fn(() => null),
 }));
-vi.mock("@/components/dashboard/grafica-tendencia", () => ({ GraficaTendencia: () => null }));
+vi.mock("@/components/dashboard/grafica-tendencia", () => ({ GraficaTendencia: vi.fn(() => null) }));
 vi.mock("@/components/dashboard/grafica-ahorro", () => ({ GraficaAhorro: () => null }));
 vi.mock("@/components/presupuesto/panel-presupuesto", () => ({
   PanelPresupuesto: () => null,
@@ -187,6 +189,13 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     expect(screen.getByText("Ingresos")).toBeInTheDocument();
     expect(screen.getByText("Gastos")).toBeInTheDocument();
     expect(screen.getByText("Balance del mes")).toBeInTheDocument();
+
+    // Sin fallos, los componentes que comparten pantalla reciben la orden
+    // contraria: si alguno falla, anuncia él solo.
+    const propsTendencia = vi.mocked(GraficaTendencia).mock.calls.at(-1)?.[0] as unknown as {
+      compartePantalla?: boolean;
+    };
+    expect(propsTendencia.compartePantalla).toBe(false);
   });
 
   it("con un solo fallo se sigue anunciando él solo, con role=alert y sin resumen compuesto", () => {
@@ -194,10 +203,11 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
 
     render(<PaginaResumen />);
 
-    // El comportamiento de siempre: una alerta, ninguna composición.
+    // El comportamiento de siempre: una alerta, ninguna composición. La
+    // región del anuncio vive siempre montada, pero queda vacía.
     expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Reintentar cuentas" })).toBeInTheDocument();
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
     expect(screen.queryByText(/Varias partes del Resumen/)).not.toBeInTheDocument();
   });
 
@@ -231,6 +241,18 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     // al recorrer los bloques.
     expect(screen.getByRole("button", { name: "Reintentar cuentas" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar resumen" })).toBeInTheDocument();
+
+    // El cableado: los componentes que piden su consulta adentro reciben la
+    // orden de ceder cuando otro fallo convive (una prop opcional que nadie
+    // pasa es una tormenta que regresa sin que falle ninguna prueba).
+    const propsTendencia = vi.mocked(GraficaTendencia).mock.calls.at(-1)?.[0] as unknown as {
+      compartePantalla?: boolean;
+    };
+    const propsPorCategoria = vi.mocked(GraficaPorCategoria).mock.calls.at(-1)?.[0] as unknown as {
+      compartePantalla?: boolean;
+    };
+    expect(propsTendencia.compartePantalla).toBe(true);
+    expect(propsPorCategoria.compartePantalla).toBe(true);
   });
 
   it("tres fallos a la vez componen igual: un anuncio, ningún alert", () => {

@@ -120,6 +120,17 @@ export default function PaginaResumen() {
   // anuncio pasa a ser uno solo, aquí abajo, y los bloques bajan a
   // `role="group"`. Con un solo fallo se sigue anunciando él, como siempre.
   const componenFallos = cuantosFallos >= 2;
+  // Lo que la composición no cubre, a sabiendas: si SOLO fallan consultas
+  // que viven adentro de sus componentes (por categoría + ahorro, digamos)
+  // y ninguna de las tres de arriba cayó, esos bloques siguen siendo alerta
+  // cada uno — una tormenta de dos, no de seis, y necesita que dos
+  // endpoints independientes caigan juntos mientras el resto sirve. Y si un
+  // reintento parcial deja un solo fallo, ese bloque vuelve a `alert` sobre
+  // un elemento que ya existía y el anuncio compuesto se desmonta: puede
+  // quedar un momento sin anuncio fresco, visible y con su Reintentar.
+  // Cerrarlo del todo pedía subir las tres consultas a la página; por ahora,
+  // lo barato cubre las caídas de verdad: la total (el gate de monedas deja
+  // una sola alerta) y la de reportes (tendencia es de las conocidas).
 
   if (cargandoMonedas || yendoseAOtraPantalla) {
     return (
@@ -202,14 +213,15 @@ export default function PaginaResumen() {
           )}
         </div>
 
-      {/* El anuncio único de una caída que toca varias partes a la vez. Los
-          bloques de abajo ya no interrumpen cada uno por su cuenta: nombran
-          su parte y traen su Reintentar con su etiqueta propia. */}
-      {componenFallos && (
-        <p role="status" className="text-sm text-muted-foreground">
-          Varias partes del Resumen no cargaron. Revisa abajo: cada parte tiene su Reintentar.
-        </p>
-      )}
+      {/* El anuncio único de una caída que toca varias partes a la vez. La
+          región vive siempre montada, vacía cuando no hace falta: una región
+          viva tiene que existir antes de que cambie su contenido para que el
+          anuncio sea fiable — montarla junto con su texto es la receta del
+          silencio en varios lectores de pantalla. */}
+      <p role="status" className="text-sm text-muted-foreground">
+        {componenFallos &&
+          "Varias partes del Resumen no cargaron. Revisa abajo: cada parte tiene su Reintentar."}
+      </p>
 
       {monedas.length > 1 && (
         <div className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-sm">

@@ -57,7 +57,8 @@ export function PanelPresupuesto({
   variante?: "tarjeta" | "suelta";
   /** `true` cuando otros fallos conviven en la pantalla (el Resumen puede
    * tener varios a la vez): los bloques de este panel dejan de anunciar cada
-   * uno por su cuenta porque la pantalla ya trae el anuncio único. */
+   * uno por su cuenta — la pantalla compone el anuncio único, o queda un
+   * solo alert hablando por todos. */
   compartePantalla?: boolean;
 }) {
   const soloMirar = useSoloMirar();
@@ -83,6 +84,11 @@ export function PanelPresupuesto({
 
   const [viendoArchivados, setViendoArchivados] = useState(false);
 
+  // La consulta del checklist no se pudo leer y no hay nada que mostrar: la
+  // misma expresión decide el bloque de fallo y si los archivados le ceden
+  // el anuncio, así que vive en una sola variable.
+  const falloChecklist = isError && !checklist && !isLoading;
+
   const archivados = (todosLosItems ?? []).filter((item) => item.archivedAt !== null);
   const itemPorId = new Map((todosLosItems ?? []).map((item) => [item.id, item]));
 
@@ -101,7 +107,7 @@ export function PanelPresupuesto({
           reintentar. "Nada por revisar" sería mentir con el mes en blanco.
           Este es el anuncio principal del panel: conserva su alerta salvo que
           la pantalla ya esté componiendo el anuncio único de varios fallos. */}
-      {isError && !checklist && !isLoading ? (
+      {falloChecklist ? (
         <FalloConsulta
           etiquetaBoton="Reintentar checklist"
           mensaje={mensajeDeFallo(
@@ -180,9 +186,7 @@ export function PanelPresupuesto({
               )}
               reintento={recargandoItems}
               onReintentar={() => recargarItems()}
-              compartePantalla={
-                compartePantalla || Boolean(isError && !checklist && !isLoading)
-              }
+              compartePantalla={compartePantalla || falloChecklist}
             />
           </div>
         ) : archivados.length > 0 ? (

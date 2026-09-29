@@ -181,7 +181,7 @@ describe("GraficaPorCategoria: un fallo de red no es 'sin gastos este mes'", () 
     );
 
     // El bloque sigue completo — mensaje y Reintentar con su etiqueta propia —
-    // solo que la pantalla ya trae el anuncio único y este no interrumpe.
+    // solo que no interrumpe: el anuncio queda en manos de la pantalla.
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     // (El ToggleGroup de arriba también es role=group: el bloque se busca por
     // su mensaje, no por ser el único group en pantalla.)

@@ -75,7 +75,7 @@ export function GraficaTendencia({
     etiquetaBoton?: string;
   };
   /** `true` cuando otros fallos conviven en la misma pantalla: el bloque
-   * deja de anunciar solo y la pantalla ya trae el anuncio único. */
+   * deja de anunciar solo: la pantalla compone el anuncio único (role="status") o queda un solo alert hablando por todos. */
   compartePantalla?: boolean;
 }) {
   const { resolvedTheme } = useTheme();

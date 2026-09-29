@@ -45,9 +45,9 @@ export function FalloConsulta({
    */
   etiquetaBoton?: string;
   /** `true` cuando otros fallos conviven en la misma pantalla: el bloque
-   * deja de anunciar solo (`role="group"`) y la pantalla ya trae el anuncio
-   * único. Sin esto, una pantalla con varios fallos dispararía una alerta
-   * por bloque. */
+   * deja de anunciar solo. El anuncio queda en manos de la pantalla — el
+   * `role="status"` compuesto cuando hay varios, o el único `alert` que
+   * queda en pie cuando el resto cedió. */
   compartePantalla?: boolean;
 }) {
   return (
