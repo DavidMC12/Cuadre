@@ -153,11 +153,11 @@ describe("GraficaPorCategoria: un fallo de red no es 'sin gastos este mes'", () 
     );
 
     // La variante `tap` del toggle: h-11 son los 44px del pulgar.
-    expect(screen.getByRole("button", { name: "Gastos" }).classList.contains("h-11")).toBe(
-      true
-    );
-    expect(screen.getByRole("button", { name: "Ingresos" }).classList.contains("h-11")).toBe(
-      true
-    );
+    const gastos = screen.getByRole("button", { name: "Gastos" });
+    const ingresos = screen.getByRole("button", { name: "Ingresos" });
+    expect(gastos.classList.contains("h-11")).toBe(true);
+    expect(gastos.classList.contains("min-w-11")).toBe(true);
+    expect(ingresos.classList.contains("h-11")).toBe(true);
+    expect(ingresos.classList.contains("min-w-11")).toBe(true);
   });
 });
