@@ -704,6 +704,15 @@ export function FormularioMovimiento({
                 ))}
               </SelectContent>
             </Select>
+            {/* Corregir un movimiento de una cuenta ya retirada no es un
+                error: la cuenta original se conserva seleccionada. Pero se
+                dice que está archivada, para que no parezca una cuenta viva
+                ni una elección equivocada. */}
+            {cuentaElegida?.archivedAt && (
+              <p className="text-xs text-muted-foreground">
+                Esta cuenta está archivada: la corrección quedará registrada en ella.
+              </p>
+            )}
             {errores.cuenta && <p className="text-xs text-destructive">{errores.cuenta}</p>}
           </div>
         )}
