@@ -110,6 +110,28 @@ export default function PaginaResumen() {
   const falloResumen = errorResumen && !resumen;
   const falloTendencia = errorTendencia && !tendencia;
 
+  // Los fallos que esta pantalla conoce de las consultas que ella misma pide.
+  // La gráfica por categoría, la de ahorro y el panel del presupuesto piden
+  // los suyos adentro; a ellos no hace falta decirles cuál falló, solo si
+  // otro fallo convive en la pantalla — para eso alcanza este conteo.
+  const cuantosFallos = [falloCuentas, falloResumen, falloTendencia].filter(Boolean).length;
+  // Con dos o más caídas a la vez, cada bloque con su propia `role="alert"`
+  // sería una tormenta de anuncios para quien escucha la pantalla: el
+  // anuncio pasa a ser uno solo, aquí abajo, y los bloques bajan a
+  // `role="group"`. Con un solo fallo se sigue anunciando él, como siempre.
+  const componenFallos = cuantosFallos >= 2;
+  // Lo que la composición no cubre, a sabiendas: si SOLO fallan consultas
+  // que viven adentro de sus componentes (por categoría + ahorro, digamos)
+  // y ninguna de las tres de arriba cayó, esos bloques siguen siendo alerta
+  // cada uno — una tormenta de dos, no de seis, y necesita que dos
+  // endpoints independientes caigan juntos mientras el resto sirve. Y si un
+  // reintento parcial deja un solo fallo, ese bloque vuelve a `alert` sobre
+  // un elemento que ya existía y el anuncio compuesto se desmonta: puede
+  // quedar un momento sin anuncio fresco, visible y con su Reintentar.
+  // Cerrarlo del todo pedía subir las tres consultas a la página; por ahora,
+  // lo barato cubre las caídas de verdad: la total (el gate de monedas deja
+  // una sola alerta) y la de reportes (tendencia es de las conocidas).
+
   if (cargandoMonedas || yendoseAOtraPantalla) {
     return (
       <div className="flex flex-col gap-4">
@@ -179,12 +201,27 @@ export default function PaginaResumen() {
                 <div className="overflow-y-auto px-4 pb-4">
               {/* Sin Card ni encabezado propio: el cajón ya trae título y los
                   dos contenedores peleaban por encabezar la misma pantalla. */}
-                  <PanelPresupuesto mes={mes} moneda={moneda} variante="suelta" />
+                  <PanelPresupuesto
+                    mes={mes}
+                    moneda={moneda}
+                    variante="suelta"
+                    compartePantalla={falloCuentas || falloResumen || falloTendencia}
+                  />
                 </div>
               </DrawerContent>
             </Drawer>
           )}
         </div>
+
+      {/* El anuncio único de una caída que toca varias partes a la vez. La
+          región vive siempre montada, vacía cuando no hace falta: una región
+          viva tiene que existir antes de que cambie su contenido para que el
+          anuncio sea fiable — montarla junto con su texto es la receta del
+          silencio en varios lectores de pantalla. */}
+      <p role="status" className="text-sm text-muted-foreground">
+        {componenFallos &&
+          "Varias partes del Resumen no cargaron. Revisa abajo: cada parte tiene su Reintentar."}
+      </p>
 
       {monedas.length > 1 && (
         <div className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-sm">
@@ -215,6 +252,9 @@ export default function PaginaResumen() {
             )}
             reintento={recargandoCuentas}
             onReintentar={() => recargarCuentas()}
+            // Basta con que OTRO fallo conviva: este bloque deja de anunciar
+            // solo y el anuncio único de arriba habla por todos.
+            compartePantalla={falloResumen || falloTendencia}
           />
         ) : (
           <>
@@ -232,6 +272,7 @@ export default function PaginaResumen() {
         resumen={resumen}
         moneda={moneda ?? ""}
         cargando={cargandoResumen}
+        compartePantalla={falloCuentas || falloTendencia}
         fallo={
           falloResumen
             ? {
@@ -261,6 +302,9 @@ export default function PaginaResumen() {
               moneda={moneda ?? ""}
               tipo={tipoCategoria}
               onCambiarTipo={setTipoCategoria}
+              // No sabe cuál otro falló ni hace falta: si cualquier otro
+              // fallo convive, el suyo deja de anunciar solo.
+              compartePantalla={falloCuentas || falloResumen || falloTendencia}
             />
           </CardContent>
         </Card>
@@ -289,6 +333,7 @@ export default function PaginaResumen() {
               tendencia={tendencia}
               moneda={moneda ?? ""}
               cargando={cargandoTendencia}
+              compartePantalla={falloCuentas || falloResumen}
               fallo={
                 falloTendencia
                   ? {
@@ -316,7 +361,11 @@ export default function PaginaResumen() {
             <CardTitle>Ahorro</CardTitle>
           </CardHeader>
           <CardContent>
-            <GraficaAhorro months={mesesTendencia} currency={moneda ?? ""} />
+            <GraficaAhorro
+              months={mesesTendencia}
+              currency={moneda ?? ""}
+              compartePantalla={falloCuentas || falloResumen || falloTendencia}
+            />
           </CardContent>
         </Card>
       )}
@@ -336,7 +385,11 @@ export default function PaginaResumen() {
           consultaba al servidor igual, aunque nadie lo mirara. */}
       {pantallaAncha && moneda && (
         <aside className="w-80 shrink-0 xl:sticky xl:top-8">
-          <PanelPresupuesto mes={mes} moneda={moneda} />
+          <PanelPresupuesto
+            mes={mes}
+            moneda={moneda}
+            compartePantalla={falloCuentas || falloResumen || falloTendencia}
+          />
         </aside>
       )}
     </div>

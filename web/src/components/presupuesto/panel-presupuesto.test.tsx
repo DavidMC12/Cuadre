@@ -98,4 +98,54 @@ describe("PanelPresupuesto: una variante por contenedor", () => {
     // puede ser mentira.
     expect(screen.queryByText(/Archivados/)).not.toBeInTheDocument();
   });
+
+  it("con los dos fallos del panel a la vez, solo el checklist interrumpe y los archivados ceden", () => {
+    ajustarConsultas(
+      { isError: true, error: new Error("boom") },
+      { isError: true, error: new Error("boom") }
+    );
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // Dos alertas del mismo panel serían una tormenta: una sola anuncia y la
+    // otra queda visible y navegable, con su Reintentar propio.
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "No pudimos cargar el checklist del mes. Puede ser que el servidor esté dormido."
+    );
+    expect(screen.getByRole("group")).toHaveTextContent(
+      "No pudimos cargar los ítems archivados. Puede ser que el servidor esté dormido."
+    );
+    expect(screen.getByRole("button", { name: "Reintentar checklist" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar archivados" })).toBeInTheDocument();
+  });
+
+  it("con la pantalla componiendo el anuncio, ninguno de los dos interrumpe", () => {
+    ajustarConsultas(
+      { isError: true, error: new Error("boom") },
+      { isError: true, error: new Error("boom") }
+    );
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" compartePantalla />);
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("group")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Reintentar checklist" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar archivados" })).toBeInTheDocument();
+  });
+
+  it("solo los archivados fallando interrumpe con alert: no cede si no hay con quién", () => {
+    ajustarConsultas(
+      { data: { items: [renglon] } },
+      { isError: true, error: new Error("boom") }
+    );
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "No pudimos cargar los ítems archivados. Puede ser que el servidor esté dormido."
+    );
+    expect(screen.queryByRole("group")).not.toBeInTheDocument();
+  });
 });

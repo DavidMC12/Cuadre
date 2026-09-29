@@ -9,6 +9,7 @@ export function ResumenCards({
   moneda,
   cargando,
   fallo,
+  compartePantalla,
 }: {
   resumen: ResumenMes | undefined;
   moneda: string;
@@ -22,6 +23,9 @@ export function ResumenCards({
     onReintentar: () => void;
     etiquetaBoton?: string;
   };
+  /** `true` cuando otros fallos conviven en la misma pantalla: el bloque
+   * deja de anunciar solo: la pantalla compone el anuncio único (role="status") o queda un solo alert hablando por todos. */
+  compartePantalla?: boolean;
 }) {
   // En el celular: ingresos y gastos lado a lado, y el balance debajo a lo
   // ancho. Desde `md` los tres caben en una fila.
@@ -32,6 +36,7 @@ export function ResumenCards({
         reintento={fallo.reintento}
         onReintentar={fallo.onReintentar}
         etiquetaBoton={fallo.etiquetaBoton}
+        compartePantalla={compartePantalla}
       />
     );
   }

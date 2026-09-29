@@ -21,12 +21,20 @@ export function mensajeDeFallo(error: unknown, mensaje: string): string {
  * El bloque de fallo: mensaje y botón para reintentar. Nunca un cero ni un
  * vacío fingiendo que todo está bien — "la cifra es la verdad", y si la
  * consulta no se pudo leer, la cifra no existe todavía.
+ *
+ * Por defecto es `role="alert"`: en pantallas con una sola consulta, el fallo
+ * es EL anuncio y merece interrumpir. Cuando una pantalla puede tener varios
+ * fallos a la vez (el Resumen), sus bloques se montan con `compartePantalla`
+ * y bajan a `role="group"`: dejan de anunciar cada uno por su cuenta porque
+ * la pantalla compone el anuncio único en un `role="status"` que los
+ * agrupa a todos — una caída no puede volverse una tormenta de alertas.
  */
 export function FalloConsulta({
   mensaje,
   reintento = false,
   onReintentar,
   etiquetaBoton,
+  compartePantalla = false,
 }: {
   mensaje: string;
   reintento?: boolean;
@@ -36,10 +44,15 @@ export function FalloConsulta({
    * botones idénticos no se distinguen de oído (ni de mano).
    */
   etiquetaBoton?: string;
+  /** `true` cuando otros fallos conviven en la misma pantalla: el bloque
+   * deja de anunciar solo. El anuncio queda en manos de la pantalla — el
+   * `role="status"` compuesto cuando hay varios, o el único `alert` que
+   * queda en pie cuando el resto cedió. */
+  compartePantalla?: boolean;
 }) {
   return (
     <div
-      role="alert"
+      role={compartePantalla ? "group" : "alert"}
       className="flex flex-col items-start gap-3 rounded-lg border border-border p-4"
     >
       <p className="text-sm text-muted-foreground">{mensaje}</p>

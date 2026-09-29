@@ -38,6 +38,28 @@ describe("ResumenCards", () => {
     expect(reintentar).toHaveBeenCalledTimes(1);
   });
 
+  it("cuando comparte pantalla con otro fallo, deja de anunciar solo (group, no alert)", () => {
+    render(
+      <ResumenCards
+        resumen={undefined}
+        moneda="COP"
+        cargando={false}
+        compartePantalla
+        fallo={{
+          mensaje: "No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido.",
+          onReintentar: vi.fn(),
+          etiquetaBoton: "Reintentar resumen",
+        }}
+      />
+    );
+
+    // La pantalla ya trae el anuncio único: el bloque queda completo —mensaje
+    // y su Reintentar con etiqueta propia— pero sin alerta propia.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("group")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar resumen" })).toBeInTheDocument();
+  });
+
   it("un error de UNAUTHORIZED usa el mensaje del servidor", () => {
     render(
       <ResumenCards

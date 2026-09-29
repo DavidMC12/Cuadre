@@ -160,4 +160,38 @@ describe("GraficaPorCategoria: un fallo de red no es 'sin gastos este mes'", () 
     expect(ingresos.classList.contains("h-11")).toBe(true);
     expect(ingresos.classList.contains("min-w-11")).toBe(true);
   });
+
+  it("cuando comparte pantalla con otro fallo, el suyo deja de anunciar solo (group, no alert)", () => {
+    const recargar = vi.fn();
+    ajustarConsultas({
+      data: undefined,
+      isError: true,
+      error: new Error("boom"),
+      refetch: recargar,
+    });
+
+    render(
+      <GraficaPorCategoria
+        mes="2026-09"
+        moneda="COP"
+        tipo="expense"
+        onCambiarTipo={vi.fn()}
+        compartePantalla
+      />
+    );
+
+    // El bloque sigue completo — mensaje y Reintentar con su etiqueta propia —
+    // solo que no interrumpe: el anuncio queda en manos de la pantalla.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    // (El ToggleGroup de arriba también es role=group: el bloque se busca por
+    // su mensaje, no por ser el único group en pantalla.)
+    expect(
+      screen
+        .getByText(
+          "No pudimos cargar los gastos por categoría. Puede ser que el servidor esté dormido."
+        )
+        .closest('[role="group"]')
+    ).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Reintentar por categoría" })).toBeInTheDocument();
+  });
 });
