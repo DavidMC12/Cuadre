@@ -25,18 +25,27 @@ vi.mock("@/hooks/use-categorias", () => ({ useCategorias: vi.fn() }));
 
 vi.mock("@/components/dashboard/selector-mes", () => ({ SelectorMes: () => null }));
 vi.mock("@/components/movimientos/formulario-movimiento", () => ({
-  // La prueba del flujo de corrección necesita ver con qué abre el formulario;
-  // las demás solo usan los `children` del estado vacío.
+  // La prueba del flujo de corrección necesita ver con qué abre el formulario
+  // —valores y cabecera—; las demás solo usan los `children` del estado vacío.
   FormularioMovimiento: ({
     children,
     valoresIniciales,
+    tituloCabecera,
+    descripcionCabecera,
   }: {
     children?: React.ReactNode;
     valoresIniciales?: Record<string, unknown>;
+    tituloCabecera?: string;
+    descripcionCabecera?: string;
   }) => (
     <div>
       {valoresIniciales ? (
         <pre data-testid="valores-iniciales">{JSON.stringify(valoresIniciales)}</pre>
+      ) : null}
+      {valoresIniciales ? (
+        <pre data-testid="cabecera-correccion">
+          {JSON.stringify({ tituloCabecera, descripcionCabecera })}
+        </pre>
       ) : null}
       {children}
     </div>
@@ -222,6 +231,16 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       fecha: "2026-09-10",
       descripcion: "Mercado",
       tipo: "gasto",
+    });
+
+    // Y con la cabecera de corrección: es la que le dice a la vista en qué
+    // paso está (el formulario la muestra visible, no solo de oído).
+    const cabecera = JSON.parse(
+      screen.getByTestId("cabecera-correccion").textContent ?? "{}"
+    );
+    expect(cabecera).toEqual({
+      tituloCabecera: "Corregir movimiento",
+      descripcionCabecera: "Registra el movimiento correcto: el original ya quedó anulado.",
     });
   });
 });

@@ -150,9 +150,11 @@ export function FormularioMovimiento({
   /** El disparador visible. Opcional cuando el formulario se abre controlado,
    * como al corregir un movimiento: ahí no hay botón que lo abra. */
   children?: React.ReactNode;
-  /** Título y descripción para lectores de pantalla. Por defecto, los de un
-   * registro nuevo; corregir un movimiento pasa los suyos para que el cajón no
-   * se anuncie como "Nuevo movimiento" justo después de anular. */
+  /** Título y descripción de la cabecera. En un registro nuevo solo los
+   * anuncia un lector de pantalla — el monto héroe es el encabezado visible.
+   * Al corregir un movimiento la cabecera se ve, y estos textos son los que
+   * encuadran el paso: "Corregir movimiento", no "Nuevo movimiento" justo
+   * después de anular. */
   tituloCabecera?: string;
   descripcionCabecera?: string;
 }) {
@@ -259,6 +261,30 @@ export function FormularioMovimiento({
   // peor que no ofrecerla. Con dos cuentas de monedas distintas sí se ofrece y
   // "Hacia" explica por qué no hay destino: esconderla no enseñaría la regla.
   const puedeTransferir = cuentas.length >= 2;
+
+  // ¿Abrió como corrección de un movimiento anulado? Es el único camino que
+  // llega con `valoresIniciales`, y el único que necesita el encuadre visible
+  // y la compuerta de abajo.
+  const enCorreccion = Boolean(valoresIniciales);
+
+  // ¿Algo cambió respecto de lo precargado? En un registro nuevo la respuesta
+  // es siempre sí — no hay precarga con qué comparar, el formulario abre
+  // vacío y "Registrar" trabaja desde el primer toque. En una corrección, en
+  // cambio, enviar tal cual recrearía el movimiento que se acaba de anular:
+  // una escritura irreversible que la persona no pidió. Por eso ahí "Registrar"
+  // queda apagado hasta el primer cambio, y el pie dice por qué.
+  //
+  // La comparación mira lo que la persona controla, no lo resuelto: la cuenta
+  // es `cuentaElegidaAMano` (su elección), no `cuentaId` (que puede caer a
+  // otra cuenta si la original no está en la lista).
+  const cambioAlgo =
+    !enCorreccion ||
+    tipoMonto !== (valoresIniciales?.tipo ?? tipoInicial ?? "gasto") ||
+    monto !== (valoresIniciales?.monto ?? "") ||
+    cuentaElegidaAMano !== (valoresIniciales?.cuentaId ?? null) ||
+    categoryId !== valoresIniciales?.categoriaId ||
+    fecha !== (valoresIniciales?.fecha ?? hoyInput()) ||
+    descripcion !== (valoresIniciales?.descripcion ?? "");
 
   const { data: categorias } = useCategorias(false);
   // Una transferencia no lleva categoría: no hay chips que ofrecer ahí.
@@ -436,7 +462,13 @@ export function FormularioMovimiento({
     </>
   ) : (
     <form onSubmit={manejarEnvio} className="flex min-h-0 flex-1 flex-col">
-      <DrawerHeader className="sr-only">
+      {/* En un registro nuevo el monto héroe ES el encabezado: el título vive
+          sr-only para los lectores de pantalla. En una corrección, en cambio,
+          la orientación tiene que verse — la persona llega de anular algo, y
+          "Corregir movimiento" con la explicación del original anulado es lo
+          único que dice en qué paso está. Escondido de la vista, el cajón se
+          leía como un registro más. */}
+      <DrawerHeader className={enCorreccion ? undefined : "sr-only"}>
         <Titulo>{tituloCabecera ?? "Nuevo movimiento"}</Titulo>
         <Descripcion>
           {descripcionCabecera ?? "Registra un gasto, un ingreso, o pasa plata entre tus cuentas."}
@@ -727,13 +759,22 @@ export function FormularioMovimiento({
 
       <DrawerFooter>
         {/* Sin destino posible no hay nada que registrar: en vez de un botón
-            que no hace nada, queda apagado mientras "Hacia" explica por qué. */}
+            que no hace nada, queda apagado mientras "Hacia" explica por qué.
+            En una corrección queda apagado hasta el primer cambio: reenviar
+            tal cual recrearía lo recién anulado. */}
         <Button
           type="submit"
-          disabled={registrando || (tipoMonto === "transferencia" && !hayDestinoPosible)}
+          disabled={
+            registrando || !cambioAlgo || (tipoMonto === "transferencia" && !hayDestinoPosible)
+          }
         >
           {registrando ? "Registrando…" : "Registrar"}
         </Button>
+        {enCorreccion && !cambioAlgo && (
+          <p className="text-center text-xs text-muted-foreground">
+            Ajusta lo que estaba mal para habilitar Registrar.
+          </p>
+        )}
       </DrawerFooter>
     </form>
   );
