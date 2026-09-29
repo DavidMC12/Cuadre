@@ -141,11 +141,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   // `grow` (no `flex-1`, que repartiría cinco pestañas
                   // iguales de 64px) deja que cada una mida su contenido y se
                   // reparta el sobrante: los cinco rótulos se leen completos a
-                  // 320px. `min-w-0` + `truncate` son la red de seguridad para
-                  // cuando la suma supere el ancho (un sexto ítem, o la letra
-                  // del sistema más grande): ahí se encogen y el nombre se
-                  // recorta con puntos suspensivos en vez de desbordar.
-                  "flex min-w-0 grow flex-col items-center justify-center gap-1 text-xs font-medium transition-colors",
+                  // 320px. El piso `min-w-11` es la contraparte: cuando la
+                  // letra del sistema crece o llega un sexto ítem y hay que
+                  // encoger, ninguna pestaña baja del toque mínimo de 44px —
+                  // ahí el rótulo se recorta con puntos suspensivos
+                  // (`truncate`), nunca el objetivo.
+                  "flex min-w-11 grow flex-col items-center justify-center gap-1 text-xs font-medium transition-colors",
                   activo ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
                 aria-current={activo ? "page" : undefined}
