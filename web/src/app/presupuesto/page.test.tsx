@@ -66,6 +66,12 @@ describe("Página Presupuesto: casa propia del checklist", () => {
     render(<PaginaPresupuesto />);
 
     expect(screen.getByText("Aún no hay nada por revisar")).toBeInTheDocument();
+    // El vacío nombra la sección como el nav ("Presupuesto"), no "checklist".
+    expect(
+      screen.getByText(
+        "Crea una cuenta y registra tu primer movimiento para empezar tu presupuesto del mes."
+      )
+    ).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText("Reintentar")).not.toBeInTheDocument();
   });
