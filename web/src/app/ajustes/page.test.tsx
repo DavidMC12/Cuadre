@@ -105,4 +105,26 @@ describe("Ajustes: mismo bloque de fallo que el resto de la app", () => {
     // La pantalla de siempre sigue en pie.
     expect(screen.getByText("Sam")).toBeInTheDocument();
   });
+
+  it("un refetch fallido con datos viejos no reemplaza la pantalla por el fallo", () => {
+    ajustarPerfil({
+      isError: true,
+      error: new Error("boom"),
+      data: {
+        displayName: "Sam",
+        email: "sam@cuadre.co",
+        createdAt: "2026-08-01",
+        startPage: "resumen",
+        isAdmin: false,
+      },
+    });
+
+    render(<PaginaAjustes />);
+
+    // La política del resto de la app: el error no borra lo que ya está en
+    // pantalla; con datos en la memoria, esos son los que se muestran.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText("Reintentar")).not.toBeInTheDocument();
+    expect(screen.getByText("Sam")).toBeInTheDocument();
+  });
 });

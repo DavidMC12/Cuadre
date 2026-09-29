@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { ShieldCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 
+import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
 import { EmptyState } from "@/components/empty-state";
 import { Seccion } from "@/components/ajustes/seccion";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +24,14 @@ export default function PaginaAdmin() {
   const { data: perfil, isPending: cargandoPerfil } = usePerfil();
   const puedeAdministrar = perfil?.isAdmin ?? false;
 
-  const { data: personas, isPending, isError } = useUsuariosDelSistema(puedeAdministrar);
+  const {
+    data: personas,
+    isPending,
+    isError,
+    error,
+    isFetching,
+    refetch: recargarPersonas,
+  } = useUsuariosDelSistema(puedeAdministrar);
   const { data: registro } = useRegistroDeSuplantaciones(puedeAdministrar);
   const suplantar = useSuplantar();
 
@@ -86,10 +94,19 @@ export default function PaginaAdmin() {
         </div>
       )}
 
-      {isError && (
-        <p className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
-          No pudimos traer la lista de personas.
-        </p>
+      {/* La consulta no se pudo leer y no hay nada que mostrar: se dice y se
+          ofrece reintentar, con el mismo bloque de fallo que el resto de la
+          app. Con datos viejos en la memoria el listado se sigue mostrando:
+          el error no borra lo que ya está en el libro. */}
+      {isError && !personas && (
+        <FalloConsulta
+          mensaje={mensajeDeFallo(
+            error,
+            "No pudimos traer la lista de personas. Puede ser que el servidor esté dormido."
+          )}
+          reintento={isFetching}
+          onReintentar={() => recargarPersonas()}
+        />
       )}
 
       {personas && personas.length === 0 && (

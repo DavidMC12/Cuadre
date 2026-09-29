@@ -56,8 +56,10 @@ export default function PaginaAjustes() {
       )}
 
       {/* El mismo bloque de fallo que el resto de la app: la respuesta a "no
-          se pudo cargar" es una sola, no una por pantalla. */}
-      {isError && (
+          se pudo cargar" es una sola, no una por pantalla. Con datos viejos
+          en la memoria —un refetch en fondo que falló— la pantalla se queda
+          con lo que dice el servidor: el error no borra lo que ya está. */}
+      {isError && !perfil && (
         <FalloConsulta
           mensaje={mensajeDeFallo(
             error,
