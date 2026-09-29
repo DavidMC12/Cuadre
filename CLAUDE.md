@@ -156,12 +156,11 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   flotante en "Otras categorías", el botón "Close" en inglés, toggles de
   28/32px) quedó pareja con el resto de la app en 44px. Ajustes y el
   panel de administración también adoptaron la política de datos
-  obsoletos. Queda sin atacar, anotado por el propio worker: el toggle de
-  `formulario-categoria.tsx` (32px).
+  obsoletos. El último toggle bajo 44px (`formulario-categoria.tsx`) se
+  cerró aparte, sin P0/P1/P2/P3 abiertos de esta ronda.
 
-Pendiente, sin fecha: el toggle de `formulario-categoria.tsx` a 44px, y
-otra ronda de `impeccable critique` más adelante para medir el puntaje
-tras estos arreglos.
+Pendiente, sin fecha: otra ronda de `impeccable critique` más adelante
+para medir el puntaje tras estos arreglos.
 
 ### Pasos adicionales, ya pasado el 100%
 
