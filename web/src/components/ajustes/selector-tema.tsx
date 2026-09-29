@@ -35,7 +35,7 @@ export function SelectorTema() {
   const { theme, setTheme } = useTheme();
   const yaEnElNavegador = useYaEnElNavegador();
 
-  if (!yaEnElNavegador) return <Skeleton className="h-9 w-full rounded-lg" />;
+  if (!yaEnElNavegador) return <Skeleton className="h-11 w-full rounded-lg" />;
 
   return (
     <ToggleGroup
@@ -44,6 +44,9 @@ export function SelectorTema() {
         if (valores.length > 0) setTheme(valores[0]!);
       }}
       variant="outline"
+      // Mismo piso de 44px que los formularios de movimiento y cuenta: en
+      // celular estos segmentos se tocan con el pulgar.
+      size="tap"
       className="w-full"
     >
       {TEMAS.map(({ valor, etiqueta }) => (

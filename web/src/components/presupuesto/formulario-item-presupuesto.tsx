@@ -238,6 +238,7 @@ export function FormularioItemPresupuesto({
                     if (valores.length > 0) setTipo(valores[0] as "category" | "savings");
                   }}
                   variant="outline"
+                  size="tap"
                   className="w-full"
                 >
                   <ToggleGroupItem value="category" className="flex-1">

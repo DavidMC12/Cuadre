@@ -49,6 +49,9 @@ export function OpcionGuardada({
         });
       }}
       variant="outline"
+      // Mismo piso de 44px que los formularios de movimiento y cuenta: en
+      // celular estos segmentos se tocan con el pulgar.
+      size="tap"
       className="w-full"
       // Las preferencias de otra persona se ven, no se tocan.
       disabled={guardar.isPending || soloMirar}

@@ -275,7 +275,9 @@ export default function PaginaResumen() {
                   if (valores.length > 0) setMesesTendencia(Number(valores[0]) as 6 | 12);
                 }}
                 variant="outline"
-                size="sm"
+                // Mismo piso de 44px que el resto de los controles del pulgar:
+                // "6 meses"/"12 meses" se tocan igual en el celular.
+                size="tap"
               >
                 <ToggleGroupItem value="6">6 meses</ToggleGroupItem>
                 <ToggleGroupItem value="12">12 meses</ToggleGroupItem>

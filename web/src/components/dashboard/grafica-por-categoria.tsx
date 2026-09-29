@@ -9,7 +9,7 @@ import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
 import { useCategorias } from "@/hooks/use-categorias";
 import { usePorCategoria } from "@/hooks/use-reportes";
 import type { TipoCategoria } from "@/lib/api/types";
-import { textoMonto } from "@/lib/money";
+import { textoMonto, sumarMontos } from "@/lib/money";
 import { mapaColoresCategorias, COLOR_NEUTRO, modoDeTema } from "@/lib/chart-colors";
 import { SIN_CATEGORIA } from "@/lib/labels";
 
@@ -105,18 +105,18 @@ export function GraficaPorCategoria({
   }
 
   if (resto.length > 0) {
-    // Suma solo para esta fila de repliegue: no participa en ningún saldo ni
-    // se guarda en ningún lado, así que perder algo de precisión aquí no
-    // descuadra nada.
-    const totalResto = resto.reduce((acumulado, fila) => acumulado + Number(fila.total), 0);
+    // Suma exacta como todo el dinero de la app: el repliegue se arma con
+    // montos de verdad y una cifra aproximada aquí descontaría de más o de
+    // menos lo que el mes gastó. BigInt, nunca flotante.
+    const totalResto = sumarMontos(resto.map((fila) => fila.total));
     datos.push({
       id: "otras-categorias",
       categoriaId: null,
       // "Otras categorías" y no "Otros": el catálogo por defecto ya trae una
       // categoría de verdad llamada "Otros" y las dos no deben confundirse.
       nombre: "Otras categorías",
-      total: String(totalResto),
-      valorNumerico: totalResto,
+      total: totalResto,
+      valorNumerico: Number(totalResto),
       color: COLOR_NEUTRO[modo],
     });
   }
@@ -129,12 +129,15 @@ export function GraficaPorCategoria({
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Mismo piso de 44px que los formularios: en celular estos segmentos
+          se tocan con el pulgar. */}
       <ToggleGroup
         value={[tipo]}
         onValueChange={(valores) => {
           if (valores.length > 0) onCambiarTipo(valores[0] as TipoCategoria);
         }}
         variant="outline"
+        size="tap"
         className="w-full"
       >
         <ToggleGroupItem value="expense" className="flex-1">

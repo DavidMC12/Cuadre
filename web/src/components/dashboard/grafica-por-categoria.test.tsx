@@ -105,4 +105,59 @@ describe("GraficaPorCategoria: un fallo de red no es 'sin gastos este mes'", () 
     expect(screen.getByText("Mercado")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
+
+  it("el repliegue 'Otras categorías' suma exacto, sin perder centavos en flotante", () => {
+    const montosRepliegue = ["1099946.7554", "2358772.6602", "3294162.5450", "5142164.8111"];
+    // Once categorías: las 7 primeras quedan visibles y las 4 últimas caen
+    // dentro del repliegue "Otras categorías".
+    const datos = [
+      ...Array.from({ length: 7 }, (_, i) => ({
+        categoryId: `c-${i}`,
+        categoryName: `C${i}`,
+        total: "100",
+      })),
+      ...montosRepliegue.map((total, i) => ({
+        categoryId: `c-otra-${i}`,
+        categoryName: `Otra ${i}`,
+        total,
+      })),
+    ];
+    ajustarConsultas({ data: datos }, []);
+
+    render(
+      <GraficaPorCategoria
+        mes="2026-09"
+        moneda="COP"
+        tipo="expense"
+        onCambiarTipo={vi.fn()}
+      />
+    );
+
+    // Con Number() el total del repliegue mostraba $11.895.046,771699999: el
+    // flotante inventaba dígitos que la suma exacta del libro no tiene
+    // (,7717). La regla de money.ts: el dinero nunca pasa por flotante.
+    const filaRepliegue = screen.getByText("Otras categorías").closest("div")!;
+    expect(filaRepliegue).toHaveTextContent("$11.895.046,7717");
+  });
+
+  it("los segmentos de tipo (Gasto/Ingreso) cumplen el piso de 44px, como en los formularios", () => {
+    ajustarConsultas({ data: [] });
+
+    render(
+      <GraficaPorCategoria
+        mes="2026-09"
+        moneda="COP"
+        tipo="expense"
+        onCambiarTipo={vi.fn()}
+      />
+    );
+
+    // La variante `tap` del toggle: h-11 son los 44px del pulgar.
+    expect(screen.getByRole("button", { name: "Gastos" }).classList.contains("h-11")).toBe(
+      true
+    );
+    expect(screen.getByRole("button", { name: "Ingresos" }).classList.contains("h-11")).toBe(
+      true
+    );
+  });
 });
