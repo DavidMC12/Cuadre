@@ -52,6 +52,11 @@ type TipoMonto = "gasto" | "ingreso" | "transferencia";
  * leen una sola vez, al montar; el que lo invoca lo desmonta al cerrar (con
  * `key` distinta si cambia de movimiento), así que no hace falta reaccionar a
  * cambios posteriores.
+ *
+ * La compuerta de "Registrar" en corrección compara estos seis campos: tipo,
+ * monto, cuenta, categoría, fecha y descripción. No precargue una
+ * transferencia — "Desde" y "Hacia" quedan fuera de esa comparación, y un
+ * reenvío podría irse con las patas del respaldo en vez de las precargadas.
  */
 interface ValoresInicialesMovimiento {
   /** Monto ya listo para el campo (mismo formato que `textoEditable`). */
@@ -767,11 +772,16 @@ export function FormularioMovimiento({
           disabled={
             registrando || !cambioAlgo || (tipoMonto === "transferencia" && !hayDestinoPosible)
           }
+          // El botón apagado se explica al oído también: `describedby` solo se
+          // lee al enfocar o inspeccionar el botón, no anuncia por su cuenta.
+          aria-describedby={
+            enCorreccion && !cambioAlgo ? "por-que-registrar-apagado" : undefined
+          }
         >
           {registrando ? "Registrando…" : "Registrar"}
         </Button>
         {enCorreccion && !cambioAlgo && (
-          <p className="text-center text-xs text-muted-foreground">
+          <p id="por-que-registrar-apagado" className="text-center text-xs text-muted-foreground">
             Ajusta lo que estaba mal para habilitar Registrar.
           </p>
         )}

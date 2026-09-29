@@ -149,11 +149,14 @@ describe("FormularioMovimiento abierto desde afuera (corregir un movimiento)", (
       screen.getByText("Ajusta lo que estaba mal para habilitar Registrar.")
     ).toBeInTheDocument();
 
-    // Un cambio lo enciende…
+    // Un cambio lo enciende, el aviso desaparece…
     fireEvent.change(screen.getByLabelText("Descripción (opcional)"), {
       target: { value: "Mercado de la semana" },
     });
     expect(registrar).toBeEnabled();
+    expect(
+      screen.queryByText("Ajusta lo que estaba mal para habilitar Registrar.")
+    ).not.toBeInTheDocument();
     // …y volver atrás lo apaga otra vez: la comparación es contra la precarga,
     // no un "ya tocó algo".
     fireEvent.change(screen.getByLabelText("Descripción (opcional)"), {
