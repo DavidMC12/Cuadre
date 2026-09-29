@@ -207,3 +207,54 @@ describe("FormularioMovimiento abierto desde afuera (corregir un movimiento)", (
     expect(registrar).toBeEnabled();
   });
 });
+
+const cuentaActiva: Cuenta = {
+  id: "a-activa",
+  name: "Efectivo",
+  type: "cash",
+  currency: "COP",
+  balance: "0",
+  movementCount: 0,
+  lastMovementAt: null,
+  archivedAt: null,
+  isSavings: false,
+  creditLimit: null,
+  linkedAccountId: null,
+} as Cuenta;
+
+const cuentaArchivada: Cuenta = {
+  ...cuentaActiva,
+  id: "a-vieja",
+  name: "Cuenta vieja",
+  archivedAt: "2026-01-01T00:00:00Z",
+};
+
+describe("FormularioMovimiento: la corrección conserva la cuenta original", () => {
+  it("con la cuenta original archivada, la muestra seleccionada y avisa", () => {
+    render(
+      <FormularioMovimiento
+        cuentas={[cuentaActiva, cuentaArchivada]}
+        abierto
+        valoresIniciales={{ monto: "12.500", cuentaId: "a-vieja", tipo: "gasto" }}
+      />
+    );
+
+    expect(screen.getByLabelText("Cuenta")).toHaveTextContent("Cuenta vieja");
+    expect(
+      screen.getByText("Esta cuenta está archivada: desarchívala para poder registrar la corrección.")
+    ).toBeInTheDocument();
+  });
+
+  it("con la cuenta original activa, la muestra sin el aviso de archivada", () => {
+    render(
+      <FormularioMovimiento
+        cuentas={[cuentaActiva, cuentaArchivada]}
+        abierto
+        valoresIniciales={{ monto: "12.500", cuentaId: "a-activa", tipo: "gasto" }}
+      />
+    );
+
+    expect(screen.getByLabelText("Cuenta")).toHaveTextContent("Efectivo");
+    expect(document.getElementById("cuenta-archivada-aviso")).toBeNull();
+  });
+});

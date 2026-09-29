@@ -88,7 +88,15 @@ function ContenidoMovimientos() {
   // precargado. Se limpia al cerrarlo, y así se desmonta.
   const [movimientoACorregir, setMovimientoACorregir] = useState<Movimiento | null>(null);
 
-  const { data: cuentas, isLoading: cargandoCuentas } = useCuentas();
+  // Con archivadas incluidas: al corregir un movimiento hay que poder mostrar
+  // la cuenta original aunque esté archivada, en vez de caer en silencio a
+  // otra activa (una redirección de plata que no se pidió). De aquí se derivan
+  // las activas para el filtro, el registro nuevo y los nombres del historial.
+  const { data: todasLasCuentas, isLoading: cargandoCuentas } = useCuentas(true);
+  const cuentas = useMemo(
+    () => (todasLasCuentas ?? []).filter((cuenta) => cuenta.archivedAt === null),
+    [todasLasCuentas]
+  );
   // Con archivadas incluidas: la lista puede estar filtrada por una categoría
   // que ya se archivó, y sus movimientos deben seguir mostrando el nombre.
   const { data: categorias } = useCategorias(true);
@@ -121,6 +129,22 @@ function ContenidoMovimientos() {
     () => new Map((cuentas ?? []).map((cuenta) => [cuenta.id, cuenta])),
     [cuentas]
   );
+
+  // Lo que ve el formulario de corrección: las activas, más la cuenta original
+  // si está archivada. Es la que hay que conservar seleccionada; sin meterla
+  // en la lista, el formulario cae solo a otra cuenta y la corrección aterriza
+  // donde nadie pidió. Hoy el servidor rechaza anular un movimiento de una
+  // cuenta archivada, así que el camino normal no llega aquí; esto sigue
+  // cubriendo que la archiven justo mientras se corrige (o si esa regla
+  // cambia), que es cuando el fallback silencioso haría daño.
+  const cuentasParaCorregir = useMemo(() => {
+    if (!movimientoACorregir) return cuentas;
+    const original = (todasLasCuentas ?? []).find(
+      (cuenta) => cuenta.id === movimientoACorregir.accountId
+    );
+    if (!original || cuentas.some((cuenta) => cuenta.id === original.id)) return cuentas;
+    return [...cuentas, original];
+  }, [cuentas, todasLasCuentas, movimientoACorregir]);
 
   const categoriasPorId = useMemo(
     () => new Map((categorias ?? []).map((categoria) => [categoria.id, categoria])),
@@ -428,7 +452,7 @@ function ContenidoMovimientos() {
       {movimientoACorregir && (
         <FormularioMovimiento
           key={movimientoACorregir.id}
-          cuentas={cuentas ?? []}
+          cuentas={cuentasParaCorregir}
           cargandoCuentas={cargandoCuentas}
           abierto
           onAbiertoChange={(estaAbierto) => {

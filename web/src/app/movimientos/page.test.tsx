@@ -6,7 +6,7 @@ import PaginaMovimientos from "./page";
 import * as useMovimientosModule from "@/hooks/use-movimientos";
 import * as useCuentasModule from "@/hooks/use-cuentas";
 import * as useCategoriasModule from "@/hooks/use-categorias";
-import type { Movimiento } from "@/lib/api/types";
+import type { Cuenta, Movimiento } from "@/lib/api/types";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn() }),
@@ -29,11 +29,13 @@ vi.mock("@/components/movimientos/formulario-movimiento", () => ({
   // —valores y cabecera—; las demás solo usan los `children` del estado vacío.
   FormularioMovimiento: ({
     children,
+    cuentas,
     valoresIniciales,
     tituloCabecera,
     descripcionCabecera,
   }: {
     children?: React.ReactNode;
+    cuentas?: Cuenta[];
     valoresIniciales?: Record<string, unknown>;
     tituloCabecera?: string;
     descripcionCabecera?: string;
@@ -45,6 +47,13 @@ vi.mock("@/components/movimientos/formulario-movimiento", () => ({
       {valoresIniciales ? (
         <pre data-testid="cabecera-correccion">
           {JSON.stringify({ tituloCabecera, descripcionCabecera })}
+        </pre>
+      ) : null}
+      {/* Con qué cuentas abre la corrección: es lo que decide si el selector
+          conserva la cuenta original o cae a otra. */}
+      {valoresIniciales ? (
+        <pre data-testid="cuentas-correccion">
+          {JSON.stringify((cuentas ?? []).map((cuenta) => cuenta.id))}
         </pre>
       ) : null}
       {children}
@@ -97,7 +106,7 @@ interface Stub {
   isFetchingNextPage?: boolean;
 }
 
-function ajustar(stub: Stub = {}) {
+function ajustar(stub: Stub = {}, cuentas: Cuenta[] = []) {
   vi.mocked(useMovimientosModule.useMovimientos).mockImplementation(
     () =>
       ({
@@ -113,7 +122,7 @@ function ajustar(stub: Stub = {}) {
       }) as never
   );
   vi.mocked(useCuentasModule.useCuentas).mockImplementation(
-    () => ({ isLoading: false, refetch: vi.fn(), data: [] }) as never
+    () => ({ isLoading: false, refetch: vi.fn(), data: cuentas }) as never
   );
   vi.mocked(useCategoriasModule.useCategorias).mockImplementation(
     () => ({ isLoading: false, refetch: vi.fn(), data: [] }) as never
@@ -242,5 +251,82 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       tituloCabecera: "Corregir movimiento",
       descripcionCabecera: "Registra el movimiento correcto: el original ya quedó anulado.",
     });
+  });
+
+  const cuentaActiva: Cuenta = {
+    id: "a-activa",
+    name: "Efectivo",
+    type: "cash",
+    currency: "COP",
+    balance: "0",
+    movementCount: 0,
+    lastMovementAt: null,
+    archivedAt: null,
+    isSavings: false,
+    creditLimit: null,
+    linkedAccountId: null,
+  };
+
+  const cuentaArchivada: Cuenta = {
+    ...cuentaActiva,
+    id: "a-vieja",
+    name: "Cuenta vieja",
+    archivedAt: "2026-01-01T00:00:00Z",
+  };
+
+  function comprobanteEnCuenta(accountId: string): Movimiento {
+    return {
+      id: "m-arch",
+      accountId,
+      categoryId: null,
+      kind: "standard",
+      amount: "-12500.0000",
+      currency: "COP",
+      occurredAt: "2026-09-10T12:00:00Z",
+      description: null,
+      transferGroupId: null,
+      reversesTransactionId: null,
+      reversedByTransactionId: null,
+    };
+  }
+
+  it("al corregir en una cuenta archivada, el formulario recibe esa cuenta (no cae a otra)", () => {
+    anularMutate.mockImplementation(
+      (_id: string, opciones: { onSuccess?: () => void }) => opciones.onSuccess?.()
+    );
+    // `useCuentas(true)` trae activas y archivadas juntas; la pantalla debe
+    // inyectar la original archivada en la lista de la corrección.
+    ajustar({ data: [comprobanteEnCuenta("a-vieja")] }, [cuentaActiva, cuentaArchivada]);
+
+    render(<PaginaMovimientos />);
+
+    // La pantalla tiene que pedir las archivadas: si vuelve a `useCuentas()`
+    // (solo activas), la cuenta original nunca llega al formulario.
+    expect(useCuentasModule.useCuentas).toHaveBeenCalledWith(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "anular-fila" }));
+    fireEvent.click(screen.getByRole("button", { name: "confirmar-anulacion" }));
+
+    const cuentasDelFormulario = JSON.parse(
+      screen.getByTestId("cuentas-correccion").textContent ?? "[]"
+    );
+    expect(cuentasDelFormulario).toContain("a-vieja");
+  });
+
+  it("al corregir en una cuenta activa, no se cuelan las archivadas en el selector", () => {
+    anularMutate.mockImplementation(
+      (_id: string, opciones: { onSuccess?: () => void }) => opciones.onSuccess?.()
+    );
+    ajustar({ data: [comprobanteEnCuenta("a-activa")] }, [cuentaActiva, cuentaArchivada]);
+
+    render(<PaginaMovimientos />);
+    fireEvent.click(screen.getByRole("button", { name: "anular-fila" }));
+    fireEvent.click(screen.getByRole("button", { name: "confirmar-anulacion" }));
+
+    const cuentasDelFormulario = JSON.parse(
+      screen.getByTestId("cuentas-correccion").textContent ?? "[]"
+    );
+    expect(cuentasDelFormulario).toContain("a-activa");
+    expect(cuentasDelFormulario).not.toContain("a-vieja");
   });
 });
