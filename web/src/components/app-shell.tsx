@@ -138,12 +138,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={href}
                 className={cn(
-                  // `min-w-0` + el `truncate` del rótulo son la red de
-                  // seguridad de la barra: a 320px las cinco etiquetas caben
-                  // (suman ~285px), pero sin margen; con un sexto ítem o con
-                  // la letra del sistema más grande, el nombre se recorta con
-                  // puntos suspensivos en vez de desbordar la barra.
-                  "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors",
+                  // `grow` (no `flex-1`, que repartiría cinco pestañas
+                  // iguales de 64px) deja que cada una mida su contenido y se
+                  // reparta el sobrante: los cinco rótulos se leen completos a
+                  // 320px. `min-w-0` + `truncate` son la red de seguridad para
+                  // cuando la suma supere el ancho (un sexto ítem, o la letra
+                  // del sistema más grande): ahí se encogen y el nombre se
+                  // recorta con puntos suspensivos en vez de desbordar.
+                  "flex min-w-0 grow flex-col items-center justify-center gap-1 text-xs font-medium transition-colors",
                   activo ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
                 aria-current={activo ? "page" : undefined}

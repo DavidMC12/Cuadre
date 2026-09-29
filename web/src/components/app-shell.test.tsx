@@ -55,8 +55,13 @@ describe("Navegación: el checklist tiene casa propia en el menú", () => {
 
     // Con cinco (o más) pestañas cada una puede encogerse (`min-w-0`) y su
     // rótulo se recorta con puntos suspensivos (`truncate`), en vez de
-    // empujar la barra de ancho.
-    expect(navMovil!.querySelectorAll("a.min-w-0")).toHaveLength(5);
-    expect(navMovil!.querySelectorAll("span.truncate")).toHaveLength(5);
+    // empujar la barra de ancho. Se mira la propiedad, no un número fijo, para
+    // que añadir una pestaña no rompa la prueba del patrón.
+    const enlaces = navMovil!.querySelectorAll("a");
+    expect(enlaces.length).toBeGreaterThanOrEqual(5);
+    for (const enlace of enlaces) {
+      expect(enlace.className).toContain("min-w-0");
+      expect(enlace.querySelector("span.truncate")).not.toBeNull();
+    }
   });
 });
