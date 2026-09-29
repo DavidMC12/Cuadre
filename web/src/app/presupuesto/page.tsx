@@ -76,7 +76,7 @@ export default function PaginaPresupuesto() {
         <EmptyState
           Icono={ListTodo}
           titulo="Aún no hay nada por revisar"
-          descripcion="Crea una cuenta y registra tu primer movimiento para empezar el checklist del mes."
+          descripcion="Crea una cuenta y registra tu primer movimiento para empezar tu presupuesto del mes."
         />
       </div>
     );

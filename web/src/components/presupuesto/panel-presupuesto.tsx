@@ -109,10 +109,10 @@ export function PanelPresupuesto({
           la pantalla ya esté componiendo el anuncio único de varios fallos. */}
       {falloChecklist ? (
         <FalloConsulta
-          etiquetaBoton="Reintentar checklist"
+          etiquetaBoton="Reintentar presupuesto"
           mensaje={mensajeDeFallo(
             error,
-            "No pudimos cargar el checklist del mes. Puede ser que el servidor esté dormido."
+            "No pudimos cargar tu presupuesto del mes. Puede ser que el servidor esté dormido."
           )}
           reintento={isFetching}
           onReintentar={() => refetch()}
@@ -243,7 +243,7 @@ export function PanelPresupuesto({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Checklist del mes</CardTitle>
+        <CardTitle>Presupuesto del mes</CardTitle>
         {accionAgregar && <CardAction>{accionAgregar}</CardAction>}
       </CardHeader>
       <CardContent>{cuerpo}</CardContent>
