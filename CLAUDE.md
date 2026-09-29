@@ -159,8 +159,24 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   obsoletos. El último toggle bajo 44px (`formulario-categoria.tsx`) se
   cerró aparte, sin P0/P1/P2/P3 abiertos de esta ronda.
 
-Pendiente, sin fecha: otra ronda de `impeccable critique` más adelante
-para medir el puntaje tras estos arreglos.
+- **Sexta ronda de `impeccable critique`** (2026-09-29, 31/40 → 34/40,
+  "Bueno", sin P0): confirmó que 4 de los 5 arreglos de la quinta ronda
+  aterrizaron de fondo (el de gráficas quedó 2 de 3: la de categoría
+  nunca necesitó el arreglo de accesibilidad). Encontró un P1 nuevo, ya
+  resuelto en `main`: al corregir un movimiento, la cabecera "Corregir
+  movimiento" / "el original ya quedó anulado" era invisible (solo
+  `sr-only`), así que un reenvío sin cambios podía recrear en silencio
+  la entrada recién anulada. Ahora la cabecera se ve en modo corrección
+  y "Registrar" queda apagado (con aviso) hasta que cambie al menos un
+  campo respecto a la precarga.
+
+Pendiente, sin fecha: de la sexta ronda, dos P2 (corregir un movimiento
+de una cuenta archivada redirige la escritura a otra cuenta sin avisar;
+el Resumen puede disparar hasta 6 `role="alert"` a la vez en una caída)
+y dos P3 (deriva de nombre "Presupuesto" vs "Checklist del mes"; la
+barra de 5 pestañas ya no es de ancho igual). También, más adelante,
+otra ronda de `impeccable critique` para medir el puntaje tras estos
+arreglos.
 
 ### Pasos adicionales, ya pasado el 100%
 
