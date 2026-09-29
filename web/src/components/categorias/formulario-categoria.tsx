@@ -109,6 +109,7 @@ export function FormularioCategoria({ children }: { children: React.ReactNode })
                   if (valores.length > 0) setTipo(valores[0] as TipoCategoria);
                 }}
                 variant="outline"
+                size="tap"
                 className="w-full"
               >
                 {TIPOS.map((valor) => (
