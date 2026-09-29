@@ -138,16 +138,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={href}
                 className={cn(
-                  "flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors",
+                  // `grow` (no `flex-1`, que repartiría cinco pestañas
+                  // iguales de 64px) deja que cada una mida su contenido y se
+                  // reparta el sobrante: los cinco rótulos se leen completos a
+                  // 320px. `min-w-0` + `truncate` son la red de seguridad para
+                  // cuando la suma supere el ancho (un sexto ítem, o la letra
+                  // del sistema más grande): ahí se encogen y el nombre se
+                  // recorta con puntos suspensivos en vez de desbordar.
+                  "flex min-w-0 grow flex-col items-center justify-center gap-1 text-xs font-medium transition-colors",
                   activo ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
                 aria-current={activo ? "page" : undefined}
               >
                 <Icono
-                  className={cn("size-5", activo && "text-primary")}
+                  className={cn("size-5 shrink-0", activo && "text-primary")}
                   strokeWidth={activo ? 2.5 : 2}
                 />
-                {etiqueta}
+                <span className="w-full truncate text-center">{etiqueta}</span>
               </Link>
             );
           })}
