@@ -29,8 +29,9 @@ import { useAnularMovimiento, useMovimientos } from "@/hooks/use-movimientos";
 import { agruparMovimientosPorDia } from "@/lib/agrupar-movimientos";
 import { combinarTransferencias, esTransferencia } from "@/lib/combinar-transferencias";
 import { ApiError } from "@/lib/api/client";
+import { textoEditable } from "@/lib/money";
 import type { FiltrosMovimientos, Movimiento } from "@/lib/api/types";
-import { etiquetaMes, mesActual, rangoDelMes } from "@/lib/fecha";
+import { etiquetaMes, fechaParaInput, mesActual, rangoDelMes } from "@/lib/fecha";
 
 const TODAS_LAS_CUENTAS = "todas";
 const TODAS_LAS_CATEGORIAS = "todas";
@@ -83,8 +84,11 @@ function ContenidoMovimientos() {
 
   const [cuentaFiltro, setCuentaFiltro] = useState(TODAS_LAS_CUENTAS);
   const [movimientoAConfirmar, setMovimientoAConfirmar] = useState<Movimiento | null>(null);
+  // El movimiento anulado que se está corrigiendo: dispara el formulario
+  // precargado. Se limpia al cerrarlo, y así se desmonta.
+  const [movimientoACorregir, setMovimientoACorregir] = useState<Movimiento | null>(null);
 
-  const { data: cuentas } = useCuentas();
+  const { data: cuentas, isLoading: cargandoCuentas } = useCuentas();
   // Con archivadas incluidas: la lista puede estar filtrada por una categoría
   // que ya se archivó, y sus movimientos deben seguir mostrando el nombre.
   const { data: categorias } = useCategorias(true);
@@ -176,7 +180,13 @@ function ContenidoMovimientos() {
     anularMovimiento.mutate(movimientoAConfirmar.id, {
       onSuccess: () => {
         toast.success("Movimiento anulado.");
+        // Ya anulado, el paso que sigue es dejarlo como debía ser. En vez de
+        // mandar a registrar otra vez desde cero, el formulario abre con los
+        // datos del movimiento anulado: corregir es ajustar y registrar, no
+        // escribir todo de nuevo.
+        const anulado = movimientoAConfirmar;
         setMovimientoAConfirmar(null);
+        setMovimientoACorregir(anulado);
       },
       onError: (error) => {
         toast.error(
@@ -409,6 +419,38 @@ function ContenidoMovimientos() {
         onConfirmar={confirmarAnulacion}
         onCancelar={() => setMovimientoAConfirmar(null)}
       />
+
+      {/* Después de anular, el formulario de siempre pero abierto y con lo que
+          había: mismo monto (sin el signo, que lo pone el tipo), cuenta,
+          categoría, fecha y nota. Si falla la anulación no se monta; si se
+          cierra sin registrar, queda la anulación, que es una acción válida
+          por sí sola. */}
+      {movimientoACorregir && (
+        <FormularioMovimiento
+          key={movimientoACorregir.id}
+          cuentas={cuentas ?? []}
+          cargandoCuentas={cargandoCuentas}
+          abierto
+          onAbiertoChange={(estaAbierto) => {
+            if (!estaAbierto) setMovimientoACorregir(null);
+          }}
+          valoresIniciales={{
+            // El signo lo pone el tipo (Gasto / Ingreso), así que el monto va
+            // sin él. `textoEditable` lo deja como lo escribe un CampoMonto.
+            monto: textoEditable(
+              movimientoACorregir.amount.replace(/^-/, ""),
+              movimientoACorregir.currency
+            ),
+            cuentaId: movimientoACorregir.accountId,
+            categoriaId: movimientoACorregir.categoryId ?? undefined,
+            fecha: fechaParaInput(movimientoACorregir.occurredAt),
+            descripcion: movimientoACorregir.description ?? "",
+            tipo: movimientoACorregir.amount.startsWith("-") ? "gasto" : "ingreso",
+          }}
+          tituloCabecera="Corregir movimiento"
+          descripcionCabecera="Registra el movimiento correcto: el original ya quedó anulado."
+        />
+      )}
     </div>
   );
 }
