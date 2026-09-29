@@ -16,8 +16,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
 import { useAhorroMensual } from "@/hooks/use-reportes";
-import { etiquetaMesCorta } from "@/lib/fecha";
-import { textoMonto } from "@/lib/money";
+import { etiquetaMes, etiquetaMesCorta } from "@/lib/fecha";
+import { sumarMontos, textoMonto } from "@/lib/money";
 import { colorPorSigno, modoDeTema } from "@/lib/chart-colors";
 
 interface FilaAhorro {
@@ -114,40 +114,76 @@ export function GraficaAhorro({ months, currency }: { months: number; currency: 
     );
   }
 
+  // El resumen que reemplaza a la gráfica para quien no la ve: el mismo
+  // total del periodo, en una frase. El SVG queda decorativo y el dato
+  // completo, en la tabla oculta de abajo.
+  const total = sumarMontos(datos.map((fila) => fila.monto));
+  const primerMes = etiquetaMes(datos[0].mes);
+  const ultimoMes = etiquetaMes(datos[datos.length - 1].mes);
+  const resumen =
+    `Ahorro de ${datos.length} meses, de ${primerMes} a ${ultimoMes}. ` +
+    `Total ${textoMonto(total, currency)}.`;
+
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <BarChart data={datos} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-        <CartesianGrid vertical={false} stroke="var(--border)" />
-        <XAxis
-          dataKey="etiqueta"
-          tickLine={false}
-          axisLine={false}
-          interval={0}
-          tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
-          angle={etiquetasInclinadas ? -45 : 0}
-          textAnchor={etiquetasInclinadas ? "end" : "middle"}
-          height={etiquetasInclinadas ? 48 : 30}
-          padding={etiquetasInclinadas ? { left: 16 } : undefined}
-        />
-        <YAxis hide />
-        <Tooltip content={<TooltipAhorro moneda={currency} />} cursor={{ fill: "var(--muted)" }} />
-        <Bar dataKey="montoNumerico" radius={[4, 4, 0, 0]} maxBarSize={20}>
+    <div>
+      <div role="img" aria-label={resumen}>
+        <div aria-hidden>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={datos} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+              <CartesianGrid vertical={false} stroke="var(--border)" />
+              <XAxis
+                dataKey="etiqueta"
+                tickLine={false}
+                axisLine={false}
+                interval={0}
+                tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                angle={etiquetasInclinadas ? -45 : 0}
+                textAnchor={etiquetasInclinadas ? "end" : "middle"}
+                height={etiquetasInclinadas ? 48 : 30}
+                padding={etiquetasInclinadas ? { left: 16 } : undefined}
+              />
+              <YAxis hide />
+              <Tooltip content={<TooltipAhorro moneda={currency} />} cursor={{ fill: "var(--muted)" }} />
+              <Bar dataKey="montoNumerico" radius={[4, 4, 0, 0]} maxBarSize={20}>
+                {datos.map((fila) => (
+                  <Cell key={fila.mes} fill={fila.color} />
+                ))}
+              </Bar>
+              {mesesVacios.map((fila) => (
+                <ReferenceDot
+                  key={fila.mes}
+                  x={fila.etiqueta}
+                  y={0}
+                  r={3}
+                  fill="var(--muted-foreground)"
+                  stroke="none"
+                  ifOverflow="visible"
+                />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Alternativa textual del gráfico: los mismos meses y montos, para un
+          lector de pantalla, sin ocupar un pixel a la vista. */}
+      <table className="sr-only">
+        <caption>Ahorro por mes</caption>
+        <thead>
+          <tr>
+            <th scope="col">Mes</th>
+            <th scope="col">Ahorro</th>
+          </tr>
+        </thead>
+        <tbody>
           {datos.map((fila) => (
-            <Cell key={fila.mes} fill={fila.color} />
+            <tr key={fila.mes}>
+              <th scope="row">{etiquetaMes(fila.mes)}</th>
+              <td>{textoMonto(fila.monto, currency)}</td>
+            </tr>
           ))}
-        </Bar>
-        {mesesVacios.map((fila) => (
-          <ReferenceDot
-            key={fila.mes}
-            x={fila.etiqueta}
-            y={0}
-            r={3}
-            fill="var(--muted-foreground)"
-            stroke="none"
-            ifOverflow="visible"
-          />
-        ))}
-      </BarChart>
-    </ResponsiveContainer>
+        </tbody>
+      </table>
+    </div>
   );
 }

@@ -47,6 +47,25 @@ import { cuentasDeDestino } from "@/lib/transferencias";
 type TipoMonto = "gasto" | "ingreso" | "transferencia";
 
 /**
+ * Los valores con los que puede abrir el formulario cuando lo invoca otra
+ * pantalla, no un botón visible: hoy, "corregir" un movimiento anulado. Se
+ * leen una sola vez, al montar; el que lo invoca lo desmonta al cerrar (con
+ * `key` distinta si cambia de movimiento), así que no hace falta reaccionar a
+ * cambios posteriores.
+ */
+interface ValoresInicialesMovimiento {
+  /** Monto ya listo para el campo (mismo formato que `textoEditable`). */
+  monto?: string;
+  cuentaId?: string;
+  categoriaId?: string;
+  /** YYYY-MM-DD, como lo espera un `<input type="date">`. */
+  fecha?: string;
+  descripcion?: string;
+  tipo?: TipoMonto;
+}
+
+
+/**
  * Cuántas categorías se ofrecen como chip antes de "Más detalles".
  *
  * El catálogo no lleva cuenta de qué tan seguido se usa cada categoría (eso
@@ -99,6 +118,9 @@ export function FormularioMovimiento({
   cuentaIdPorDefecto,
   tipoInicial,
   transferenciaInicial,
+  valoresIniciales,
+  abierto,
+  onAbiertoChange,
   children,
 }: {
   cuentas: Cuenta[];
@@ -113,7 +135,19 @@ export function FormularioMovimiento({
   /** Cuentas precargadas de "Entre cuentas": de dónde sale la plata y a dónde
    * va. Solo se proponen; la persona puede cambiarlas antes de guardar. */
   transferenciaInicial?: { origen?: string; destino?: string };
-  children: React.ReactNode;
+  /** Valores con los que abre el formulario cuando lo invoca otra pantalla
+   * (corregir un movimiento). Se leen al montar. */
+  valoresIniciales?: ValoresInicialesMovimiento;
+  /** Abre el formulario desde afuera, sin disparador visible. Si se pasa, el
+   * componente deja de manejar su propio estado de abierto y obedece a quien
+   * lo invoca. */
+  abierto?: boolean;
+  /** Avisa que el formulario se cerró, para que quien lo controla lo
+   * desmonte. */
+  onAbiertoChange?: (abierto: boolean) => void;
+  /** El disparador visible. Opcional cuando el formulario se abre controlado,
+   * como al corregir un movimiento: ahí no hay botón que lo abra. */
+  children?: React.ReactNode;
 }) {
   const hoyInput = () => fechaParaInput(new Date().toISOString());
 
@@ -121,13 +155,24 @@ export function FormularioMovimiento({
   // En pantalla grande el cajón inferior se cambia por un diálogo centrado:
   // un cajón pegado al borde de abajo de un monitor desperdicia el espacio.
   const pantallaGrande = usePantallaGrande();
-  const [abierto, setAbierto] = useState(false);
-  const [tipoMonto, setTipoMonto] = useState<TipoMonto>(tipoInicial ?? "gasto");
-  const [monto, setMonto] = useState("");
-  const [masDetalles, setMasDetalles] = useState(false);
-  const [fecha, setFecha] = useState(hoyInput);
-  const [descripcion, setDescripcion] = useState("");
-  const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
+  // Si viene `abierto`, manda quien lo invoca (corregir un movimiento). Si no,
+  // el formulario se abre y se cierra solo con su disparador.
+  const controlado = abierto !== undefined;
+  const [abiertoInterno, setAbiertoInterno] = useState(false);
+  const estaAbierto = controlado ? abierto : abiertoInterno;
+
+  const [tipoMonto, setTipoMonto] = useState<TipoMonto>(
+    valoresIniciales?.tipo ?? tipoInicial ?? "gasto"
+  );
+  const [monto, setMonto] = useState(valoresIniciales?.monto ?? "");
+  // Una corrección llega con fecha, descripción o categoría: se abren ya, para
+  // que se vean y se puedan ajustar sin un toque extra.
+  const [masDetalles, setMasDetalles] = useState(Boolean(valoresIniciales));
+  const [fecha, setFecha] = useState(valoresIniciales?.fecha ?? hoyInput);
+  const [descripcion, setDescripcion] = useState(valoresIniciales?.descripcion ?? "");
+  const [categoryId, setCategoryId] = useState<string | undefined>(
+    valoresIniciales?.categoriaId
+  );
   const [errores, setErrores] = useState<{
     cuenta?: string;
     origen?: string;
@@ -141,7 +186,9 @@ export function FormularioMovimiento({
   // toca antes de que `cuentas` termine de cargar (vive en el armazón, puede
   // pasar en cualquier pantalla), en cuanto los datos llegan la cuenta correcta
   // aparece sola, sin depender de un efecto que reaccione después.
-  const [cuentaElegidaAMano, setCuentaElegidaAMano] = useState<string | null>(null);
+  const [cuentaElegidaAMano, setCuentaElegidaAMano] = useState<string | null>(
+    valoresIniciales?.cuentaId ?? null
+  );
   const cuentaId =
     cuentaElegidaAMano && cuentas.some((cuenta) => cuenta.id === cuentaElegidaAMano)
       ? cuentaElegidaAMano
@@ -216,17 +263,17 @@ export function FormularioMovimiento({
           .slice(0, CANTIDAD_CHIPS_RAPIDOS);
 
   function reiniciar() {
-    setCuentaElegidaAMano(null);
+    setCuentaElegidaAMano(valoresIniciales?.cuentaId ?? null);
     // La precarga vuelve a proponerla: cerrar y reabrir el formulario debe
     // abrirlo precargado otra vez, no con lo último que se tocó a mano.
     setOrigenElegidoAMano(transferenciaInicial?.origen ?? null);
     setDestinoElegidoAMano(transferenciaInicial?.destino ?? null);
-    setTipoMonto(tipoInicial ?? "gasto");
-    setMonto("");
-    setMasDetalles(false);
-    setFecha(hoyInput());
-    setDescripcion("");
-    setCategoryId(undefined);
+    setTipoMonto(valoresIniciales?.tipo ?? tipoInicial ?? "gasto");
+    setMonto(valoresIniciales?.monto ?? "");
+    setMasDetalles(Boolean(valoresIniciales));
+    setFecha(valoresIniciales?.fecha ?? hoyInput());
+    setDescripcion(valoresIniciales?.descripcion ?? "");
+    setCategoryId(valoresIniciales?.categoriaId);
     setErrores({});
   }
 
@@ -271,8 +318,7 @@ export function FormularioMovimiento({
           toast.success(
             `Transferencia de ${cifra} de ${cuentaOrigen.name} a ${cuentaDestino.name} registrada.`
           );
-          setAbierto(false);
-          reiniciar();
+          manejarCambioAbierto(false);
         },
         onError: (error) => {
           if (error instanceof ApiError) {
@@ -324,8 +370,7 @@ export function FormularioMovimiento({
           const tipo = guardado.amount.startsWith("-") ? "Gasto" : "Ingreso";
           const cifra = textoMonto(guardado.amount.replace(/^-/, ""), guardado.currency);
           toast.success(`${tipo} de ${cifra} registrado en ${cuentaElegida.name}.`);
-          setAbierto(false);
-          reiniciar();
+          manejarCambioAbierto(false);
         },
         onError: (error) => {
           if (error instanceof ApiError) {
@@ -342,8 +387,15 @@ export function FormularioMovimiento({
   // servidor rechazaría la escritura de todos modos.
   if (soloMirar) return null;
 
+  // Abre o cierra: si el formulario es controlado, además se lo dice a quien
+  // lo invoca para que lo monte o lo desmonte.
+  function establecerAbierto(valor: boolean) {
+    if (!controlado) setAbiertoInterno(valor);
+    onAbiertoChange?.(valor);
+  }
+
   function manejarCambioAbierto(valor: boolean) {
-    setAbierto(valor);
+    establecerAbierto(valor);
     if (!valor) reiniciar();
   }
 
@@ -370,7 +422,7 @@ export function FormularioMovimiento({
         <Descripcion>Primero crea una cuenta: un movimiento siempre pertenece a una.</Descripcion>
       </DrawerHeader>
       <DrawerFooter>
-        <Button variant="outline" onClick={() => setAbierto(false)}>
+        <Button variant="outline" onClick={() => manejarCambioAbierto(false)}>
           Entendido
         </Button>
       </DrawerFooter>
@@ -679,8 +731,8 @@ export function FormularioMovimiento({
 
   if (pantallaGrande) {
     return (
-      <Dialog open={abierto} onOpenChange={manejarCambioAbierto}>
-        <DialogTrigger render={children as React.ReactElement} />
+      <Dialog open={estaAbierto} onOpenChange={manejarCambioAbierto}>
+        {children ? <DialogTrigger render={children as React.ReactElement} /> : null}
         {/* El mismo ancho con tope que tenía el cajón en escritorio, y columna
             flexible con alto máximo: si el formulario crece, el cuerpo hace
             scroll dentro y el botón Registrar queda siempre a la vista. */}
@@ -692,8 +744,8 @@ export function FormularioMovimiento({
   }
 
   return (
-    <Drawer open={abierto} onOpenChange={manejarCambioAbierto}>
-      <DrawerTrigger render={children as React.ReactElement} />
+    <Drawer open={estaAbierto} onOpenChange={manejarCambioAbierto}>
+      {children ? <DrawerTrigger render={children as React.ReactElement} /> : null}
       <DrawerContent>{contenido}</DrawerContent>
     </Drawer>
   );

@@ -16,8 +16,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { FalloConsulta } from "@/components/fallo-consulta";
 import type { TendenciaMes } from "@/lib/api/types";
-import { etiquetaMesCorta } from "@/lib/fecha";
-import { textoMonto } from "@/lib/money";
+import { etiquetaMes, etiquetaMesCorta } from "@/lib/fecha";
+import { sumarMontos, textoMonto } from "@/lib/money";
 import { COLOR_GASTO, COLOR_INGRESO, modoDeTema, type ModoColor } from "@/lib/chart-colors";
 
 interface FilaTendencia {
@@ -123,81 +123,120 @@ export function GraficaTendencia({
     );
   }
 
+  // El resumen que reemplaza a la gráfica para quien no la ve: los mismos
+  // totales del periodo, en una frase. El SVG queda decorativo y el dato
+  // completo, en la tabla oculta de abajo.
+  const totalIngresos = sumarMontos(datos.map((fila) => fila.ingreso));
+  const totalGastos = sumarMontos(datos.map((fila) => fila.gasto));
+  const primerMes = etiquetaMes(datos[0].mes);
+  const ultimoMes = etiquetaMes(datos[datos.length - 1].mes);
+  const resumen =
+    `Tendencia de ${datos.length} meses, de ${primerMes} a ${ultimoMes}. ` +
+    `Ingresos ${textoMonto(totalIngresos, moneda)}; gastos ${textoMonto(totalGastos, moneda)}.`;
+
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <BarChart data={datos} margin={{ top: 0, right: 0, bottom: 0, left: 0 }} barGap={4}>
-        <CartesianGrid vertical={false} stroke="var(--border)" />
-        <XAxis
-          dataKey="etiqueta"
-          tickLine={false}
-          axisLine={false}
-          // `0` muestra todas las etiquetas; el encogido lo resuelve la
-          // inclinación de arriba, no escondiendo meses.
-          interval={0}
-          tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
-          angle={etiquetasInclinadas ? -45 : 0}
-          textAnchor={etiquetasInclinadas ? "end" : "middle"}
-          height={etiquetasInclinadas ? 48 : 30}
-          // Con las etiquetas inclinadas y ancladas al final, la primera se
-          // estira hacia la izquierda y se saldría del SVG (Recharts ya no
-          // empuja los bordes con `interval={0}`). Este hueco la deja adentro.
-          padding={etiquetasInclinadas ? { left: 16 } : undefined}
-        />
-        <YAxis hide />
-        <Tooltip
-          content={<TooltipTendencia moneda={moneda} modo={modo} />}
-          cursor={{ fill: "var(--muted)" }}
-        />
-        {/* Leyenda propia: el orden que arma Recharts a partir de los <Bar>
-            no siempre respeta el orden en el que se declaran. */}
-        <Legend
-          verticalAlign="top"
-          height={28}
-          content={() => (
-            <div className="mb-1 flex items-center justify-center gap-4 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <span
-                  className="inline-block size-2 rounded-full"
-                  style={{ backgroundColor: COLOR_INGRESO[modo] }}
+    <div>
+      <div role="img" aria-label={resumen}>
+        <div aria-hidden>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={datos} margin={{ top: 0, right: 0, bottom: 0, left: 0 }} barGap={4}>
+              <CartesianGrid vertical={false} stroke="var(--border)" />
+              <XAxis
+                dataKey="etiqueta"
+                tickLine={false}
+                axisLine={false}
+                // `0` muestra todas las etiquetas; el encogido lo resuelve la
+                // inclinación de arriba, no escondiendo meses.
+                interval={0}
+                tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                angle={etiquetasInclinadas ? -45 : 0}
+                textAnchor={etiquetasInclinadas ? "end" : "middle"}
+                height={etiquetasInclinadas ? 48 : 30}
+                // Con las etiquetas inclinadas y ancladas al final, la primera se
+                // estira hacia la izquierda y se saldría del SVG (Recharts ya no
+                // empuja los bordes con `interval={0}`). Este hueco la deja adentro.
+                padding={etiquetasInclinadas ? { left: 16 } : undefined}
+              />
+              <YAxis hide />
+              <Tooltip
+                content={<TooltipTendencia moneda={moneda} modo={modo} />}
+                cursor={{ fill: "var(--muted)" }}
+              />
+              {/* Leyenda propia: el orden que arma Recharts a partir de los <Bar>
+                  no siempre respeta el orden en el que se declaran. */}
+              <Legend
+                verticalAlign="top"
+                height={28}
+                content={() => (
+                  <div className="mb-1 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className="inline-block size-2 rounded-full"
+                        style={{ backgroundColor: COLOR_INGRESO[modo] }}
+                      />
+                      Ingresos
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className="inline-block size-2 rounded-full"
+                        style={{ backgroundColor: COLOR_GASTO[modo] }}
+                      />
+                      Gastos
+                    </span>
+                  </div>
+                )}
+              />
+              <Bar
+                dataKey="ingresoNumerico"
+                name="Ingresos"
+                fill={COLOR_INGRESO[modo]}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={20}
+              />
+              <Bar
+                dataKey="gastoNumerico"
+                name="Gastos"
+                fill={COLOR_GASTO[modo]}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={20}
+              />
+              {mesesVacios.map((fila) => (
+                <ReferenceDot
+                  key={fila.mes}
+                  x={fila.etiqueta}
+                  y={0}
+                  r={3}
+                  fill="var(--muted-foreground)"
+                  stroke="none"
+                  ifOverflow="visible"
                 />
-                Ingresos
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span
-                  className="inline-block size-2 rounded-full"
-                  style={{ backgroundColor: COLOR_GASTO[modo] }}
-                />
-                Gastos
-              </span>
-            </div>
-          )}
-        />
-        <Bar
-          dataKey="ingresoNumerico"
-          name="Ingresos"
-          fill={COLOR_INGRESO[modo]}
-          radius={[4, 4, 0, 0]}
-          maxBarSize={20}
-        />
-        <Bar
-          dataKey="gastoNumerico"
-          name="Gastos"
-          fill={COLOR_GASTO[modo]}
-          radius={[4, 4, 0, 0]}
-          maxBarSize={20}
-        />
-        {mesesVacios.map((fila) => (
-          <ReferenceDot
-            key={fila.mes}
-            x={fila.etiqueta}
-            y={0}
-            r={3}
-            fill="var(--muted-foreground)"
-            stroke="none"
-            ifOverflow="visible"
-          />
-        ))}
-      </BarChart>
-    </ResponsiveContainer>
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Alternativa textual del gráfico: los mismos meses y montos, para un
+          lector de pantalla, sin ocupar un pixel a la vista. */}
+      <table className="sr-only">
+        <caption>Tendencia de ingresos y gastos por mes</caption>
+        <thead>
+          <tr>
+            <th scope="col">Mes</th>
+            <th scope="col">Ingresos</th>
+            <th scope="col">Gastos</th>
+          </tr>
+        </thead>
+        <tbody>
+          {datos.map((fila) => (
+            <tr key={fila.mes}>
+              <th scope="row">{etiquetaMes(fila.mes)}</th>
+              <td>{textoMonto(fila.ingreso, moneda)}</td>
+              <td>{textoMonto(fila.gasto, moneda)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

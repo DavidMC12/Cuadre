@@ -13,9 +13,11 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+const { anularMutate } = vi.hoisted(() => ({ anularMutate: vi.fn() }));
+
 vi.mock("@/hooks/use-movimientos", () => ({
   useMovimientos: vi.fn(),
-  useAnularMovimiento: () => ({ isPending: false, mutate: vi.fn() }),
+  useAnularMovimiento: () => ({ isPending: false, mutate: anularMutate }),
 }));
 
 vi.mock("@/hooks/use-cuentas", () => ({ useCuentas: vi.fn() }));
@@ -23,16 +25,55 @@ vi.mock("@/hooks/use-categorias", () => ({ useCategorias: vi.fn() }));
 
 vi.mock("@/components/dashboard/selector-mes", () => ({ SelectorMes: () => null }));
 vi.mock("@/components/movimientos/formulario-movimiento", () => ({
-  FormularioMovimiento: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+  // La prueba del flujo de corrección necesita ver con qué abre el formulario;
+  // las demás solo usan los `children` del estado vacío.
+  FormularioMovimiento: ({
+    children,
+    valoresIniciales,
+  }: {
+    children?: React.ReactNode;
+    valoresIniciales?: Record<string, unknown>;
+  }) => (
+    <div>
+      {valoresIniciales ? (
+        <pre data-testid="valores-iniciales">{JSON.stringify(valoresIniciales)}</pre>
+      ) : null}
+      {children}
+    </div>
+  ),
 }));
 vi.mock("@/components/movimientos/movimiento-item", () => ({
-  MovimientoItem: () => <li>movimiento</li>,
+  MovimientoItem: ({
+    movimiento,
+    onSolicitarAnular,
+  }: {
+    movimiento: Movimiento;
+    onSolicitarAnular: (movimiento: Movimiento) => void;
+  }) => (
+    <li>
+      <span>movimiento</span>
+      <button type="button" onClick={() => onSolicitarAnular(movimiento)}>
+        anular-fila
+      </button>
+    </li>
+  ),
 }));
 vi.mock("@/components/movimientos/transferencia-item", () => ({
   TransferenciaItem: () => <li>transferencia</li>,
 }));
 vi.mock("@/components/movimientos/confirmar-anulacion", () => ({
-  ConfirmarAnulacion: () => null,
+  ConfirmarAnulacion: ({
+    movimiento,
+    onConfirmar,
+  }: {
+    movimiento: Movimiento | null;
+    onConfirmar: () => void;
+  }) =>
+    movimiento ? (
+      <button type="button" onClick={onConfirmar}>
+        confirmar-anulacion
+      </button>
+    ) : null,
 }));
 
 interface Stub {
@@ -141,5 +182,46 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(document.querySelector(".animate-pulse")).not.toBeNull();
+  });
+
+  it("al confirmar la anulación abre el formulario precargado con el movimiento anulado", () => {
+    const comprobante: Movimiento = {
+      id: "m-9",
+      accountId: "a-7",
+      categoryId: "c-3",
+      kind: "standard",
+      amount: "-12500.0000",
+      currency: "COP",
+      occurredAt: "2026-09-10T12:00:00Z",
+      description: "Mercado",
+      transferGroupId: null,
+      reversesTransactionId: null,
+      reversedByTransactionId: null,
+    };
+    // La mutación no pega contra un servidor: aquí se simula el éxito para ver
+    // lo que pasa DESPUÉS de anular.
+    anularMutate.mockImplementation(
+      (_id: string, opciones: { onSuccess?: () => void }) => opciones.onSuccess?.()
+    );
+    ajustar({ data: [comprobante] });
+
+    render(<PaginaMovimientos />);
+
+    fireEvent.click(screen.getByRole("button", { name: "anular-fila" }));
+    fireEvent.click(screen.getByRole("button", { name: "confirmar-anulacion" }));
+
+    expect(anularMutate).toHaveBeenCalledWith("m-9", expect.anything());
+
+    // Corregir es ajustar lo que estaba mal, no volver a escribir todo: el
+    // formulario abre con los mismos datos del movimiento anulado.
+    const valores = JSON.parse(screen.getByTestId("valores-iniciales").textContent ?? "{}");
+    expect(valores).toEqual({
+      monto: "12.500",
+      cuentaId: "a-7",
+      categoriaId: "c-3",
+      fecha: "2026-09-10",
+      descripcion: "Mercado",
+      tipo: "gasto",
+    });
   });
 });
