@@ -34,6 +34,13 @@ describe("FormularioCategoria: el tipo usa el piso de 44px del pulgar", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Nueva" }));
 
+    // El grupo pide `tap` explícitamente y los segmentos lo heredan por
+    // contexto; se fijan las dos cosas.
+    expect(document.querySelector('[data-slot="toggle-group"]')).toHaveAttribute(
+      "data-size",
+      "tap"
+    );
+
     for (const nombre of ["Gasto", "Ingreso"]) {
       const segmento = screen.getByRole("button", { name: nombre });
       expect(tienePisoDePulgar(segmento)).toBe(true);
