@@ -60,8 +60,16 @@ describe("Navegación: el checklist tiene casa propia en el menú", () => {
     const enlaces = navMovil!.querySelectorAll("a");
     expect(enlaces.length).toBeGreaterThanOrEqual(5);
     for (const enlace of enlaces) {
+      // `min-w-0` + `truncate`: red de seguridad (el rótulo se recorta en vez
+      // de desbordar si algún día sobran pestañas).
       expect(enlace.className).toContain("min-w-0");
       expect(enlace.querySelector("span.truncate")).not.toBeNull();
+      // `grow`, nunca `flex-1`: con `flex-1` cada pestaña queda clavada en
+      // 320/5 = 64px y "Movimientos"/"Presupuesto" (72/71px) se recortan a
+      // 320px. jsdom no calcula layout, así que se fija la clase que garantiza
+      // que cada pestaña mida su contenido.
+      expect(enlace.className).toContain("grow");
+      expect(enlace.className).not.toContain("flex-1");
     }
   });
 });
