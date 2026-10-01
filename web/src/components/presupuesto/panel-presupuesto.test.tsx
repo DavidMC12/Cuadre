@@ -325,4 +325,17 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     fireEvent.click(replegado);
     expect(screen.getByText("Mercado")).toBeInTheDocument();
   });
+
+  it("contiene la lista en una región con altura máxima y scroll interno", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const region = screen.getByRole("region", { name: "Ítems del presupuesto" });
+    expect(region.classList.contains("max-h-[70vh]")).toBe(true);
+    expect(region.classList.contains("overflow-y-auto")).toBe(true);
+    // Enfocable para poder recorrerla con el teclado.
+    expect(region.tabIndex).toBe(0);
+  });
 });

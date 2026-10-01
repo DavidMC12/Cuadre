@@ -201,7 +201,15 @@ export function PanelPresupuesto({
             className="border-0 px-2 py-8"
           />
         ) : (
-          <div className="flex flex-col">
+          // La lista se contiene sola: con muchos ítems, el panel ya no crece
+          // sin fin ni empuja el resto de la pantalla. La región es enfocable
+          // para que también se pueda recorrer con el teclado.
+          <div
+            role="region"
+            aria-label="Ítems del presupuesto"
+            tabIndex={0}
+            className="flex max-h-[70vh] flex-col overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
+          >
             {grupos.map((grupo) => {
               const colapsado = gruposColapsados.has(grupo.clave);
               const idLista = `grupo-presupuesto-${grupo.clave}`;
