@@ -47,7 +47,9 @@ export function agruparPresupuesto(
     const clave = esAhorro ? CLAVE_AHORRO : (categoryId ?? CLAVE_SIN_CATEGORIA);
     const titulo = esAhorro
       ? "Ahorro"
-      : (categoryId ? item?.categoryName : null) || SIN_CATEGORIA;
+      : categoryId
+        ? (item?.categoryName ?? item?.label ?? SIN_CATEGORIA)
+        : SIN_CATEGORIA;
 
     let grupo = porClave.get(clave);
     if (!grupo) {
@@ -58,13 +60,18 @@ export function agruparPresupuesto(
   }
 
   const ahorro = porClave.get(CLAVE_AHORRO);
-  const deCategoria = [...porClave.values()].filter((grupo) => grupo.clave !== CLAVE_AHORRO);
+  const sinCategoria = porClave.get(CLAVE_SIN_CATEGORIA);
+  const deCategoria = [...porClave.values()].filter(
+    (grupo) => grupo.clave !== CLAVE_AHORRO && grupo.clave !== CLAVE_SIN_CATEGORIA
+  );
   deCategoria.sort(
     (a, b) =>
       b.items.length - a.items.length || a.titulo.localeCompare(b.titulo, "es")
   );
 
-  // Ahorro cierra la lista, sin importar cuántos ítems tenga.
+  // "Sin categoría" después de las categorías reales (como en la gráfica) y
+  // Ahorro al final de todo, sin importar cuántos ítems tenga.
+  if (sinCategoria) deCategoria.push(sinCategoria);
   if (ahorro) deCategoria.push(ahorro);
 
   return deCategoria;

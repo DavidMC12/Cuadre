@@ -113,7 +113,11 @@ export function PanelPresupuesto({
 
   const archivados = (todosLosItems ?? []).filter((item) => item.archivedAt !== null);
   const itemPorId = new Map((todosLosItems ?? []).map((item) => [item.id, item]));
-  const grupos = agruparPresupuesto(checklist?.items ?? [], itemPorId);
+  // Sin los ítems no hay categoría que agrupar: el checklist por sí solo no la
+  // trae. Mientras no lleguen (o si su consulta falla) se muestra plano, en vez
+  // de afirmar "Sin categoría" sobre algo que sí la tiene.
+  const tieneMetadatos = todosLosItems !== undefined;
+  const grupos = tieneMetadatos ? agruparPresupuesto(checklist?.items ?? [], itemPorId) : [];
 
   // Los mismos ocho tonos (y el gris de la novena en adelante) que las
   // gráficas, asignados sobre las categorías de gasto ordenadas por nombre.
@@ -210,45 +214,56 @@ export function PanelPresupuesto({
             tabIndex={0}
             className="flex max-h-[70vh] flex-col overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
           >
-            {grupos.map((grupo) => {
-              const colapsado = gruposColapsados.has(grupo.clave);
-              const idLista = `grupo-presupuesto-${grupo.clave}`;
+            {!tieneMetadatos ? (
+              // Aún no sabemos la categoría de cada ítem (o su consulta falló):
+              // se ve la lista tal cual, sin encabezados que puedan mentir.
+              <ul className="flex flex-col">
+                {checklist.items.map((renglon, indice) => renderRenglon(renglon, indice))}
+              </ul>
+            ) : (
+              grupos.map((grupo) => {
+                const colapsado = gruposColapsados.has(grupo.clave);
+                const idLista = `grupo-presupuesto-${grupo.clave}`;
 
-              return (
-                <section key={grupo.clave}>
-                  <button
-                    type="button"
-                    aria-expanded={!colapsado}
-                    aria-controls={idLista}
-                    aria-label={grupo.titulo}
-                    onClick={() => alternarGrupo(grupo.clave)}
-                    className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-medium text-muted-foreground hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
-                  >
-                    {/* El color es refuerzo, nunca el único dato: el nombre de
-                        la categoría va en texto, al lado. */}
-                    <span
-                      aria-hidden
-                      className="size-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: colorDeGrupo(grupo) }}
-                    />
-                    <span className="min-w-0 flex-1 truncate">{grupo.titulo}</span>
-                    <span className="tabular-nums">{grupo.items.length}</span>
-                    <ChevronDown
-                      aria-hidden
-                      className={cn(
-                        "size-4 shrink-0 transition-transform",
-                        colapsado && "-rotate-90"
-                      )}
-                    />
-                  </button>
-                  {!colapsado && (
-                    <ul id={idLista} className="flex flex-col">
+                return (
+                  <section key={grupo.clave}>
+                    <button
+                      type="button"
+                      aria-expanded={!colapsado}
+                      aria-controls={idLista}
+                      aria-label={grupo.titulo}
+                      onClick={() => alternarGrupo(grupo.clave)}
+                      className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-medium text-muted-foreground hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
+                    >
+                      {/* El color es refuerzo, nunca el único dato: el nombre de
+                          la categoría va en texto, al lado. */}
+                      <span
+                        aria-hidden
+                        className="size-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: colorDeGrupo(grupo) }}
+                      />
+                      <span className="min-w-0 flex-1 truncate" title={grupo.titulo}>
+                        {grupo.titulo}
+                      </span>
+                      <span className="tabular-nums">{grupo.items.length}</span>
+                      <ChevronDown
+                        aria-hidden
+                        className={cn(
+                          "size-4 shrink-0 transition-transform",
+                          colapsado && "-rotate-90"
+                        )}
+                      />
+                    </button>
+                    {/* Siempre montada: `aria-controls` apunta a un id que debe
+                        existir aunque el grupo esté replegado. `hidden` la saca
+                        de la vista y del árbol accesible sin desmontarla. */}
+                    <ul id={idLista} hidden={colapsado} className="flex flex-col">
                       {grupo.items.map((renglon, indice) => renderRenglon(renglon, indice))}
                     </ul>
-                  )}
-                </section>
-              );
-            })}
+                  </section>
+                );
+              })
+            )}
           </div>
         )}
 

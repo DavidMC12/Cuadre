@@ -319,11 +319,49 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     fireEvent.click(header);
 
     const replegado = screen.getByRole("button", { name: "Comida", expanded: false });
-    expect(screen.queryByText("Mercado")).not.toBeInTheDocument();
-    expect(screen.queryByText("Restaurantes")).not.toBeInTheDocument();
+    // El contenido queda oculto sin desmontarse: `aria-controls` sigue apuntando
+    // a un id real.
+    expect(screen.getByText("Mercado")).not.toBeVisible();
+    expect(screen.getByText("Restaurantes")).not.toBeVisible();
 
     fireEvent.click(replegado);
+    expect(screen.getByText("Mercado")).toBeVisible();
+  });
+
+  it("si todavía no hay metadatos de los ítems, no inventa un grupo 'Sin categoría'", () => {
+    // La consulta de ítems (que trae la categoría) aún no resolvió o falló.
+    ajustarConsultas({ data: { items: [renglon] } });
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // Se ve plano, sin encabezados que afirmen una categoría que no conocemos.
+    expect(screen.queryByText("Sin categoría")).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { expanded: true })).toHaveLength(0);
     expect(screen.getByText("Mercado")).toBeInTheDocument();
+  });
+
+  it("una categoría archivada conserva su lugar en el mapa de colores", () => {
+    // "Alquiler" está archivada y va antes alfabéticamente; igual cuenta para
+    // el índice, como en la gráfica, para que Comida no salte de color.
+    const catalogo = [
+      ...CATALOGO,
+      { id: "cat-alquiler", name: "Alquiler", kind: "expense", archivedAt: "2026-01-01" },
+    ];
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("t1", "transporte", "Bus"),
+    ];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, catalogo);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // Con "Alquiler" primero: Comida 2ª = naranja, Transporte 4ª = amarillo.
+    const comida = screen.getByRole("button", { name: "Comida", expanded: true });
+    const transporte = screen.getByRole("button", { name: "Transporte", expanded: true });
+    const puntoComida = comida.querySelector('span[aria-hidden="true"]') as HTMLElement;
+    const puntoTransporte = transporte.querySelector('span[aria-hidden="true"]') as HTMLElement;
+    expect(puntoComida.style.backgroundColor).toBe("rgb(235, 104, 52)");
+    expect(puntoTransporte.style.backgroundColor).toBe("rgb(237, 161, 0)");
   });
 
   it("contiene la lista en una región con altura máxima y scroll interno", () => {
