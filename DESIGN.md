@@ -163,7 +163,7 @@ Paleta fija de 8 tonos para categorías, validada para que tonos vecinos se dist
 
 ### Named Rules
 
-**The Only Income Is Colored Rule.** Fuera de las gráficas, el único color saturado en pantalla es el verde de un ingreso. Un gasto resta en tinta normal, con signo. El resto es gris. La única excepción es el **ámbar de aviso** de la barra del cupo (ver Colors): señala que un límite se está por alcanzar, sin celebrar ni cobrar.
+**The Only Income Is Colored Rule.** Fuera de las gráficas, el único color saturado en pantalla es el verde de un ingreso. Un gasto resta en tinta normal, con signo. El resto es gris. Las excepciones son el **ámbar de aviso** de la barra del cupo (ver Colors): señala que un límite se está por alcanzar, sin celebrar ni cobrar; y la **leyenda del panel de presupuesto**, donde un punto con la paleta categórica identifica cada grupo —siempre junto a su nombre en texto y al conteo de ítems, nunca como único portador de la información—.
 
 **The Red Is Reserved Rule.** El rojo no se gasta en algo tan cotidiano como un movimiento. Se guarda para un error, cerrar sesión, o algo que de verdad no se puede deshacer.
 
