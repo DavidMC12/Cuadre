@@ -6,7 +6,8 @@ import { PanelPresupuesto } from "./panel-presupuesto";
 import { FormularioItemPresupuesto } from "@/components/presupuesto/formulario-item-presupuesto";
 import * as useCategoriasModule from "@/hooks/use-categorias";
 import * as usePresupuestoModule from "@/hooks/use-presupuesto";
-import type { ItemDelChecklist, ItemPresupuesto } from "@/lib/api/types";
+import type { Categoria, ItemDelChecklist, ItemPresupuesto } from "@/lib/api/types";
+import { mapaColoresCategoriasDelCatalogo } from "@/lib/chart-colors";
 
 vi.mock("@/hooks/use-presupuesto", () => ({
   useChecklistDelMes: vi.fn(),
@@ -207,7 +208,7 @@ function renglonDe(item: ItemPresupuesto): ItemDelChecklist {
 
 /** Catálogo con una categoría de ingreso a propósito: debe quedar fuera del
  * mapa de colores de gasto, igual que en la gráfica "Por categoría". */
-const CATALOGO = [
+const CATALOGO: Categoria[] = [
   { id: "cat-comida", name: "Comida", kind: "expense", archivedAt: null },
   { id: "cat-transporte", name: "Transporte", kind: "expense", archivedAt: null },
   { id: "cat-ocio", name: "Ocio", kind: "expense", archivedAt: null },
@@ -252,6 +253,12 @@ function encabezados() {
 /** La misma etiqueta accesible que arma el panel: incluye el conteo. */
 function etiquetaGrupo(titulo: string, cantidad: number) {
   return `${titulo}, ${cantidad} ${cantidad === 1 ? "ítem" : "ítems"}`;
+}
+
+/** "#2a78d6" -> "rgb(42, 120, 214)", como lo reporta el estilo en jsdom. */
+function colorCss(hex: string) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
 }
 
 describe("PanelPresupuesto: agrupado por categoría", () => {
@@ -579,12 +586,17 @@ describe("PanelPresupuesto: ingresos y gastos en secciones", () => {
 
     expect(screen.queryByRole("heading", { name: "Ahorro" })).not.toBeInTheDocument();
     const seccionGas = screen.getByRole("heading", { name: "Gastos" }).closest("section")!;
-    expect(within(seccionGas).getByRole("button", { name: etiquetaGrupo("Ahorro", 1) })).toBeInTheDocument();
-    // Su ayuda sí se lee como ingreso de dinero.
+    // El ahorro vive en Gastos —apartar no es recibir— y cierra la sección.
+    const gruposDeGastos = within(seccionGas)
+      .getAllByRole("button", { expanded: true })
+      .map((b) => b.getAttribute("aria-label"));
+    expect(gruposDeGastos.at(-1)).toBe(etiquetaGrupo("Ahorro", 1));
+    expect(gruposDeGastos).toContain(etiquetaGrupo("Comida", 1));
+    // El ahorro no arrastra una sección "Ingresos".
     expect(screen.queryByRole("heading", { name: "Ingresos" })).not.toBeInTheDocument();
   });
 
-  it("un ingreso excedido se pinta como logro, nunca como alerta roja", () => {
+  it("un ingreso en logro se pinta como éxito, nunca como alerta roja", () => {
     const items = [deIngreso("i1", "Salario")];
     const checklist = [{ ...renglonDe(items[0]), progress: "1500", target: "1000", checked: true, exceeded: false }];
     ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
@@ -594,6 +606,20 @@ describe("PanelPresupuesto: ingresos y gastos en secciones", () => {
     // Logro verde con su texto accesible...
     expect(screen.getByText("Meta alcanzada")).toBeInTheDocument();
     // ...y ningún aviso de exceso.
+    expect(screen.queryByText("Tope excedido")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Te pasaste por/)).not.toBeInTheDocument();
+  });
+
+  it("aunque el estado de un ingreso llegara con 'exceeded', el panel no lo pinta como alerta", () => {
+    // El servicio nunca marca 'exceeded' en un ingreso, pero el panel respeta
+    // el estado que recibe sin inventarlo por su cuenta: un renglón de ingreso
+    // jamás se tiñe de rojo por "pasarse", ni con 'exceeded' en true.
+    const items = [deIngreso("i1", "Salario")];
+    const checklist = [{ ...renglonDe(items[0]), progress: "1500", target: "1000", checked: false, exceeded: true }];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
     expect(screen.queryByText("Tope excedido")).not.toBeInTheDocument();
     expect(screen.queryByText(/Te pasaste por/)).not.toBeInTheDocument();
   });
@@ -621,6 +647,25 @@ describe("PanelPresupuesto: ingresos y gastos en secciones", () => {
 
     expect(screen.getByRole("progressbar", { name: /Salario:.*recibido de/ })).toBeInTheDocument();
     expect(screen.getByRole("progressbar", { name: /Mercado:.*gastado de/ })).toBeInTheDocument();
+  });
+
+  it("cada sección toma su color del mapa de su tipo: ingreso con la paleta de ingresos", () => {
+    const items = [deIngreso("i1", "Salario"), deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // El mapa de ingresos del catálogo da el primer tono a la primera categoría
+    // de ingreso; la de gasto, el suyo.
+    const ingreso = mapaColoresCategoriasDelCatalogo(CATALOGO, "income", "claro").get("cat-sueldo");
+    const gasto = mapaColoresCategoriasDelCatalogo(CATALOGO, "expense", "claro").get("cat-comida");
+    const punto = (titulo: string) =>
+      screen
+        .getByRole("button", { name: etiquetaGrupo(titulo, 1) })
+        .querySelector('span[aria-hidden="true"]') as HTMLElement;
+    expect(punto("Sueldo").style.backgroundColor).not.toBe("");
+    expect(punto("Sueldo").style.backgroundColor).toBe(colorCss(ingreso!));
+    expect(punto("Comida").style.backgroundColor).toBe(colorCss(gasto!));
   });
 
   it("sin renglones de ingreso no aparece la sección 'Ingresos'", () => {

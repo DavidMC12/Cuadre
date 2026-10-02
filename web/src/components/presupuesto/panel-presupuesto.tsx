@@ -333,7 +333,7 @@ export function PanelPresupuesto({
           <EmptyState
             Icono={ListTodo}
             titulo="Nada por revisar este mes"
-            descripcion="Agrega un tope de gasto para una categoría, o una meta para tus ahorros. El progreso se calcula solo con tus movimientos."
+            descripcion="Agrega un tope de gasto, un ingreso esperado o una meta de ahorro. El progreso se calcula solo con tus movimientos."
             className="border-0 px-2 py-8"
           />
         ) : (
@@ -493,6 +493,11 @@ function ContenidoRenglon({
   const verbo =
     renglon.kind === "savings" ? "ahorrado" : renglon.categoryKind === "income" ? "recibido" : "gastado";
 
+  // El rojo de "te pasaste" es solo para un tope de gasto. En un ingreso,
+  // recibir de más es bueno: aunque el estado llegara con `exceeded`, el panel
+  // no lo tiñe de alarma. El estado verde (`checked`) sí se respeta.
+  const excedeGasto = renglon.exceeded && renglon.categoryKind !== "income";
+
   return (
     <>
       <div className="flex items-center justify-between gap-3">
@@ -507,7 +512,7 @@ function ContenidoRenglon({
             <span className="sr-only">Meta alcanzada</span>
           </span>
         )}
-        {renglon.exceeded && (
+        {excedeGasto && (
           <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
             <TriangleAlert className="size-3.5" aria-hidden />
             <span className="sr-only">Tope excedido</span>
@@ -543,7 +548,7 @@ function ContenidoRenglon({
             aria-valuemin={0}
             aria-valuemax={100}
             aria-label={
-              renglon.exceeded
+              excedeGasto
                 ? `${renglon.label}: tope excedido, ${textoMonto(renglon.progress, renglon.currency)} ${verbo} de ${textoMonto(renglon.target, renglon.currency)}`
                 : `${renglon.label}: ${textoMonto(renglon.progress, renglon.currency)} ${verbo} de ${textoMonto(renglon.target, renglon.currency)}`
             }
@@ -553,9 +558,10 @@ function ContenidoRenglon({
               className={cn(
                 "h-full rounded-full transition-[width]",
                 // El exceso no se celebra: se avisa en rojo (el mismo tono
-                // de error que usa el resto de la app). El verde queda para
-                // una meta de ahorro alcanzada.
-                renglon.exceeded
+                // de error que usa el resto de la app) — solo en un tope de
+                // gasto. El verde queda para una meta alcanzada (ahorro o
+                // ingreso esperado).
+                excedeGasto
                   ? "bg-destructive"
                   : renglon.checked
                     ? "bg-emerald-600"
@@ -577,7 +583,7 @@ function ContenidoRenglon({
               {textoMonto(renglon.target, renglon.currency)}
             </span>
           </p>
-          {renglon.exceeded && (
+          {excedeGasto && (
             <p className="text-xs font-medium text-destructive">
               Te pasaste por{" "}
               <span className="font-mono tabular-nums">
