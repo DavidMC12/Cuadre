@@ -1,11 +1,11 @@
 /** Capa HTTP del checklist de presupuesto: recibe, valida con Zod, responde. */
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import {
-  ActualizarObjetivoSchema,
   ChecklistDelMesSchema,
   ChecklistSchema,
   CrearItemSchema,
   EditarEtiquetaSchema,
+  FijarObjetivoDelMesSchema,
   IdEnRutaSchema,
   ListaDeItemsSchema,
   ListarItemsSchema,
@@ -44,14 +44,15 @@ export const rutasDePresupuesto: FastifyPluginAsyncZod = async (app) => {
     {
       schema: {
         params: IdEnRutaSchema,
-        body: ActualizarObjetivoSchema,
+        body: FijarObjetivoDelMesSchema,
         response: { 200: UnItemSchema },
       },
     },
     async (peticion) => ({
-      data: await servicio.actualizarObjetivo(
+      data: await servicio.fijarObjetivoDelMes(
         peticion.usuarioId,
         peticion.params.id,
+        peticion.body.month,
         peticion.body.amount,
       ),
     }),

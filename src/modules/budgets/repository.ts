@@ -154,30 +154,6 @@ export async function crear(
 }
 
 /**
- * Agrega un monto nuevo desde `mesEfectivoDesde` en adelante. Nunca pisa una
- * fila existente — si ya había un monto puesto para ese mismo mes, esta fila
- * queda como la más reciente y gana por `created_at` (ver `objetivoEnElMes`).
- * Devuelve `false` si el ítem no existe o no es de este usuario.
- */
-export async function agregarObjetivo(
-  usuarioId: string,
-  itemId: string,
-  monto: string,
-  mesEfectivoDesde: string,
-): Promise<boolean> {
-  const [fila] = (await db.execute(sql`
-    insert into budget_item_targets (budget_item_id, effective_from, amount)
-    select ${itemId}::uuid, (${mesEfectivoDesde}::text || '-01')::date, ${monto}
-    where exists (
-      select 1 from budget_items where id = ${itemId}::uuid and user_id = ${usuarioId}::uuid
-    )
-    returning id
-  `)) as unknown as { id: string }[];
-
-  return fila !== undefined;
-}
-
-/**
  * Fija el monto de UN mes sin mover ningún otro. Sigue siendo solo `INSERT`:
  * agrega una fila con `effective_from` = ese mes, que gana sobre cualquier
  * anterior. Como un mes sin fila propia hereda el monto del anterior, fijar
