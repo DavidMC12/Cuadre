@@ -231,6 +231,11 @@ function encabezados() {
   return screen.getAllByRole("button", { expanded: true }).map((h) => h.getAttribute("aria-label"));
 }
 
+/** La misma etiqueta accesible que arma el panel: incluye el conteo. */
+function etiquetaGrupo(titulo: string, cantidad: number) {
+  return `${titulo}, ${cantidad} ${cantidad === 1 ? "ítem" : "ítems"}`;
+}
+
 describe("PanelPresupuesto: agrupado por categoría", () => {
   it("ordena los grupos del que más ítems tiene al que menos", () => {
     const items = [
@@ -245,7 +250,11 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
 
     render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
 
-    expect(encabezados()).toEqual(["Comida", "Transporte", "Ocio"]);
+    expect(encabezados()).toEqual([
+      etiquetaGrupo("Comida", 3),
+      etiquetaGrupo("Transporte", 2),
+      etiquetaGrupo("Ocio", 1),
+    ]);
   });
 
   it("a igual cantidad de ítems, desempata alfabéticamente", () => {
@@ -262,7 +271,11 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
 
     // Los tres grupos tienen 2 ítems cada uno: manda el nombre.
-    expect(encabezados()).toEqual(["Comida", "Ocio", "Transporte"]);
+    expect(encabezados()).toEqual([
+      etiquetaGrupo("Comida", 2),
+      etiquetaGrupo("Ocio", 2),
+      etiquetaGrupo("Transporte", 2),
+    ]);
   });
 
   it("las metas de ahorro van en su propio grupo, al final, aunque sean las más", () => {
@@ -278,7 +291,7 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
 
     // Ahorro tiene 3 y Comida 1; aun así cierra la lista: es el otro tipo de
     // meta (apartar plata), no un tope de gasto más.
-    expect(encabezados()).toEqual(["Comida", "Ahorro"]);
+    expect(encabezados()).toEqual([etiquetaGrupo("Comida", 1), etiquetaGrupo("Ahorro", 3)]);
   });
 
   it("cada grupo lleva el color de su categoría, el mismo de la gráfica, y el nombre lo acompaña en texto", () => {
@@ -290,8 +303,11 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
 
     render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
 
-    const comida = screen.getByRole("button", { name: "Comida", expanded: true });
-    const transporte = screen.getByRole("button", { name: "Transporte", expanded: true });
+    const comida = screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true });
+    const transporte = screen.getByRole("button", {
+      name: etiquetaGrupo("Transporte", 1),
+      expanded: true,
+    });
 
     // Paleta categórica en claro, sobre las categorías de gasto ordenadas por
     // nombre (Comida 1º = azul, Ocio 2º, Transporte 3º = aqua). "Sueldo" es de
@@ -313,12 +329,18 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
 
     render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
 
-    const header = screen.getByRole("button", { name: "Comida", expanded: true });
+    const header = screen.getByRole("button", {
+      name: etiquetaGrupo("Comida", 2),
+      expanded: true,
+    });
     expect(header.classList.contains("min-h-11")).toBe(true);
 
     fireEvent.click(header);
 
-    const replegado = screen.getByRole("button", { name: "Comida", expanded: false });
+    const replegado = screen.getByRole("button", {
+      name: etiquetaGrupo("Comida", 2),
+      expanded: false,
+    });
     // El contenido queda oculto sin desmontarse: `aria-controls` sigue apuntando
     // a un id real.
     expect(screen.getByText("Mercado")).not.toBeVisible();
@@ -326,6 +348,68 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
 
     fireEvent.click(replegado);
     expect(screen.getByText("Mercado")).toBeVisible();
+  });
+
+  it("al replegar un grupo con un tope excedido, el aviso sobrevive en el encabezado", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    const checklist = items.map((item) => ({ ...renglonDe(item), exceeded: true }));
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    fireEvent.click(screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true }));
+
+    // Replegado, el encabezado dice que hay un tope excedido: la alerta roja no
+    // se esconde con el grupo.
+    expect(
+      screen.getByRole("button", {
+        name: `${etiquetaGrupo("Comida", 1)}, con un tope excedido`,
+        expanded: false,
+      })
+    ).toBeInTheDocument();
+  });
+
+  it("con más de un tope excedido, el aviso del encabezado va en plural", () => {
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("c2", "comida", "Restaurantes"),
+    ];
+    const checklist = items.map((item) => ({ ...renglonDe(item), exceeded: true }));
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    fireEvent.click(screen.getByRole("button", { name: etiquetaGrupo("Comida", 2), expanded: true }));
+
+    expect(
+      screen.getByRole("button", {
+        name: `${etiquetaGrupo("Comida", 2)}, con topes excedidos`,
+        expanded: false,
+      })
+    ).toBeInTheDocument();
+  });
+
+  it("los ids de aria-controls son únicos entre dos paneles montados a la vez", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(
+      <>
+        <PanelPresupuesto mes="2026-09" moneda="COP" variante="suelta" />
+        <PanelPresupuesto mes="2026-09" moneda="COP" variante="suelta" />
+      </>
+    );
+
+    const headers = screen.getAllByRole("button", {
+      name: etiquetaGrupo("Comida", 1),
+      expanded: true,
+    });
+    expect(headers).toHaveLength(2);
+    const ids = headers.map((h) => h.getAttribute("aria-controls"));
+    expect(new Set(ids).size).toBe(2);
+    for (const id of ids) {
+      expect(document.getElementById(id!)).not.toBeNull();
+    }
   });
 
   it("si todavía no hay metadatos de los ítems, no inventa un grupo 'Sin categoría'", () => {
@@ -338,6 +422,34 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     expect(screen.queryByText("Sin categoría")).not.toBeInTheDocument();
     expect(screen.queryAllByRole("button", { expanded: true })).toHaveLength(0);
     expect(screen.getByText("Mercado")).toBeInTheDocument();
+  });
+
+  it("si a un renglón le falta su ítem, no agrupa ni lo deja sin edición bajo un grupo falso", () => {
+    // La consulta de ítems llegó, pero incompleta: falta el renglón "r-1".
+    const items = [deCategoria("c1", "comida", "Panadería")];
+    ajustarConsultas(
+      { data: { items: [renglon, ...items.map(renglonDe)] } },
+      { data: items },
+      CATALOGO
+    );
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // Cae a lista plana en vez de inventar un grupo "Sin categoría".
+    expect(screen.queryByText("Sin categoría")).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { expanded: true })).toHaveLength(0);
+    expect(screen.getByText("Mercado")).toBeInTheDocument();
+
+    // El renglón sin detalle explica su estado de solo lectura...
+    const sinDetalle = screen.getByText("Mercado").closest("li")!;
+    expect(
+      within(sinDetalle).getByText("No pudimos cargar los detalles de este ítem.")
+    ).toBeInTheDocument();
+    expect(within(sinDetalle).queryByRole("button")).not.toBeInTheDocument();
+
+    // ...y el que sí tiene metadatos conserva su botón de editar.
+    const conDetalle = screen.getByText("Panadería").closest("li")!;
+    expect(within(conDetalle).getByRole("button")).toBeInTheDocument();
   });
 
   it("una categoría archivada conserva su lugar en el mapa de colores", () => {
@@ -356,8 +468,11 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
 
     // Con "Alquiler" primero: Comida 2ª = naranja, Transporte 4ª = amarillo.
-    const comida = screen.getByRole("button", { name: "Comida", expanded: true });
-    const transporte = screen.getByRole("button", { name: "Transporte", expanded: true });
+    const comida = screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true });
+    const transporte = screen.getByRole("button", {
+      name: etiquetaGrupo("Transporte", 1),
+      expanded: true,
+    });
     const puntoComida = comida.querySelector('span[aria-hidden="true"]') as HTMLElement;
     const puntoTransporte = transporte.querySelector('span[aria-hidden="true"]') as HTMLElement;
     expect(puntoComida.style.backgroundColor).toBe("rgb(235, 104, 52)");
@@ -375,5 +490,12 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     expect(region.classList.contains("overflow-y-auto")).toBe(true);
     // Enfocable para poder recorrerla con el teclado.
     expect(region.tabIndex).toBe(0);
+
+    // El renglón no lleva margen negativo: dentro del scroll horizontal
+    // automático se salía 8px y descuadraba. Lo vigila la prueba, no solo el
+    // script de Chromium.
+    const fila = screen.getByText("Mercado").closest("li")!;
+    expect(fila.className).toContain("rounded-lg");
+    expect(fila.className).not.toContain("-mx-2");
   });
 });

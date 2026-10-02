@@ -7,6 +7,9 @@ export const CLAVE_AHORRO = "ahorro";
 /** La clave del grupo de respaldo para un ítem cuya categoría no llegó. */
 export const CLAVE_SIN_CATEGORIA = "sin-categoria";
 
+/** Título neutro para una categoría cuyo nombre no llegó de ninguna fuente. */
+const TITULO_CATEGORIA_DESCONOCIDA = "Categoría";
+
 /** Un grupo de renglones del checklist, ya listo para pintar. */
 export interface GrupoPresupuesto {
   /** El id de la categoría, o una de las claves propias (`CLAVE_AHORRO`, `CLAVE_SIN_CATEGORIA`). */
@@ -32,10 +35,17 @@ export interface GrupoPresupuesto {
  *
  * El color no se decide aquí: el componente lo resuelve con el mismo mapa de
  * colores de las gráficas, a partir de `categoryId`.
+ *
+ * `nombreDeCategoria` es la última fuente para el título cuando el renglón no
+ * trae el nombre (el checklist no lo incluye; sale de los ítems). Es una
+ * función y no el `item.label` a propósito: la etiqueta es texto libre de un
+ * renglón y dos ítems de la misma categoría podrían quedar bajo el nombre del
+ * primero. Mejor el nombre real del catálogo, o un título neutro.
  */
 export function agruparPresupuesto(
   items: readonly ItemDelChecklist[],
-  itemPorId: ReadonlyMap<string, ItemPresupuesto>
+  itemPorId: ReadonlyMap<string, ItemPresupuesto>,
+  nombreDeCategoria?: (categoryId: string) => string | null
 ): GrupoPresupuesto[] {
   const porClave = new Map<string, GrupoPresupuesto>();
 
@@ -48,7 +58,9 @@ export function agruparPresupuesto(
     const titulo = esAhorro
       ? "Ahorro"
       : categoryId
-        ? (item?.categoryName ?? item?.label ?? SIN_CATEGORIA)
+        ? (item?.categoryName ??
+          nombreDeCategoria?.(categoryId) ??
+          TITULO_CATEGORIA_DESCONOCIDA)
         : SIN_CATEGORIA;
 
     let grupo = porClave.get(clave);
