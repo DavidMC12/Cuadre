@@ -235,11 +235,16 @@ export interface NuevoItemDeCategoria {
   /** Texto exacto, nunca number. */
   amount: string;
   label?: string;
+  /**
+   * El mes del primer monto ("YYYY-MM"). Opcional: si no llega, es el actual.
+   * Sirve para empezar el presupuesto contando un mes que ya pasó.
+   */
+  month?: string;
 }
 
 /**
- * Un ítem de ahorro: cuánto se espera aportarle este mes a una cuenta ya
- * marcada como de ahorro. La moneda no se pide: es la de la cuenta.
+ * Un ítem de ahorro: cuánto se espera aportarle a una cuenta ya marcada como
+ * de ahorro. La moneda no se pide: es la de la cuenta.
  */
 export interface NuevoItemDeAhorro {
   kind: "savings";
@@ -247,6 +252,8 @@ export interface NuevoItemDeAhorro {
   /** Texto exacto, nunca number. */
   amount: string;
   label?: string;
+  /** Igual que en el ítem de categoría: el mes del primer monto. */
+  month?: string;
 }
 
 /** Un ítem nuevo, discriminado por `kind` igual que en el backend. */

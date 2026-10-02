@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { etiquetaMesCorta, rangoDelMes } from "./fecha";
+import { etiquetaMesCorta, nombreDelMes, rangoDelMes } from "./fecha";
 
 describe("etiquetaMesCorta", () => {
   it("siempre corta a 3 letras, incluido septiembre", () => {
@@ -27,5 +27,12 @@ describe("rangoDelMes", () => {
       desde: "2026-12-01T05:00:00.000Z",
       hasta: "2027-01-01T04:59:59.999Z",
     });
+  });
+});
+
+describe("nombreDelMes", () => {
+  it("dice el mes y el año de un YYYY-MM, como lo dice el calendario colombiano", () => {
+    expect(nombreDelMes("2026-01")).toBe("Enero de 2026");
+    expect(nombreDelMes("2025-12")).toBe("Diciembre de 2025");
   });
 });
