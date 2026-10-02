@@ -97,13 +97,13 @@ const HTML = `<!doctype html>
 ${caso(
   "movil-antes",
   "antes",
-  (p) => `<div class="w-[320px] overflow-y-auto px-4 pb-4">${p}</div>`,
+  (p) => `<div class="w-full overflow-y-auto px-4 pb-4">${p}</div>`,
   320
 )}
 ${caso(
   "movil-despues",
   "despues",
-  (p) => `<div class="w-[320px] overflow-y-auto px-4 pb-4">${p}</div>`,
+  (p) => `<div class="w-full overflow-y-auto px-4 pb-4">${p}</div>`,
   320
 )}
 ${caso(
@@ -151,8 +151,8 @@ async function abrirChromium() {
         const linea = resto.split("\n").find((l) => l.includes("DevTools listening on"));
         if (linea) {
           const ws = linea.match(/ws:\/\/\S+/)?.[0];
-          if (ws) resuelto(ws.replace("devtools/browser", "devtools/page"));
-          else rechazado(new Error("No se encontró el endpoint de página de Chromium."));
+          if (ws) resuelto(ws);
+          else rechazado(new Error("No se encontró el endpoint de Chromium."));
         }
       });
       proceso.on("error", (error) => {
@@ -252,6 +252,12 @@ function revisar(mediciones) {
         `sangría del título ${m.sangriaTitulo}px; alto de encabezado ${m.headerAlto}px; desborde-y ${m.desbordeY}px`;
       if (m.variante === "antes") {
         console.log(`  · antes:   ${resumen}`);
+        // Si el defecto deja de reproducirse, la comparación no prueba nada:
+        // el espejo habría dejado de ser fiel.
+        if (m.desbordeX <= 0) {
+          fallos += 1;
+          console.log("    ✗ el defecto ya no se reproduce: el espejo dejó de ser fiel");
+        }
         continue;
       }
       const problemas = [];
@@ -284,17 +290,28 @@ try {
     await pedir(ws, 1, "Page.enable");
     await pedir(ws, 2, "Page.navigate", { url: `file://${join(directorio, "index.html")}` });
     await esperarEvento(ws, "Page.loadEventFired");
-    await pedir(ws, 3, "Emulation.setDeviceMetricsOverride", {
-      width: 1280,
-      height: 480,
-      deviceScaleFactor: 1,
-      mobile: false,
-    });
-    const { result } = await pedir(ws, 4, "Runtime.evaluate", {
-      expression: MEDICION,
-      returnByValue: true,
-    });
-    revisar(result.value);
+
+    // Dos anchos de verdad: a 320px el cajón móvil llena el viewport; a 1280px
+    // se mide la columna fija del Resumen (w-80).
+    const mediciones = [];
+    const viewports = [
+      { ancho: 320, id: 3 },
+      { ancho: 1280, id: 5 },
+    ];
+    for (const { ancho, id } of viewports) {
+      await pedir(ws, id, "Emulation.setDeviceMetricsOverride", {
+        width: ancho,
+        height: 480,
+        deviceScaleFactor: 1,
+        mobile: ancho === 320,
+      });
+      const { result } = await pedir(ws, id + 1, "Runtime.evaluate", {
+        expression: MEDICION,
+        returnByValue: true,
+      });
+      mediciones.push(...result.value.filter((m) => m.ancho === ancho));
+    }
+    revisar(mediciones);
   } finally {
     proceso.kill("SIGKILL");
   }
