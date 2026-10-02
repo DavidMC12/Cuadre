@@ -369,6 +369,26 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     ).toBeInTheDocument();
   });
 
+  it("con más de un tope excedido, el aviso del encabezado va en plural", () => {
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("c2", "comida", "Restaurantes"),
+    ];
+    const checklist = items.map((item) => ({ ...renglonDe(item), exceeded: true }));
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    fireEvent.click(screen.getByRole("button", { name: etiquetaGrupo("Comida", 2), expanded: true }));
+
+    expect(
+      screen.getByRole("button", {
+        name: `${etiquetaGrupo("Comida", 2)}, con topes excedidos`,
+        expanded: false,
+      })
+    ).toBeInTheDocument();
+  });
+
   it("los ids de aria-controls son únicos entre dos paneles montados a la vez", () => {
     const items = [deCategoria("c1", "comida", "Mercado")];
     ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
@@ -419,6 +439,17 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     expect(screen.queryByText("Sin categoría")).not.toBeInTheDocument();
     expect(screen.queryAllByRole("button", { expanded: true })).toHaveLength(0);
     expect(screen.getByText("Mercado")).toBeInTheDocument();
+
+    // El renglón sin detalle explica su estado de solo lectura...
+    const sinDetalle = screen.getByText("Mercado").closest("li")!;
+    expect(
+      within(sinDetalle).getByText("No pudimos cargar los detalles de este ítem.")
+    ).toBeInTheDocument();
+    expect(within(sinDetalle).queryByRole("button")).not.toBeInTheDocument();
+
+    // ...y el que sí tiene metadatos conserva su botón de editar.
+    const conDetalle = screen.getByText("Panadería").closest("li")!;
+    expect(within(conDetalle).getByRole("button")).toBeInTheDocument();
   });
 
   it("una categoría archivada conserva su lugar en el mapa de colores", () => {
@@ -459,5 +490,12 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     expect(region.classList.contains("overflow-y-auto")).toBe(true);
     // Enfocable para poder recorrerla con el teclado.
     expect(region.tabIndex).toBe(0);
+
+    // El renglón no lleva margen negativo: dentro del scroll horizontal
+    // automático se salía 8px y descuadraba. Lo vigila la prueba, no solo el
+    // script de Chromium.
+    const fila = screen.getByText("Mercado").closest("li")!;
+    expect(fila.className).toContain("rounded-lg");
+    expect(fila.className).not.toContain("-mx-2");
   });
 });

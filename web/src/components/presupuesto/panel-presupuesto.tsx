@@ -124,7 +124,9 @@ export function PanelPresupuesto({
   // trae. Mientras no lleguen (o si su consulta falla) se muestra plano, en vez
   // de afirmar "Sin categoría" sobre algo que sí la tiene. Se exige que TODOS
   // los renglones tengan su ítem: si la lista llega incompleta, un renglón
-  // quedaría sin botón de edición y bajo un grupo que no es el suyo.
+  // quedaría sin botón de edición y bajo un grupo que no es el suyo. Es todo o
+  // nada: un solo renglón sin ítem deja el panel plano — el precio de no mentir
+  // con la categoría, y un caso de carrera que se resuelve al llegar los datos.
   const tieneMetadatos =
     todosLosItems !== undefined &&
     (checklist?.items ?? []).every((renglon) => itemPorId.has(renglon.id));
@@ -183,6 +185,15 @@ export function PanelPresupuesto({
         {soloMirar || !item ? (
           <div className="flex flex-col gap-1.5 px-2 py-3">
             <ContenidoRenglon renglon={renglon} porcentaje={porcentaje} />
+            {/* Sin su ítem no hay formulario que abrir. Mirar otra cuenta es
+                solo lectura a propósito y no necesita decir nada; un ítem cuyo
+                detalle no llegó sí: si no, el renglón queda sin poder editarse
+                y sin explicación. */}
+            {!soloMirar && (
+              <p className="text-xs text-muted-foreground">
+                No pudimos cargar los detalles de este ítem.
+              </p>
+            )}
           </div>
         ) : (
           <FormularioItemPresupuesto item={item} moneda={moneda}>
@@ -233,7 +244,9 @@ export function PanelPresupuesto({
         ) : (
           // La lista se contiene sola: con muchos ítems, el panel ya no crece
           // sin fin ni empuja el resto de la pantalla. La región es enfocable
-          // para que también se pueda recorrer con el teclado.
+          // para que también se pueda recorrer con el teclado. Se deja siempre
+          // enfocable aunque no llegue a desbordar: medir el desborde real en
+          // cada render costaría más de lo que aporta un tab stop de más.
           <div
             role="region"
             aria-label="Ítems del presupuesto"
@@ -253,10 +266,14 @@ export function PanelPresupuesto({
                 const cantidad = grupo.items.length;
                 // Un tope excedido no puede perderse de vista solo porque el
                 // grupo esté replegado: sobrevive como aviso en el encabezado.
-                const excedido = grupo.items.some((renglon) => renglon.exceeded);
+                const excedidos = grupo.items.filter((renglon) => renglon.exceeded).length;
                 const etiquetaGrupo =
                   `${grupo.titulo}, ${cantidad} ${cantidad === 1 ? "ítem" : "ítems"}` +
-                  (colapsado && excedido ? ", con un tope excedido" : "");
+                  (colapsado && excedidos > 0
+                    ? excedidos === 1
+                      ? ", con un tope excedido"
+                      : ", con topes excedidos"
+                    : "");
 
                 return (
                   <section key={grupo.clave}>
@@ -279,7 +296,7 @@ export function PanelPresupuesto({
                         {grupo.titulo}
                       </span>
                       <span className="tabular-nums">{cantidad}</span>
-                      {colapsado && excedido && (
+                      {colapsado && excedidos > 0 && (
                         <span
                           aria-hidden
                           className="flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive"
