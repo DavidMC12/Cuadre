@@ -503,6 +503,20 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     expect(fila.className).toContain("rounded-lg");
     expect(fila.className).not.toContain("-mx-2");
   });
+
+  it("sin tope propio (dentro del cajón que ya scrollea) la región no se acota", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(
+      <PanelPresupuesto mes="2026-09" moneda="COP" variante="suelta" topePropio={false} />
+    );
+
+    const region = screen.getByRole("region", { name: "Ítems del presupuesto" });
+    // Sin tope propio: el scroll lo hace el cajón que lo envuelve, no el panel.
+    expect(region.classList.contains("max-h-[70vh]")).toBe(false);
+    expect(region.classList.contains("overflow-y-auto")).toBe(true);
+  });
 });
 
 // -------------------------------------------------------------------------

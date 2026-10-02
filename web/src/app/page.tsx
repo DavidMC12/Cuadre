@@ -206,6 +206,8 @@ export default function PaginaResumen() {
                     moneda={moneda}
                     variante="suelta"
                     compartePantalla={falloCuentas || falloResumen || falloTendencia}
+                    // El cajón ya scrollea: sin tope propio no se anidan dos.
+                    topePropio={false}
                   />
                 </div>
               </DrawerContent>

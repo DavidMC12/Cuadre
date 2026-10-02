@@ -56,6 +56,7 @@ export function PanelPresupuesto({
   moneda,
   variante = "tarjeta",
   compartePantalla,
+  topePropio = true,
 }: {
   mes: string;
   moneda: string;
@@ -65,6 +66,10 @@ export function PanelPresupuesto({
    * uno por su cuenta — la pantalla compone el anuncio único, o queda un
    * solo alert hablando por todos. */
   compartePantalla?: boolean;
+  /** `false` cuando el contenedor que envuelve al panel ya hace scroll (el
+   * cajón móvil): sin tope propio no se anidan dos scroll. En la pantalla de
+   * Presupuesto y el aside de escritorio se deja en `true`. */
+  topePropio?: boolean;
 }) {
   const soloMirar = useSoloMirar();
   const idBase = useId();
@@ -269,7 +274,12 @@ export function PanelPresupuesto({
             role="region"
             aria-label="Ítems del presupuesto"
             tabIndex={0}
-            className="flex max-h-[70vh] flex-col overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
+            className={cn(
+              "flex flex-col overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85",
+              // Con contenedor que ya scrollea (el cajón), el panel no pone su
+              // propio tope: evita el scroll anidado.
+              topePropio && "max-h-[70vh]"
+            )}
           >
             {!tieneMetadatos ? (
               // Aún no sabemos la categoría de cada ítem (o su consulta falló):
