@@ -3,9 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 
 import { PanelPresupuesto } from "./panel-presupuesto";
+import { FormularioItemPresupuesto } from "@/components/presupuesto/formulario-item-presupuesto";
 import * as useCategoriasModule from "@/hooks/use-categorias";
 import * as usePresupuestoModule from "@/hooks/use-presupuesto";
 import type { ItemDelChecklist, ItemPresupuesto } from "@/lib/api/types";
+import { mesActual } from "@/lib/fecha";
 
 vi.mock("@/hooks/use-presupuesto", () => ({
   useChecklistDelMes: vi.fn(),
@@ -26,7 +28,7 @@ vi.mock("next-themes", () => ({
 }));
 
 vi.mock("@/components/presupuesto/formulario-item-presupuesto", () => ({
-  FormularioItemPresupuesto: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+  FormularioItemPresupuesto: vi.fn(({ children }: { children?: React.ReactNode }) => <>{children}</>),
 }));
 
 const renglon: ItemDelChecklist = {
@@ -72,7 +74,10 @@ function ajustarConsultas(
   );
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.mocked(FormularioItemPresupuesto).mockClear();
+});
 
 describe("PanelPresupuesto: una variante por contenedor", () => {
   it("la variante tarjeta trae su Card con título y el botón Agregar", () => {
@@ -497,5 +502,67 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     const fila = screen.getByText("Mercado").closest("li")!;
     expect(fila.className).toContain("rounded-lg");
     expect(fila.className).not.toContain("-mx-2");
+  });
+});
+
+// -------------------------------------------------------------------------
+// Monto propio por mes
+// -------------------------------------------------------------------------
+
+describe("PanelPresupuesto: el monto del mes visto", () => {
+  it("pasa el mes visto y el monto de ese mes al formulario de cada renglón", () => {
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("c2", "comida", "Restaurantes"),
+    ];
+    const checklist = [
+      { ...renglonDe(items[0]), target: "1200" },
+      { ...renglonDe(items[1]), target: null },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-01" moneda="COP" />);
+
+    const llamadas = vi.mocked(FormularioItemPresupuesto).mock.calls.map(([props]) => props);
+    const deRenglones = llamadas.filter((props) => props.item);
+    expect(deRenglones.map((props) => props.mes)).toEqual(["2026-01", "2026-01"]);
+    expect(deRenglones.map((props) => props.montoDelMes)).toEqual(["1200", null]);
+    // El mes visto, no el de hoy: si el panel no lo pasara, el formulario
+    // fijaría el monto del mes equivocado.
+    expect(deRenglones[0].mes).not.toBe(mesActual());
+
+    // El botón Agregar también nace en el mes visto.
+    const agregar = llamadas.find((props) => !props.item);
+    expect(agregar?.mes).toBe("2026-01");
+  });
+
+  it("un renglón sin monto en el mes visto lo dice y ofrece 'Poner monto' de 44px", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    const checklist = [{ ...renglonDe(items[0]), target: null }];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-01" moneda="COP" />);
+
+    expect(screen.getByText("Sin monto en Enero de 2026")).toBeInTheDocument();
+    expect(screen.getByText("Poner monto").classList.contains("min-h-11")).toBe(true);
+
+    // Abre el formulario en edición para ESE mes, con monto nulo.
+    const llamada = vi
+      .mocked(FormularioItemPresupuesto)
+      .mock.calls.map(([props]) => props)
+      .find((props) => props.item);
+    expect(llamada?.mes).toBe("2026-01");
+    expect(llamada?.montoDelMes).toBeNull();
+  });
+
+  it("un renglón con monto muestra su progreso y no ofrece 'Poner monto'", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    const checklist = [{ ...renglonDe(items[0]), target: "30000", progress: "20500" }];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-01" moneda="COP" />);
+
+    expect(screen.queryByText("Poner monto")).not.toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
   });
 });

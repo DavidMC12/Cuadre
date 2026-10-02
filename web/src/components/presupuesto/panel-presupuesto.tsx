@@ -18,6 +18,7 @@ import { ApiError } from "@/lib/api/client";
 import type { ItemDelChecklist } from "@/lib/api/types";
 import { agruparPresupuesto, type GrupoPresupuesto } from "@/lib/agrupar-presupuesto";
 import { COLOR_NEUTRO, mapaColoresCategoriasDelCatalogo, modoDeTema } from "@/lib/chart-colors";
+import { nombreDelMes } from "@/lib/fecha";
 import { aUnidadesMinimas, restar, textoMonto } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -161,7 +162,7 @@ export function PanelPresupuesto({
   }
 
   const accionAgregar = !soloMirar && (
-    <FormularioItemPresupuesto moneda={moneda}>
+    <FormularioItemPresupuesto moneda={moneda} mes={mes}>
       <Button variant="outline" size="sm">
         <Plus />
         Agregar
@@ -184,7 +185,12 @@ export function PanelPresupuesto({
       >
         {soloMirar || !item ? (
           <div className="flex flex-col gap-1.5 px-2 py-3">
-            <ContenidoRenglon renglon={renglon} porcentaje={porcentaje} />
+            <ContenidoRenglon
+              renglon={renglon}
+              porcentaje={porcentaje}
+              mes={mes}
+              puedeEditar={false}
+            />
             {/* Sin su ítem no hay formulario que abrir. Mirar otra cuenta es
                 solo lectura a propósito y no necesita decir nada; un ítem cuyo
                 detalle no llegó sí: si no, el renglón queda sin poder editarse
@@ -196,14 +202,26 @@ export function PanelPresupuesto({
             )}
           </div>
         ) : (
-          <FormularioItemPresupuesto item={item} moneda={moneda}>
+          // `mes` es el que se está viendo y `montoDelMes` su monto en ese mes
+          // (`target`): el formulario fija el monto de ESE mes, no el de hoy.
+          <FormularioItemPresupuesto
+            item={item}
+            moneda={moneda}
+            mes={mes}
+            montoDelMes={renglon.target}
+          >
             {/* Un botón de verdad: el Drawer de Base UI exige un
                 <button> nativo como disparador. */}
             <button
               type="button"
               className="flex w-full cursor-pointer flex-col gap-1.5 px-2 py-3 text-left outline-none"
             >
-              <ContenidoRenglon renglon={renglon} porcentaje={porcentaje} />
+              <ContenidoRenglon
+                renglon={renglon}
+                porcentaje={porcentaje}
+                mes={mes}
+                puedeEditar
+              />
             </button>
           </FormularioItemPresupuesto>
         )}
@@ -409,9 +427,15 @@ export function PanelPresupuesto({
 function ContenidoRenglon({
   renglon,
   porcentaje,
+  mes,
+  puedeEditar,
 }: {
   renglon: ItemDelChecklist;
   porcentaje: number | null;
+  /** El mes que se está viendo, para nombrarlo cuando no hay monto. */
+  mes: string;
+  /** `true` cuando el renglón abre el formulario en edición. */
+  puedeEditar: boolean;
 }) {
   return (
     <>
@@ -434,7 +458,19 @@ function ContenidoRenglon({
       </div>
 
       {renglon.target === null ? (
-        <p className="text-xs text-muted-foreground">Aún no aplica</p>
+        // Un ítem sin monto en el mes visto no está "sin aplicar": le falta el
+        // monto de ESE mes. Se dice cuál, y si el renglón es editable, se
+        // ofrece ponerlo (el mismo renglón abre el formulario en edición).
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-muted-foreground">
+            Sin monto en {nombreDelMes(mes)}
+          </p>
+          {puedeEditar && (
+            <span className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-border px-3 text-sm font-medium">
+              Poner monto
+            </span>
+          )}
+        </div>
       ) : (
         <>
           <div
