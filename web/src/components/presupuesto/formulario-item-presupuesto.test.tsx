@@ -162,5 +162,28 @@ describe('FormularioItemPresupuesto', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
     expect(screen.getByText('Cuánto esperas recibir.')).toBeTruthy();
+
+    // Y si la categoría de ingreso ya quedó archivada (así que ya no sale en
+    // la lista del selector), el tipo copiado del ítem manda: también dice
+    // recibir, nunca el default de gastar por descarte.
+    render(
+      <FormularioItemPresupuesto
+        item={{
+          ...base,
+          kind: 'category',
+          categoryId: 'cat-2',
+          categoryName: 'Salario',
+          categoryKind: 'income',
+          archivedAt: '2026-09-30T12:00:00Z',
+        }}
+        moneda={monedaCOP}
+      >
+        <button type="button">Editar archivado</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editar archivado' }));
+    expect(
+      screen.getAllByText((_, el) => el?.textContent === 'Cuánto esperas recibir.').length
+    ).toBeGreaterThan(0);
   });
 });

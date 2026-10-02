@@ -115,18 +115,21 @@ export function FormularioItemPresupuesto({
   const monedaDelMonto = seleccionada?.currency ?? moneda;
 
   // Qué dice el campo de monto: en una categoría de INGRESO se espera
-  // recibir; en una de gasto, gastar; en una cuenta de ahorro, aportar. La
-  // categoría elegida manda, no el tipo del formulario.
+  // recibir; en una de gasto, gastar; en una cuenta de ahorro, aportar.
+  // La categoría elegida manda; en modo edición, si la categoría ya está
+  // archivada y no aparece en la lista, dice el tipo que el ítem lleva
+  // copiado (categoryKind) — nunca el default de gasto por descarte.
   const categoriaElegida = todasLasCategorias.find(
     (categoria) =>
       categoria.id === (categoriaId ?? (item?.kind === 'category' ? item.categoryId : undefined)),
   );
-  const textoDelMonto =
+  const verboDelMonto =
     tipo === 'savings'
-      ? 'esperas aportar'
-      : categoriaElegida?.kind === 'income'
-        ? 'esperas recibir'
-        : 'esperas gastar';
+      ? 'aportar'
+      : (categoriaElegida?.kind ?? (item?.kind === 'category' ? item.categoryKind : undefined)) ===
+          'income'
+        ? 'recibir'
+        : 'gastar';
 
   const [monto, setMonto] = useState(() =>
     montoDeReferencia ? textoEditable(montoDeReferencia, monedaDelMonto) : '',
@@ -147,7 +150,7 @@ export function FormularioItemPresupuesto({
   // cambio (incluido el abrir del cajón), el estado vuelve a nacer de los
   // props. Escribe lo que tengas pendiente no lo toca: las dependencias no
   // incluyen lo tecleado.
-  const claveDelContexto = `${abierto}|${mesVisto}|${montoDeReferencia ?? ''}|${item?.label ?? ''}`;
+  const claveDelContexto = `${abierto}|${mesVisto}|${montoDeReferencia ?? ''}|${item?.id ?? ''}|${item?.label ?? ''}`;
   const claveVista = useRef(claveDelContexto);
   useEffect(() => {
     if (claveVista.current !== claveDelContexto) {
@@ -294,7 +297,7 @@ export function FormularioItemPresupuesto({
                 ? `Este monto aplica solo a ${nombreDelMes(mesVisto)}. Cada mes lleva el suyo.`
                 : tipo === 'savings'
                   ? `Cuánto esperas aportar a una cuenta de ahorro en ${nombreDelMes(mesVisto)}.`
-                  : `Cuánto esperas ${textoDelMonto.replace('esperas ', '')} en una categoría, en ${nombreDelMes(mesVisto)}.`}
+                  : `Cuánto esperas ${verboDelMonto} en una categoría, en ${nombreDelMes(mesVisto)}.`}
             </DrawerDescription>
           </DrawerHeader>
 
@@ -429,7 +432,7 @@ export function FormularioItemPresupuesto({
               {/* El verbo manda: lo que se espera gastar (categoría de gasto),
                   recibir (categoría de ingreso) o aportar (ahorro). */}
               {!errorMonto && (
-                <p className="text-xs text-muted-foreground">Cuánto {textoDelMonto}.</p>
+                <p className="text-xs text-muted-foreground">Cuánto esperas {verboDelMonto}.</p>
               )}
             </div>
             <div className="flex flex-col gap-1.5">

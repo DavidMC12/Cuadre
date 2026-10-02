@@ -186,25 +186,34 @@ export async function checklistDelMes(
 ): Promise<{ data: { month: string; currency: string; items: ItemDelChecklist[] } }> {
   const objetivos = await repositorio.objetivosDelMes(usuarioId, filtros.month, filtros.currency);
 
+  // El total de ingresos del mes se pide UNA vez para toda la tanda, y cada
+  // renglón de ingreso busca su propia fila: pedirlo renglón por renglón
+  // repetiría el mismo agregado completo tan pronto el checklist tuviera más
+  // de un renglón de ingresos. Solo se pide si alguien lo va a usar.
+  const hayRenglonDeIngresos = objetivos.some(
+    (objetivo) => objetivo.kind === 'category' && objetivo.categoryKind === 'income',
+  );
+  const ingresos = hayRenglonDeIngresos
+    ? (
+        await reportsService.totalesPorCategoria(usuarioId, {
+          month: filtros.month,
+          currency: filtros.currency,
+          kind: 'income',
+        })
+      ).data
+    : [];
+
   const items: ItemDelChecklist[] = await Promise.all(
     objetivos.map(async (objetivo) => {
       let progress: string;
       if (objetivo.kind === 'category') {
         if (objetivo.categoryKind === 'income') {
           // Un renglón de ingresos se mide por lo RECIBIDO en la categoría, no
-          // por lo gastado. La única lectura que reportes ya calcula por
-          // categoría es `totalesPorCategoria` (el total de una clase de
-          // categoría en el mes); se pide la de ingresos y se busca la
-          // categoría puntual — reutilizando el service de reportes, nunca su
-          // repository ni SQL propio.
-          const ingresos = await reportsService.totalesPorCategoria(usuarioId, {
-            month: filtros.month,
-            currency: filtros.currency,
-            kind: 'income',
-          });
+          // por lo gastado. El agregado ya se pidió una vez para toda la
+          // tanda: solo se busca la categoría puntual. Reutiliza el service de
+          // reportes, nunca su repository ni SQL propio.
           progress =
-            ingresos.data.find((total) => total.categoryId === objetivo.categoryId)?.total ??
-            '0.0000';
+            ingresos.find((total) => total.categoryId === objetivo.categoryId)?.total ?? '0.0000';
         } else {
           progress = await reportsService.gastadoEnCategoria(
             usuarioId,
