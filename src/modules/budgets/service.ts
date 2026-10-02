@@ -8,12 +8,44 @@
  * porque esto decide si un renglón del checklist se marca como cumplido.
  */
 import { conflicto, noEncontrado, reglaViolada } from '../../http/errores.js';
-import { compare } from '../../shared/money.js';
+import { compare, toMinorUnits } from '../../shared/money.js';
 import * as cuentasService from '../accounts/service.js';
 import * as categoriasService from '../categories/service.js';
 import * as reportsService from '../reports/service.js';
 import * as repositorio from './repository.js';
-import type { CrearItem, ItemDePresupuesto, ItemDelChecklist } from './schemas.js';
+import { MesSchema, type CrearItem, type ItemDePresupuesto, type ItemDelChecklist } from './schemas.js';
+
+/**
+ * El mes en el que nace un monto: el que pidieron, o el actual si no pidieron
+ * ninguno. Entrada de servicio, no de HTTP: aquí la validación no depende de
+ * que la ruta haya pasado antes por Zod.
+ */
+async function resolverMes(month: string | undefined): Promise<string> {
+  if (month === undefined) return repositorio.mesActual();
+  const leido = MesSchema.safeParse(month);
+  if (!leido.success) throw reglaViolada('El mes debe tener la forma "YYYY-MM", como "2026-01".');
+  return month;
+}
+
+/**
+ * Un monto de presupuesto es texto que la base guarda como NUMERIC(19,4).
+ * Se valida aquí y no solo en la ruta: se parte a enteros (nunca float) y se
+ * exige mayor que cero — "0.00" es tan presupuesto como no ponerlo.
+ */
+function validarMontoPositivo(amount: string): void {
+  let minor: bigint;
+  try {
+    minor = toMinorUnits(amount);
+  } catch (error) {
+    throw reglaViolada(
+      error instanceof RangeError
+        ? `El monto no es válido: ${error.message}`
+        : 'El monto no es válido.',
+    );
+  }
+  if (minor === 0n) throw reglaViolada('El monto no puede ser cero.');
+  if (minor < 0n) throw reglaViolada('El monto debe ser positivo.');
+}
 
 export async function listarItems(
   usuarioId: string,
@@ -56,6 +88,8 @@ export async function crearItem(usuarioId: string, datos: CrearItem): Promise<It
     accountId = datos.accountId;
   }
 
+  validarMontoPositivo(datos.amount);
+
   const item = {
     kind: datos.kind,
     currency,
@@ -63,7 +97,9 @@ export async function crearItem(usuarioId: string, datos: CrearItem): Promise<It
     accountId,
     label: datos.label ?? null,
     amount: datos.amount,
-    mesEfectivoDesde: await repositorio.mesActual(),
+    // El primer monto es del mes que se esté viendo, no siempre el actual:
+    // quien empieza su presupuesto en marzo contando enero no lo dice "hoy".
+    mesEfectivoDesde: await resolverMes(datos.month),
   };
   const itemId = await repositorio.crear(usuarioId, item);
 
@@ -71,22 +107,21 @@ export async function crearItem(usuarioId: string, datos: CrearItem): Promise<It
 }
 
 /**
- * Cambiar cuánto se espera mover desde ahora. Nunca pisa un mes que ya pasó:
- * el monto nuevo rige desde el mes actual en adelante, porque la tabla de
- * objetivos es versionada por mes (ver `budget_item_targets`).
+ * Fija el monto de UN mes dado, pasado o futuro, sin mover ningún otro: cada
+ * mes tiene el suyo (ver `budget_item_targets` y `fijarObjetivoDelMes` en el
+ * repository, que ancla el mes siguiente para que la herencia no lo arrastre).
  */
-export async function actualizarObjetivo(
+export async function fijarObjetivoDelMes(
   usuarioId: string,
   itemId: string,
+  month: string,
   amount: string,
 ): Promise<ItemDePresupuesto> {
-  const agregado = await repositorio.agregarObjetivo(
-    usuarioId,
-    itemId,
-    amount,
-    await repositorio.mesActual(),
-  );
-  if (!agregado) throw noEncontrado('Ese ítem del presupuesto no existe.');
+  const mes = await resolverMes(month);
+  validarMontoPositivo(amount);
+
+  const fijado = await repositorio.fijarObjetivoDelMes(usuarioId, itemId, mes, amount);
+  if (!fijado) throw noEncontrado('Ese ítem del presupuesto no existe.');
   return obtenerItem(usuarioId, itemId);
 }
 

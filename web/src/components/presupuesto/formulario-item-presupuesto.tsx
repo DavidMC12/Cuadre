@@ -26,16 +26,17 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CampoMonto } from "@/components/campo-monto";
 import {
   useArchivarItemPresupuesto,
-  useCambiarObjetivo,
   useCrearItemPresupuesto,
   useDesarchivarItemPresupuesto,
   useEditarEtiquetaItem,
+  useFijarMontoDelMes,
 } from "@/hooks/use-presupuesto";
 import { useCategorias } from "@/hooks/use-categorias";
 import { useCuentas } from "@/hooks/use-cuentas";
 import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { ItemPresupuesto } from "@/lib/api/types";
+import { nombreDelMes, mesActual } from "@/lib/fecha";
 import { aUnidadesMinimas, normalizarMontoIngresado, textoEditable } from "@/lib/money";
 
 /** El componente Select no acepta un value vacío; este valor marca "ninguna". */
@@ -49,22 +50,50 @@ const NINGUNO = "__sin_elegir__";
  * ítem de categoría es la del checklist que lo pide, y la de uno de ahorro es
  * la de la cuenta — por eso el formulario no pregunta moneda.
  *
- * Con `item` edita: el monto desde este mes en adelante, la etiqueta, y
- * archivar o restaurar. Desde la cuenta de otra persona no se abre nada: el
- * servidor rechazaría la escritura de todos modos.
+ * Con `item` edita: fija el monto del MES QUE SE ESTÁ VIENDO (`mes`), la
+ * etiqueta, y archivar o restaurar. Cada mes lleva su propio monto, así que
+ * editar un mes pasado ya es cosa normal, sin historial de versiones a la
+ * vista. Desde la cuenta de otra persona no se abre nada: el servidor
+ * rechazaría la escritura de todos modos.
+ *
+ * `montoDelMes` es el monto que el ítem tenía en ese mes visto (el `target`
+ * del renglón del checklist): sirve tanto para prellenar el campo al editar
+ * como para no mandar el servidor cuando el monto no cambió. Si no llega
+ * porque nadie lo pasó, el formulario usa el monto vigente HOY, que solo es
+ * el correcto cuando el mes visto es el actual.
  */
 export function FormularioItemPresupuesto({
   item,
   moneda,
+  mes,
+  montoDelMes,
   children,
 }: {
   item?: ItemPresupuesto;
   moneda: string;
+  /** El mes que se está viendo ("YYYY-MM"): donde nacen o se cambian los montos. */
+  mes?: string;
+  /**
+   * El monto del ítem en `mes` ("124.0000"), o `null` si el ítem no existía
+   * aún en ese mes. Distinto de no pasar nada: `undefined` dice "usa el
+   * monto vigente hoy" (comportamiento antiguo, mes actual).
+   */
+  montoDelMes?: string | null;
   children: React.ReactNode;
 }) {
   const soloMirar = useSoloMirar();
   const { data: categorias } = useCategorias();
   const { data: cuentas } = useCuentas();
+
+  // El mes del formulario: el que la pantalla está viendo, o el actual si
+  // nadie lo dijo (el panel actual todavía no lo pasa; el servidor hace lo
+  // mismo por defecto).
+  const mesVisto = mes ?? mesActual();
+
+  // El monto que importa: el del mes visto cuando se dijo, o el de hoy. Del
+  // que sale el prellenado y la comparación de "¿cambió de verdad?".
+  const montoDeReferencia =
+    montoDelMes === undefined ? item?.currentAmount ?? null : montoDelMes;
 
   const categoriasDeGasto = (categorias ?? []).filter(
     (categoria) => categoria.kind === "expense" && !categoria.archivedAt
@@ -75,25 +104,26 @@ export function FormularioItemPresupuesto({
 
   const [abierto, setAbierto] = useState(false);
   const [tipo, setTipo] = useState<"category" | "savings">(item ? item.kind : "category");
-  const [categoriaId, setCategoriaId] = useState<string | undefined>(item?.categoryId ?? undefined);
-  const [cuentaId, setCuentaId] = useState<string | undefined>(item?.accountId ?? undefined);
-  const [monto, setMonto] = useState(
-    item?.currentAmount ? textoEditable(item.currentAmount, item.currency) : ""
-  );
-  const [etiqueta, setEtiqueta] = useState(item?.label ?? "");
-  const [errorMonto, setErrorMonto] = useState<string | null>(null);
-
-  const crear = useCrearItemPresupuesto();
-  const cambiarObjetivo = useCambiarObjetivo();
-  const editarEtiqueta = useEditarEtiquetaItem();
-  const archivar = useArchivarItemPresupuesto();
-  const desarchivar = useDesarchivarItemPresupuesto();
 
   const seleccionada = cuentasDeAhorro.find((cuenta) => cuenta.id === cuentaId) ?? null;
 
   // La moneda con la que se lee lo escrito: la de la cuenta de ahorro elegida,
   // o la del checklist para un ítem de categoría.
   const monedaDelMonto = seleccionada?.currency ?? moneda;
+
+  const [categoriaId, setCategoriaId] = useState<string | undefined>(item?.categoryId ?? undefined);
+  const [cuentaId, setCuentaId] = useState<string | undefined>(item?.accountId ?? undefined);
+  const [monto, setMonto] = useState(() =>
+    montoDeReferencia ? textoEditable(montoDeReferencia, monedaDelMonto) : ""
+  );
+  const [etiqueta, setEtiqueta] = useState(item?.label ?? "");
+  const [errorMonto, setErrorMonto] = useState<string | null>(null);
+
+  const crear = useCrearItemPresupuesto();
+  const fijarMonto = useFijarMontoDelMes();
+  const editarEtiqueta = useEditarEtiquetaItem();
+  const archivar = useArchivarItemPresupuesto();
+  const desarchivar = useDesarchivarItemPresupuesto();
 
   function etiquetaNueva(): string | null {
     const limpia = etiqueta.trim();
@@ -104,7 +134,7 @@ export function FormularioItemPresupuesto({
     setTipo(item ? item.kind : "category");
     setCategoriaId(item?.categoryId ?? undefined);
     setCuentaId(item?.accountId ?? undefined);
-    setMonto(item?.currentAmount ? textoEditable(item.currentAmount, item.currency) : "");
+    setMonto(montoDeReferencia ? textoEditable(montoDeReferencia, monedaDelMonto) : "");
     setEtiqueta(item?.label ?? "");
     setErrorMonto(null);
   }
@@ -130,15 +160,18 @@ export function FormularioItemPresupuesto({
 
     try {
       if (item) {
-        // El monto solo se manda si cambió de verdad: cada objetivo es una
-        // fila nueva e inmutable en la base, y guardar la misma cifra dos
-        // veces dejaría una fila idéntica que no cuenta nada.
+        // El monto solo se manda si cambió de verdad respecto al monto del
+        // mes visto (`montoDeReferencia`). Si el mes visto no tiene monto
+        // aún (`null`, el ítem no existía ese mes) o ningún monto de
+        // referencia llegó, siempre se manda. Cada fijación es una fila
+        // nueva e inmutable en la base: guardar la misma cifra dos veces
+        // dejaría una fila idéntica que no cuenta nada.
         const montoCambio =
-          !item.currentAmount ||
-          aUnidadesMinimas(lectura.monto) !== aUnidadesMinimas(item.currentAmount);
+          !montoDeReferencia ||
+          aUnidadesMinimas(lectura.monto) !== aUnidadesMinimas(montoDeReferencia);
 
         if (montoCambio) {
-          await cambiarObjetivo.mutateAsync({ id: item.id, amount: lectura.monto });
+          await fijarMonto.mutateAsync({ id: item.id, amount: lectura.monto, month: mesVisto });
         }
 
         // La etiqueta solo se manda si cambió de verdad: null significa
@@ -161,6 +194,7 @@ export function FormularioItemPresupuesto({
             currency: moneda,
             amount: lectura.monto,
             label: etiquetaFinal,
+            month: mesVisto,
           });
         } else {
           if (!cuentaId) {
@@ -172,6 +206,7 @@ export function FormularioItemPresupuesto({
             accountId: cuentaId,
             amount: lectura.monto,
             label: etiquetaFinal,
+            month: mesVisto,
           });
         }
         toast.success("Ítem agregado al presupuesto.");
@@ -202,8 +237,7 @@ export function FormularioItemPresupuesto({
 
   if (soloMirar) return <>{children}</>;
 
-  const guardando =
-    crear.isPending || cambiarObjetivo.isPending || editarEtiqueta.isPending;
+  const guardando = crear.isPending || fijarMonto.isPending || editarEtiqueta.isPending;
 
   const sinOpciones =
     !item && (tipo === "category" ? categoriasDeGasto : cuentasDeAhorro).length === 0;
@@ -223,8 +257,8 @@ export function FormularioItemPresupuesto({
             <DrawerTitle>{item ? "Editar ítem" : "Agregar al presupuesto"}</DrawerTitle>
             <DrawerDescription>
               {item
-                ? "El monto nuevo rige desde este mes en adelante. Los meses que ya pasaron no cambian."
-                : "Cuánto esperas gastar en una categoría, o aportar a una cuenta de ahorro, este mes."}
+                ? `Este monto aplica solo a ${nombreDelMes(mesVisto)}. Cada mes lleva el suyo.`
+                : `Cuánto esperas gastar en una categoría, o aportar a una cuenta de ahorro, en ${nombreDelMes(mesVisto)}.`}
             </DrawerDescription>
           </DrawerHeader>
 

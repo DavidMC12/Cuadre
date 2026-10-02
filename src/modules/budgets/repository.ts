@@ -154,27 +154,54 @@ export async function crear(
 }
 
 /**
- * Agrega un monto nuevo desde `mesEfectivoDesde` en adelante. Nunca pisa una
- * fila existente — si ya había un monto puesto para ese mismo mes, esta fila
- * queda como la más reciente y gana por `created_at` (ver `objetivoEnElMes`).
+ * Fija el monto de UN mes sin mover ningún otro. Sigue siendo solo `INSERT`:
+ * agrega una fila con `effective_from` = ese mes, que gana sobre cualquier
+ * anterior. Como un mes sin fila propia hereda el monto del anterior, fijar
+ * enero cambiaría febrero si este no tuviera la suya; por eso, antes de
+ * insertar, se "ancla" el mes siguiente con el monto que ya tenía vigente
+ * (solo si existía y es distinto del nuevo). El bloqueo de la fila del ítem
+ * serializa dos ediciones simultáneas del mismo ítem.
  * Devuelve `false` si el ítem no existe o no es de este usuario.
  */
-export async function agregarObjetivo(
+export async function fijarObjetivoDelMes(
   usuarioId: string,
   itemId: string,
+  mes: string,
   monto: string,
-  mesEfectivoDesde: string,
 ): Promise<boolean> {
-  const [fila] = (await db.execute(sql`
-    insert into budget_item_targets (budget_item_id, effective_from, amount)
-    select ${itemId}::uuid, (${mesEfectivoDesde}::text || '-01')::date, ${monto}
-    where exists (
-      select 1 from budget_items where id = ${itemId}::uuid and user_id = ${usuarioId}::uuid
-    )
-    returning id
-  `)) as unknown as { id: string }[];
+  return db.transaction(async (tx) => {
+    const [item] = (await tx.execute(sql`
+      select id from budget_items
+      where id = ${itemId}::uuid and user_id = ${usuarioId}::uuid
+      for update
+    `)) as unknown as { id: string }[];
+    if (!item) return false;
 
-  return fila !== undefined;
+    await tx.execute(sql`
+      insert into budget_item_targets (budget_item_id, effective_from, amount)
+      select ${itemId}::uuid, siguiente.mes, vigente.amount
+      from (select ((${mes}::text || '-01')::date + interval '1 month')::date as mes) siguiente
+      cross join lateral (
+        select t.amount
+        from budget_item_targets t
+        where t.budget_item_id = ${itemId}::uuid and t.effective_from <= siguiente.mes
+        order by t.effective_from desc, t.created_at desc
+        limit 1
+      ) vigente
+      where vigente.amount <> ${monto}::numeric
+        and not exists (
+          select 1 from budget_item_targets p
+          where p.budget_item_id = ${itemId}::uuid and p.effective_from = siguiente.mes
+        )
+    `);
+
+    await tx.execute(sql`
+      insert into budget_item_targets (budget_item_id, effective_from, amount)
+      values (${itemId}::uuid, (${mes}::text || '-01')::date, ${monto})
+    `);
+
+    return true;
+  });
 }
 
 export async function editarEtiqueta(

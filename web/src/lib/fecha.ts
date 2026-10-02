@@ -55,6 +55,19 @@ export function mesActual(): string {
   return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
 }
 
+/**
+ * "Enero 2026" para un "YYYY-MM": el nombre humano de un mes, cortado en hora
+ * de Bogotá igual que el backend (ver rangoDelMes abajo).
+ */
+export function nombreDelMes(mes: string): string {
+  const texto = new Intl.DateTimeFormat("es-CO", {
+    timeZone: "America/Bogota",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(`${mes}-01T12:00:00${DESFASE_DE_BOGOTA}`));
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
 /** Suma (o resta) meses a un "YYYY-MM" y devuelve otro "YYYY-MM". */
 export function sumarMeses(mes: string, delta: number): string {
   const [anio, mesNumero] = mes.split("-").map(Number);

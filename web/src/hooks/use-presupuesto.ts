@@ -12,7 +12,6 @@ import {
   updateBudgetItemTarget,
 } from "@/lib/api/budgets";
 import type { NuevoItemPresupuesto } from "@/lib/api/types";
-
 export const clavesPresupuesto = {
   todas: () => ["presupuesto"] as const,
   lista: (includeArchived: boolean) =>
@@ -50,11 +49,14 @@ export function useCrearItemPresupuesto() {
   });
 }
 
-export function useCambiarObjetivo() {
+export function useFijarMontoDelMes() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, amount }: { id: string; amount: string }) =>
-      updateBudgetItemTarget(id, amount),
+    mutationFn: ({ id, amount, month }: { id: string; amount: string; month: string }) =>
+      updateBudgetItemTarget(id, amount, month),
+    // Fijar un mes toca lo menos dos: ESE mes y el siguiente, que parte
+    // anclado con el monto anterior. Invalidar el checklist completo (todos
+    // los meses) deja ver fresco cualquier mes que algo de esto toque.
     onSuccess: () => invalidarPresupuesto(queryClient),
   });
 }
