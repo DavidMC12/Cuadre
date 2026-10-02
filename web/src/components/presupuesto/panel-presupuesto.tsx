@@ -219,7 +219,7 @@ export function PanelPresupuesto({
                 <button> nativo como disparador. */}
             <button
               type="button"
-              className="flex w-full cursor-pointer flex-col gap-1.5 px-2 py-3 text-left outline-none"
+              className="flex w-full cursor-pointer flex-col gap-1.5 rounded-lg px-2 py-3 text-left outline-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
             >
               <ContenidoRenglon
                 renglon={renglon}

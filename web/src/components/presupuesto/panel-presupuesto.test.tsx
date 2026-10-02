@@ -517,6 +517,17 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     expect(region.classList.contains("max-h-[70vh]")).toBe(false);
     expect(region.classList.contains("overflow-y-auto")).toBe(true);
   });
+
+  it("el botón de un renglón editable muestra anillo de foco, no queda ciego", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const boton = screen.getByText("Mercado").closest("button")!;
+    expect(boton.className).toContain("focus-visible:ring-3");
+    expect(boton.className).toContain("focus-visible:ring-ring/85");
+  });
 });
 
 // -------------------------------------------------------------------------
