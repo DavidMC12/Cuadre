@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, act } from "@testing-library/react";
 
 import PaginaResumen from "./page";
 import * as reportes from "@/hooks/use-reportes";
@@ -349,5 +349,38 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
       .mock.calls.map((c) => c[0] as unknown as { anunciaPresupuesto?: boolean })
       .filter((p) => p.anunciaPresupuesto === undefined);
     expect(deMovil).toHaveLength(1);
+  });
+
+  it("desde xl, el panel del aside cede su tope propio (el aside scrollea)", () => {
+    ventanaAncha = true;
+
+    render(<PaginaResumen />);
+
+    const props = vi.mocked(PanelPresupuesto).mock.calls.at(-1)?.[0] as unknown as {
+      topePropio?: boolean;
+    };
+    // El aside tiene scroll propio: si el panel conservara el suyo, habría
+    // doble scroll.
+    expect(props.topePropio).toBe(false);
+  });
+
+  it("un fallo del presupuesto desde el cuadrito compone el anuncio único con otro fallo", () => {
+    ventanaAncha = true;
+    // Otro fallo en la pantalla (el resumen) además del presupuesto.
+    ajustar({ deResumen: { data: undefined, isError: true, error: new Error("boom") } });
+    render(<PaginaResumen />);
+
+    // El cuadrito reporta que el presupuesto falló: ya son dos fallos.
+    const props = vi.mocked(CuantoMeSobra).mock.calls.at(-1)?.[0] as unknown as {
+      onFalloPresupuesto?: (fallo: boolean) => void;
+    };
+    act(() => props.onFalloPresupuesto?.(true));
+
+    // Con dos fallos, el panel cede a group y la pantalla compone el anuncio.
+    const propsPanel = vi.mocked(PanelPresupuesto).mock.calls.at(-1)?.[0] as unknown as {
+      compartePantalla?: boolean;
+    };
+    expect(propsPanel.compartePantalla).toBe(true);
+    expect(screen.getByRole("status")).not.toBeEmptyDOMElement();
   });
 });
