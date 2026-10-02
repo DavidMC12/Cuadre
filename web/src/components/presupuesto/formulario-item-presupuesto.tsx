@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -124,6 +124,26 @@ export function FormularioItemPresupuesto({
   const editarEtiqueta = useEditarEtiquetaItem();
   const archivar = useArchivarItemPresupuesto();
   const desarchivar = useDesarchivarItemPresupuesto();
+
+  // Todo lo que define qué hay en el campo: si cambia con el formulario
+  // montado (cambió el mes que se ve, o llegó el monto fresco de una
+  // recarga), el estado queda pisado con la respuesta del mes anterior y
+  // un 'Guardar' sin tocar escribiría la cifra equivocada. Al detectar el
+  // cambio (incluido el abrir del cajón), el estado vuelve a nacer de los
+  // props. Escribe lo que tengas pendiente no lo toca: las dependencias no
+  // incluyen lo tecleado.
+  const claveDelContexto =
+    `${abierto}|${mesVisto}|${montoDeReferencia ?? ""}|${item?.label ?? ""}`;
+  const claveVista = useRef(claveDelContexto);
+  useEffect(() => {
+    if (claveVista.current !== claveDelContexto) {
+      claveVista.current = claveDelContexto;
+      reiniciar();
+    }
+    // El guard (claveVista) hace que solo se reinicie cuando el contexto de los
+    // props cambió;reiniciar solo lee props, nunca el texto tecleado.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claveDelContexto]);
 
   function etiquetaNueva(): string | null {
     const limpia = etiqueta.trim();

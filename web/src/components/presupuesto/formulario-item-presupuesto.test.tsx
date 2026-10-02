@@ -10,7 +10,7 @@
  * habría atrapado.
  */
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 
 import { FormularioItemPresupuesto } from "./formulario-item-presupuesto";
@@ -45,6 +45,10 @@ vi.mock("@/hooks/use-cuentas", () => ({
 }));
 
 describe("FormularioItemPresupuesto", () => {
+  afterEach(cleanup);
+
+  const monedaCOP = "COP";
+
   it("se monta sin explotar con una cuenta de ahorro en la lista", async () => {
     render(
       <FormularioItemPresupuesto moneda="COP">
@@ -56,5 +60,48 @@ describe("FormularioItemPresupuesto", () => {
     // lee antes de estar declarado, este render tira y la prueba cae aquí.
     fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
     expect(screen.getByLabelText("Monto")).toBeTruthy();
+  });
+
+  it("reinicia el monto cuando cambia el mes o la referencia con el cajón montado", () => {
+    const item = {
+      id: "item-1",
+      kind: "category" as const,
+      currency: monedaCOP,
+      categoryId: "cat-1",
+      categoryName: "Mercado",
+      accountId: null,
+      accountName: null,
+      label: null,
+      currentAmount: "30000.0000",
+      archivedAt: null,
+      categoryKind: "expense" as const,
+    };
+
+    const vista = render(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-09" montoDelMes="30000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+    expect(screen.getByLabelText("Monto")).toHaveValue("30.000");
+
+    // El dueño se mueve a otro mes y ese mes ya tiene su propio monto: si el
+    // campo sigue con "30.000", un Guardar sin tocar fijaría el monto de
+    // septiembre en ese mes — el error que este archivo existe por.
+    vista.rerender(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-10" montoDelMes="45000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>
+    );
+    expect(screen.getByLabelText("Monto")).toHaveValue("45.000");
+
+    // Y si en ese mes el ítem aún no existía (monto nulo), el campo queda
+    // vacío en vez de arrastrar la cifra del mes anterior.
+    vista.rerender(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-11" montoDelMes={null}>
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>
+    );
+    expect(screen.getByLabelText("Monto")).toHaveValue("");
   });
 });
