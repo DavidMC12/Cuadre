@@ -54,6 +54,15 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+/** Un `Monto` (símbolo + dígitos en spans) cuyo texto completo es `texto`. */
+function montoConTexto(texto: string): HTMLElement | null {
+  return (
+    screen.queryAllByText((_, el) => el?.className?.includes?.('font-mono') ?? false).find(
+      (el) => el.textContent === texto,
+    ) ?? null
+  );
+}
+
 describe('CuantoMeSobra', () => {
   it('muestra el previsto como cifra principal y el real hasta hoy debajo', () => {
     ajustar(
@@ -69,18 +78,15 @@ describe('CuantoMeSobra', () => {
 
     render(<CuantoMeSobra mes="2026-10" moneda="COP" />);
 
-    expect(screen.getByText(/Te sobran/)).toBeTruthy();
+    // El previsto ($1.000.000) manda; el real ($500.000) va debajo; el sentido
+    // en palabras.
+    expect(montoConTexto('+$1.000.000')).toBeTruthy();
     expect(screen.getByText('Hasta hoy:')).toBeTruthy();
+    expect(montoConTexto('+$500.000')).toBeTruthy();
+    expect(screen.getByText(/Te sobran/)).toBeTruthy();
   });
 
   it('cuando el previsto es negativo lo dice con palabras: te faltan, no te sobran', () => {
-    ajustar(
-      { data: { month: '2026-10', currency: 'COP', items: [renglonDe('expense', '2500000')] } },
-      { data: resumenDe('0', '2500000') },
-    );
-
-    // Solo quedan gastos previstos: hayGastos, no hayIngresos → vacío... para
-    // probar negativo de verdad hacen falta los dos lados.
     ajustar(
       {
         data: {
@@ -93,7 +99,11 @@ describe('CuantoMeSobra', () => {
     );
 
     render(<CuantoMeSobra mes="2026-10" moneda="COP" />);
+
+    // "Te faltan" con la cifra del faltante, no un "Te sobran" enmascarado.
     expect(screen.getByText(/Te faltan/)).toBeTruthy();
+    expect(screen.queryByText(/Te sobran/)).toBeNull();
+    expect(montoConTexto('−$1.500.000')).toBeTruthy();
   });
 
   it('sin presupuesto de ingresos o de gastos: invita a presupuestarlo con enlace, no enseña un cero', () => {
@@ -106,16 +116,50 @@ describe('CuantoMeSobra', () => {
 
     const enlace = screen.getByRole('link', { name: 'Presupuestar' });
     expect(enlace.getAttribute('href')).toBe('/presupuesto');
+    expect(screen.queryByText('$0')).toBeNull();
   });
 
-  it('falta solo un lado: también invita, con la copia para presupuestarlo', () => {
+  it('falta solo el lado de gastos: invita a presupuestarlo, no resta contra cero', () => {
     ajustar(
       { data: { month: '2026-10', currency: 'COP', items: [renglonDe('income', '3000000')] } },
       { data: resumenDe('1000000', '0') },
     );
 
     render(<CuantoMeSobra mes="2026-10" moneda="COP" />);
+
     expect(screen.getByRole('link', { name: 'Presupuestar' })).toBeTruthy();
+    expect(screen.queryByText(/Te sobran/)).toBeNull();
+  });
+
+  it('falta solo el lado de ingresos: también invita, con su copia', () => {
+    ajustar(
+      { data: { month: '2026-10', currency: 'COP', items: [renglonDe('expense', '2000000')] } },
+      { data: resumenDe('0', '500000') },
+    );
+
+    render(<CuantoMeSobra mes="2026-10" moneda="COP" />);
+
+    expect(screen.getByRole('link', { name: 'Presupuestar' })).toBeTruthy();
+    expect(screen.getByText(/ingresos que esperas recibir/)).toBeTruthy();
+  });
+
+  it('la variante suelta no mete una tarjeta dentro de otra', () => {
+    ajustar(
+      {
+        data: {
+          month: '2026-10',
+          currency: 'COP',
+          items: [renglonDe('income', '3000000'), renglonDe('expense', '2000000')],
+        },
+      },
+      { data: resumenDe('1000000', '500000') },
+    );
+
+    const { container } = render(<CuantoMeSobra mes="2026-10" moneda="COP" variante="suelta" />);
+
+    expect(container.querySelector("[data-slot='card']")).toBeNull();
+    expect(screen.queryByText('Cuánto me sobra este mes')).toBeNull();
+    expect(screen.getByText(/Te sobran/)).toBeTruthy();
   });
 
   it('un fallo de consulta usa el patrón FalloConsulta y cede el anuncio si otros fallos conviven', () => {

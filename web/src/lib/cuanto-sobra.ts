@@ -15,7 +15,7 @@
  * LA moneda del Resumen; aquí solo se suma — mezclar monedas es un error de
  * dinero, no un detalle.
  */
-import { aUnidadesMinimas } from "@/lib/money";
+import { aUnidadesMinimas, sumarMontos } from "@/lib/money";
 import type { ItemDelChecklist } from "@/lib/api/types";
 
 export interface RenglonesParaCuantoSobra {
@@ -23,29 +23,28 @@ export interface RenglonesParaCuantoSobra {
   renglones: Pick<ItemDelChecklist, "kind" | "categoryKind" | "target">[];
   /** Total de ingresos del mes (positivo, como lo expone el resumen). */
   income: string;
-  /** Total de gastos del mes (positivo, aunque en la base sean negativos). */
+  /** Total de gastos del mes (positivo, como lo expone el resumen). */
   expense: string;
 }
 
 export interface CuantoSobra {
   /**
    * El previsto: ingresos esperados menos gastos esperados del presupuesto,
-   * en diezmilésimas. Puede ser negativo (se presupuestó gastar más de lo
-   * que se espera recibir) y la presentación lo dice con palabras.
+   * como texto exacto ("-1500000.0000"). Puede ser negativo (se presupuestó
+   * gastar más de lo que se espera recibir) y la presentación lo dice con
+   * palabras. Se arma con `sumarMontos` (BigInt), nunca con `Number`.
    */
-  previsto: bigint;
+  previsto: string;
+  /** Lo mismo que `previsto`, en diezmilésimas enteras, para comparar signos. */
+  previstoUnidades: bigint;
   /** ¿Hay al menos un ítem de ingresos con monto en el presupuesto? */
   hayIngresos: boolean;
   /** ¿Hay al menos un ítem de gastos con monto en el presupuesto? */
   hayGastos: boolean;
   /** Lo recibido menos lo hecho hasta hoy, con los totales del resumen. */
-  real: bigint;
-  /**
-   * Lo que falta por vivir hasta el fin del mes: el previsto que todavía no
-   * se ha hecho real (positivo, queda por gastar/ingresar; negativo, se
-   * vivió más de lo previsto).
-   */
-  porVivir: bigint;
+  real: string;
+  /** Lo mismo que `real`, en diezmilésimas enteras. */
+  realUnidades: bigint;
 }
 
 export function cuantoSobraEnElMes({
@@ -53,10 +52,8 @@ export function cuantoSobraEnElMes({
   income,
   expense,
 }: RenglonesParaCuantoSobra): CuantoSobra {
-  let ingresosPrevistos = 0n;
-  let gastosPrevistos = 0n;
-  let hayIngresos = false;
-  let hayGastos = false;
+  let ingresosPrevistos: string[] = [];
+  let gastosPrevistos: string[] = [];
 
   for (const renglon of renglones) {
     // El ahorro está fuera del cálculo (decisión del dueño: la meta de un
@@ -65,22 +62,25 @@ export function cuantoSobraEnElMes({
     if (renglon.kind !== "category" || renglon.target === null) continue;
 
     if (renglon.categoryKind === "income") {
-      hayIngresos = true;
-      ingresosPrevistos += aUnidadesMinimas(renglon.target);
+      ingresosPrevistos = [...ingresosPrevistos, renglon.target];
     } else if (renglon.categoryKind === "expense") {
-      hayGastos = true;
-      gastosPrevistos += aUnidadesMinimas(renglon.target);
+      gastosPrevistos = [...gastosPrevistos, renglon.target];
     }
   }
 
-  const previsto = ingresosPrevistos - gastosPrevistos;
-  const real = aUnidadesMinimas(income) - aUnidadesMinimas(expense);
+  // Se arma con la misma aritmética exacta del resto del dinero (BigInt, sin
+  // coma flotante): el previsto es ingresos − gastos.
+  const ingresos = sumarMontos(ingresosPrevistos);
+  const gastos = sumarMontos(gastosPrevistos);
+  const previsto = sumarMontos([ingresos, `-${gastos}`]);
+  const real = sumarMontos([income, `-${expense}`]);
 
   return {
     previsto,
-    hayIngresos,
-    hayGastos,
+    previstoUnidades: aUnidadesMinimas(previsto),
+    hayIngresos: ingresosPrevistos.length > 0,
+    hayGastos: gastosPrevistos.length > 0,
     real,
-    porVivir: previsto - real,
+    realUnidades: aUnidadesMinimas(real),
   };
 }

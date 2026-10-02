@@ -11,10 +11,9 @@ import { EmptyState } from '@/components/empty-state';
 import { FalloConsulta, mensajeDeFallo } from '@/components/fallo-consulta';
 import { useChecklistDelMes } from '@/hooks/use-presupuesto';
 import { useResumenMes } from '@/hooks/use-reportes';
-import { cuantoSobraEnElMes, textoDeUnidades, type CuantoSobra } from '@/lib/cuanto-sobra';
-import { textoMonto } from '@/lib/money';
-import { cn } from '@/lib/utils';
+import { cuantoSobraEnElMes } from '@/lib/cuanto-sobra';
 import { etiquetaMes } from '@/lib/fecha';
+import { cn } from '@/lib/utils';
 
 /**
  * "Cuánto me sobra este mes": el cuadrito del Resumen.
@@ -26,14 +25,20 @@ import { etiquetaMes } from '@/lib/fecha';
  *
  * Se calcula SIEMPRE en el cliente, en la moneda y el mes que el Resumen ya
  * tiene elegidos — nunca se guarda y jamás junta monedas.
+ *
+ * Dos variantes, como el panel de presupuesto: "tarjeta" (bloque propio del
+ * Resumen) y "suelta" — sin Card ni título — para cuando vive dentro de un
+ * contenedor que ya trae su encabezado: que no haya tarjeta dentro de tarjeta.
  */
 export function CuantoMeSobra({
   mes,
   moneda,
+  variante = 'tarjeta',
   compartePantalla,
 }: {
   mes: string;
   moneda: string;
+  variante?: 'tarjeta' | 'suelta';
   /** `true` cuando otros fallos conviven en la pantalla: el propio deja de
    * anunciar solo y la pantalla compone el anuncio único (role="status").
    * Misma convención del resto de los bloques del Resumen. */
@@ -58,77 +63,88 @@ export function CuantoMeSobra({
         })
       : undefined;
 
+  // Sin alguno de los dos lados no hay resta que mostrar: un "previsto" con un
+  // lado en cero sería una cifra que nadie presupuestó. Se invita a armarlo.
   const sinPresupuesto = estado !== undefined && (!estado.hayIngresos || !estado.hayGastos);
+
+  const cuerpo = (
+    <>
+      {cargando ? (
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-5 w-56" />
+        </div>
+      ) : falloChecklist || falloResumen ? (
+        <FalloConsulta
+          etiquetaBoton={falloChecklist ? 'Reintentar presupuesto' : 'Reintentar resumen'}
+          mensaje={
+            falloChecklist
+              ? mensajeDeFallo(
+                  checklist.error,
+                  'No pudimos cargar tu presupuesto del mes. Puede ser que el servidor esté dormido.',
+                )
+              : mensajeDeFallo(
+                  resumen.error,
+                  'No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido.',
+                )
+          }
+          reintento={checklist.isFetching || resumen.isFetching}
+          onReintentar={() => {
+            void checklist.refetch();
+            void resumen.refetch();
+          }}
+          compartePantalla={compartePantalla}
+        />
+      ) : sinPresupuesto ? (
+        <EmptyState
+          Icono={PiggyBank}
+          titulo={`Aún no hay presupuesto para ${etiquetaMes(mes)}`}
+          descripcion={
+            estado && estado.hayIngresos
+              ? 'Falta decir cuánto esperas gastar este mes; presupuéstalo para que esta cuenta exista.'
+              : estado && estado.hayGastos
+                ? 'Presupuesta también los ingresos que esperas recibir este mes, para que esta cuenta pueda existir.'
+                : 'Presupuesta los ingresos que esperas recibir y los gastos que esperas tener, y este cuadrito dirá cuánto te sobra.'
+          }
+        >
+          <Link
+            href="/presupuesto"
+            className={cn(buttonVariants({ variant: 'outline' }), 'mt-2 min-h-11')}
+          >
+            Presupuestar
+          </Link>
+        </EmptyState>
+      ) : estado ? (
+        <>
+          {/* Principal: el previsto, en Figure Hero como el balance del mes.
+              La cifra llega como texto exacto del cálculo: nunca pasa por
+              Number. Un negativo se muestra con su menos (el monto neutro,
+              sin rojo). */}
+          <Monto valor={estado.previsto} moneda={moneda} className="text-2xl" />
+          <p className="mt-2 text-sm text-muted-foreground">
+            Hasta hoy: <Monto valor={estado.real} moneda={moneda} className="text-base" />
+          </p>
+          {/* El sentido lo dice la palabra, no solo el color: la misma cifra
+              cambia de "te sobran" a "te faltan". */}
+          <p className="mt-1 text-sm font-medium">
+            {estado.previstoUnidades >= 0n ? 'Te sobran' : 'Te faltan'} según lo previsto en{' '}
+            {etiquetaMes(mes)}.
+          </p>
+        </>
+      ) : null}
+    </>
+  );
+
+  if (variante === 'suelta') {
+    return <div className="flex flex-col">{cuerpo}</div>;
+  }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Cuánto me sobra este mes</CardTitle>
       </CardHeader>
-      <CardContent>
-        {cargando ? (
-          <div className="flex flex-col gap-2">
-            <Skeleton className="h-8 w-40" />
-            <Skeleton className="h-5 w-56" />
-          </div>
-        ) : falloChecklist || falloResumen ? (
-          <FalloConsulta
-            etiquetaBoton={falloChecklist ? 'Reintentar presupuesto' : 'Reintentar resumen'}
-            mensaje={
-              falloChecklist
-                ? mensajeDeFallo(
-                    checklist.error,
-                    'No pudimos cargar tu presupuesto del mes. Puede ser que el servidor esté dormido.',
-                  )
-                : mensajeDeFallo(
-                    resumen.error,
-                    'No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido.',
-                  )
-            }
-            reintento={checklist.isFetching || resumen.isFetching}
-            onReintentar={() => {
-              void checklist.refetch();
-              void resumen.refetch();
-            }}
-            compartePantalla={compartePantalla}
-          />
-        ) : sinPresupuesto ? (
-          <EmptyState
-            Icono={PiggyBank}
-            titulo={`Aún no hay presupuesto para ${etiquetaMes(mes)}`}
-            descripcion={
-              estado && estado.hayIngresos
-                ? 'Falta decir cuánto esperas gastar este mes; presupuéstalo para que esta cuenta exista.'
-                : estado && estado.hayGastos
-                  ? 'Presupuesta también los ingresos que esperas recibir este mes, para que esta cuenta pueda existir.'
-                  : 'Presupuesta los ingresos que esperas recibir y los gastos que esperas tener, y este cuadrito dirá cuánto te sobra.'
-            }
-          >
-            <Link
-              href="/presupuesto"
-              className={cn(buttonVariants({ variant: 'outline' }), 'mt-2 min-h-11')}
-            >
-              Presupuestar
-            </Link>
-          </EmptyState>
-        ) : estado ? (
-          <>
-            {/* Principal: el previsto, en Figure Hero como el balance del mes. */}
-            <Monto valor={textoDeUnidades(estado.previsto)} moneda={moneda} className="text-2xl" />
-            <p className="mt-2 text-sm text-muted-foreground">
-              Hasta hoy:{' '}
-              <Monto valor={textoDeUnidades(estado.real)} moneda={moneda} className="text-base" />
-            </p>
-            {/* El sentido lo dice la palabra, no solo el color: la misma cifra
-                cambia de "te sobran" a "te faltan". */}
-            <p className="mt-1 text-sm font-medium">
-              {estado.previsto >= 0n ? 'Te sobran' : 'Te faltan'}{' '}
-              {textoMonto(textoDeUnidades(estado.previsto), moneda)} según lo previsto en{' '}
-              {etiquetaMes(mes)}.
-            </p>
-          </>
-        ) : null}
-      </CardContent>
+      <CardContent>{cuerpo}</CardContent>
     </Card>
   );
 }
