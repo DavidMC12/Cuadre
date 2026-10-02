@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { PiggyBank } from 'lucide-react';
 
@@ -12,7 +13,7 @@ import { FalloConsulta, mensajeDeFallo } from '@/components/fallo-consulta';
 import { useChecklistDelMes } from '@/hooks/use-presupuesto';
 import { useResumenMes } from '@/hooks/use-reportes';
 import { cuantoSobraEnElMes } from '@/lib/cuanto-sobra';
-import { etiquetaMes } from '@/lib/fecha';
+import { etiquetaMes, tramoDelMes } from '@/lib/fecha';
 import { cn } from '@/lib/utils';
 
 /**
@@ -20,8 +21,8 @@ import { cn } from '@/lib/utils';
  *
  * Cifra principal: lo que el presupuesto promete sobrar (ingresos esperados
  * menos gastos esperados; el ahorro no entra — decisión del dueño). Debajo,
- * el real hasta hoy con los dos totales que el resumen del mes ya expone, y
- * el sentido en palabras: "te sobran" o "te faltan", nunca solo el color.
+ * el real del mes con los dos totales que el resumen ya expone, y el sentido
+ * en palabras: "te sobran" o "te faltan", nunca solo el color.
  *
  * Se calcula SIEMPRE en el cliente, en la moneda y el mes que el Resumen ya
  * tiene elegidos — nunca se guarda y jamás junta monedas.
@@ -36,6 +37,7 @@ export function CuantoMeSobra({
   variante = 'tarjeta',
   compartePantalla,
   anunciaPresupuesto = true,
+  onFalloPresupuesto,
 }: {
   mes: string;
   moneda: string;
@@ -50,16 +52,28 @@ export function CuantoMeSobra({
    * interrupción. Dos `role="alert"` de la MISMA consulta son una tormenta;
    * dos de consultas distintas, no. */
   anunciaPresupuesto?: boolean;
+  /** Avisa a la pantalla si el presupuesto no se pudo leer, para que componga
+   * el anuncio único y ningún bloque quede sin voz. */
+  onFalloPresupuesto?: (fallo: boolean) => void;
 }) {
   const checklist = useChecklistDelMes({ month: mes, currency: moneda });
   const resumen = useResumenMes({ month: mes, currency: moneda });
 
-  const cargando = checklist.isLoading || resumen.isLoading;
   // Con datos viejos en memoria se siguen mostrando (stale, no falsos); un
-  // fallo sin nada en mano es lo que aquí se dice. Si solo falla uno, él
-  // anuncia; no hay tormenta porque este cuadrito solo abre su propio bloque.
+  // fallo sin nada en mano es lo que aquí se dice.
   const falloChecklist = checklist.isError && !checklist.data;
   const falloResumen = resumen.isError && !resumen.data;
+  // Una consulta pausada (sin conexión) no está cargando ni falló: sin esto
+  // el cuadrito quedaría en blanco sin decir por qué.
+  const pausada = checklist.isPaused || resumen.isPaused;
+
+  useSubirFallo(falloChecklist, onFalloPresupuesto);
+
+  // El error manda sobre el esqueleto: si UNA consulta falló y la otra sigue
+  // cargando, el fallo no puede quedar tapado por el "cargando".
+  const cargando =
+    (checklist.isLoading && !falloResumen && !resumen.isPaused) ||
+    (resumen.isLoading && !falloChecklist && !checklist.isPaused);
 
   const estado =
     !falloChecklist && !falloResumen && checklist.data && resumen.data
@@ -71,8 +85,25 @@ export function CuantoMeSobra({
       : undefined;
 
   // Sin alguno de los dos lados no hay resta que mostrar: un "previsto" con un
-  // lado en cero sería una cifra que nadie presupuestó. Se invita a armarlo.
-  const sinPresupuesto = estado !== undefined && (!estado.hayIngresos || !estado.hayGastos);
+  // lado en cero sería una cifra que nadie presupuestó. Pero el REAL del mes
+  // sí existe y se muestra: no se esconde plata ya movida por falta de un
+  // presupuesto. El vacío total (sin presupuesto y sin movimientos) es aparte.
+  const faltaIngresos = estado !== undefined && !estado.hayIngresos;
+  const faltaGastos = estado !== undefined && !estado.hayGastos;
+  const faltaUnLado = faltaIngresos || faltaGastos;
+  const sinMovimientos = estado !== undefined && estado.realUnidades === 0n;
+  const vacioTotal = faltaUnLado && sinMovimientos;
+
+  const tramo = tramoDelMes(mes);
+
+  const enlacePresupuestar = (
+    <Link
+      href="/presupuesto"
+      className={cn(buttonVariants({ variant: 'outline' }), 'mt-2 min-h-11')}
+    >
+      Presupuestar
+    </Link>
+  );
 
   const cuerpo = (
     <>
@@ -102,52 +133,88 @@ export function CuantoMeSobra({
           }}
           compartePantalla={compartePantalla || (falloChecklist && !anunciaPresupuesto)}
         />
-      ) : sinPresupuesto ? (
+      ) : pausada ? (
+        // Sin red la consulta queda en pausa, no en error: se dice y se ofrece
+        // reintentar en vez de un cuerpo en blanco.
+        <FalloConsulta
+          etiquetaBoton="Reintentar"
+          mensaje="Sin conexión: no pudimos cargar este mes. Vuelve a intentarlo cuando tengas red."
+          reintento={false}
+          onReintentar={() => {
+            void checklist.refetch();
+            void resumen.refetch();
+          }}
+          compartePantalla={compartePantalla}
+        />
+      ) : vacioTotal ? (
         <EmptyState
           Icono={PiggyBank}
-          titulo={
-            estado && estado.hayIngresos && !estado.hayGastos
-              ? `Falta el gasto previsto de ${etiquetaMes(mes)}`
-              : estado && estado.hayGastos && !estado.hayIngresos
-                ? `Falta el ingreso previsto de ${etiquetaMes(mes)}`
-                : `Aún no hay presupuesto para ${etiquetaMes(mes)}`
-          }
-          descripcion={
-            estado && estado.hayIngresos
-              ? 'Falta decir cuánto esperas gastar este mes; presupuéstalo para que esta cifra exista.'
-              : estado && estado.hayGastos
-                ? 'Presupuesta también los ingresos que esperas recibir este mes, para que esta cifra pueda existir.'
-                : 'Presupuesta los ingresos que esperas recibir y los gastos que esperas tener, y este cuadrito dirá cuánto te sobra.'
-          }
+          titulo={`Aún no hay presupuesto para ${etiquetaMes(mes)}`}
+          descripcion="Presupuesta los ingresos que esperas recibir y los gastos que esperas tener, y este cuadrito dirá cuánto te sobra."
         >
-          <Link
-            href="/presupuesto"
-            className={cn(buttonVariants({ variant: 'outline' }), 'mt-2 min-h-11')}
-          >
-            Presupuestar
-          </Link>
+          {enlacePresupuestar}
         </EmptyState>
       ) : estado ? (
         <>
-          {/* Principal: el previsto, en Figure Hero como el balance del mes.
-              La cifra llega como texto exacto del cálculo: nunca pasa por
-              Number. Un negativo se muestra con su menos (el monto neutro,
-              sin rojo). */}
-          <Monto valor={estado.previsto} moneda={moneda} className="text-2xl" />
-          <p className="mt-2 text-sm text-muted-foreground">
-            Hasta hoy: <Monto valor={estado.real} moneda={moneda} className="text-base" />
-          </p>
-          {/* El sentido lo dice la palabra, no solo el color: la misma cifra
-              cambia de "te sobran" a "te faltan" — y un previsto justo no es
-              ninguna de las dos. */}
-          <p className="mt-1 text-sm font-medium">
-            {estado.previstoUnidades > 0n
-              ? 'Te sobran'
-              : estado.previstoUnidades < 0n
-                ? 'Te faltan'
-                : 'Ni te sobra ni te falta'}{' '}
-            según lo previsto en {etiquetaMes(mes)}.
-          </p>
+          {faltaUnLado ? (
+            // Falta un lado del presupuesto: el real del mes se muestra
+            // igual, y aquí se invita a completar el presupuesto. Nunca un
+            // previsto inventado con un lado en cero.
+            <>
+              <p className="text-sm text-muted-foreground">
+                {textoDelReal(tramo)}:{' '}
+                <Monto valor={estado.real} moneda={moneda} signo="negativo" className="text-base" />
+              </p>
+              <p className="mt-1 text-sm font-medium">
+                {textoDelSigno(estado.realUnidades)} este mes.
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {faltaIngresos && faltaGastos
+                  ? 'Presupuesta tus ingresos y tus gastos para saber cuánto te sobra.'
+                  : faltaIngresos
+                    ? 'Presupuesta los ingresos que esperas recibir para saber cuánto te sobra.'
+                    : 'Presupuesta los gastos que esperas tener para saber cuánto te sobra.'}
+              </p>
+              {enlacePresupuestar}
+            </>
+          ) : (
+            <>
+              {/* Principal: el previsto, en Figure Hero como el balance del
+                  mes, en tinta neutra (no es una ganancia): signo solo si es
+                  negativo. La cifra llega como texto exacto, sin Number. */}
+              <Monto
+                valor={estado.previsto}
+                moneda={moneda}
+                signo="negativo"
+                className="text-2xl"
+              />
+              {/* El real solo tiene sentido en un mes ya empezado; en uno
+                  futuro decir "hasta hoy" sería falso y mostrar cero, un
+                  cero que nadie vivió. */}
+              {tramo !== 'futuro' && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {textoDelReal(tramo)}:{' '}
+                  <Monto
+                    valor={estado.real}
+                    moneda={moneda}
+                    signo="negativo"
+                    className="text-base"
+                  />
+                </p>
+              )}
+              {/* El sentido lo dice la palabra, no solo el color — para el
+                  previsto y también para el real. */}
+              <p className="mt-1 text-sm font-medium">
+                {textoDelSigno(estado.previstoUnidades)} según lo previsto en{' '}
+                {etiquetaMes(mes)}.
+              </p>
+              {tramo !== 'futuro' && (
+                <p className="mt-1 text-sm font-medium">
+                  {textoDelSigno(estado.realUnidades)} este mes.
+                </p>
+              )}
+            </>
+          )}
         </>
       ) : null}
     </>
@@ -165,4 +232,29 @@ export function CuantoMeSobra({
       <CardContent>{cuerpo}</CardContent>
     </Card>
   );
+}
+
+/**
+ * Cómo se llama el real según el mes mirado: "Hasta hoy" solo vale en el mes
+ * en curso; un mes pasado ya es completo y uno futuro todavía no empezó.
+ */
+function textoDelReal(tramo: "pasado" | "actual" | "futuro"): string {
+  if (tramo === 'actual') return 'Hasta hoy';
+  if (tramo === 'pasado') return 'En el mes';
+  return 'Hasta ahora';
+}
+
+/** El sentido de una cifra en palabras: nunca solo el color. */
+function textoDelSigno(unidades: bigint): string {
+  if (unidades > 0n) return 'Te sobran';
+  if (unidades < 0n) return 'Te faltan';
+  return 'Ni te sobra ni te falta';
+}
+
+/** Sube a la pantalla el fallo del presupuesto cuando cambia (un solo sitio
+ * que consulta el checklist reporta, aunque el panel lo consulte también). */
+function useSubirFallo(fallo: boolean, avisar?: (fallo: boolean) => void) {
+  useEffect(() => {
+    avisar?.(fallo);
+  }, [fallo, avisar]);
 }
