@@ -209,6 +209,9 @@ export interface CambiosDePerfil {
 /** Las dos clases de ítem del checklist: un tope de gasto o un aporte a ahorro. */
 export type TipoItemPresupuesto = "category" | "savings";
 
+/** El tipo de categoría detrás de un ítem de categoría del checklist. */
+export type TipoCategoriaItem = "expense" | "income";
+
 /** Un ítem ya guardado, tal como se muestra en la pantalla de gestión. */
 export interface ItemPresupuesto {
   id: string;
@@ -216,6 +219,8 @@ export interface ItemPresupuesto {
   currency: string;
   categoryId: string | null;
   categoryName: string | null;
+  /** 'income' = se espera recibir; 'expense' = se espera gastar; nulo en ahorro. */
+  categoryKind: TipoCategoriaItem | null;
   accountId: string | null;
   accountName: string | null;
   label: string | null;
@@ -266,6 +271,8 @@ export interface ItemDelChecklist {
   currency: string;
   /** El nombre a mostrar, ya resuelto: nunca queda vacío. */
   label: string;
+  /** 'income' = se espera recibir; 'expense' = tope de gasto; nulo en ahorro. */
+  categoryKind: TipoCategoriaItem | null;
   /** Nulo si el ítem se creó después de ese mes: no aplica todavía. */
   target: string | null;
   /** Texto exacto, nunca number. */
