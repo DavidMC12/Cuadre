@@ -35,6 +35,7 @@ const renglon: ItemDelChecklist = {
   label: "Mercado",
   kind: "category",
   currency: "COP",
+  categoryKind: "expense",
   target: "30000",
   progress: "20500",
   checked: false,
@@ -180,6 +181,7 @@ function itemPresupuesto(over: Partial<ItemPresupuesto> & { id: string }): ItemP
     currency: "COP",
     categoryId: null,
     categoryName: null,
+    categoryKind: null,
     accountId: null,
     accountName: null,
     label: null,
@@ -195,6 +197,7 @@ function renglonDe(item: ItemPresupuesto): ItemDelChecklist {
     kind: item.kind,
     currency: item.currency,
     label: item.label ?? item.categoryName ?? item.accountName ?? "Ítem",
+    categoryKind: item.categoryKind,
     target: "100",
     progress: "50",
     checked: false,
@@ -217,6 +220,7 @@ function deCategoria(id: string, categoria: "comida" | "transporte" | "ocio", la
     id,
     categoryId: `cat-${categoria}`,
     categoryName: nombres[categoria],
+    categoryKind: "expense",
     label,
   });
 }
@@ -227,6 +231,16 @@ function deAhorro(id: string, label: string) {
     kind: "savings",
     accountId: `acc-${id}`,
     accountName: label,
+    label,
+  });
+}
+
+function deIngreso(id: string, label: string) {
+  return itemPresupuesto({
+    id,
+    categoryId: "cat-sueldo",
+    categoryName: "Sueldo",
+    categoryKind: "income",
     label,
   });
 }
@@ -526,6 +540,97 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     const boton = screen.getByText("Mercado").closest("button")!;
     expect(boton.className).toContain("focus-visible:ring-3");
     expect(boton.className).toContain("focus-visible:ring-ring/85");
+  });
+});
+
+// -------------------------------------------------------------------------
+// Dos secciones: Ingresos y Gastos
+// -------------------------------------------------------------------------
+
+describe("PanelPresupuesto: ingresos y gastos en secciones", () => {
+  it("separa los renglones en 'Ingresos' y 'Gastos', cada uno con su agrupación", () => {
+    const items = [
+      deIngreso("i1", "Salario"),
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("c2", "comida", "Restaurantes"),
+    ];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // Las dos secciones, con nombre (h3) — no solo el encabezado del grupo.
+    expect(screen.getByRole("heading", { name: "Ingresos" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Gastos" })).toBeInTheDocument();
+    // Cada grupo vive en su sección.
+    const seccionIng = screen.getByRole("heading", { name: "Ingresos" }).closest("section")!;
+    const seccionGas = screen.getByRole("heading", { name: "Gastos" }).closest("section")!;
+    expect(within(seccionIng).getByRole("button", { name: etiquetaGrupo("Sueldo", 1) })).toBeInTheDocument();
+    expect(within(seccionGas).getByRole("button", { name: etiquetaGrupo("Comida", 2) })).toBeInTheDocument();
+  });
+
+  it("el ahorro cierra 'Gastos' y no abre una sección aparte", () => {
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deAhorro("a1", "Viaje"),
+    ];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.queryByRole("heading", { name: "Ahorro" })).not.toBeInTheDocument();
+    const seccionGas = screen.getByRole("heading", { name: "Gastos" }).closest("section")!;
+    expect(within(seccionGas).getByRole("button", { name: etiquetaGrupo("Ahorro", 1) })).toBeInTheDocument();
+    // Su ayuda sí se lee como ingreso de dinero.
+    expect(screen.queryByRole("heading", { name: "Ingresos" })).not.toBeInTheDocument();
+  });
+
+  it("un ingreso excedido se pinta como logro, nunca como alerta roja", () => {
+    const items = [deIngreso("i1", "Salario")];
+    const checklist = [{ ...renglonDe(items[0]), progress: "1500", target: "1000", checked: true, exceeded: false }];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // Logro verde con su texto accesible...
+    expect(screen.getByText("Meta alcanzada")).toBeInTheDocument();
+    // ...y ningún aviso de exceso.
+    expect(screen.queryByText("Tope excedido")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Te pasaste por/)).not.toBeInTheDocument();
+  });
+
+  it("el mismo exceso en un tope de gasto sí avisa en rojo", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    const checklist = [{ ...renglonDe(items[0]), progress: "1500", target: "1000", checked: false, exceeded: true }];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.getByText("Tope excedido")).toBeInTheDocument();
+    expect(screen.getByText(/Te pasaste por/)).toBeInTheDocument();
+  });
+
+  it("la etiqueta del progreso dice 'recibido' en ingresos y 'gastado' en gastos", () => {
+    const items = [deIngreso("i1", "Salario"), deCategoria("c1", "comida", "Mercado")];
+    const checklist = [
+      { ...renglonDe(items[0]), progress: "800", target: "1000" },
+      { ...renglonDe(items[1]), progress: "200", target: "1000" },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.getByRole("progressbar", { name: /Salario:.*recibido de/ })).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: /Mercado:.*gastado de/ })).toBeInTheDocument();
+  });
+
+  it("sin renglones de ingreso no aparece la sección 'Ingresos'", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.queryByRole("heading", { name: "Ingresos" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Gastos" })).toBeInTheDocument();
   });
 });
 

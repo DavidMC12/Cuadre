@@ -138,13 +138,16 @@ export function PanelPresupuesto({
     (checklist?.items ?? []).every((renglon) => itemPorId.has(renglon.id));
 
   // Los mismos ocho tonos (y el gris de la novena en adelante) que las
-  // gráficas, con el helper compartido: no pueden divergir. `nombrePorCategoria`
-  // resuelve el título cuando el checklist no trae el nombre.
-  const { colorPorCategoria, nombrePorCategoria } = useMemo(() => {
+  // gráficas, con el helper compartido: no pueden divergir. Un mapa por tipo,
+  // porque la gráfica asigna colores dentro de cada tipo (gastos por un lado,
+  // ingresos por otro). `nombrePorCategoria` resuelve el título cuando el
+  // checklist no trae el nombre.
+  const { colorPorCategoriaGasto, colorPorCategoriaIngreso, nombrePorCategoria } = useMemo(() => {
     const nombres = new Map<string, string>();
     for (const categoria of catalogo ?? []) nombres.set(categoria.id, categoria.name);
     return {
-      colorPorCategoria: mapaColoresCategoriasDelCatalogo(catalogo ?? [], "expense", modo),
+      colorPorCategoriaGasto: mapaColoresCategoriasDelCatalogo(catalogo ?? [], "expense", modo),
+      colorPorCategoriaIngreso: mapaColoresCategoriasDelCatalogo(catalogo ?? [], "income", modo),
       nombrePorCategoria: nombres,
     };
   }, [catalogo, modo]);
@@ -161,9 +164,19 @@ export function PanelPresupuesto({
     [tieneMetadatos, checklist?.items, itemPorId, nombrePorCategoria]
   );
 
-  function colorDeGrupo(grupo: GrupoPresupuesto): string {
+  // Dos secciones, como el dinero: lo que se espera recibir y lo que se espera
+  // gastar. El ahorro es del segundo tipo (apartar, no recibir) y cierra
+  // "Gastos". Un renglón sin tipo de categoría (defensivo) cuenta como gasto.
+  const gruposIngreso = grupos.filter(
+    (grupo) => grupo.items[0]?.categoryKind === "income"
+  );
+  const gruposGasto = grupos.filter(
+    (grupo) => grupo.items[0]?.categoryKind !== "income"
+  );
+
+  function colorDeGrupo(grupo: GrupoPresupuesto, mapa: Map<string, string>): string {
     if (!grupo.categoryId) return COLOR_NEUTRO[modo];
-    return colorPorCategoria.get(grupo.categoryId) ?? COLOR_NEUTRO[modo];
+    return mapa.get(grupo.categoryId) ?? COLOR_NEUTRO[modo];
   }
 
   const accionAgregar = !soloMirar && (
@@ -234,6 +247,65 @@ export function PanelPresupuesto({
     );
   }
 
+  function renderGrupo(grupo: GrupoPresupuesto, mapa: Map<string, string>) {
+    const colapsado = gruposColapsados.has(grupo.clave);
+    const idLista = `${idBase}-${grupo.clave}`;
+    const cantidad = grupo.items.length;
+    // Un tope excedido no puede perderse de vista solo porque el grupo esté
+    // replegado: sobrevive como aviso en el encabezado.
+    const excedidos = grupo.items.filter((renglon) => renglon.exceeded).length;
+    const etiquetaGrupo =
+      `${grupo.titulo}, ${cantidad} ${cantidad === 1 ? "ítem" : "ítems"}` +
+      (colapsado && excedidos > 0
+        ? excedidos === 1
+          ? ", con un tope excedido"
+          : ", con topes excedidos"
+        : "");
+
+    return (
+      <div key={grupo.clave}>
+        <button
+          type="button"
+          aria-expanded={!colapsado}
+          aria-controls={idLista}
+          aria-label={etiquetaGrupo}
+          onClick={() => alternarGrupo(grupo.clave)}
+          className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-medium text-muted-foreground hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
+        >
+          {/* El color es refuerzo, nunca el único dato: el nombre de la
+              categoría va en texto, al lado. */}
+          <span
+            aria-hidden
+            className="size-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: colorDeGrupo(grupo, mapa) }}
+          />
+          <span className="min-w-0 flex-1 truncate" title={grupo.titulo}>
+            {grupo.titulo}
+          </span>
+          <span className="tabular-nums">{cantidad}</span>
+          {colapsado && excedidos > 0 && (
+            <span
+              aria-hidden
+              className="flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive"
+            >
+              <TriangleAlert className="size-3.5" />
+            </span>
+          )}
+          <ChevronDown
+            aria-hidden
+            className={cn("size-4 shrink-0 transition-transform", colapsado && "-rotate-90")}
+          />
+        </button>
+        {/* Siempre montada: `aria-controls` apunta a un id que debe existir
+            aunque el grupo esté replegado. `hidden` la saca de la vista y del
+            árbol accesible sin desmontarla. */}
+        <ul id={idLista} hidden={colapsado} className="flex flex-col">
+          {grupo.items.map((renglon, indice) => renderRenglon(renglon, indice))}
+        </ul>
+      </div>
+    );
+  }
+
   const cuerpo = (
     <>
       {/* La consulta del checklist no se pudo leer: se dice y se ofrece
@@ -288,67 +360,36 @@ export function PanelPresupuesto({
                 {checklist.items.map((renglon, indice) => renderRenglon(renglon, indice))}
               </ul>
             ) : (
-              grupos.map((grupo) => {
-                const colapsado = gruposColapsados.has(grupo.clave);
-                const idLista = `${idBase}-${grupo.clave}`;
-                const cantidad = grupo.items.length;
-                // Un tope excedido no puede perderse de vista solo porque el
-                // grupo esté replegado: sobrevive como aviso en el encabezado.
-                const excedidos = grupo.items.filter((renglon) => renglon.exceeded).length;
-                const etiquetaGrupo =
-                  `${grupo.titulo}, ${cantidad} ${cantidad === 1 ? "ítem" : "ítems"}` +
-                  (colapsado && excedidos > 0
-                    ? excedidos === 1
-                      ? ", con un tope excedido"
-                      : ", con topes excedidos"
-                    : "");
-
-                return (
-                  <section key={grupo.clave}>
-                    <button
-                      type="button"
-                      aria-expanded={!colapsado}
-                      aria-controls={idLista}
-                      aria-label={etiquetaGrupo}
-                      onClick={() => alternarGrupo(grupo.clave)}
-                      className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-medium text-muted-foreground hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
+              <>
+                {gruposIngreso.length > 0 && (
+                  <section
+                    aria-labelledby={`${idBase}-seccion-ingresos`}
+                    className="flex flex-col"
+                  >
+                    <h3
+                      id={`${idBase}-seccion-ingresos`}
+                      className="px-2 pt-3 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
                     >
-                      {/* El color es refuerzo, nunca el único dato: el nombre de
-                          la categoría va en texto, al lado. */}
-                      <span
-                        aria-hidden
-                        className="size-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: colorDeGrupo(grupo) }}
-                      />
-                      <span className="min-w-0 flex-1 truncate" title={grupo.titulo}>
-                        {grupo.titulo}
-                      </span>
-                      <span className="tabular-nums">{cantidad}</span>
-                      {colapsado && excedidos > 0 && (
-                        <span
-                          aria-hidden
-                          className="flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive"
-                        >
-                          <TriangleAlert className="size-3.5" />
-                        </span>
-                      )}
-                      <ChevronDown
-                        aria-hidden
-                        className={cn(
-                          "size-4 shrink-0 transition-transform",
-                          colapsado && "-rotate-90"
-                        )}
-                      />
-                    </button>
-                    {/* Siempre montada: `aria-controls` apunta a un id que debe
-                        existir aunque el grupo esté replegado. `hidden` la saca
-                        de la vista y del árbol accesible sin desmontarla. */}
-                    <ul id={idLista} hidden={colapsado} className="flex flex-col">
-                      {grupo.items.map((renglon, indice) => renderRenglon(renglon, indice))}
-                    </ul>
+                      Ingresos
+                    </h3>
+                    {gruposIngreso.map((grupo) => renderGrupo(grupo, colorPorCategoriaIngreso))}
                   </section>
-                );
-              })
+                )}
+                {gruposGasto.length > 0 && (
+                  <section
+                    aria-labelledby={`${idBase}-seccion-gastos`}
+                    className="flex flex-col"
+                  >
+                    <h3
+                      id={`${idBase}-seccion-gastos`}
+                      className="px-2 pt-3 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                    >
+                      Gastos
+                    </h3>
+                    {gruposGasto.map((grupo) => renderGrupo(grupo, colorPorCategoriaGasto))}
+                  </section>
+                )}
+              </>
             )}
           </div>
         )}
@@ -447,12 +488,19 @@ function ContenidoRenglon({
   /** `true` cuando el renglón abre el formulario en edición. */
   puedeEditar: boolean;
 }) {
+  // El verbo dice qué se está midiendo: lo recibido en un ingreso, lo gastado
+  // en un tope de gasto, lo apartado en una meta de ahorro.
+  const verbo =
+    renglon.kind === "savings" ? "ahorrado" : renglon.categoryKind === "income" ? "recibido" : "gastado";
+
   return (
     <>
       <div className="flex items-center justify-between gap-3">
         <span className="truncate text-sm font-medium">{renglon.label}</span>
-        {/* Logro y aviso nunca coinciden: `checked` solo se enciende en una
-            meta de ahorro y `exceeded` solo al pasarse de un tope de gasto. */}
+        {/* Los estados no se pisan: `checked` (logro verde) se enciende al
+            alcanzar una meta de ahorro o un ingreso esperado; `exceeded` (aviso
+            rojo) SOLO al pasarse de un tope de gasto. Recibir más de lo
+            presupuestado es bueno: nunca sale en rojo. */}
         {renglon.checked && (
           <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-600/15 text-emerald-600 dark:text-emerald-400">
             <CheckIcon className="size-3.5" aria-hidden />
@@ -496,8 +544,8 @@ function ContenidoRenglon({
             aria-valuemax={100}
             aria-label={
               renglon.exceeded
-                ? `${renglon.label}: tope excedido, ${textoMonto(renglon.progress, renglon.currency)} de ${textoMonto(renglon.target, renglon.currency)}`
-                : `${renglon.label}: ${textoMonto(renglon.progress, renglon.currency)} de ${textoMonto(renglon.target, renglon.currency)}`
+                ? `${renglon.label}: tope excedido, ${textoMonto(renglon.progress, renglon.currency)} ${verbo} de ${textoMonto(renglon.target, renglon.currency)}`
+                : `${renglon.label}: ${textoMonto(renglon.progress, renglon.currency)} ${verbo} de ${textoMonto(renglon.target, renglon.currency)}`
             }
             className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
           >
@@ -524,7 +572,7 @@ function ContenidoRenglon({
             <span className="font-mono tabular-nums">
               {textoMonto(renglon.progress, renglon.currency)}
             </span>
-            {" de "}
+            {` ${verbo} de `}
             <span className="font-mono tabular-nums">
               {textoMonto(renglon.target, renglon.currency)}
             </span>
