@@ -204,6 +204,20 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   simples; sin el disparador, la base ya no frena un monto con fecha pasada
   (posible reemplazo: check de rango).
 
+- **"Cuánto me sobra este mes"** (2026-10-01): cuadrito en el Resumen.
+  Previsto = ingresos presupuestados − gastos presupuestados (el ahorro NO
+  entra, decisión del dueño); debajo, el real del mes (recibido − gastado).
+  Se calcula en el cliente con enteros exactos, una moneda a la vez, nunca se
+  guarda; el sentido va siempre en palabras ("Te sobran" / "Te faltan"). El
+  texto del real depende del mes (Hasta hoy / En el mes; en un mes futuro no
+  se muestra), un lado faltante del presupuesto no esconde el real, el error
+  manda sobre el esqueleto y una consulta pausada sin red avisa en vez de
+  quedar en blanco. La columna derecha del Resumen en xl scrollea sola (no
+  deja el pie inalcanzable en laptops bajas; `npm run medir:aside`).
+  Aprendizaje: la sesión de worker2 se saturó y se estancó (inventó una
+  rama); el relevo lo tomó worker1 y la revisión independiente atrapó dos
+  fallos graves que sus pruebas no veían.
+
 Pendiente, sin fecha: otra ronda de `impeccable critique` más adelante
 para medir el puntaje tras estos arreglos.
 
