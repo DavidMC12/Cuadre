@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, act } from "@testing-library/react";
 
 import PaginaResumen from "./page";
 import * as reportes from "@/hooks/use-reportes";
@@ -8,6 +8,7 @@ import * as ordenCuentas from "@/hooks/use-cuentas";
 import { GraficaTendencia } from "@/components/dashboard/grafica-tendencia";
 import { GraficaPorCategoria } from "@/components/dashboard/grafica-por-categoria";
 import { PanelPresupuesto } from "@/components/presupuesto/panel-presupuesto";
+import { CuantoMeSobra } from "@/components/dashboard/cuanto-me-sobra";
 import { ApiError } from "@/lib/api/client";
 import type { Cuenta, ResumenMes } from "@/lib/api/types";
 
@@ -32,6 +33,21 @@ vi.mock("@/hooks/use-perfil", () => ({
 // Lo pesado —cajones, selectores, gráficas de recharts y el panel del
 // presupuesto, prohibido a otro agente por ahora— no es lo que se prueba
 // aquí: lo que importa es que un fallo de consulta no se disfrace de datos.
+//
+// `ventanaAncha` controla lo que responde matchMedia para el tramo xl, y así
+// probar que el cuadrito no se duplica (móvil vs aside).
+let ventanaAncha = false;
+window.matchMedia = ((consulta: string) =>
+  ({
+    matches: ventanaAncha && consulta.includes("min-width: 1280px"),
+    media: consulta,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }) as MediaQueryList) as typeof window.matchMedia;
 vi.mock("@/components/dashboard/selector-mes", () => ({ SelectorMes: () => null }));
 vi.mock("@/components/dashboard/total-cuentas", () => ({ TotalCuentas: () => null }));
 vi.mock("@/components/dashboard/total-ahorrado", () => ({ TotalAhorrado: () => null }));
@@ -40,6 +56,9 @@ vi.mock("@/components/dashboard/grafica-por-categoria", () => ({
 }));
 vi.mock("@/components/dashboard/grafica-tendencia", () => ({ GraficaTendencia: vi.fn(() => null) }));
 vi.mock("@/components/dashboard/grafica-ahorro", () => ({ GraficaAhorro: () => null }));
+vi.mock("@/components/dashboard/cuanto-me-sobra", () => ({
+  CuantoMeSobra: vi.fn(() => null),
+}));
 vi.mock("@/components/presupuesto/panel-presupuesto", () => ({
   PanelPresupuesto: vi.fn(() => null),
 }));
@@ -103,6 +122,7 @@ function ajustar(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  ventanaAncha = false;
   ajustar({});
 });
 
@@ -290,5 +310,79 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     // esta prop, el doble scroll vuelve sin que ninguna otra prueba se caiga.
     expect(props.variante).toBe("suelta");
     expect(props.topePropio).toBe(false);
+  });
+
+  it("monta 'Cuánto me sobra' con el mes y la moneda del Resumen, en móvil y en el aside", () => {
+    render(<PaginaResumen />);
+
+    // Móvil: el bloque vive en la columna principal (primer bloque del mes).
+    // Aparte, el aside solo se monta desde xl (aquí `pantallaAncha` es false),
+    // así que en jsdom solo hay una instancia: la de móvil.
+    const llamadas = vi.mocked(CuantoMeSobra).mock.calls;
+    expect(llamadas.length).toBeGreaterThan(0);
+
+    const props = llamadas.at(-1)?.[0] as unknown as {
+      mes?: string;
+      moneda?: string;
+      compartePantalla?: boolean;
+    };
+    expect(props.mes).toBeDefined();
+    expect(props.moneda).toBe("COP");
+    expect(props.compartePantalla).toBe(false);
+  });
+
+  it("desde xl, el cuadrito del aside cede el anuncio del presupuesto al panel", () => {
+    ventanaAncha = true;
+
+    render(<PaginaResumen />);
+
+    // El aside monta el suyo y le cede al panel el anuncio del presupuesto.
+    const delAside = vi
+      .mocked(CuantoMeSobra)
+      .mock.calls.map((c) => c[0] as unknown as { anunciaPresupuesto?: boolean })
+      .filter((p) => p.anunciaPresupuesto === false);
+    expect(delAside).toHaveLength(1);
+    // La instancia de móvil (la que no cede) también existe en jsdom, que no
+    // aplica breakpoints: no se puede distinguir por CSS desde aquí.
+    const deMovil = vi
+      .mocked(CuantoMeSobra)
+      .mock.calls.map((c) => c[0] as unknown as { anunciaPresupuesto?: boolean })
+      .filter((p) => p.anunciaPresupuesto === undefined);
+    expect(deMovil).toHaveLength(1);
+  });
+
+  it("desde xl, el panel del aside cede su tope propio (el aside scrollea)", () => {
+    ventanaAncha = true;
+
+    render(<PaginaResumen />);
+
+    const props = vi.mocked(PanelPresupuesto).mock.calls.at(-1)?.[0] as unknown as {
+      topePropio?: boolean;
+    };
+    // El aside tiene scroll propio: si el panel conservara el suyo, habría
+    // doble scroll.
+    expect(props.topePropio).toBe(false);
+  });
+
+  it("un fallo del presupuesto desde el cuadrito compone el anuncio único con otro fallo", () => {
+    ventanaAncha = true;
+    // Otro fallo en la pantalla (el resumen) además del presupuesto.
+    ajustar({ deResumen: { data: undefined, isError: true, error: new Error("boom") } });
+    render(<PaginaResumen />);
+
+    // El cuadrito reporta que el presupuesto falló: ya son dos fallos.
+    const props = vi.mocked(CuantoMeSobra).mock.calls.at(-1)?.[0] as unknown as {
+      onFalloPresupuesto?: (fallo: boolean) => void;
+    };
+    act(() => props.onFalloPresupuesto?.(true));
+
+    // Con dos fallos, el panel cede a group y la pantalla compone el anuncio.
+    const propsPanel = vi.mocked(PanelPresupuesto).mock.calls.at(-1)?.[0] as unknown as {
+      compartePantalla?: boolean;
+    };
+    expect(propsPanel.compartePantalla).toBe(true);
+    expect(screen.getByRole("status")).not.toBeEmptyDOMElement();
+    // Y con la composición no queda ninguna alerta suelta compitiendo.
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

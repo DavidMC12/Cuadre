@@ -26,6 +26,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { EmptyState } from "@/components/empty-state";
 import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
 import { PanelPresupuesto } from "@/components/presupuesto/panel-presupuesto";
+import { CuantoMeSobra } from "@/components/dashboard/cuanto-me-sobra";
 import { SelectorMes } from "@/components/dashboard/selector-mes";
 import { ResumenCards } from "@/components/dashboard/resumen-cards";
 import { TotalCuentas } from "@/components/dashboard/total-cuentas";
@@ -47,6 +48,10 @@ export default function PaginaResumen() {
   const [tipoCategoria, setTipoCategoria] = useState<TipoCategoria>("expense");
   const [mesesTendencia, setMesesTendencia] = useState<6 | 12>(6);
   const pantallaAncha = usePantallaAncha();
+  // El fallo del presupuesto lo reporta `CuantoMeSobra` (una sola vez, aunque
+  // el panel lo consulte también): la página lo usa para componer el anuncio
+  // único y para que ningún bloque se quede sin voz.
+  const [falloChecklist, setFalloChecklist] = useState(false);
 
   // Quien eligió abrir en otra pantalla se va de aquí antes de que esto pinte.
   const yendoseAOtraPantalla = useIrAPantallaDeInicio();
@@ -110,28 +115,21 @@ export default function PaginaResumen() {
   const falloResumen = errorResumen && !resumen;
   const falloTendencia = errorTendencia && !tendencia;
 
-  // Los fallos que esta pantalla conoce de las consultas que ella misma pide.
-  // La gráfica por categoría, la de ahorro y el panel del presupuesto piden
-  // los suyos adentro; a ellos no hace falta decirles cuál falló, solo si
-  // otro fallo convive en la pantalla — para eso alcanza este conteo.
-  const cuantosFallos = [falloCuentas, falloResumen, falloTendencia].filter(Boolean).length;
-  // Con dos o más caídas a la vez, cada bloque con su propia `role="alert"`
-  // sería una tormenta de anuncios para quien escucha la pantalla: el
-  // anuncio pasa a ser uno solo, aquí abajo, y los bloques bajan a
-  // `role="group"`. Con un solo fallo se sigue anunciando él, como siempre.
-  const componenFallos = cuantosFallos >= 2;
-  // Lo que la composición no cubre, a sabiendas: si SOLO fallan consultas
-  // que viven adentro de sus componentes (por categoría + ahorro, digamos)
-  // y ninguna de las tres de arriba cayó, esos bloques siguen siendo alerta
-  // cada uno — una tormenta de dos, no de seis, y necesita que dos
-  // endpoints independientes caigan juntos mientras el resto sirve. Y si un
-  // reintento parcial deja un solo fallo, ese bloque vuelve a `alert` sobre
-  // un elemento que ya existía y el anuncio compuesto se desmonta: puede
-  // quedar un momento sin anuncio fresco, visible y con su Reintentar.
-  // Cerrarlo del todo pedía subir las tres consultas a la página; por ahora,
-  // lo barato cubre las caídas de verdad: la total (el gate de monedas deja
-  // una sola alerta) y la de reportes (tendencia es de las conocidas).
-
+  // Los fallos que esta pantalla conoce: los tres de sus propias consultas y
+  // el del presupuesto, que sube `CuantoMeSobra` (el panel consulta lo mismo;
+  // que lo reporte un solo bloque evita contarlo dos veces). Con dos o más
+  // caídas a la vez, cada bloque con su propia `role="alert"` sería una
+  // tormenta para quien escucha la pantalla: el anuncio pasa a ser uno solo,
+  // aquí abajo, y los bloques bajan a `role="group"`. Con un solo fallo se
+  // sigue anunciando él, como siempre.
+  //
+  // Lo que la composición no cubre, a sabiendas: si SOLO fallan consultas que
+  // viven adentro de sus componentes sin reportar (por categoría + ahorro),
+  // esos bloques siguen siendo alerta cada uno — una tormenta de dos, y
+  // necesita que dos endpoints independientes caigan juntos mientras el resto
+  // sirve.
+  const componenFallosConPresupuesto =
+    [falloCuentas, falloResumen, falloTendencia, falloChecklist].filter(Boolean).length >= 2;
   if (cargandoMonedas || yendoseAOtraPantalla) {
     return (
       <div className="flex flex-col gap-4">
@@ -205,7 +203,7 @@ export default function PaginaResumen() {
                     mes={mes}
                     moneda={moneda}
                     variante="suelta"
-                    compartePantalla={falloCuentas || falloResumen || falloTendencia}
+                    compartePantalla={componenFallosConPresupuesto}
                     // El cajón ya scrollea: sin tope propio no se anidan dos.
                     topePropio={false}
                   />
@@ -221,7 +219,7 @@ export default function PaginaResumen() {
           anuncio sea fiable — montarla junto con su texto es la receta del
           silencio en varios lectores de pantalla. */}
       <p role="status" className="text-sm text-muted-foreground">
-        {componenFallos &&
+        {componenFallosConPresupuesto &&
           "Varias partes del Resumen no cargaron. Revisa abajo: cada parte tiene su Reintentar."}
       </p>
 
@@ -256,7 +254,7 @@ export default function PaginaResumen() {
             onReintentar={() => recargarCuentas()}
             // Basta con que OTRO fallo conviva: este bloque deja de anunciar
             // solo y el anuncio único de arriba habla por todos.
-            compartePantalla={falloResumen || falloTendencia}
+            compartePantalla={componenFallosConPresupuesto}
           />
         ) : (
           <>
@@ -270,11 +268,23 @@ export default function PaginaResumen() {
 
       <SelectorMes mes={mes} onCambiar={setMes} />
 
+      {/* En móvil, el cuadrito de cuánto sobra es el primer bloque del mes.
+          Desde `xl` vive en el aside; este se monta solo si el aside no está
+          (antes que CSS), y así el bloque nunca aparece dos veces. */}
+      {moneda && !pantallaAncha && (
+        <CuantoMeSobra
+          mes={mes}
+          moneda={moneda}
+          compartePantalla={componenFallosConPresupuesto}
+          onFalloPresupuesto={setFalloChecklist}
+        />
+      )}
+
       <ResumenCards
         resumen={resumen}
         moneda={moneda ?? ""}
         cargando={cargandoResumen}
-        compartePantalla={falloCuentas || falloTendencia}
+        compartePantalla={componenFallosConPresupuesto}
         fallo={
           falloResumen
             ? {
@@ -306,7 +316,7 @@ export default function PaginaResumen() {
               onCambiarTipo={setTipoCategoria}
               // No sabe cuál otro falló ni hace falta: si cualquier otro
               // fallo convive, el suyo deja de anunciar solo.
-              compartePantalla={falloCuentas || falloResumen || falloTendencia}
+              compartePantalla={componenFallosConPresupuesto}
             />
           </CardContent>
         </Card>
@@ -335,7 +345,7 @@ export default function PaginaResumen() {
               tendencia={tendencia}
               moneda={moneda ?? ""}
               cargando={cargandoTendencia}
-              compartePantalla={falloCuentas || falloResumen}
+              compartePantalla={componenFallosConPresupuesto}
               fallo={
                 falloTendencia
                   ? {
@@ -366,7 +376,7 @@ export default function PaginaResumen() {
             <GraficaAhorro
               months={mesesTendencia}
               currency={moneda ?? ""}
-              compartePantalla={falloCuentas || falloResumen || falloTendencia}
+              compartePantalla={componenFallosConPresupuesto}
             />
           </CardContent>
         </Card>
@@ -386,11 +396,23 @@ export default function PaginaResumen() {
       {/* Montado solo cuando de verdad se ve: un aside oculto con CSS
           consultaba al servidor igual, aunque nadie lo mirara. */}
       {pantallaAncha && moneda && (
-        <aside className="w-80 shrink-0 xl:sticky xl:top-8">
+        <aside className="flex w-80 shrink-0 flex-col gap-5 xl:sticky xl:top-8 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
+          {/* Arriba del panel: cuánto sobra según lo previsto. Si falla el
+              presupuesto, el panel de abajo ya lo anuncia: este bloque no
+              repite la interrupción por la misma consulta. */}
+          <CuantoMeSobra
+            mes={mes}
+            moneda={moneda}
+            compartePantalla={componenFallosConPresupuesto}
+            anunciaPresupuesto={false}
+            onFalloPresupuesto={setFalloChecklist}
+          />
           <PanelPresupuesto
             mes={mes}
             moneda={moneda}
-            compartePantalla={falloCuentas || falloResumen || falloTendencia}
+            compartePantalla={componenFallosConPresupuesto}
+            // El aside scrollea: el panel no necesita su propio tope.
+            topePropio={false}
           />
         </aside>
       )}
