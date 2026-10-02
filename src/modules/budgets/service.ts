@@ -8,7 +8,8 @@
  * porque esto decide si un renglón del checklist se marca como cumplido.
  */
 import { conflicto, noEncontrado, reglaViolada } from '../../http/errores.js';
-import { compare, toMinorUnits } from '../../shared/money.js';
+import { compare } from '../../shared/money.js';
+import { MontoPositivoSchema } from '../../shared/schemas.js';
 import * as cuentasService from '../accounts/service.js';
 import * as categoriasService from '../categories/service.js';
 import * as reportsService from '../reports/service.js';
@@ -16,35 +17,41 @@ import * as repositorio from './repository.js';
 import { MesSchema, type CrearItem, type ItemDePresupuesto, type ItemDelChecklist } from './schemas.js';
 
 /**
- * El mes en el que nace un monto: el que pidieron, o el actual si no pidieron
- * ninguno. Entrada de servicio, no de HTTP: aquí la validación no depende de
- * que la ruta haya pasado antes por Zod.
+ * La única puerta por la que un mes y un monto entran a este service: un
+ * mes como "YYYY-MM" con año de verdad (el "0000-01" rompe a Postgres, no a
+ * la app) y un monto positivo en texto, tal como lo define el schema de
+ * entrada. Una sola validación, y no una copia en cada función: lo que la
+ * ruta haya pasado por Zod no se asume.
+ *
+ * Devuelve el mes a usar: el que llegó, o el actual si no llegó ninguno.
  */
-async function resolverMes(month: string | undefined): Promise<string> {
-  if (month === undefined) return repositorio.mesActual();
-  const leido = MesSchema.safeParse(month);
-  if (!leido.success) throw reglaViolada('El mes debe tener la forma "YYYY-MM", como "2026-01".');
-  return month;
-}
+async function validarMesYMonto(
+  month: string | undefined,
+  amount: string,
+): Promise<string> {
+  let mes: string;
+  if (month === undefined) {
+    mes = await repositorio.mesActual();
+  } else {
+    const leido = MesSchema.safeParse(month);
+    if (!leido.success) {
+      throw reglaViolada(leido.error.issues[0]?.message ?? 'El mes no es válido.');
+    }
+    // El año cero no existe para Postgres: "-01" de "0000-01" fuera de rango.
+    if (Number(month.slice(0, 4)) === 0) {
+      throw reglaViolada('El mes no admite el año "0000".');
+    }
+    mes = month;
+  }
 
-/**
- * Un monto de presupuesto es texto que la base guarda como NUMERIC(19,4).
- * Se valida aquí y no solo en la ruta: se parte a enteros (nunca float) y se
- * exige mayor que cero — "0.00" es tan presupuesto como no ponerlo.
- */
-function validarMontoPositivo(amount: string): void {
-  let minor: bigint;
-  try {
-    minor = toMinorUnits(amount);
-  } catch (error) {
+  const leidoMonto = MontoPositivoSchema.safeParse(amount);
+  if (!leidoMonto.success) {
     throw reglaViolada(
-      error instanceof RangeError
-        ? `El monto no es válido: ${error.message}`
-        : 'El monto no es válido.',
+      leidoMonto.error.issues[0]?.message ?? 'El monto no es un monto positivo.',
     );
   }
-  if (minor === 0n) throw reglaViolada('El monto no puede ser cero.');
-  if (minor < 0n) throw reglaViolada('El monto debe ser positivo.');
+
+  return mes;
 }
 
 export async function listarItems(
@@ -65,17 +72,25 @@ export async function obtenerItem(usuarioId: string, itemId: string): Promise<It
 export async function crearItem(usuarioId: string, datos: CrearItem): Promise<ItemDePresupuesto> {
   let currency: string;
   let categoryId: string | null = null;
+  /** El tipo real de la categoría, que el repository copia para revalidarlo en la base. */
+  let categoryKind: 'expense' | 'income' | null = null;
   let accountId: string | null = null;
 
   if (datos.kind === 'category') {
     const categoria = await categoriasService.obtenerCategoria(usuarioId, datos.categoryId);
-    if (categoria.kind !== 'expense') {
+    // El presupuesto ya admite gastos E ingresos: en una categoría de gasto se
+    // espera gastar, en una de ingreso, recibir. El tipo real lo copia el
+    // repository (categoryKind) para que la llave foránea de la base lo
+    // revalide: la categoría tiene que existir y ser de este usuario, y su
+    // tipo solo puede ser uno de esos dos.
+    if (categoria.kind !== 'expense' && categoria.kind !== 'income') {
       throw reglaViolada(
-        'El checklist de presupuesto es de gastos: elige una categoría de gastos, no una de ingresos.',
+        'Esa categoría no es de gastos ni de ingresos: el checklist de presupuesto no la entiende.',
       );
     }
     currency = datos.currency;
     categoryId = datos.categoryId;
+    categoryKind = categoria.kind;
   } else {
     // La moneda es la de la cuenta, no la que llegue en el cuerpo: el schema de
     // ahorro ni siquiera la pide, pero la regla queda dicho aquí porque es una
@@ -88,18 +103,19 @@ export async function crearItem(usuarioId: string, datos: CrearItem): Promise<It
     accountId = datos.accountId;
   }
 
-  validarMontoPositivo(datos.amount);
+  const mes = await validarMesYMonto(datos.month, datos.amount);
 
   const item = {
     kind: datos.kind,
     currency,
     categoryId,
+    categoryKind,
     accountId,
     label: datos.label ?? null,
     amount: datos.amount,
     // El primer monto es del mes que se esté viendo, no siempre el actual:
     // quien empieza su presupuesto en marzo contando enero no lo dice "hoy".
-    mesEfectivoDesde: await resolverMes(datos.month),
+    mesEfectivoDesde: mes,
   };
   const itemId = await repositorio.crear(usuarioId, item);
 
@@ -109,7 +125,8 @@ export async function crearItem(usuarioId: string, datos: CrearItem): Promise<It
 /**
  * Fija el monto de UN mes dado, pasado o futuro, sin mover ningún otro: cada
  * mes tiene el suyo (ver `budget_item_targets` y `fijarObjetivoDelMes` en el
- * repository, que ancla el mes siguiente para que la herencia no lo arrastre).
+ * repository, que ancla el mes siguiente ya empezado para que la herencia no
+ * lo arrastre).
  */
 export async function fijarObjetivoDelMes(
   usuarioId: string,
@@ -117,8 +134,7 @@ export async function fijarObjetivoDelMes(
   month: string,
   amount: string,
 ): Promise<ItemDePresupuesto> {
-  const mes = await resolverMes(month);
-  validarMontoPositivo(amount);
+  const mes = await validarMesYMonto(month, amount);
 
   const fijado = await repositorio.fijarObjetivoDelMes(usuarioId, itemId, mes, amount);
   if (!fijado) throw noEncontrado('Ese ítem del presupuesto no existe.');
