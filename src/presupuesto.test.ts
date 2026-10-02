@@ -13,6 +13,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
+import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { construirApp } from './aplicacion.js';
 import { closeDb, db } from './db/client.js';
@@ -119,7 +120,11 @@ async function registrar(cuentaId: string, monto: string, extras = {}): Promise<
   return cuerpo.data;
 }
 
-async function crearItemDeCategoria(categoriaId: string, amount: string, extras = {}): Promise<any> {
+async function crearItemDeCategoria(
+  categoriaId: string,
+  amount: string,
+  extras = {},
+): Promise<any> {
   const { estado, cuerpo } = await pedir('POST', '/api/v1/budgets/items', {
     kind: 'category',
     categoryId: categoriaId,
@@ -185,19 +190,48 @@ describe('crear ítems', () => {
     });
   });
 
-  it('rechaza una categoría de ingresos', async () => {
-    const sueldo = await crearCategoria('Sueldo', 'income');
-
-    const { estado, cuerpo } = await pedir('POST', '/api/v1/budgets/items', {
-      kind: 'category',
-      categoryId: sueldo.id,
-      currency: 'COP',
-      amount: '100000',
+  it('acepta el mes del primer monto, aunque ya haya pasado', async () => {
+    const mercado = await crearCategoria('Mercado');
+    const item = await crearItemDeCategoria(mercado.id, '100000', {
+      month: mesRelativo(-1).etiqueta,
     });
 
-    expect(estado).toBe(422);
-    expect(cuerpo.error.code).toBe('RULE_VIOLATION');
-    expect(cuerpo.error.message).toMatch(/ingresos/);
+    expect(item.currentAmount).toBe('100000.0000');
+    expect((await checklist(mesRelativo(-1).etiqueta)).items[0].target).toBe('100000.0000');
+  });
+
+  it('rechaza un mes mal escrito en el ítem nuevo', async () => {
+    const mercado = await crearCategoria('Mercado');
+
+    const { estado } = await pedir('POST', '/api/v1/budgets/items', {
+      kind: 'category',
+      categoryId: mercado.id,
+      currency: 'COP',
+      amount: '100000',
+      month: '2026-13',
+    });
+    expect(estado).toBe(400);
+  });
+
+  it('crea un ítem de ingresos y su progreso es lo recibido en la categoría, nunca te pasaste', async () => {
+    const sueldo = await crearCategoria('Sueldo', 'income');
+    const banco = await crearCuenta();
+    const item = await crearItemDeCategoria(sueldo.id, '900000');
+
+    expect(item).toMatchObject({ kind: 'category', categoryKind: 'income' });
+
+    // Recibir de más: logro, y jamás un aviso en rojo.
+    await registrar(banco.id, '950000', { categoryId: sueldo.id });
+
+    const { items } = await checklist(mesRelativo(0).etiqueta);
+    expect(items[0]).toMatchObject({
+      kind: 'category',
+      categoryKind: 'income',
+      target: '900000.0000',
+      progress: '950000.0000',
+      checked: true,
+      exceeded: false,
+    });
   });
 
   it('rechaza una cuenta que no está marcada como de ahorro', async () => {
@@ -251,6 +285,7 @@ describe('el checklist del mes', () => {
       {
         id: expect.any(String),
         kind: 'category',
+        categoryKind: 'expense',
         currency: 'COP',
         label: 'Mercado',
         target: '100000.0000',
@@ -419,8 +454,8 @@ describe('el checklist del mes', () => {
   });
 });
 
-describe('cambiar el objetivo de un ítem', () => {
-  it('el monto nuevo rige desde este mes en adelante, sin pisar lo ya vivido', async () => {
+describe('fijar el objetivo de un mes', () => {
+  it('fija el monto del mes pedido, y el siguiente (futuro) sigue heredando', async () => {
     const mercado = await crearCategoria('Mercado');
     const item = await crearItemDeCategoria(mercado.id, '100000');
 
@@ -428,20 +463,88 @@ describe('cambiar el objetivo de un ítem', () => {
 
     const { estado, cuerpo } = await pedir('PATCH', `/api/v1/budgets/items/${item.id}/target`, {
       amount: '200000',
+      month: mesRelativo(0).etiqueta,
     });
     expect(estado, JSON.stringify(cuerpo)).toBe(200);
     expect(cuerpo.data.currentAmount).toBe('200000.0000');
 
-    // El mes actual y el siguiente muestran el monto nuevo...
+    // El mes fijado muestra el monto nuevo...
     expect((await checklist(mesRelativo(0).etiqueta)).items[0].target).toBe('200000.0000');
+
+    // ...y el siguiente, que es futuro, hereda: subir el tope de este mes
+    // rige "de aquí en adelante".
     expect((await checklist(mesRelativo(1).etiqueta)).items[0].target).toBe('200000.0000');
 
-    // ...y el checklist de este mes con el monto viejo ya no existe: la fila
-    // nueva lo reemplazó, que es lo que hace el versionado (un mes que ya
-    // pasó nunca cambia como se vio, y eso lo garantiza la base).
+    // Un mes anterior a que el ítem existiera sigue sin objetivo.
     const itemDeAyer = await checklist(mesRelativo(-1).etiqueta);
     expect(itemDeAyer.items).toHaveLength(1);
     expect(itemDeAyer.items[0].target).toBeNull();
+  });
+
+  it('fija el monto de un mes que ya pasó, sin mover el actual ni el siguiente', async () => {
+    const mercado = await crearCategoria('Mercado');
+    const item = await crearItemDeCategoria(mercado.id, '100000');
+
+    const { estado, cuerpo } = await pedir('PATCH', `/api/v1/budgets/items/${item.id}/target`, {
+      amount: '250000',
+      month: mesRelativo(-1).etiqueta,
+    });
+    expect(estado, JSON.stringify(cuerpo)).toBe(200);
+
+    expect((await checklist(mesRelativo(-1).etiqueta)).items[0].target).toBe('250000.0000');
+    // El mes en curso conserva el suyo.
+    expect((await checklist(mesRelativo(0).etiqueta)).items[0].target).toBe('100000.0000');
+    expect((await checklist(mesRelativo(1).etiqueta)).items[0].target).toBe('100000.0000');
+  });
+
+  it('ediciones repetidas del mismo mes: gana la última', async () => {
+    const mercado = await crearCategoria('Mercado');
+    const item = await crearItemDeCategoria(mercado.id, '100000');
+
+    for (const amount of ['200000', '260000']) {
+      const { estado } = await pedir('PATCH', `/api/v1/budgets/items/${item.id}/target`, {
+        amount,
+        month: mesRelativo(0).etiqueta,
+      });
+      expect(estado).toBe(200);
+    }
+
+    expect((await checklist(mesRelativo(0).etiqueta)).items[0].target).toBe('260000.0000');
+    expect((await checklist(mesRelativo(1).etiqueta)).items[0].target).toBe('260000.0000');
+  });
+
+  it('repetir el mismo monto no crea segunda fila: reintento idempotente', async () => {
+    const mercado = await crearCategoria('Mercado');
+    const item = await crearItemDeCategoria(mercado.id, '100000');
+
+    for (const _vuelta of [1, 2]) {
+      const { estado } = await pedir('PATCH', `/api/v1/budgets/items/${item.id}/target`, {
+        amount: '140000',
+        month: mesRelativo(0).etiqueta,
+      });
+      expect(estado).toBe(200);
+    }
+
+    // La fila original decía 100000; el reintento con 140000 y otro igual:
+    // solo puede existir la fila nueva del 140000, ni una fila idéntica más.
+    const [cuenta] = (await db.execute(sql`
+      select count(*)::int as n
+      from budget_item_targets
+      where budget_item_id = ${item.id}::uuid and amount = 140000
+    `)) as unknown as { n: number }[];
+    expect(Number(cuenta!.n)).toBe(1);
+  });
+
+  it('rechaza un mes con año 0000 con 422, no con un 500 de Postgres', async () => {
+    const mercado = await crearCategoria('Mercado');
+    const item = await crearItemDeCategoria(mercado.id, '100000');
+
+    const { estado, cuerpo } = await pedir('PATCH', `/api/v1/budgets/items/${item.id}/target`, {
+      amount: '200000',
+      month: '0000-01',
+    });
+    expect(estado).toBe(422);
+    expect(cuerpo.error.code).toBe('RULE_VIOLATION');
   });
 
   it('rechaza un monto en cero o negativo', async () => {
@@ -450,13 +553,27 @@ describe('cambiar el objetivo de un ítem', () => {
 
     const { estado } = await pedir('PATCH', `/api/v1/budgets/items/${item.id}/target`, {
       amount: '-5',
+      month: mesRelativo(0).etiqueta,
     });
     expect(estado).toBe(400);
+  });
+
+  it('rechaza un mes mal escrito', async () => {
+    const mercado = await crearCategoria('Mercado');
+    const item = await crearItemDeCategoria(mercado.id, '100000');
+
+    const { estado, cuerpo } = await pedir('PATCH', `/api/v1/budgets/items/${item.id}/target`, {
+      amount: '200000',
+      month: '2026-9',
+    });
+    expect(estado).toBe(400);
+    expect(cuerpo.error).toBeDefined();
   });
 
   it('responde 404 si el ítem no existe o es de otra persona', async () => {
     const { estado } = await pedir('PATCH', `/api/v1/budgets/items/${randomUUID()}/target`, {
       amount: '200000',
+      month: mesRelativo(0).etiqueta,
     });
     expect(estado).toBe(404);
   });

@@ -47,6 +47,8 @@ export interface ItemDePresupuesto {
   currency: string;
   categoryId: string | null;
   categoryName: string | null;
+  /** 'income' = lo que se espera recibir, 'expense' = lo que se espera gastar; nulo en ahorro. */
+  categoryKind: 'expense' | 'income' | null;
   accountId: string | null;
   accountName: string | null;
   label: string | null;
@@ -57,6 +59,7 @@ export interface ItemDePresupuesto {
 
 const CAMPOS_DEL_ITEM = sql`
   bi.id, bi.kind, bi.currency, bi.category_id as "categoryId", cat.name as "categoryName",
+  bi.category_kind as "categoryKind",
   bi.account_id as "accountId", acc.name as "accountName", bi.label,
   bi.archived_at as "archivedAt"
 `;
@@ -120,17 +123,17 @@ export async function crear(
     kind: BudgetItemKind;
     currency: string;
     categoryId: string | null;
+    /** Tipo real de la categoría ('expense' o 'income'); nulo en ahorro. */
+    categoryKind: 'expense' | 'income' | null;
     accountId: string | null;
     label: string | null;
     amount: string;
     mesEfectivoDesde: string;
   },
 ): Promise<string> {
-  // `category_kind` es puro plomería para la llave foránea que exige, en la
-  // base, que un ítem de categoría apunte de verdad a una de gasto — quien
-  // llama a `crear()` nunca la decide, siempre es 'expense' o nula según el
-  // tipo del ítem.
-  const categoryKind = datos.kind === 'category' ? 'expense' : null;
+  // `category_kind` es plomería para la llave foránea: la base exige que el
+  // tipo copiado aquí sea el que de verdad tiene la categoría.
+  const categoryKind = datos.kind === 'category' ? datos.categoryKind : null;
 
   return db.transaction(async (tx) => {
     const [fila] = (await tx.execute(sql`
@@ -154,27 +157,66 @@ export async function crear(
 }
 
 /**
- * Agrega un monto nuevo desde `mesEfectivoDesde` en adelante. Nunca pisa una
- * fila existente — si ya había un monto puesto para ese mismo mes, esta fila
- * queda como la más reciente y gana por `created_at` (ver `objetivoEnElMes`).
+ * Fija el monto de UN mes sin mover ningún otro que ya haya ocurrido. Sigue
+ * siendo solo `INSERT`: agrega una fila con `effective_from` = ese mes, que
+ * gana sobre cualquier anterior. Como un mes sin fila propia hereda el monto
+ * del anterior, fijar enero cambiaría febrero si este no tuviera la suya; por
+ * eso, antes de insertar, se "ancla" el mes siguiente con el monto que ya
+ * tenía vigente (solo si existía, es distinto del nuevo y ese mes ya empezó:
+ * un mes futuro sigue heredando, así subir el tope hoy rige "de aquí en
+ * adelante"). Repetir el mismo monto en el mismo mes no agrega filas. El
+ * bloqueo de la fila del ítem serializa dos ediciones simultáneas.
  * Devuelve `false` si el ítem no existe o no es de este usuario.
  */
-export async function agregarObjetivo(
+export async function fijarObjetivoDelMes(
   usuarioId: string,
   itemId: string,
+  mes: string,
   monto: string,
-  mesEfectivoDesde: string,
 ): Promise<boolean> {
-  const [fila] = (await db.execute(sql`
-    insert into budget_item_targets (budget_item_id, effective_from, amount)
-    select ${itemId}::uuid, (${mesEfectivoDesde}::text || '-01')::date, ${monto}
-    where exists (
-      select 1 from budget_items where id = ${itemId}::uuid and user_id = ${usuarioId}::uuid
-    )
-    returning id
-  `)) as unknown as { id: string }[];
+  return db.transaction(async (tx) => {
+    const [item] = (await tx.execute(sql`
+      select id from budget_items
+      where id = ${itemId}::uuid and user_id = ${usuarioId}::uuid
+      for update
+    `)) as unknown as { id: string }[];
+    if (!item) return false;
 
-  return fila !== undefined;
+    const [ultimo] = (await tx.execute(sql`
+      select (amount = ${monto}::numeric) as igual
+      from budget_item_targets
+      where budget_item_id = ${itemId}::uuid and effective_from = (${mes}::text || '-01')::date
+      order by created_at desc
+      limit 1
+    `)) as unknown as { igual: boolean }[];
+    if (ultimo?.igual) return true;
+
+    await tx.execute(sql`
+      insert into budget_item_targets (budget_item_id, effective_from, amount)
+      select ${itemId}::uuid, siguiente.mes, vigente.amount
+      from (select ((${mes}::text || '-01')::date + interval '1 month')::date as mes) siguiente
+      cross join lateral (
+        select t.amount
+        from budget_item_targets t
+        where t.budget_item_id = ${itemId}::uuid and t.effective_from <= siguiente.mes
+        order by t.effective_from desc, t.created_at desc
+        limit 1
+      ) vigente
+      where vigente.amount <> ${monto}::numeric
+        and siguiente.mes <= date_trunc('month', clock_timestamp() at time zone ${ZONA_HORARIA}::text)::date
+        and not exists (
+          select 1 from budget_item_targets p
+          where p.budget_item_id = ${itemId}::uuid and p.effective_from = siguiente.mes
+        )
+    `);
+
+    await tx.execute(sql`
+      insert into budget_item_targets (budget_item_id, effective_from, amount)
+      values (${itemId}::uuid, (${mes}::text || '-01')::date, ${monto})
+    `);
+
+    return true;
+  });
 }
 
 export async function editarEtiqueta(
@@ -224,6 +266,7 @@ export interface ObjetivoDelMes {
   currency: string;
   categoryId: string | null;
   categoryName: string | null;
+  categoryKind: 'expense' | 'income' | null;
   accountId: string | null;
   accountName: string | null;
   label: string | null;
@@ -233,6 +276,7 @@ export interface ObjetivoDelMes {
 
 const CAMPOS_DEL_OBJETIVO = sql`
   bi.id, bi.kind, bi.currency, bi.category_id as "categoryId", cat.name as "categoryName",
+  bi.category_kind as "categoryKind",
   bi.account_id as "accountId", acc.name as "accountName", bi.label
 `;
 

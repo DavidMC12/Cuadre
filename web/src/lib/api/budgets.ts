@@ -15,9 +15,16 @@ export function createBudgetItem(input: NuevoItemPresupuesto): Promise<{ data: I
   return pedir("/budgets/items", { metodo: "POST", cuerpo: input });
 }
 
-/** Cambiar cuánto se espera mover desde ahora, nunca cómo se vio un mes pasado. */
-export function updateBudgetItemTarget(id: string, amount: string): Promise<{ data: ItemPresupuesto }> {
-  return pedir(`/budgets/items/${id}/target`, { metodo: "PATCH", cuerpo: { amount } });
+/**
+ * Fijar el monto de UN mes dado (pasado o futuro), sin mover ningún otro:
+ * cada ítem lleva un monto propio por mes.
+ */
+export function updateBudgetItemTarget(
+  id: string,
+  amount: string,
+  month: string
+): Promise<{ data: ItemPresupuesto }> {
+  return pedir(`/budgets/items/${id}/target`, { metodo: "PATCH", cuerpo: { amount, month } });
 }
 
 export function updateBudgetItemLabel(id: string, label: string | null): Promise<{ data: ItemPresupuesto }> {

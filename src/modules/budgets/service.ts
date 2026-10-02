@@ -9,11 +9,50 @@
  */
 import { conflicto, noEncontrado, reglaViolada } from '../../http/errores.js';
 import { compare } from '../../shared/money.js';
+import { MontoPositivoSchema } from '../../shared/schemas.js';
 import * as cuentasService from '../accounts/service.js';
 import * as categoriasService from '../categories/service.js';
 import * as reportsService from '../reports/service.js';
 import * as repositorio from './repository.js';
-import type { CrearItem, ItemDePresupuesto, ItemDelChecklist } from './schemas.js';
+import {
+  MesSchema,
+  type CrearItem,
+  type ItemDePresupuesto,
+  type ItemDelChecklist,
+} from './schemas.js';
+
+/**
+ * La única puerta por la que un mes y un monto entran a este service: un
+ * mes como "YYYY-MM" con año de verdad (el "0000-01" rompe a Postgres, no a
+ * la app) y un monto positivo en texto, tal como lo define el schema de
+ * entrada. Una sola validación, y no una copia en cada función: lo que la
+ * ruta haya pasado por Zod no se asume.
+ *
+ * Devuelve el mes a usar: el que llegó, o el actual si no llegó ninguno.
+ */
+async function validarMesYMonto(month: string | undefined, amount: string): Promise<string> {
+  let mes: string;
+  if (month === undefined) {
+    mes = await repositorio.mesActual();
+  } else {
+    const leido = MesSchema.safeParse(month);
+    if (!leido.success) {
+      throw reglaViolada(leido.error.issues[0]?.message ?? 'El mes no es válido.');
+    }
+    // El año cero no existe para Postgres: "-01" de "0000-01" fuera de rango.
+    if (Number(month.slice(0, 4)) === 0) {
+      throw reglaViolada('El mes no admite el año "0000".');
+    }
+    mes = month;
+  }
+
+  const leidoMonto = MontoPositivoSchema.safeParse(amount);
+  if (!leidoMonto.success) {
+    throw reglaViolada(leidoMonto.error.issues[0]?.message ?? 'El monto no es un monto positivo.');
+  }
+
+  return mes;
+}
 
 export async function listarItems(
   usuarioId: string,
@@ -33,17 +72,25 @@ export async function obtenerItem(usuarioId: string, itemId: string): Promise<It
 export async function crearItem(usuarioId: string, datos: CrearItem): Promise<ItemDePresupuesto> {
   let currency: string;
   let categoryId: string | null = null;
+  /** El tipo real de la categoría, que el repository copia para revalidarlo en la base. */
+  let categoryKind: 'expense' | 'income' | null = null;
   let accountId: string | null = null;
 
   if (datos.kind === 'category') {
     const categoria = await categoriasService.obtenerCategoria(usuarioId, datos.categoryId);
-    if (categoria.kind !== 'expense') {
+    // El presupuesto ya admite gastos E ingresos: en una categoría de gasto se
+    // espera gastar, en una de ingreso, recibir. El tipo real lo copia el
+    // repository (categoryKind) para que la llave foránea de la base lo
+    // revalide: la categoría tiene que existir y ser de este usuario, y su
+    // tipo solo puede ser uno de esos dos.
+    if (categoria.kind !== 'expense' && categoria.kind !== 'income') {
       throw reglaViolada(
-        'El checklist de presupuesto es de gastos: elige una categoría de gastos, no una de ingresos.',
+        'Esa categoría no es de gastos ni de ingresos: el checklist de presupuesto no la entiende.',
       );
     }
     currency = datos.currency;
     categoryId = datos.categoryId;
+    categoryKind = categoria.kind;
   } else {
     // La moneda es la de la cuenta, no la que llegue en el cuerpo: el schema de
     // ahorro ni siquiera la pide, pero la regla queda dicho aquí porque es una
@@ -56,14 +103,19 @@ export async function crearItem(usuarioId: string, datos: CrearItem): Promise<It
     accountId = datos.accountId;
   }
 
+  const mes = await validarMesYMonto(datos.month, datos.amount);
+
   const item = {
     kind: datos.kind,
     currency,
     categoryId,
+    categoryKind,
     accountId,
     label: datos.label ?? null,
     amount: datos.amount,
-    mesEfectivoDesde: await repositorio.mesActual(),
+    // El primer monto es del mes que se esté viendo, no siempre el actual:
+    // quien empieza su presupuesto en marzo contando enero no lo dice "hoy".
+    mesEfectivoDesde: mes,
   };
   const itemId = await repositorio.crear(usuarioId, item);
 
@@ -71,22 +123,21 @@ export async function crearItem(usuarioId: string, datos: CrearItem): Promise<It
 }
 
 /**
- * Cambiar cuánto se espera mover desde ahora. Nunca pisa un mes que ya pasó:
- * el monto nuevo rige desde el mes actual en adelante, porque la tabla de
- * objetivos es versionada por mes (ver `budget_item_targets`).
+ * Fija el monto de UN mes dado, pasado o futuro, sin mover ningún otro: cada
+ * mes tiene el suyo (ver `budget_item_targets` y `fijarObjetivoDelMes` en el
+ * repository, que ancla el mes siguiente ya empezado para que la herencia no
+ * lo arrastre).
  */
-export async function actualizarObjetivo(
+export async function fijarObjetivoDelMes(
   usuarioId: string,
   itemId: string,
+  month: string,
   amount: string,
 ): Promise<ItemDePresupuesto> {
-  const agregado = await repositorio.agregarObjetivo(
-    usuarioId,
-    itemId,
-    amount,
-    await repositorio.mesActual(),
-  );
-  if (!agregado) throw noEncontrado('Ese ítem del presupuesto no existe.');
+  const mes = await validarMesYMonto(month, amount);
+
+  const fijado = await repositorio.fijarObjetivoDelMes(usuarioId, itemId, mes, amount);
+  if (!fijado) throw noEncontrado('Ese ítem del presupuesto no existe.');
   return obtenerItem(usuarioId, itemId);
 }
 
@@ -135,37 +186,79 @@ export async function checklistDelMes(
 ): Promise<{ data: { month: string; currency: string; items: ItemDelChecklist[] } }> {
   const objetivos = await repositorio.objetivosDelMes(usuarioId, filtros.month, filtros.currency);
 
+  // El total de ingresos del mes se pide UNA vez para toda la tanda, y cada
+  // renglón de ingreso busca su propia fila: pedirlo renglón por renglón
+  // repetiría el mismo agregado completo tan pronto el checklist tuviera más
+  // de un renglón de ingresos. Solo se pide si alguien lo va a usar.
+  const hayRenglonDeIngresos = objetivos.some(
+    (objetivo) => objetivo.kind === 'category' && objetivo.categoryKind === 'income',
+  );
+  const ingresos = hayRenglonDeIngresos
+    ? (
+        await reportsService.totalesPorCategoria(usuarioId, {
+          month: filtros.month,
+          currency: filtros.currency,
+          kind: 'income',
+        })
+      ).data
+    : [];
+
   const items: ItemDelChecklist[] = await Promise.all(
     objetivos.map(async (objetivo) => {
-      const progress =
-        objetivo.kind === 'category'
-          ? await reportsService.gastadoEnCategoria(
-              usuarioId,
-              filtros.month,
-              filtros.currency,
-              objetivo.categoryId as string,
-            )
-          : await reportsService.ahorroDeUnaCuentaEnElMes(
-              usuarioId,
-              filtros.month,
-              objetivo.accountId as string,
-            );
+      let progress: string;
+      if (objetivo.kind === 'category') {
+        if (objetivo.categoryKind === 'income') {
+          // Un renglón de ingresos se mide por lo RECIBIDO en la categoría, no
+          // por lo gastado. El agregado ya se pidió una vez para toda la
+          // tanda: solo se busca la categoría puntual. Reutiliza el service de
+          // reportes, nunca su repository ni SQL propio.
+          progress =
+            ingresos.find((total) => total.categoryId === objetivo.categoryId)?.total ?? '0.0000';
+        } else {
+          progress = await reportsService.gastadoEnCategoria(
+            usuarioId,
+            filtros.month,
+            filtros.currency,
+            objetivo.categoryId as string,
+          );
+        }
+      } else {
+        progress = await reportsService.ahorroDeUnaCuentaEnElMes(
+          usuarioId,
+          filtros.month,
+          objetivo.accountId as string,
+        );
+      }
 
-      // Un tope de gasto y una meta de ahorro no se leen igual: en una meta,
-      // llegar o pasar el objetivo es un logro; en un tope, pasarse es lo que
-      // hay que avisar. Por eso `checked` (logro) solo se enciende en ahorro y
-      // `exceeded` (aviso) solo en un tope: nunca se pinta de verde a quien se
-      // pasó del límite. Nulo significa que el ítem todavía no existía ese mes:
-      // no aplica, y un "no aplica" no es ni logro ni exceso.
+      // Tres clases de renglón, cada una con su lectura:
       //
-      // La comparación es exacta y en enteros: comparar los strings con `<`/`>`
-      // de JavaScript ordenaría como texto, y "100000" < "20000" sería verdad
-      // leído así — de ahí el `compare`.
+      // - Tope de gasto: pasarse es lo que hay que avisar. `checked` nunca
+      //   se enciende (un tope no se "cumple" gastando) y solo `exceeded`
+      //   avisa en rojo.
+      // - Renglón de ingresos: recibir lo esperado es el logro — `checked`
+      //   al llegar o pasar el objetivo. Recibir de MÁS es bueno, así que
+      //   `exceeded` nunca avisa: no hay "te pasaste" en rojo por ganar más
+      //   de lo presupuestado. Recibir menos es la falta, o sea `checked`
+      //   en `false`, sin exceso que avisar.
+      // - Meta de ahorro: llegar o pasar el objetivo es un logro; ahorrar de
+      //   más tampoco es un problema.
+      //
+      // Nulo significa que el ítem todavía no existía ese mes: no aplica, y
+      // un "no aplica" no es ni logro ni exceso.
+      //
+      // La comparación es exacta y en enteros: comparar los strings con
+      // `<`/`>` de JavaScript ordenaría como texto, y "100000" < "20000" sería
+      // verdad leído así — de ahí el `compare` de `shared/money.ts`.
       const llegoAlObjetivo = objetivo.target !== null && compare(progress, objetivo.target) >= 0;
       const pasoElTope = objetivo.target !== null && compare(progress, objetivo.target) > 0;
 
-      const checked = objetivo.kind === 'savings' && llegoAlObjetivo;
-      const exceeded = objetivo.kind === 'category' && pasoElTope;
+      const checked =
+        objetivo.kind === 'savings' ||
+        (objetivo.kind === 'category' && objetivo.categoryKind === 'income')
+          ? llegoAlObjetivo
+          : false;
+      const exceeded =
+        objetivo.kind === 'category' && objetivo.categoryKind !== 'income' && pasoElTope;
 
       const label =
         objetivo.label ?? objetivo.categoryName ?? objetivo.accountName ?? 'Ítem de presupuesto';
@@ -174,6 +267,7 @@ export async function checklistDelMes(
         id: objetivo.id,
         kind: objetivo.kind,
         currency: objetivo.currency,
+        categoryKind: objetivo.categoryKind,
         label,
         target: objetivo.target,
         progress,

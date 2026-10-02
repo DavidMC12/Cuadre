@@ -5,10 +5,11 @@
  * llama al repository directamente y se usan las rutas de cuentas,
  * categorías y movimientos (ya existentes) solo para preparar los datos.
  *
- * Lo que importa probar aquí es lo que hace único a este módulo: que un
- * monto nuevo nunca reescribe cómo se vio un mes que ya pasó, y que las dos
- * funciones nuevas de `reports` (gastado en una categoría, ahorro de una
- * cuenta puntual) cuentan lo que de verdad se movió.
+ * Lo que importa probar aquí es lo que hace único a este módulo: que cada mes
+ * del checklist tiene su monto propio (fijable también en meses ya pasados,
+ * ver `fijarObjetivoDelMes`) y que las dos funciones nuevas de `reports`
+ * (gastado en una categoría, ahorro de una cuenta puntual) cuentan lo que de
+ * verdad se movió.
  */
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
@@ -65,11 +66,11 @@ async function pedir(metodo: 'GET' | 'POST', url: string, cuerpo?: unknown): Pro
 }
 
 /**
- * Los meses se calculan relativos a "hoy" y no se escriben fijos: desde que
- * `agregarObjetivo`/`crear` pasan por el disparador que rechaza un mes
- * atrasado (ver la migración `drizzle/0006_fancy_magdalene.sql`), un mes
- * escrito a mano dejaría de ser "el mes actual" el día en que estas pruebas
- * corran después de esa fecha, y todo el archivo empezaría a fallar solo.
+ * Los meses se calculan relativos a "hoy" y no se escriben fijos:
+ * `crear` usa por defecto el mes actual, y las pruebas de fijar un mes pasado
+ * necesitan saber qué es "pasado" — una fecha escrita a mano dejaría de serlo
+ * el día en que estas pruebas corran después de esa fecha, y el archivo
+ * empezaría a fallar solo.
  */
 function mesRelativo(desplazamiento: number): { etiqueta: string; fecha: string } {
   const partes = new Intl.DateTimeFormat('en-CA', {
@@ -133,6 +134,7 @@ async function itemDeCategoria(categoriaId: string, monto: string, mes = MES): P
     kind: 'category',
     currency: 'COP',
     categoryId: categoriaId,
+    categoryKind: 'expense',
     accountId: null,
     label: null,
     amount: monto,
@@ -195,35 +197,90 @@ describe('ahorro de una cuenta en el mes (reports)', () => {
   });
 });
 
-describe('versionado del objetivo por mes', () => {
-  it('cambiar el monto no reescribe un mes que ya pasó', async () => {
+describe('fijarObjetivoDelMes', () => {
+  it('fija el monto de un mes ya pasado sin mover el actual ni el siguiente', async () => {
     const comida = await crearCategoria('Comida');
     const itemId = await itemDeCategoria(comida.id, '350000');
 
-    await repositorio.agregarObjetivo(usuarioId, itemId, '400000', MES_SIGUIENTE);
+    // "El mercado de enero se cambió a 200000": enero ya pasó y el monto se
+    // arregla igual, pero el mes actual y el siguiente siguen viéndose como
+    // se veían — fijar un mes no reescribe a nadie más: para eso está el
+    // ancla del mes siguiente en el repository.
+    expect(await repositorio.fijarObjetivoDelMes(usuarioId, itemId, MES_ANTERIOR, '200000')).toBe(
+      true,
+    );
 
+    const [deAntes] = await repositorio.objetivosDelMes(usuarioId, MES_ANTERIOR, 'COP');
     const [deEsteMes] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
     const [delSiguiente] = await repositorio.objetivosDelMes(usuarioId, MES_SIGUIENTE, 'COP');
 
+    expect(deAntes!.target).toBe('200000.0000');
     expect(deEsteMes!.target).toBe('350000.0000');
-    expect(delSiguiente!.target).toBe('400000.0000');
+    expect(delSiguiente!.target).toBe('350000.0000');
   });
 
-  it('un mes anterior a que el ítem existiera no tiene objetivo (null, no cero)', async () => {
-    const comida = await crearCategoria('Comida');
-    await itemDeCategoria(comida.id, '350000');
-
-    const [deAntes] = await repositorio.objetivosDelMes(usuarioId, MES_ANTERIOR, 'COP');
-    expect(deAntes!.target).toBeNull();
-  });
-
-  it('dos ajustes en el mismo mes: gana el más reciente', async () => {
+  it('editar un mes no arranca el monto de otro mes que ya tiene fila propia', async () => {
     const comida = await crearCategoria('Comida');
     const itemId = await itemDeCategoria(comida.id, '300000');
-    await repositorio.agregarObjetivo(usuarioId, itemId, '350000', MES);
+    await repositorio.fijarObjetivoDelMes(usuarioId, itemId, MES_SIGUIENTE, '500000');
+
+    await repositorio.fijarObjetivoDelMes(usuarioId, itemId, MES, '400000');
+
+    const [deEsteMes] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
+    const [delSiguiente] = await repositorio.objetivosDelMes(usuarioId, MES_SIGUIENTE, 'COP');
+    expect(deEsteMes!.target).toBe('400000.0000');
+    // El mes siguiente ya tenía su propio 500000: este mes no lo toca.
+    expect(delSiguiente!.target).toBe('500000.0000');
+  });
+
+  it('ediciones repetidas del mismo mes: gana la última, y el futuro sigue heredando', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '300000');
+
+    await repositorio.fijarObjetivoDelMes(usuarioId, itemId, MES, '400000');
+    await repositorio.fijarObjetivoDelMes(usuarioId, itemId, MES, '450000');
+
+    const [deEsteMes] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
+    const [delSiguiente] = await repositorio.objetivosDelMes(usuarioId, MES_SIGUIENTE, 'COP');
+    expect(deEsteMes!.target).toBe('450000.0000');
+    // El mes siguiente es futuro: no se ancla, hereda el monto final — subir
+    // el tope de hoy rige "de aquí en adelante".
+    expect(delSiguiente!.target).toBe('450000.0000');
+  });
+
+  it('no deja fijar el monto de un ítem que no es de este usuario', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '350000');
+
+    const otroUsuarioId = await crearUsuario();
+    expect(await repositorio.fijarObjetivoDelMes(otroUsuarioId, itemId, MES, '999999')).toBe(false);
 
     const [item] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
     expect(item!.target).toBe('350000.0000');
+  });
+
+  it('repetir el mismo monto en el mismo mes no agrega filas', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '300000');
+
+    // La fila original ya dice 300000: el reintento (doble toque, webhook
+    // repetido) debe terminar sin insertar nada.
+    await repositorio.fijarObjetivoDelMes(usuarioId, itemId, MES, '300000');
+
+    const [cuenta] = (await db.execute(sql`
+      select count(*)::int as n from budget_item_targets where budget_item_id = ${itemId}::uuid
+    `)) as unknown as { n: number }[];
+    expect(Number(cuenta!.n)).toBe(1);
+  });
+
+  it('subir el monto del mes actual cambia también los meses futuros que no tienen fila propia', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '300000');
+
+    await repositorio.fijarObjetivoDelMes(usuarioId, itemId, MES, '600000');
+
+    const [delSiguiente] = await repositorio.objetivosDelMes(usuarioId, MES_SIGUIENTE, 'COP');
+    expect(delSiguiente!.target).toBe('600000.0000');
   });
 });
 
@@ -260,6 +317,30 @@ describe('listar', () => {
   });
 });
 
+describe('ítem de categoría de ingresos', () => {
+  it('se crea con el tipo de ingreso copiado de la categoría y lo devuelve en categoryKind', async () => {
+    const salario = await crearCategoria('Salario', 'income');
+    const itemId = await repositorio.crear(usuarioId, {
+      kind: 'category',
+      currency: 'COP',
+      categoryId: salario.id,
+      categoryKind: 'income',
+      accountId: null,
+      label: null,
+      amount: '900000',
+      mesEfectivoDesde: MES,
+    });
+
+    const [item] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
+    expect(item).toMatchObject({
+      id: itemId,
+      kind: 'category',
+      categoryKind: 'income',
+      target: '900000.0000',
+    });
+  });
+});
+
 describe('ítem de ahorro', () => {
   it('se crea contra una cuenta de ahorro real y se lee de vuelta con su nombre', async () => {
     const ahorro = await crearCuenta({ isSavings: true });
@@ -267,6 +348,7 @@ describe('ítem de ahorro', () => {
       kind: 'savings',
       currency: 'COP',
       categoryId: null,
+      categoryKind: null,
       accountId: ahorro.id,
       label: null,
       amount: '200000',
@@ -314,12 +396,12 @@ describe('archivar', () => {
 });
 
 describe('aislamiento entre usuarios', () => {
-  it('agregarObjetivo no deja tocar un ítem de otro usuario', async () => {
+  it('fijarObjetivoDelMes no deja tocar un ítem de otro usuario', async () => {
     const comida = await crearCategoria('Comida');
     const itemId = await itemDeCategoria(comida.id, '350000');
 
     const otroUsuarioId = await crearUsuario();
-    expect(await repositorio.agregarObjetivo(otroUsuarioId, itemId, '999999', MES)).toBe(false);
+    expect(await repositorio.fijarObjetivoDelMes(otroUsuarioId, itemId, MES, '999999')).toBe(false);
 
     const [item] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
     expect(item!.target).toBe('350000.0000');
@@ -358,6 +440,7 @@ describe('la base exige que el ítem tenga sentido con su tipo', () => {
         kind: 'category',
         currency: 'COP',
         categoryId: null,
+        categoryKind: 'expense',
         accountId: null,
         label: null,
         amount: '100000',
@@ -374,6 +457,7 @@ describe('la base exige que el ítem tenga sentido con su tipo', () => {
         kind: 'savings',
         currency: 'COP',
         categoryId: null,
+        categoryKind: null,
         accountId: ahorroUsd.id,
         label: null,
         amount: '100',
@@ -382,7 +466,7 @@ describe('la base exige que el ítem tenga sentido con su tipo', () => {
     ).rejects.toThrow();
   });
 
-  it('rechaza un ítem de categoría cuya categoría es de ingresos', async () => {
+  it('la llave foránea rechaza un category_kind que no es el real de la categoría', async () => {
     const sueldo = await crearCategoria('Sueldo', 'income');
 
     await expect(
@@ -390,6 +474,25 @@ describe('la base exige que el ítem tenga sentido con su tipo', () => {
         kind: 'category',
         currency: 'COP',
         categoryId: sueldo.id,
+        categoryKind: 'expense',
+        accountId: null,
+        label: null,
+        amount: '100000',
+        mesEfectivoDesde: MES,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('la llave foránea rechaza una categoría que no es de este usuario', async () => {
+    const comida = await crearCategoria('Comida');
+    const otroUsuarioId = await crearUsuario();
+
+    await expect(
+      repositorio.crear(otroUsuarioId, {
+        kind: 'category',
+        currency: 'COP',
+        categoryId: comida.id,
+        categoryKind: 'expense',
         accountId: null,
         label: null,
         amount: '100000',
@@ -399,30 +502,25 @@ describe('la base exige que el ítem tenga sentido con su tipo', () => {
   });
 });
 
-describe('un monto de presupuesto nunca reescribe el pasado, ni siquiera a mano', () => {
-  it('rechaza crear un ítem con el monto efectivo en un mes ya pasado', async () => {
-    const comida = await crearCategoria('Comida');
-
-    await expect(
-      repositorio.crear(usuarioId, {
-        kind: 'category',
-        currency: 'COP',
-        categoryId: comida.id,
-        accountId: null,
-        label: null,
-        amount: '100000',
-        mesEfectivoDesde: MES_ANTERIOR,
-      }),
-    ).rejects.toThrow();
-  });
-
-  it('rechaza agregar un objetivo con el monto efectivo en un mes ya pasado', async () => {
+/**
+ * Con la migración 0008 ya se PUEDE insertar un monto con `effective_from` en
+ * un mes pasado (fijar el mercado de enero, aunque sea octubre) — la primera
+ * versión de este archivo probaba lo contrario, cuando un disparador de 0006
+ * lo bloqueaba. Lo que sigue firme, y garantizado por la base y no por la
+ * app, es que un monto NUNCA se pisa: solo se agrega, nunca se edita ni se
+ * borra.
+ */
+describe('un monto de presupuesto nunca se pisa, ni siquiera a mano', () => {
+  it('un monto pasado se inserta hoy, sin que eso edite nada ya guardado', async () => {
     const comida = await crearCategoria('Comida');
     const itemId = await itemDeCategoria(comida.id, '350000');
 
-    await expect(
-      repositorio.agregarObjetivo(usuarioId, itemId, '400000', MES_ANTERIOR),
-    ).rejects.toThrow();
+    await repositorio.fijarObjetivoDelMes(usuarioId, itemId, MES_ANTERIOR, '200000');
+
+    // El monto viejo del mes actual sigue intacto: insertar filas nuevas no
+    // reescribe las ya guardadas.
+    const [item] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
+    expect(item!.target).toBe('350000.0000');
   });
 
   it('rechaza modificar o borrar un monto ya guardado, incluso con SQL directo', async () => {

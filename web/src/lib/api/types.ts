@@ -209,6 +209,9 @@ export interface CambiosDePerfil {
 /** Las dos clases de ítem del checklist: un tope de gasto o un aporte a ahorro. */
 export type TipoItemPresupuesto = "category" | "savings";
 
+/** El tipo de categoría detrás de un ítem de categoría del checklist. */
+export type TipoCategoriaItem = "expense" | "income";
+
 /** Un ítem ya guardado, tal como se muestra en la pantalla de gestión. */
 export interface ItemPresupuesto {
   id: string;
@@ -216,6 +219,8 @@ export interface ItemPresupuesto {
   currency: string;
   categoryId: string | null;
   categoryName: string | null;
+  /** 'income' = se espera recibir; 'expense' = se espera gastar; nulo en ahorro. */
+  categoryKind: TipoCategoriaItem | null;
   accountId: string | null;
   accountName: string | null;
   label: string | null;
@@ -235,11 +240,16 @@ export interface NuevoItemDeCategoria {
   /** Texto exacto, nunca number. */
   amount: string;
   label?: string;
+  /**
+   * El mes del primer monto ("YYYY-MM"). Opcional: si no llega, es el actual.
+   * Sirve para empezar el presupuesto contando un mes que ya pasó.
+   */
+  month?: string;
 }
 
 /**
- * Un ítem de ahorro: cuánto se espera aportarle este mes a una cuenta ya
- * marcada como de ahorro. La moneda no se pide: es la de la cuenta.
+ * Un ítem de ahorro: cuánto se espera aportarle a una cuenta ya marcada como
+ * de ahorro. La moneda no se pide: es la de la cuenta.
  */
 export interface NuevoItemDeAhorro {
   kind: "savings";
@@ -247,6 +257,8 @@ export interface NuevoItemDeAhorro {
   /** Texto exacto, nunca number. */
   amount: string;
   label?: string;
+  /** Igual que en el ítem de categoría: el mes del primer monto. */
+  month?: string;
 }
 
 /** Un ítem nuevo, discriminado por `kind` igual que en el backend. */
@@ -259,6 +271,8 @@ export interface ItemDelChecklist {
   currency: string;
   /** El nombre a mostrar, ya resuelto: nunca queda vacío. */
   label: string;
+  /** 'income' = se espera recibir; 'expense' = tope de gasto; nulo en ahorro. */
+  categoryKind: TipoCategoriaItem | null;
   /** Nulo si el ítem se creó después de ese mes: no aplica todavía. */
   target: string | null;
   /** Texto exacto, nunca number. */

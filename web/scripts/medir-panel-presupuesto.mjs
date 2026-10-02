@@ -41,7 +41,7 @@ const postcss = require("postcss");
 const tailwindcss = require("@tailwindcss/postcss");
 
 const CLASES_REGION =
-  "flex max-h-[70vh] flex-col overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85";
+  "flex flex-col overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85";
 const CLASES_HEADER =
   "flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-medium text-muted-foreground hover:bg-accent/50";
 
@@ -74,8 +74,8 @@ function grupo(titulo, conMargenNegativo) {
   </section>`;
 }
 
-function panel(conMargenNegativo) {
-  return `<div data-region role="region" aria-label="Ítems del presupuesto" tabindex="0" class="${CLASES_REGION}">
+function panel(conMargenNegativo, conTope = true) {
+  return `<div data-region role="region" aria-label="Ítems del presupuesto" tabindex="0" class="${CLASES_REGION}${conTope ? " max-h-[70vh]" : ""}">
     ${grupo("Comida", conMargenNegativo)}
     ${grupo("Transporte", conMargenNegativo)}
     ${grupo("Ocio", conMargenNegativo)}
@@ -83,9 +83,9 @@ function panel(conMargenNegativo) {
 }
 
 /** Un caso = viewport + contenedor real (cajón móvil / columna del Resumen). */
-function caso(id, variante, envoltorio, ancho) {
-  return `<div data-caso="${id}" data-variante="${variante}" data-ancho="${ancho}">${envoltorio(
-    panel(variante === "antes")
+function caso(id, variante, motivo, envoltorio, ancho) {
+  return `<div data-caso="${id}" data-variante="${variante}" data-motivo="${motivo}" data-ancho="${ancho}">${envoltorio(
+    panel(variante === "antes", !id.startsWith("cajon") || variante === "antes")
   )}</div>`;
 }
 
@@ -97,26 +97,48 @@ const HTML = `<!doctype html>
 ${caso(
   "movil-antes",
   "antes",
+  "overflow",
   (p) => `<div class="w-full overflow-y-auto px-4 pb-4">${p}</div>`,
   320
 )}
 ${caso(
   "movil-despues",
   "despues",
+  "overflow",
   (p) => `<div class="w-full overflow-y-auto px-4 pb-4">${p}</div>`,
   320
 )}
 ${caso(
   "escritorio-antes",
   "antes",
+  "overflow",
   (p) => `<aside class="w-80"><div class="rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10">${p}</div></aside>`,
   1280
 )}
 ${caso(
   "escritorio-despues",
   "despues",
+  "overflow",
   (p) => `<aside class="w-80"><div class="rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10">${p}</div></aside>`,
   1280
+)}
+${caso(
+  "cajon-antes",
+  "antes",
+  "cajon",
+  // El cajón real: popup en columna, cabeza fija, un Content que recorta y el
+  // cuerpo `overflow-y-auto` tal cual está en page.tsx (sin `flex-1`). Debajo de
+  // la región va lo que queda fuera de ella (Agregar/archivados): eso es lo que
+  // hace que el contenedor también scrollee además de la región.
+  (p) => `<div class="flex h-[480px] flex-col"><div class="h-20 shrink-0"></div><div class="flex min-h-0 flex-1 flex-col overflow-hidden"><div class="overflow-y-auto px-4 pb-4">${p}<div class="mt-3 h-[120px] rounded-lg border border-border"></div></div></div></div>`,
+  320
+)}
+${caso(
+  "cajon-despues",
+  "despues",
+  "cajon",
+  (p) => `<div class="flex h-[480px] flex-col"><div class="h-20 shrink-0"></div><div class="flex min-h-0 flex-1 flex-col overflow-hidden"><div class="overflow-y-auto px-4 pb-4">${p}<div class="mt-3 h-[120px] rounded-lg border border-border"></div></div></div></div>`,
+  320
 )}
 </body></html>`;
 
@@ -220,12 +242,19 @@ const MEDICION = `(() => [...document.querySelectorAll("[data-caso]")].map((caso
   const titulo = caso.querySelector("[data-titulo]");
   const filaTexto = caso.querySelector("[data-fila-texto]");
   const filaLi = caso.querySelector("[data-fila]");
+  // Cuántos contenedores dentro del caso tienen scroll vertical propio: con
+  // dos o más hay scroll anidado.
+  const scrollables = [caso, ...caso.querySelectorAll("*")].filter(
+    (el) => el.scrollHeight - el.clientHeight > 1
+  ).length;
   return {
     id: caso.dataset.caso,
     variante: caso.dataset.variante,
+    motivo: caso.dataset.motivo,
     ancho: Number(caso.dataset.ancho),
     desbordeX: region.scrollWidth - region.clientWidth,
     desbordeY: region.scrollHeight - region.clientHeight,
+    scrollables,
     headerAlto: header.offsetHeight,
     // Cuánto se corre la caja del renglón respecto de la del encabezado: es lo
     // que el margen negativo descuadraba (el texto se movía 8px a la izquierda).
@@ -239,8 +268,8 @@ const MEDICION = `(() => [...document.querySelectorAll("[data-caso]")].map((caso
 let fallos = 0;
 
 const ANCHOS = [
-  { ancho: 320, ids: ["movil-antes", "movil-despues"], etiqueta: "320px (cajón móvil)" },
-  { ancho: 1280, ids: ["escritorio-antes", "escritorio-despues"], etiqueta: "1280px (columna del Resumen)" },
+  { ancho: 320, etiqueta: "320px (cajón móvil)" },
+  { ancho: 1280, etiqueta: "1280px (columna del Resumen)" },
 ];
 
 function revisar(mediciones) {
@@ -249,14 +278,19 @@ function revisar(mediciones) {
     for (const m of mediciones.filter((x) => x.ancho === ancho.ancho)) {
       const resumen =
         `desborde-x ${m.desbordeX}px; caja del renglón vs encabezado ${m.desalineacion}px; ` +
-        `sangría del título ${m.sangriaTitulo}px; alto de encabezado ${m.headerAlto}px; desborde-y ${m.desbordeY}px`;
+        `sangría del título ${m.sangriaTitulo}px; alto de encabezado ${m.headerAlto}px; ` +
+        `scroll ${m.scrollables}; desborde-y ${m.desbordeY}px`;
       if (m.variante === "antes") {
         console.log(`  · antes:   ${resumen}`);
         // Si el defecto deja de reproducirse, la comparación no prueba nada:
         // el espejo habría dejado de ser fiel.
-        if (m.desbordeX <= 0) {
+        if (m.motivo === "overflow" && m.desbordeX <= 0) {
           fallos += 1;
-          console.log("    ✗ el defecto ya no se reproduce: el espejo dejó de ser fiel");
+          console.log("    ✗ el desborde horizontal ya no se reproduce");
+        }
+        if (m.motivo === "cajon" && m.scrollables < 2) {
+          fallos += 1;
+          console.log("    ✗ el scroll anidado ya no se reproduce");
         }
         continue;
       }
@@ -265,6 +299,8 @@ function revisar(mediciones) {
       if (Math.abs(m.desalineacion) > 0.5)
         problemas.push(`renglón descuadrado con el encabezado (${m.desalineacion}px)`);
       if (m.headerAlto < 44) problemas.push(`encabezado de ${m.headerAlto}px (piso 44px)`);
+      if (m.motivo === "cajon" && m.scrollables !== 1)
+        problemas.push(`scroll anidado: ${m.scrollables} contenedores scrollean`);
       if (problemas.length > 0) {
         fallos += 1;
         console.log(`  ✗ después: ${resumen} → ${problemas.join("; ")}`);

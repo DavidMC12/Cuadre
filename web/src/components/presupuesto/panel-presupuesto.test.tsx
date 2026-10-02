@@ -3,9 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 
 import { PanelPresupuesto } from "./panel-presupuesto";
+import { FormularioItemPresupuesto } from "@/components/presupuesto/formulario-item-presupuesto";
 import * as useCategoriasModule from "@/hooks/use-categorias";
 import * as usePresupuestoModule from "@/hooks/use-presupuesto";
-import type { ItemDelChecklist, ItemPresupuesto } from "@/lib/api/types";
+import type { Categoria, ItemDelChecklist, ItemPresupuesto } from "@/lib/api/types";
+import { mapaColoresCategoriasDelCatalogo } from "@/lib/chart-colors";
 
 vi.mock("@/hooks/use-presupuesto", () => ({
   useChecklistDelMes: vi.fn(),
@@ -26,7 +28,7 @@ vi.mock("next-themes", () => ({
 }));
 
 vi.mock("@/components/presupuesto/formulario-item-presupuesto", () => ({
-  FormularioItemPresupuesto: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+  FormularioItemPresupuesto: vi.fn(({ children }: { children?: React.ReactNode }) => <>{children}</>),
 }));
 
 const renglon: ItemDelChecklist = {
@@ -34,6 +36,7 @@ const renglon: ItemDelChecklist = {
   label: "Mercado",
   kind: "category",
   currency: "COP",
+  categoryKind: "expense",
   target: "30000",
   progress: "20500",
   checked: false,
@@ -72,7 +75,10 @@ function ajustarConsultas(
   );
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.mocked(FormularioItemPresupuesto).mockClear();
+});
 
 describe("PanelPresupuesto: una variante por contenedor", () => {
   it("la variante tarjeta trae su Card con título y el botón Agregar", () => {
@@ -176,6 +182,7 @@ function itemPresupuesto(over: Partial<ItemPresupuesto> & { id: string }): ItemP
     currency: "COP",
     categoryId: null,
     categoryName: null,
+    categoryKind: null,
     accountId: null,
     accountName: null,
     label: null,
@@ -191,6 +198,7 @@ function renglonDe(item: ItemPresupuesto): ItemDelChecklist {
     kind: item.kind,
     currency: item.currency,
     label: item.label ?? item.categoryName ?? item.accountName ?? "Ítem",
+    categoryKind: item.categoryKind,
     target: "100",
     progress: "50",
     checked: false,
@@ -200,7 +208,7 @@ function renglonDe(item: ItemPresupuesto): ItemDelChecklist {
 
 /** Catálogo con una categoría de ingreso a propósito: debe quedar fuera del
  * mapa de colores de gasto, igual que en la gráfica "Por categoría". */
-const CATALOGO = [
+const CATALOGO: Categoria[] = [
   { id: "cat-comida", name: "Comida", kind: "expense", archivedAt: null },
   { id: "cat-transporte", name: "Transporte", kind: "expense", archivedAt: null },
   { id: "cat-ocio", name: "Ocio", kind: "expense", archivedAt: null },
@@ -213,6 +221,7 @@ function deCategoria(id: string, categoria: "comida" | "transporte" | "ocio", la
     id,
     categoryId: `cat-${categoria}`,
     categoryName: nombres[categoria],
+    categoryKind: "expense",
     label,
   });
 }
@@ -227,6 +236,16 @@ function deAhorro(id: string, label: string) {
   });
 }
 
+function deIngreso(id: string, label: string) {
+  return itemPresupuesto({
+    id,
+    categoryId: "cat-sueldo",
+    categoryName: "Sueldo",
+    categoryKind: "income",
+    label,
+  });
+}
+
 function encabezados() {
   return screen.getAllByRole("button", { expanded: true }).map((h) => h.getAttribute("aria-label"));
 }
@@ -234,6 +253,12 @@ function encabezados() {
 /** La misma etiqueta accesible que arma el panel: incluye el conteo. */
 function etiquetaGrupo(titulo: string, cantidad: number) {
   return `${titulo}, ${cantidad} ${cantidad === 1 ? "ítem" : "ítems"}`;
+}
+
+/** "#2a78d6" -> "rgb(42, 120, 214)", como lo reporta el estilo en jsdom. */
+function colorCss(hex: string) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
 }
 
 describe("PanelPresupuesto: agrupado por categoría", () => {
@@ -497,5 +522,229 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     const fila = screen.getByText("Mercado").closest("li")!;
     expect(fila.className).toContain("rounded-lg");
     expect(fila.className).not.toContain("-mx-2");
+  });
+
+  it("sin tope propio (dentro del cajón que ya scrollea) la región no se acota", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(
+      <PanelPresupuesto mes="2026-09" moneda="COP" variante="suelta" topePropio={false} />
+    );
+
+    const region = screen.getByRole("region", { name: "Ítems del presupuesto" });
+    // Sin tope propio: el scroll lo hace el cajón que lo envuelve, no el panel.
+    expect(region.classList.contains("max-h-[70vh]")).toBe(false);
+    expect(region.classList.contains("overflow-y-auto")).toBe(true);
+  });
+
+  it("el botón de un renglón editable muestra anillo de foco, no queda ciego", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const boton = screen.getByText("Mercado").closest("button")!;
+    expect(boton.className).toContain("focus-visible:ring-3");
+    expect(boton.className).toContain("focus-visible:ring-ring/85");
+  });
+});
+
+// -------------------------------------------------------------------------
+// Dos secciones: Ingresos y Gastos
+// -------------------------------------------------------------------------
+
+describe("PanelPresupuesto: ingresos y gastos en secciones", () => {
+  it("separa los renglones en 'Ingresos' y 'Gastos', cada uno con su agrupación", () => {
+    const items = [
+      deIngreso("i1", "Salario"),
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("c2", "comida", "Restaurantes"),
+    ];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // Las dos secciones, con nombre (h3) — no solo el encabezado del grupo.
+    expect(screen.getByRole("heading", { name: "Ingresos" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Gastos" })).toBeInTheDocument();
+    // Cada grupo vive en su sección.
+    const seccionIng = screen.getByRole("heading", { name: "Ingresos" }).closest("section")!;
+    const seccionGas = screen.getByRole("heading", { name: "Gastos" }).closest("section")!;
+    expect(within(seccionIng).getByRole("button", { name: etiquetaGrupo("Sueldo", 1) })).toBeInTheDocument();
+    expect(within(seccionGas).getByRole("button", { name: etiquetaGrupo("Comida", 2) })).toBeInTheDocument();
+  });
+
+  it("el ahorro cierra 'Gastos' y no abre una sección aparte", () => {
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deAhorro("a1", "Viaje"),
+    ];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.queryByRole("heading", { name: "Ahorro" })).not.toBeInTheDocument();
+    const seccionGas = screen.getByRole("heading", { name: "Gastos" }).closest("section")!;
+    // El ahorro vive en Gastos —apartar no es recibir— y cierra la sección.
+    const gruposDeGastos = within(seccionGas)
+      .getAllByRole("button", { expanded: true })
+      .map((b) => b.getAttribute("aria-label"));
+    expect(gruposDeGastos.at(-1)).toBe(etiquetaGrupo("Ahorro", 1));
+    expect(gruposDeGastos).toContain(etiquetaGrupo("Comida", 1));
+    // El ahorro no arrastra una sección "Ingresos".
+    expect(screen.queryByRole("heading", { name: "Ingresos" })).not.toBeInTheDocument();
+  });
+
+  it("un ingreso en logro se pinta como éxito, nunca como alerta roja", () => {
+    const items = [deIngreso("i1", "Salario")];
+    const checklist = [{ ...renglonDe(items[0]), progress: "1500", target: "1000", checked: true, exceeded: false }];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // Logro verde con su texto accesible...
+    expect(screen.getByText("Meta alcanzada")).toBeInTheDocument();
+    // ...y ningún aviso de exceso.
+    expect(screen.queryByText("Tope excedido")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Te pasaste por/)).not.toBeInTheDocument();
+  });
+
+  it("aunque el estado de un ingreso llegara con 'exceeded', el panel no lo pinta como alerta", () => {
+    // El servicio nunca marca 'exceeded' en un ingreso, pero el panel respeta
+    // el estado que recibe sin inventarlo por su cuenta: un renglón de ingreso
+    // jamás se tiñe de rojo por "pasarse", ni con 'exceeded' en true.
+    const items = [deIngreso("i1", "Salario")];
+    const checklist = [{ ...renglonDe(items[0]), progress: "1500", target: "1000", checked: false, exceeded: true }];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.queryByText("Tope excedido")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Te pasaste por/)).not.toBeInTheDocument();
+  });
+
+  it("el mismo exceso en un tope de gasto sí avisa en rojo", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    const checklist = [{ ...renglonDe(items[0]), progress: "1500", target: "1000", checked: false, exceeded: true }];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.getByText("Tope excedido")).toBeInTheDocument();
+    expect(screen.getByText(/Te pasaste por/)).toBeInTheDocument();
+  });
+
+  it("la etiqueta del progreso dice 'recibido' en ingresos y 'gastado' en gastos", () => {
+    const items = [deIngreso("i1", "Salario"), deCategoria("c1", "comida", "Mercado")];
+    const checklist = [
+      { ...renglonDe(items[0]), progress: "800", target: "1000" },
+      { ...renglonDe(items[1]), progress: "200", target: "1000" },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.getByRole("progressbar", { name: /Salario:.*recibido de/ })).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: /Mercado:.*gastado de/ })).toBeInTheDocument();
+  });
+
+  it("cada sección toma su color del mapa de su tipo: ingreso con la paleta de ingresos", () => {
+    const items = [deIngreso("i1", "Salario"), deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // El mapa de ingresos del catálogo da el primer tono a la primera categoría
+    // de ingreso; la de gasto, el suyo.
+    const ingreso = mapaColoresCategoriasDelCatalogo(CATALOGO, "income", "claro").get("cat-sueldo");
+    const gasto = mapaColoresCategoriasDelCatalogo(CATALOGO, "expense", "claro").get("cat-comida");
+    const punto = (titulo: string) =>
+      screen
+        .getByRole("button", { name: etiquetaGrupo(titulo, 1) })
+        .querySelector('span[aria-hidden="true"]') as HTMLElement;
+    expect(punto("Sueldo").style.backgroundColor).not.toBe("");
+    expect(punto("Sueldo").style.backgroundColor).toBe(colorCss(ingreso!));
+    expect(punto("Comida").style.backgroundColor).toBe(colorCss(gasto!));
+  });
+
+  it("sin renglones de ingreso no aparece la sección 'Ingresos'", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.queryByRole("heading", { name: "Ingresos" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Gastos" })).toBeInTheDocument();
+  });
+});
+
+// -------------------------------------------------------------------------
+// Monto propio por mes
+// -------------------------------------------------------------------------
+
+describe("PanelPresupuesto: el monto del mes visto", () => {
+  it("pasa el mes visto y el monto de ese mes al formulario de cada renglón", () => {
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("c2", "comida", "Restaurantes"),
+    ];
+    const checklist = [
+      { ...renglonDe(items[0]), target: "1200" },
+      { ...renglonDe(items[1]), target: null },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-01" moneda="COP" />);
+
+    const llamadas = vi.mocked(FormularioItemPresupuesto).mock.calls.map(([props]) => props);
+    const deRenglones = llamadas.filter((props) => props.item);
+    expect(deRenglones.map((props) => props.mes)).toEqual(["2026-01", "2026-01"]);
+    expect(deRenglones.map((props) => props.montoDelMes)).toEqual(["1200", null]);
+
+    // El botón Agregar también nace en el mes visto.
+    const agregar = llamadas.find((props) => !props.item);
+    expect(agregar?.mes).toBe("2026-01");
+  });
+
+  it("un renglón sin monto en el mes visto lo dice y ofrece 'Poner monto' de 44px", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    const checklist = [{ ...renglonDe(items[0]), target: null }];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-01" moneda="COP" />);
+
+    expect(screen.getByText("Sin monto en Enero de 2026")).toBeInTheDocument();
+    expect(screen.getByText("Poner monto").classList.contains("min-h-11")).toBe(true);
+
+    // Abre el formulario en edición para ESE mes, con monto nulo.
+    const llamada = vi
+      .mocked(FormularioItemPresupuesto)
+      .mock.calls.map(([props]) => props)
+      .find((props) => props.item);
+    expect(llamada?.mes).toBe("2026-01");
+    expect(llamada?.montoDelMes).toBeNull();
+  });
+
+  it("un renglón con monto muestra su progreso y no ofrece 'Poner monto'", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    const checklist = [{ ...renglonDe(items[0]), target: "30000", progress: "20500" }];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-01" moneda="COP" />);
+
+    expect(screen.queryByText("Poner monto")).not.toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+  });
+
+  it("un renglón sin detalle (no editable) y sin monto no ofrece 'Poner monto'", () => {
+    // Sin metadatos de ítems el renglón es de solo lectura: no hay formulario
+    // que abrir, así que no se ofrece el control.
+    ajustarConsultas({ data: { items: [{ ...renglon, target: null }] } });
+
+    render(<PanelPresupuesto mes="2026-01" moneda="COP" />);
+
+    expect(screen.getByText("Sin monto en Enero de 2026")).toBeInTheDocument();
+    expect(screen.queryByText("Poner monto")).not.toBeInTheDocument();
   });
 });
