@@ -104,6 +104,8 @@ export function FormularioItemPresupuesto({
 
   const [abierto, setAbierto] = useState(false);
   const [tipo, setTipo] = useState<"category" | "savings">(item ? item.kind : "category");
+  const [categoriaId, setCategoriaId] = useState<string | undefined>(item?.categoryId ?? undefined);
+  const [cuentaId, setCuentaId] = useState<string | undefined>(item?.accountId ?? undefined);
 
   const seleccionada = cuentasDeAhorro.find((cuenta) => cuenta.id === cuentaId) ?? null;
 
@@ -111,8 +113,6 @@ export function FormularioItemPresupuesto({
   // o la del checklist para un ítem de categoría.
   const monedaDelMonto = seleccionada?.currency ?? moneda;
 
-  const [categoriaId, setCategoriaId] = useState<string | undefined>(item?.categoryId ?? undefined);
-  const [cuentaId, setCuentaId] = useState<string | undefined>(item?.accountId ?? undefined);
   const [monto, setMonto] = useState(() =>
     montoDeReferencia ? textoEditable(montoDeReferencia, monedaDelMonto) : ""
   );
