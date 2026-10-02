@@ -1,4 +1,5 @@
 import { esCero } from "@/lib/money";
+import type { Categoria, TipoCategoria } from "@/lib/api/types";
 
 /**
  * Colores para las gráficas del dashboard.
@@ -86,4 +87,27 @@ export function mapaColoresCategorias(
     mapa.set(categoria.id, indice < paleta.length ? paleta[indice] : COLOR_NEUTRO[modo]);
   });
   return mapa;
+}
+
+/**
+ * El mapa `categoryId -> color` que ya usan las gráficas, armado desde el
+ * catálogo completo. Filtra por tipo, ordena por nombre y reparte la paleta:
+ * una categoría conserva su color de un mes a otro porque el catálogo entero
+ * (archivadas incluidas) manda, no el reporte del mes.
+ *
+ * Vive aquí, compartida por la gráfica "Por categoría" y la leyenda del panel
+ * de presupuesto, para que no puedan divergir. No cambia los colores que las
+ * gráficas ya venían mostrando: es exactamente el mismo filtro, orden y
+ * reparto que cada una hacía por su cuenta.
+ */
+export function mapaColoresCategoriasDelCatalogo(
+  catalogo: readonly Categoria[],
+  kind: TipoCategoria,
+  modo: ModoColor = "claro"
+): Map<string, string> {
+  const delTipo = catalogo
+    .filter((categoria) => categoria.kind === kind)
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return mapaColoresCategorias(delTipo, modo);
 }

@@ -106,6 +106,27 @@ describe("GraficaPorCategoria: un fallo de red no es 'sin gastos este mes'", () 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("el color de la barra sale del helper compartido: la paleta de gasto por nombre", () => {
+    ajustarConsultas(
+      { data: [{ categoryId: "c-1", categoryName: "Mercado", total: "20500" }] },
+      [{ id: "c-1", name: "Mercado", kind: "expense", archivedAt: null }]
+    );
+
+    render(
+      <GraficaPorCategoria
+        mes="2026-09"
+        moneda="COP"
+        tipo="expense"
+        onCambiarTipo={vi.fn()}
+      />
+    );
+
+    // Primera (y única) categoría de gasto del catálogo: primer tono de la
+    // paleta. Si el helper compartido cambiara el reparto, esto se cae.
+    const barra = screen.getByText("Mercado").closest("a")!.querySelector("div[style]") as HTMLElement;
+    expect(barra.style.backgroundColor).toBe("rgb(42, 120, 214)");
+  });
+
   it("el repliegue 'Otras categorías' suma exacto, sin perder centavos en flotante", () => {
     const montosRepliegue = ["1099946.7554", "2358772.6602", "3294162.5450", "5142164.8111"];
     // Once categorías: las 7 primeras quedan visibles y las 4 últimas caen

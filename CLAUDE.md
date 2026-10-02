@@ -183,6 +183,27 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   headless por CDP) a 320px con letra del sistema del 100% al 200%. Con
   esto quedan resueltos todos los P0/P1/P2/P3 de la sexta ronda.
 
+- **Presupuesto por mes, con ingresos** (2026-10-01): la lista del
+  presupuesto ya no crece sin fin (scroll interno) y se agrupa por categoría
+  con el color de cada una, de la que más ítems tiene a la que menos. Cada
+  ítem lleva su propio monto por mes, editable también en meses pasados
+  ("Poner monto" cuando un mes no tiene), y el presupuesto admite categorías
+  de ingreso (salario, variables) en secciones Ingresos y Gastos: recibir de
+  más nunca se pinta como "te pasaste". Migraciones `0008` (quita el
+  disparador que bloqueaba montos en meses pasados) y `0009` (el check de
+  `budget_items` admite `category_kind = 'income'`): **no corren solas en
+  producción**, se aplican a mano con `npm run db:migrate`; el código nuevo
+  convive con la base sin migrar (solo falla fijar un mes pasado y crear
+  ítems de ingreso). Fijar un monto sigue siendo solo-`INSERT`: el mes
+  siguiente solo se ancla si ya empezó, así subir el tope de hoy rige hacia
+  adelante. Deuda anotada: fijar un mes anterior a la creación del ítem hace
+  que el siguiente herede; el formulario pierde lo tecleado si el monto
+  guarda y la etiqueta falla; el año `0000` se valida en el service y no en
+  `MesSchema`; no hay dedupe contra el monto heredado; `Idempotency-Key` no
+  existe en el proyecto; `formulario-item-presupuesto.tsx` quedó con comillas
+  simples; sin el disparador, la base ya no frena un monto con fecha pasada
+  (posible reemplazo: check de rango).
+
 Pendiente, sin fecha: otra ronda de `impeccable critique` más adelante
 para medir el puntaje tras estos arreglos.
 

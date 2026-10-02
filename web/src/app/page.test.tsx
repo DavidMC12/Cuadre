@@ -7,6 +7,7 @@ import * as reportes from "@/hooks/use-reportes";
 import * as ordenCuentas from "@/hooks/use-cuentas";
 import { GraficaTendencia } from "@/components/dashboard/grafica-tendencia";
 import { GraficaPorCategoria } from "@/components/dashboard/grafica-por-categoria";
+import { PanelPresupuesto } from "@/components/presupuesto/panel-presupuesto";
 import { ApiError } from "@/lib/api/client";
 import type { Cuenta, ResumenMes } from "@/lib/api/types";
 
@@ -40,7 +41,7 @@ vi.mock("@/components/dashboard/grafica-por-categoria", () => ({
 vi.mock("@/components/dashboard/grafica-tendencia", () => ({ GraficaTendencia: vi.fn(() => null) }));
 vi.mock("@/components/dashboard/grafica-ahorro", () => ({ GraficaAhorro: () => null }));
 vi.mock("@/components/presupuesto/panel-presupuesto", () => ({
-  PanelPresupuesto: () => null,
+  PanelPresupuesto: vi.fn(() => null),
 }));
 
 interface Stub {
@@ -273,5 +274,21 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
         .getByText("No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido.")
         .closest('[role="group"]')
     ).not.toBeNull();
+  });
+
+  it("el cajón móvil monta el panel sin tope propio (el cajón ya scrollea)", () => {
+    render(<PaginaResumen />);
+
+    // El cajón nace cerrado; al abrirlo se monta el panel con su prop.
+    fireEvent.click(screen.getByRole("button", { name: /Presupuesto/ }));
+
+    const props = vi.mocked(PanelPresupuesto).mock.calls.at(-1)?.[0] as unknown as {
+      variante?: string;
+      topePropio?: boolean;
+    };
+    // Suelto (el cajón ya trae encabezado) y sin tope propio: si alguien borra
+    // esta prop, el doble scroll vuelve sin que ninguna otra prueba se caiga.
+    expect(props.variante).toBe("suelta");
+    expect(props.topePropio).toBe(false);
   });
 });

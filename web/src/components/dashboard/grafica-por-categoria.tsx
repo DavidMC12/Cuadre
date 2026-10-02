@@ -10,7 +10,7 @@ import { useCategorias } from "@/hooks/use-categorias";
 import { usePorCategoria } from "@/hooks/use-reportes";
 import type { TipoCategoria } from "@/lib/api/types";
 import { textoMonto, sumarMontos } from "@/lib/money";
-import { mapaColoresCategorias, COLOR_NEUTRO, modoDeTema } from "@/lib/chart-colors";
+import { mapaColoresCategoriasDelCatalogo, COLOR_NEUTRO, modoDeTema } from "@/lib/chart-colors";
 import { SIN_CATEGORIA } from "@/lib/labels";
 
 const CAPACIDAD = 7;
@@ -69,11 +69,7 @@ export function GraficaPorCategoria({
     kind: tipo,
   });
 
-  const catalogoDelTipo = (catalogoCompleto ?? [])
-    .filter((categoria) => categoria.kind === tipo)
-    .slice()
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const colorPorCategoria = mapaColoresCategorias(catalogoDelTipo, modo);
+  const colorPorCategoria = mapaColoresCategoriasDelCatalogo(catalogoCompleto ?? [], tipo, modo);
 
   const filas = porCategoria ?? [];
   // "Sin categoría" nunca se repliega dentro de "Otros": son cosas distintas
