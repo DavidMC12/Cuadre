@@ -87,9 +87,8 @@ export function FormularioItemPresupuesto({
   const { data: categorias } = useCategorias();
   const { data: cuentas } = useCuentas();
 
-  // El mes del formulario: el que la pantalla está viendo, o el actual si
-  // nadie lo dijo (el panel actual todavía no lo pasa; el servidor hace lo
-  // mismo por defecto).
+  // El mes del formulario: el que la pantalla está viendo. Si nadie lo pasa
+  // (el panel ya lo pasa), cae al actual, igual que el servidor por defecto.
   const mesVisto = mes ?? mesActual();
 
   // El monto que importa: el del mes visto cuando se dijo, o el de hoy. Del
@@ -294,10 +293,10 @@ export function FormularioItemPresupuesto({
             <DrawerTitle>{item ? 'Editar ítem' : 'Agregar al presupuesto'}</DrawerTitle>
             <DrawerDescription>
               {item
-                ? `Este monto aplica solo a ${nombreDelMes(mesVisto)}. Cada mes lleva el suyo.`
-                : tipo === 'savings'
-                  ? `Cuánto esperas aportar a una cuenta de ahorro en ${nombreDelMes(mesVisto)}.`
-                  : `Cuánto esperas ${verboDelMonto} en una categoría, en ${nombreDelMes(mesVisto)}.`}
+                ? `Este es el monto de ${nombreDelMes(mesVisto)}. Los meses que ya pasaron no cambian; los que aún no llegan lo heredan hasta que les pongas el suyo.`
+                : `El ítem rige desde ${nombreDelMes(mesVisto)}. Cuánto esperas ${
+                    tipo === 'savings' ? 'aportar a la cuenta' : `${verboDelMonto} en la categoría`
+                  }.`}
             </DrawerDescription>
           </DrawerHeader>
 

@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 
 import { FormularioItemPresupuesto } from './formulario-item-presupuesto';
+import { mesActual, nombreDelMes } from '@/lib/fecha';
 
 vi.mock('@/hooks/use-presupuesto', () => ({
   useCrearItemPresupuesto: vi.fn(() => ({ isPending: false, mutateAsync: vi.fn() })),
@@ -140,7 +141,11 @@ describe('FormularioItemPresupuesto', () => {
       </FormularioItemPresupuesto>,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
-    expect(screen.getByText('Cuánto esperas gastar.')).toBeTruthy();
+    expect(
+      screen.getByText(
+        `Este es el monto de ${nombreDelMes(mesActual())}. Los meses que ya pasaron no cambian; los que aún no llegan lo heredan hasta que les pongas el suyo.`
+      )
+    ).toBeTruthy();
     cleanup();
 
     // Otro render limpio con un ítem de ingresos: el mismo formulario dice
@@ -161,7 +166,11 @@ describe('FormularioItemPresupuesto', () => {
       </FormularioItemPresupuesto>,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
-    expect(screen.getByText('Cuánto esperas recibir.')).toBeTruthy();
+    expect(
+      screen.getByText(
+        `Este es el monto de ${nombreDelMes(mesActual())}. Los meses que ya pasaron no cambian; los que aún no llegan lo heredan hasta que les pongas el suyo.`
+      )
+    ).toBeTruthy();
 
     // Y si la categoría de ingreso ya quedó archivada (así que ya no sale en
     // la lista del selector), el tipo copiado del ítem manda: también dice
@@ -183,7 +192,9 @@ describe('FormularioItemPresupuesto', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Editar archivado' }));
     expect(
-      screen.getAllByText((_, el) => el?.textContent === 'Cuánto esperas recibir.').length
+      screen.getAllByText((_, el) =>
+        Boolean(el?.textContent?.startsWith(`Este es el monto de ${nombreDelMes(mesActual())}.`))
+      ).length
     ).toBeGreaterThan(0);
   });
 });
