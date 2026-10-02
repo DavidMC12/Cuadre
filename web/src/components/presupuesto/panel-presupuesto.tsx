@@ -476,7 +476,13 @@ function ContenidoRenglon({
             Sin monto en {nombreDelMes(mes)}
           </p>
           {puedeEditar && (
-            <span className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-border px-3 text-sm font-medium">
+            // El control es el renglón entero (abre el formulario); esto es su
+            // aspecto de botón, no un segundo control. Por eso `aria-hidden`:
+            // que el lector de pantalla no anuncie un botón que no existe.
+            <span
+              aria-hidden
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-border px-3 text-sm font-medium"
+            >
               Poner monto
             </span>
           )}
