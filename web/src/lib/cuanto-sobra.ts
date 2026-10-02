@@ -52,8 +52,8 @@ export function cuantoSobraEnElMes({
   income,
   expense,
 }: RenglonesParaCuantoSobra): CuantoSobra {
-  let ingresosPrevistos: string[] = [];
-  let gastosPrevistos: string[] = [];
+  const ingresosPrevistos: string[] = [];
+  const gastosPrevistos: string[] = [];
 
   for (const renglon of renglones) {
     // El ahorro está fuera del cálculo (decisión del dueño: la meta de un
@@ -62,9 +62,9 @@ export function cuantoSobraEnElMes({
     if (renglon.kind !== "category" || renglon.target === null) continue;
 
     if (renglon.categoryKind === "income") {
-      ingresosPrevistos = [...ingresosPrevistos, renglon.target];
+      ingresosPrevistos.push(renglon.target);
     } else if (renglon.categoryKind === "expense") {
-      gastosPrevistos = [...gastosPrevistos, renglon.target];
+      gastosPrevistos.push(renglon.target);
     }
   }
 

@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { etiquetaMesCorta, nombreDelMes, rangoDelMes } from "./fecha";
+import { etiquetaMesCorta, mesActual, nombreDelMes, rangoDelMes, sumarMeses, tramoDelMes } from "./fecha";
+
+describe("tramoDelMes", () => {
+  it("nombra el mes en curso y los de antes y después", () => {
+    const actual = mesActual();
+    expect(tramoDelMes(actual)).toBe("actual");
+    expect(tramoDelMes(sumarMeses(actual, -1))).toBe("pasado");
+    expect(tramoDelMes(sumarMeses(actual, -13))).toBe("pasado");
+    expect(tramoDelMes(sumarMeses(actual, 1))).toBe("futuro");
+    expect(tramoDelMes(sumarMeses(actual, 13))).toBe("futuro");
+  });
+});
 
 describe("etiquetaMesCorta", () => {
   it("siempre corta a 3 letras, incluido septiembre", () => {

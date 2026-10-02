@@ -56,6 +56,18 @@ export function mesActual(): string {
 }
 
 /**
+ * En qué tramo cae un mes ("YYYY-MM") frente al mes en curso: "actual",
+ * "pasado" o "futuro". Se compara por texto (el formato ordena bien) y el mes
+ * actual sale de `mesActual()`, que usa la hora local de este aparato — nunca
+ * el reloj en UTC, que en Bogotá de noche adelantaría el mes.
+ */
+export function tramoDelMes(mes: string): "pasado" | "actual" | "futuro" {
+  const hoy = mesActual();
+  if (mes === hoy) return "actual";
+  return mes < hoy ? "pasado" : "futuro";
+}
+
+/**
  * "Enero de 2026" para un "YYYY-MM": el nombre humano de un mes, cortado en
  * hora de Bogotá igual que el backend (ver rangoDelMes abajo).
  */
