@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 import {
   Drawer,
@@ -11,36 +11,38 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from "@/components/ui/drawer";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from '@/components/ui/drawer';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { CampoMonto } from "@/components/campo-monto";
+} from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { CampoMonto } from '@/components/campo-monto';
 import {
   useArchivarItemPresupuesto,
   useCrearItemPresupuesto,
   useDesarchivarItemPresupuesto,
   useEditarEtiquetaItem,
   useFijarMontoDelMes,
-} from "@/hooks/use-presupuesto";
-import { useCategorias } from "@/hooks/use-categorias";
-import { useCuentas } from "@/hooks/use-cuentas";
-import { useSoloMirar } from "@/hooks/use-perfil";
-import { ApiError } from "@/lib/api/client";
-import type { ItemPresupuesto } from "@/lib/api/types";
-import { nombreDelMes, mesActual } from "@/lib/fecha";
-import { aUnidadesMinimas, normalizarMontoIngresado, textoEditable } from "@/lib/money";
+} from '@/hooks/use-presupuesto';
+import { useCategorias } from '@/hooks/use-categorias';
+import { useCuentas } from '@/hooks/use-cuentas';
+import { useSoloMirar } from '@/hooks/use-perfil';
+import { ApiError } from '@/lib/api/client';
+import type { ItemPresupuesto } from '@/lib/api/types';
+import { nombreDelMes, mesActual } from '@/lib/fecha';
+import { aUnidadesMinimas, normalizarMontoIngresado, textoEditable } from '@/lib/money';
 
 /** El componente Select no acepta un value vacío; este valor marca "ninguna". */
-const NINGUNO = "__sin_elegir__";
+const NINGUNO = '__sin_elegir__';
 
 /**
  * Crear o editar un ítem del checklist.
@@ -92,18 +94,17 @@ export function FormularioItemPresupuesto({
 
   // El monto que importa: el del mes visto cuando se dijo, o el de hoy. Del
   // que sale el prellenado y la comparación de "¿cambió de verdad?".
-  const montoDeReferencia =
-    montoDelMes === undefined ? item?.currentAmount ?? null : montoDelMes;
+  const montoDeReferencia = montoDelMes === undefined ? (item?.currentAmount ?? null) : montoDelMes;
 
-  const categoriasDeGasto = (categorias ?? []).filter(
-    (categoria) => categoria.kind === "expense" && !categoria.archivedAt
-  );
+  const todasLasCategorias = (categorias ?? []).filter((categoria) => !categoria.archivedAt);
+  const categoriasDeGasto = todasLasCategorias.filter((categoria) => categoria.kind === 'expense');
+  const categoriasDeIngreso = todasLasCategorias.filter((categoria) => categoria.kind === 'income');
   const cuentasDeAhorro = (cuentas ?? []).filter(
-    (cuenta) => cuenta.isSavings && !cuenta.archivedAt
+    (cuenta) => cuenta.isSavings && !cuenta.archivedAt,
   );
 
   const [abierto, setAbierto] = useState(false);
-  const [tipo, setTipo] = useState<"category" | "savings">(item ? item.kind : "category");
+  const [tipo, setTipo] = useState<'category' | 'savings'>(item ? item.kind : 'category');
   const [categoriaId, setCategoriaId] = useState<string | undefined>(item?.categoryId ?? undefined);
   const [cuentaId, setCuentaId] = useState<string | undefined>(item?.accountId ?? undefined);
 
@@ -113,10 +114,24 @@ export function FormularioItemPresupuesto({
   // o la del checklist para un ítem de categoría.
   const monedaDelMonto = seleccionada?.currency ?? moneda;
 
-  const [monto, setMonto] = useState(() =>
-    montoDeReferencia ? textoEditable(montoDeReferencia, monedaDelMonto) : ""
+  // Qué dice el campo de monto: en una categoría de INGRESO se espera
+  // recibir; en una de gasto, gastar; en una cuenta de ahorro, aportar. La
+  // categoría elegida manda, no el tipo del formulario.
+  const categoriaElegida = todasLasCategorias.find(
+    (categoria) =>
+      categoria.id === (categoriaId ?? (item?.kind === 'category' ? item.categoryId : undefined)),
   );
-  const [etiqueta, setEtiqueta] = useState(item?.label ?? "");
+  const textoDelMonto =
+    tipo === 'savings'
+      ? 'esperas aportar'
+      : categoriaElegida?.kind === 'income'
+        ? 'esperas recibir'
+        : 'esperas gastar';
+
+  const [monto, setMonto] = useState(() =>
+    montoDeReferencia ? textoEditable(montoDeReferencia, monedaDelMonto) : '',
+  );
+  const [etiqueta, setEtiqueta] = useState(item?.label ?? '');
   const [errorMonto, setErrorMonto] = useState<string | null>(null);
 
   const crear = useCrearItemPresupuesto();
@@ -132,8 +147,7 @@ export function FormularioItemPresupuesto({
   // cambio (incluido el abrir del cajón), el estado vuelve a nacer de los
   // props. Escribe lo que tengas pendiente no lo toca: las dependencias no
   // incluyen lo tecleado.
-  const claveDelContexto =
-    `${abierto}|${mesVisto}|${montoDeReferencia ?? ""}|${item?.label ?? ""}`;
+  const claveDelContexto = `${abierto}|${mesVisto}|${montoDeReferencia ?? ''}|${item?.label ?? ''}`;
   const claveVista = useRef(claveDelContexto);
   useEffect(() => {
     if (claveVista.current !== claveDelContexto) {
@@ -147,15 +161,15 @@ export function FormularioItemPresupuesto({
 
   function etiquetaNueva(): string | null {
     const limpia = etiqueta.trim();
-    return limpia === "" ? null : limpia;
+    return limpia === '' ? null : limpia;
   }
 
   function reiniciar() {
-    setTipo(item ? item.kind : "category");
+    setTipo(item ? item.kind : 'category');
     setCategoriaId(item?.categoryId ?? undefined);
     setCuentaId(item?.accountId ?? undefined);
-    setMonto(montoDeReferencia ? textoEditable(montoDeReferencia, monedaDelMonto) : "");
-    setEtiqueta(item?.label ?? "");
+    setMonto(montoDeReferencia ? textoEditable(montoDeReferencia, monedaDelMonto) : '');
+    setEtiqueta(item?.label ?? '');
     setErrorMonto(null);
   }
 
@@ -172,7 +186,7 @@ export function FormularioItemPresupuesto({
     evento.preventDefault();
 
     const lectura = normalizarMontoIngresado(monto, monedaDelMonto);
-    if ("error" in lectura) {
+    if ('error' in lectura) {
       setErrorMonto(lectura.error);
       return;
     }
@@ -200,16 +214,16 @@ export function FormularioItemPresupuesto({
           await editarEtiqueta.mutateAsync({ id: item.id, label: etiquetaNueva() });
         }
 
-        toast.success("Cambios guardados.");
+        toast.success('Cambios guardados.');
       } else {
         const etiquetaFinal = etiquetaNueva() ?? undefined;
-        if (tipo === "category") {
+        if (tipo === 'category') {
           if (!categoriaId) {
-            setErrorMonto("Elige una categoría.");
+            setErrorMonto('Elige una categoría.');
             return;
           }
           await crear.mutateAsync({
-            kind: "category",
+            kind: 'category',
             categoryId: categoriaId,
             currency: moneda,
             amount: lectura.monto,
@@ -218,23 +232,23 @@ export function FormularioItemPresupuesto({
           });
         } else {
           if (!cuentaId) {
-            setErrorMonto("Elige una cuenta de ahorro.");
+            setErrorMonto('Elige una cuenta de ahorro.');
             return;
           }
           await crear.mutateAsync({
-            kind: "savings",
+            kind: 'savings',
             accountId: cuentaId,
             amount: lectura.monto,
             label: etiquetaFinal,
             month: mesVisto,
           });
         }
-        toast.success("Ítem agregado al presupuesto.");
+        toast.success('Ítem agregado al presupuesto.');
       }
 
       cerrarYReiniciar();
     } catch (error) {
-      toast.error(errorDeApi(error, "No se pudo guardar. Intenta de nuevo."));
+      toast.error(errorDeApi(error, 'No se pudo guardar. Intenta de nuevo.'));
     }
   }
 
@@ -244,14 +258,14 @@ export function FormularioItemPresupuesto({
     try {
       if (item.archivedAt) {
         await desarchivar.mutateAsync(item.id);
-        toast.success("Ítem restaurado.");
+        toast.success('Ítem restaurado.');
       } else {
         await archivar.mutateAsync(item.id);
-        toast.success("Ítem archivado.");
+        toast.success('Ítem archivado.');
       }
       cerrarYReiniciar();
     } catch (error) {
-      toast.error(errorDeApi(error, "No se pudo completar. Intenta de nuevo."));
+      toast.error(errorDeApi(error, 'No se pudo completar. Intenta de nuevo.'));
     }
   }
 
@@ -260,7 +274,7 @@ export function FormularioItemPresupuesto({
   const guardando = crear.isPending || fijarMonto.isPending || editarEtiqueta.isPending;
 
   const sinOpciones =
-    !item && (tipo === "category" ? categoriasDeGasto : cuentasDeAhorro).length === 0;
+    !item && (tipo === 'category' ? todasLasCategorias.length === 0 : cuentasDeAhorro.length === 0);
 
   return (
     <Drawer
@@ -274,11 +288,13 @@ export function FormularioItemPresupuesto({
       <DrawerContent>
         <form onSubmit={manejarEnvio} className="flex min-h-0 flex-1 flex-col">
           <DrawerHeader>
-            <DrawerTitle>{item ? "Editar ítem" : "Agregar al presupuesto"}</DrawerTitle>
+            <DrawerTitle>{item ? 'Editar ítem' : 'Agregar al presupuesto'}</DrawerTitle>
             <DrawerDescription>
               {item
                 ? `Este monto aplica solo a ${nombreDelMes(mesVisto)}. Cada mes lleva el suyo.`
-                : `Cuánto esperas gastar en una categoría, o aportar a una cuenta de ahorro, en ${nombreDelMes(mesVisto)}.`}
+                : tipo === 'savings'
+                  ? `Cuánto esperas aportar a una cuenta de ahorro en ${nombreDelMes(mesVisto)}.`
+                  : `Cuánto esperas ${textoDelMonto.replace('esperas ', '')} en una categoría, en ${nombreDelMes(mesVisto)}.`}
             </DrawerDescription>
           </DrawerHeader>
 
@@ -289,7 +305,7 @@ export function FormularioItemPresupuesto({
                 <ToggleGroup
                   value={[tipo]}
                   onValueChange={(valores) => {
-                    if (valores.length > 0) setTipo(valores[0] as "category" | "savings");
+                    if (valores.length > 0) setTipo(valores[0] as 'category' | 'savings');
                   }}
                   variant="outline"
                   size="tap"
@@ -305,7 +321,7 @@ export function FormularioItemPresupuesto({
               </div>
             )}
 
-            {!item && tipo === "category" && (
+            {!item && tipo === 'category' && (
               <div className="flex flex-col gap-1.5">
                 <Label>Categoría</Label>
                 <Select
@@ -313,7 +329,7 @@ export function FormularioItemPresupuesto({
                   onValueChange={(valor) =>
                     setCategoriaId(valor === NINGUNO || valor == null ? undefined : valor)
                   }
-                  disabled={categoriasDeGasto.length === 0}
+                  disabled={todasLasCategorias.length === 0}
                 >
                   <SelectTrigger className="w-full" aria-invalid={Boolean(errorMonto)}>
                     {/* El popup con las opciones vive en un portal que no está
@@ -322,30 +338,48 @@ export function FormularioItemPresupuesto({
                         selector-categoria.tsx). */}
                     <SelectValue placeholder="Elige una categoría">
                       {(valor: string) => {
-                        const elegida = categoriasDeGasto.find(
-                          (categoria) => categoria.id === valor
+                        const elegida = todasLasCategorias.find(
+                          (categoria) => categoria.id === valor,
                         );
                         return (
                           elegida?.name ??
-                          (categoriasDeGasto.length === 0
-                            ? "No tienes categorías de gasto"
-                            : "Elige una categoría")
+                          (todasLasCategorias.length === 0
+                            ? 'No tienes categorías'
+                            : 'Elige una categoría')
                         );
                       }}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {categoriasDeGasto.map((categoria) => (
-                      <SelectItem key={categoria.id} value={categoria.id}>
-                        {categoria.name}
-                      </SelectItem>
-                    ))}
+                    {/* Los dos lados conviven en el presupuesto: hay que ver en
+                        qué grupo cae cada categoría para saber si el monto es
+                        lo que se espera gastar o recibir. */}
+                    {categoriasDeGasto.length > 0 && (
+                      <SelectGroup>
+                        <SelectLabel>Gastos</SelectLabel>
+                        {categoriasDeGasto.map((categoria) => (
+                          <SelectItem key={categoria.id} value={categoria.id}>
+                            {categoria.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    )}
+                    {categoriasDeIngreso.length > 0 && (
+                      <SelectGroup>
+                        <SelectLabel>Ingresos</SelectLabel>
+                        {categoriasDeIngreso.map((categoria) => (
+                          <SelectItem key={categoria.id} value={categoria.id}>
+                            {categoria.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
             )}
 
-            {!item && tipo === "savings" && (
+            {!item && tipo === 'savings' && (
               <div className="flex flex-col gap-1.5">
                 <Label>Cuenta de ahorro</Label>
                 <Select
@@ -362,8 +396,8 @@ export function FormularioItemPresupuesto({
                         return (
                           (elegida ? `${elegida.name} · ${elegida.currency}` : undefined) ??
                           (cuentasDeAhorro.length === 0
-                            ? "No tienes cuentas de ahorro"
-                            : "Elige una cuenta")
+                            ? 'No tienes cuentas de ahorro'
+                            : 'Elige una cuenta')
                         );
                       }}
                     </SelectValue>
@@ -392,13 +426,17 @@ export function FormularioItemPresupuesto({
                 aria-invalid={Boolean(errorMonto)}
               />
               {errorMonto && <p className="text-xs text-destructive">{errorMonto}</p>}
+              {/* El verbo manda: lo que se espera gastar (categoría de gasto),
+                  recibir (categoría de ingreso) o aportar (ahorro). */}
+              {!errorMonto && (
+                <p className="text-xs text-muted-foreground">Cuánto {textoDelMonto}.</p>
+              )}
             </div>
-
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="etiqueta-item">Etiqueta (opcional)</Label>
               <Input
                 id="etiqueta-item"
-                placeholder={tipo === "category" ? "Ej. Mercado del mes" : "Ej. Apartado viaje"}
+                placeholder={tipo === 'category' ? 'Ej. Mercado del mes' : 'Ej. Apartado viaje'}
                 value={etiqueta}
                 onChange={(evento) => setEtiqueta(evento.target.value)}
                 maxLength={120}
@@ -415,14 +453,14 @@ export function FormularioItemPresupuesto({
                 onClick={archivarOrestaurar}
                 disabled={archivar.isPending || desarchivar.isPending}
               >
-                {item.archivedAt ? "Restaurar" : "Archivar"}
+                {item.archivedAt ? 'Restaurar' : 'Archivar'}
               </Button>
             )}
           </div>
 
           <DrawerFooter>
             <Button type="submit" disabled={guardando || sinOpciones}>
-              {guardando ? "Guardando…" : "Guardar"}
+              {guardando ? 'Guardando…' : 'Guardar'}
             </Button>
           </DrawerFooter>
         </form>
