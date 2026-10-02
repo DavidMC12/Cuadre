@@ -126,17 +126,18 @@ ${caso(
   "cajon-antes",
   "antes",
   "cajon",
-  // El cajón real: cabeza fija + un cuerpo que scrollea con el panel y, debajo
-  // de la región, lo que va fuera de ella (Agregar/archivados). Ese resto es lo
-  // que hace que el contenedor también scrollee además de la región.
-  (p) => `<div class="flex h-[480px] flex-col"><div class="h-20 shrink-0"></div><div class="min-h-0 flex-1 overflow-y-auto px-4 pb-4">${p}<div class="mt-3 h-[120px] rounded-lg border border-border"></div></div></div>`,
+  // El cajón real: popup en columna, cabeza fija, un Content que recorta y el
+  // cuerpo `overflow-y-auto` tal cual está en page.tsx (sin `flex-1`). Debajo de
+  // la región va lo que queda fuera de ella (Agregar/archivados): eso es lo que
+  // hace que el contenedor también scrollee además de la región.
+  (p) => `<div class="flex h-[480px] flex-col"><div class="h-20 shrink-0"></div><div class="flex min-h-0 flex-1 flex-col overflow-hidden"><div class="overflow-y-auto px-4 pb-4">${p}<div class="mt-3 h-[120px] rounded-lg border border-border"></div></div></div></div>`,
   320
 )}
 ${caso(
   "cajon-despues",
   "despues",
   "cajon",
-  (p) => `<div class="flex h-[480px] flex-col"><div class="h-20 shrink-0"></div><div class="min-h-0 flex-1 overflow-y-auto px-4 pb-4">${p}<div class="mt-3 h-[120px] rounded-lg border border-border"></div></div></div>`,
+  (p) => `<div class="flex h-[480px] flex-col"><div class="h-20 shrink-0"></div><div class="flex min-h-0 flex-1 flex-col overflow-hidden"><div class="overflow-y-auto px-4 pb-4">${p}<div class="mt-3 h-[120px] rounded-lg border border-border"></div></div></div></div>`,
   320
 )}
 </body></html>`;
@@ -267,8 +268,8 @@ const MEDICION = `(() => [...document.querySelectorAll("[data-caso]")].map((caso
 let fallos = 0;
 
 const ANCHOS = [
-  { ancho: 320, ids: ["movil-antes", "movil-despues"], etiqueta: "320px (cajón móvil)" },
-  { ancho: 1280, ids: ["escritorio-antes", "escritorio-despues"], etiqueta: "1280px (columna del Resumen)" },
+  { ancho: 320, etiqueta: "320px (cajón móvil)" },
+  { ancho: 1280, etiqueta: "1280px (columna del Resumen)" },
 ];
 
 function revisar(mediciones) {
