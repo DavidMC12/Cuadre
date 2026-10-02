@@ -271,8 +271,10 @@ export default function PaginaResumen() {
 
       <SelectorMes mes={mes} onCambiar={setMes} />
 
-      {/* En móvil, el cuadrito de cuánto sobra es el primer bloque del mes. */}
-      {moneda && (
+      {/* En móvil, el cuadrito de cuánto sobra es el primer bloque del mes.
+          Desde `xl` vive en el aside; este se monta solo si el aside no está
+          (antes que CSS), y así el bloque nunca aparece dos veces. */}
+      {moneda && !pantallaAncha && (
         <CuantoMeSobra
           mes={mes}
           moneda={moneda}
@@ -397,11 +399,14 @@ export default function PaginaResumen() {
           consultaba al servidor igual, aunque nadie lo mirara. */}
       {pantallaAncha && moneda && (
         <aside className="flex w-80 shrink-0 flex-col gap-5 xl:sticky xl:top-8">
-          {/* Arriba del panel: cuánto sobra según lo previsto. */}
+          {/* Arriba del panel: cuánto sobra según lo previsto. Si falla el
+              presupuesto, el panel de abajo ya lo anuncia: este bloque no
+              repite la interrupción por la misma consulta. */}
           <CuantoMeSobra
             mes={mes}
             moneda={moneda}
             compartePantalla={falloCuentas || falloResumen || falloTendencia}
+            anunciaPresupuesto={false}
           />
           <PanelPresupuesto
             mes={mes}

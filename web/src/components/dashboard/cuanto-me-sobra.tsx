@@ -35,6 +35,7 @@ export function CuantoMeSobra({
   moneda,
   variante = 'tarjeta',
   compartePantalla,
+  anunciaPresupuesto = true,
 }: {
   mes: string;
   moneda: string;
@@ -43,6 +44,12 @@ export function CuantoMeSobra({
    * anunciar solo y la pantalla compone el anuncio único (role="status").
    * Misma convención del resto de los bloques del Resumen. */
   compartePantalla?: boolean;
+  /** `false` cuando otro bloque de la misma pantalla ya anuncia el fallo del
+   * presupuesto (el panel de presupuesto, que consulta lo mismo): este
+   * cuadrito muestra su propio bloque, con su Reintentar, pero sin repetir la
+   * interrupción. Dos `role="alert"` de la MISMA consulta son una tormenta;
+   * dos de consultas distintas, no. */
+  anunciaPresupuesto?: boolean;
 }) {
   const checklist = useChecklistDelMes({ month: mes, currency: moneda });
   const resumen = useResumenMes({ month: mes, currency: moneda });
@@ -93,17 +100,23 @@ export function CuantoMeSobra({
             void checklist.refetch();
             void resumen.refetch();
           }}
-          compartePantalla={compartePantalla}
+          compartePantalla={compartePantalla || (falloChecklist && !anunciaPresupuesto)}
         />
       ) : sinPresupuesto ? (
         <EmptyState
           Icono={PiggyBank}
-          titulo={`Aún no hay presupuesto para ${etiquetaMes(mes)}`}
+          titulo={
+            estado && estado.hayIngresos && !estado.hayGastos
+              ? `Falta el gasto previsto de ${etiquetaMes(mes)}`
+              : estado && estado.hayGastos && !estado.hayIngresos
+                ? `Falta el ingreso previsto de ${etiquetaMes(mes)}`
+                : `Aún no hay presupuesto para ${etiquetaMes(mes)}`
+          }
           descripcion={
             estado && estado.hayIngresos
-              ? 'Falta decir cuánto esperas gastar este mes; presupuéstalo para que esta cuenta exista.'
+              ? 'Falta decir cuánto esperas gastar este mes; presupuéstalo para que esta cifra exista.'
               : estado && estado.hayGastos
-                ? 'Presupuesta también los ingresos que esperas recibir este mes, para que esta cuenta pueda existir.'
+                ? 'Presupuesta también los ingresos que esperas recibir este mes, para que esta cifra pueda existir.'
                 : 'Presupuesta los ingresos que esperas recibir y los gastos que esperas tener, y este cuadrito dirá cuánto te sobra.'
           }
         >
@@ -125,10 +138,15 @@ export function CuantoMeSobra({
             Hasta hoy: <Monto valor={estado.real} moneda={moneda} className="text-base" />
           </p>
           {/* El sentido lo dice la palabra, no solo el color: la misma cifra
-              cambia de "te sobran" a "te faltan". */}
+              cambia de "te sobran" a "te faltan" — y un previsto justo no es
+              ninguna de las dos. */}
           <p className="mt-1 text-sm font-medium">
-            {estado.previstoUnidades >= 0n ? 'Te sobran' : 'Te faltan'} según lo previsto en{' '}
-            {etiquetaMes(mes)}.
+            {estado.previstoUnidades > 0n
+              ? 'Te sobran'
+              : estado.previstoUnidades < 0n
+                ? 'Te faltan'
+                : 'Ni te sobra ni te falta'}{' '}
+            según lo previsto en {etiquetaMes(mes)}.
           </p>
         </>
       ) : null}

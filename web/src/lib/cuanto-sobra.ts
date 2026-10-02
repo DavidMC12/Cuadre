@@ -15,7 +15,7 @@
  * LA moneda del Resumen; aquí solo se suma — mezclar monedas es un error de
  * dinero, no un detalle.
  */
-import { aUnidadesMinimas, sumarMontos } from "@/lib/money";
+import { aUnidadesMinimas, restar, sumarMontos } from "@/lib/money";
 import type { ItemDelChecklist } from "@/lib/api/types";
 
 export interface RenglonesParaCuantoSobra {
@@ -69,11 +69,12 @@ export function cuantoSobraEnElMes({
   }
 
   // Se arma con la misma aritmética exacta del resto del dinero (BigInt, sin
-  // coma flotante): el previsto es ingresos − gastos.
+  // coma flotante): el previsto es ingresos − gastos. `restar` y no un
+  // `-${gastos}` a mano: un total negativo futuro daría "--…" y se leería mal.
   const ingresos = sumarMontos(ingresosPrevistos);
   const gastos = sumarMontos(gastosPrevistos);
-  const previsto = sumarMontos([ingresos, `-${gastos}`]);
-  const real = sumarMontos([income, `-${expense}`]);
+  const previsto = restar(ingresos, gastos);
+  const real = restar(income, expense);
 
   return {
     previsto,

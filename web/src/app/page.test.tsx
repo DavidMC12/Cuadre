@@ -33,6 +33,21 @@ vi.mock("@/hooks/use-perfil", () => ({
 // Lo pesado —cajones, selectores, gráficas de recharts y el panel del
 // presupuesto, prohibido a otro agente por ahora— no es lo que se prueba
 // aquí: lo que importa es que un fallo de consulta no se disfrace de datos.
+//
+// `ventanaAncha` controla lo que responde matchMedia para el tramo xl, y así
+// probar que el cuadrito no se duplica (móvil vs aside).
+let ventanaAncha = false;
+window.matchMedia = ((consulta: string) =>
+  ({
+    matches: ventanaAncha && consulta.includes("min-width: 1280px"),
+    media: consulta,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }) as MediaQueryList) as typeof window.matchMedia;
 vi.mock("@/components/dashboard/selector-mes", () => ({ SelectorMes: () => null }));
 vi.mock("@/components/dashboard/total-cuentas", () => ({ TotalCuentas: () => null }));
 vi.mock("@/components/dashboard/total-ahorrado", () => ({ TotalAhorrado: () => null }));
@@ -107,6 +122,7 @@ function ajustar(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  ventanaAncha = false;
   ajustar({});
 });
 
@@ -313,5 +329,25 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     expect(props.mes).toBeDefined();
     expect(props.moneda).toBe("COP");
     expect(props.compartePantalla).toBe(false);
+  });
+
+  it("desde xl, el cuadrito del aside cede el anuncio del presupuesto al panel", () => {
+    ventanaAncha = true;
+
+    render(<PaginaResumen />);
+
+    // El aside monta el suyo y le cede al panel el anuncio del presupuesto.
+    const delAside = vi
+      .mocked(CuantoMeSobra)
+      .mock.calls.map((c) => c[0] as unknown as { anunciaPresupuesto?: boolean })
+      .filter((p) => p.anunciaPresupuesto === false);
+    expect(delAside).toHaveLength(1);
+    // La instancia de móvil (la que no cede) también existe en jsdom, que no
+    // aplica breakpoints: no se puede distinguir por CSS desde aquí.
+    const deMovil = vi
+      .mocked(CuantoMeSobra)
+      .mock.calls.map((c) => c[0] as unknown as { anunciaPresupuesto?: boolean })
+      .filter((p) => p.anunciaPresupuesto === undefined);
+    expect(deMovil).toHaveLength(1);
   });
 });

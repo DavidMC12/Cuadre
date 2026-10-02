@@ -162,6 +162,37 @@ describe('CuantoMeSobra', () => {
     expect(screen.getByText(/Te sobran/)).toBeTruthy();
   });
 
+  it('con el previsto en cero no dice ni que sobra ni que falta', () => {
+    ajustar(
+      {
+        data: {
+          month: '2026-10',
+          currency: 'COP',
+          items: [renglonDe('income', '2000000'), renglonDe('expense', '2000000')],
+        },
+      },
+      { data: resumenDe('2000000', '2000000') },
+    );
+
+    render(<CuantoMeSobra mes="2026-10" moneda="COP" />);
+
+    expect(screen.getByText(/Ni te sobra ni te falta/)).toBeTruthy();
+    expect(screen.queryByText(/Te sobran/)).toBeNull();
+    expect(screen.queryByText(/Te faltan/)).toBeNull();
+  });
+
+  it('con el fallo del presupuesto y anunciaPresupuesto=false, no compite con el panel', () => {
+    ajustar({ isError: true, error: new Error('tan dormido') }, { data: resumenDe('0', '0') });
+
+    render(<CuantoMeSobra mes="2026-10" moneda="COP" anunciaPresupuesto={false} />);
+
+    // Sigue visible con su Reintentar, pero sin role="alert": el panel de
+    // presupuesto, que consulta lo mismo, es quien anuncia.
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('group')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reintentar presupuesto' })).toBeTruthy();
+  });
+
   it('un fallo de consulta usa el patrón FalloConsulta y cede el anuncio si otros fallos conviven', () => {
     ajustar({ isError: true, error: new Error('tan dormido') }, { data: resumenDe('0', '0') });
 
