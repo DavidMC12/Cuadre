@@ -151,7 +151,7 @@ export function PanelPresupuesto({
         key={renglon.id}
         className={cn(
           indice > 0 && "border-t border-border",
-          !soloMirar && item && "hover:bg-accent/50 -mx-2 rounded-lg"
+          !soloMirar && item && "hover:bg-accent/50 rounded-lg"
         )}
       >
         {soloMirar || !item ? (
