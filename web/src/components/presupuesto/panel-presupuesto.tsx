@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { CheckIcon, ListTodo, Plus, TriangleAlert } from "lucide-react";
+import { CheckIcon, ChevronDown, ListTodo, Plus, TriangleAlert } from "lucide-react";
+import { useTheme } from "next-themes";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,10 +11,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
 import { FormularioItemPresupuesto } from "@/components/presupuesto/formulario-item-presupuesto";
+import { useCategorias } from "@/hooks/use-categorias";
 import { useChecklistDelMes, useDesarchivarItemPresupuesto, usePresupuestoItems } from "@/hooks/use-presupuesto";
 import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { ItemDelChecklist } from "@/lib/api/types";
+import { agruparPresupuesto, type GrupoPresupuesto } from "@/lib/agrupar-presupuesto";
+import { COLOR_NEUTRO, mapaColoresCategorias, modoDeTema } from "@/lib/chart-colors";
 import { aUnidadesMinimas, restar, textoMonto } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +66,12 @@ export function PanelPresupuesto({
   compartePantalla?: boolean;
 }) {
   const soloMirar = useSoloMirar();
+  const { resolvedTheme } = useTheme();
+  const modo = modoDeTema(resolvedTheme);
+  // Mismo catálogo y mismo mapa que la gráfica "Por categoría": una categoría
+  // conserva aquí el color que ya tiene en el resto de la app. Con archivos
+  // incluidos, porque un ítem puede apuntar a una categoría hoy archivada.
+  const { data: catalogo } = useCategorias(true);
   const {
     data: checklist,
     isLoading,
@@ -83,6 +93,18 @@ export function PanelPresupuesto({
   const desarchivar = useDesarchivarItemPresupuesto();
 
   const [viendoArchivados, setViendoArchivados] = useState(false);
+  // Grupos que la persona replegó. Vacío = todos abiertos: la información se
+  // ve de entrada; replegar es una decisión suya, no un estado por defecto.
+  const [gruposColapsados, setGruposColapsados] = useState<Set<string>>(new Set());
+
+  function alternarGrupo(clave: string) {
+    setGruposColapsados((previos) => {
+      const siguientes = new Set(previos);
+      if (siguientes.has(clave)) siguientes.delete(clave);
+      else siguientes.add(clave);
+      return siguientes;
+    });
+  }
 
   // La consulta del checklist no se pudo leer y no hay nada que mostrar: la
   // misma expresión decide el bloque de fallo y si los archivados le ceden
@@ -91,6 +113,24 @@ export function PanelPresupuesto({
 
   const archivados = (todosLosItems ?? []).filter((item) => item.archivedAt !== null);
   const itemPorId = new Map((todosLosItems ?? []).map((item) => [item.id, item]));
+  // Sin los ítems no hay categoría que agrupar: el checklist por sí solo no la
+  // trae. Mientras no lleguen (o si su consulta falla) se muestra plano, en vez
+  // de afirmar "Sin categoría" sobre algo que sí la tiene.
+  const tieneMetadatos = todosLosItems !== undefined;
+  const grupos = tieneMetadatos ? agruparPresupuesto(checklist?.items ?? [], itemPorId) : [];
+
+  // Los mismos ocho tonos (y el gris de la novena en adelante) que las
+  // gráficas, asignados sobre las categorías de gasto ordenadas por nombre.
+  const categoriasDeGasto = (catalogo ?? [])
+    .filter((categoria) => categoria.kind === "expense")
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const colorPorCategoria = mapaColoresCategorias(categoriasDeGasto, modo);
+
+  function colorDeGrupo(grupo: GrupoPresupuesto): string {
+    if (!grupo.categoryId) return COLOR_NEUTRO[modo];
+    return colorPorCategoria.get(grupo.categoryId) ?? COLOR_NEUTRO[modo];
+  }
 
   const accionAgregar = !soloMirar && (
     <FormularioItemPresupuesto moneda={moneda}>
@@ -100,6 +140,39 @@ export function PanelPresupuesto({
       </Button>
     </FormularioItemPresupuesto>
   );
+
+  function renderRenglon(renglon: ItemDelChecklist, indice: number) {
+    const item = itemPorId.get(renglon.id);
+    const porcentaje =
+      renglon.target !== null ? porcentajeBarra(renglon.progress, renglon.target) : null;
+
+    return (
+      <li
+        key={renglon.id}
+        className={cn(
+          indice > 0 && "border-t border-border",
+          !soloMirar && item && "hover:bg-accent/50 -mx-2 rounded-lg"
+        )}
+      >
+        {soloMirar || !item ? (
+          <div className="flex flex-col gap-1.5 px-2 py-3">
+            <ContenidoRenglon renglon={renglon} porcentaje={porcentaje} />
+          </div>
+        ) : (
+          <FormularioItemPresupuesto item={item} moneda={moneda}>
+            {/* Un botón de verdad: el Drawer de Base UI exige un
+                <button> nativo como disparador. */}
+            <button
+              type="button"
+              className="flex w-full cursor-pointer flex-col gap-1.5 px-2 py-3 text-left outline-none"
+            >
+              <ContenidoRenglon renglon={renglon} porcentaje={porcentaje} />
+            </button>
+          </FormularioItemPresupuesto>
+        )}
+      </li>
+    );
+  }
 
   const cuerpo = (
     <>
@@ -132,42 +205,66 @@ export function PanelPresupuesto({
             className="border-0 px-2 py-8"
           />
         ) : (
-          <ul className="flex flex-col">
-            {checklist.items.map((renglon, indice) => {
-              const item = itemPorId.get(renglon.id);
-              const porcentaje =
-                renglon.target !== null
-                  ? porcentajeBarra(renglon.progress, renglon.target)
-                  : null;
+          // La lista se contiene sola: con muchos ítems, el panel ya no crece
+          // sin fin ni empuja el resto de la pantalla. La región es enfocable
+          // para que también se pueda recorrer con el teclado.
+          <div
+            role="region"
+            aria-label="Ítems del presupuesto"
+            tabIndex={0}
+            className="flex max-h-[70vh] flex-col overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
+          >
+            {!tieneMetadatos ? (
+              // Aún no sabemos la categoría de cada ítem (o su consulta falló):
+              // se ve la lista tal cual, sin encabezados que puedan mentir.
+              <ul className="flex flex-col">
+                {checklist.items.map((renglon, indice) => renderRenglon(renglon, indice))}
+              </ul>
+            ) : (
+              grupos.map((grupo) => {
+                const colapsado = gruposColapsados.has(grupo.clave);
+                const idLista = `grupo-presupuesto-${grupo.clave}`;
 
-              return (
-                <li
-                  key={renglon.id}
-                  className={cn(
-                    indice > 0 && "border-t border-border",
-                    !soloMirar && item && "hover:bg-accent/50 -mx-2 rounded-lg"
-                  )}
-                >
-                  {soloMirar || !item ? (
-                    <div className="flex flex-col gap-1.5 px-2 py-3">
-                      <ContenidoRenglon renglon={renglon} porcentaje={porcentaje} />
-                    </div>
-                  ) : (
-                    <FormularioItemPresupuesto item={item} moneda={moneda}>
-                      {/* Un botón de verdad: el Drawer de Base UI exige un
-                          <button> nativo como disparador. */}
-                      <button
-                        type="button"
-                        className="flex w-full cursor-pointer flex-col gap-1.5 px-2 py-3 text-left outline-none"
-                      >
-                        <ContenidoRenglon renglon={renglon} porcentaje={porcentaje} />
-                      </button>
-                    </FormularioItemPresupuesto>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                return (
+                  <section key={grupo.clave}>
+                    <button
+                      type="button"
+                      aria-expanded={!colapsado}
+                      aria-controls={idLista}
+                      aria-label={grupo.titulo}
+                      onClick={() => alternarGrupo(grupo.clave)}
+                      className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-medium text-muted-foreground hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
+                    >
+                      {/* El color es refuerzo, nunca el único dato: el nombre de
+                          la categoría va en texto, al lado. */}
+                      <span
+                        aria-hidden
+                        className="size-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: colorDeGrupo(grupo) }}
+                      />
+                      <span className="min-w-0 flex-1 truncate" title={grupo.titulo}>
+                        {grupo.titulo}
+                      </span>
+                      <span className="tabular-nums">{grupo.items.length}</span>
+                      <ChevronDown
+                        aria-hidden
+                        className={cn(
+                          "size-4 shrink-0 transition-transform",
+                          colapsado && "-rotate-90"
+                        )}
+                      />
+                    </button>
+                    {/* Siempre montada: `aria-controls` apunta a un id que debe
+                        existir aunque el grupo esté replegado. `hidden` la saca
+                        de la vista y del árbol accesible sin desmontarla. */}
+                    <ul id={idLista} hidden={colapsado} className="flex flex-col">
+                      {grupo.items.map((renglon, indice) => renderRenglon(renglon, indice))}
+                    </ul>
+                  </section>
+                );
+              })
+            )}
+          </div>
         )}
 
         {/* La consulta de los ítems falló: sin ella no sabemos qué hay
