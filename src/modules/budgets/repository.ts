@@ -157,13 +157,15 @@ export async function crear(
 }
 
 /**
- * Fija el monto de UN mes sin mover ningún otro. Sigue siendo solo `INSERT`:
- * agrega una fila con `effective_from` = ese mes, que gana sobre cualquier
- * anterior. Como un mes sin fila propia hereda el monto del anterior, fijar
- * enero cambiaría febrero si este no tuviera la suya; por eso, antes de
- * insertar, se "ancla" el mes siguiente con el monto que ya tenía vigente
- * (solo si existía y es distinto del nuevo). El bloqueo de la fila del ítem
- * serializa dos ediciones simultáneas del mismo ítem.
+ * Fija el monto de UN mes sin mover ningún otro que ya haya ocurrido. Sigue
+ * siendo solo `INSERT`: agrega una fila con `effective_from` = ese mes, que
+ * gana sobre cualquier anterior. Como un mes sin fila propia hereda el monto
+ * del anterior, fijar enero cambiaría febrero si este no tuviera la suya; por
+ * eso, antes de insertar, se "ancla" el mes siguiente con el monto que ya
+ * tenía vigente (solo si existía, es distinto del nuevo y ese mes ya empezó:
+ * un mes futuro sigue heredando, así subir el tope hoy rige "de aquí en
+ * adelante"). Repetir el mismo monto en el mismo mes no agrega filas. El
+ * bloqueo de la fila del ítem serializa dos ediciones simultáneas.
  * Devuelve `false` si el ítem no existe o no es de este usuario.
  */
 export async function fijarObjetivoDelMes(
@@ -180,6 +182,15 @@ export async function fijarObjetivoDelMes(
     `)) as unknown as { id: string }[];
     if (!item) return false;
 
+    const [ultimo] = (await tx.execute(sql`
+      select (amount = ${monto}::numeric) as igual
+      from budget_item_targets
+      where budget_item_id = ${itemId}::uuid and effective_from = (${mes}::text || '-01')::date
+      order by created_at desc
+      limit 1
+    `)) as unknown as { igual: boolean }[];
+    if (ultimo?.igual) return true;
+
     await tx.execute(sql`
       insert into budget_item_targets (budget_item_id, effective_from, amount)
       select ${itemId}::uuid, siguiente.mes, vigente.amount
@@ -192,6 +203,7 @@ export async function fijarObjetivoDelMes(
         limit 1
       ) vigente
       where vigente.amount <> ${monto}::numeric
+        and siguiente.mes <= date_trunc('month', clock_timestamp() at time zone ${ZONA_HORARIA}::text)::date
         and not exists (
           select 1 from budget_item_targets p
           where p.budget_item_id = ${itemId}::uuid and p.effective_from = siguiente.mes
