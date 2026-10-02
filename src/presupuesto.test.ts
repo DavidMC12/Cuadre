@@ -120,7 +120,11 @@ async function registrar(cuentaId: string, monto: string, extras = {}): Promise<
   return cuerpo.data;
 }
 
-async function crearItemDeCategoria(categoriaId: string, amount: string, extras = {}): Promise<any> {
+async function crearItemDeCategoria(
+  categoriaId: string,
+  amount: string,
+  extras = {},
+): Promise<any> {
   const { estado, cuerpo } = await pedir('POST', '/api/v1/budgets/items', {
     kind: 'category',
     categoryId: categoriaId,
@@ -209,6 +213,27 @@ describe('crear ítems', () => {
     expect(estado).toBe(400);
   });
 
+  it('crea un ítem de ingresos y su progreso es lo recibido en la categoría, nunca te pasaste', async () => {
+    const sueldo = await crearCategoria('Sueldo', 'income');
+    const banco = await crearCuenta();
+    const item = await crearItemDeCategoria(sueldo.id, '900000');
+
+    expect(item).toMatchObject({ kind: 'category', categoryKind: 'income' });
+
+    // Recibir de más: logro, y jamás un aviso en rojo.
+    await registrar(banco.id, '950000', { categoryId: sueldo.id });
+
+    const { items } = await checklist(mesRelativo(0).etiqueta);
+    expect(items[0]).toMatchObject({
+      kind: 'category',
+      categoryKind: 'income',
+      target: '900000.0000',
+      progress: '950000.0000',
+      checked: true,
+      exceeded: false,
+    });
+  });
+
   it('rechaza una cuenta que no está marcada como de ahorro', async () => {
     const banco = await crearCuenta();
 
@@ -260,6 +285,7 @@ describe('el checklist del mes', () => {
       {
         id: expect.any(String),
         kind: 'category',
+        categoryKind: 'expense',
         currency: 'COP',
         label: 'Mercado',
         target: '100000.0000',

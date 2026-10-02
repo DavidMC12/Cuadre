@@ -253,9 +253,7 @@ describe('fijarObjetivoDelMes', () => {
     const itemId = await itemDeCategoria(comida.id, '350000');
 
     const otroUsuarioId = await crearUsuario();
-    expect(await repositorio.fijarObjetivoDelMes(otroUsuarioId, itemId, MES, '999999')).toBe(
-      false,
-    );
+    expect(await repositorio.fijarObjetivoDelMes(otroUsuarioId, itemId, MES, '999999')).toBe(false);
 
     const [item] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
     expect(item!.target).toBe('350000.0000');
@@ -319,6 +317,30 @@ describe('listar', () => {
   });
 });
 
+describe('ítem de categoría de ingresos', () => {
+  it('se crea con el tipo de ingreso copiado de la categoría y lo devuelve en categoryKind', async () => {
+    const salario = await crearCategoria('Salario', 'income');
+    const itemId = await repositorio.crear(usuarioId, {
+      kind: 'category',
+      currency: 'COP',
+      categoryId: salario.id,
+      categoryKind: 'income',
+      accountId: null,
+      label: null,
+      amount: '900000',
+      mesEfectivoDesde: MES,
+    });
+
+    const [item] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
+    expect(item).toMatchObject({
+      id: itemId,
+      kind: 'category',
+      categoryKind: 'income',
+      target: '900000.0000',
+    });
+  });
+});
+
 describe('ítem de ahorro', () => {
   it('se crea contra una cuenta de ahorro real y se lee de vuelta con su nombre', async () => {
     const ahorro = await crearCuenta({ isSavings: true });
@@ -379,9 +401,7 @@ describe('aislamiento entre usuarios', () => {
     const itemId = await itemDeCategoria(comida.id, '350000');
 
     const otroUsuarioId = await crearUsuario();
-    expect(await repositorio.fijarObjetivoDelMes(otroUsuarioId, itemId, MES, '999999')).toBe(
-      false,
-    );
+    expect(await repositorio.fijarObjetivoDelMes(otroUsuarioId, itemId, MES, '999999')).toBe(false);
 
     const [item] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
     expect(item!.target).toBe('350000.0000');
