@@ -56,8 +56,8 @@ export function mesActual(): string {
 }
 
 /**
- * "Enero 2026" para un "YYYY-MM": el nombre humano de un mes, cortado en hora
- * de Bogotá igual que el backend (ver rangoDelMes abajo).
+ * "Enero de 2026" para un "YYYY-MM": el nombre humano de un mes, cortado en
+ * hora de Bogotá igual que el backend (ver rangoDelMes abajo).
  */
 export function nombreDelMes(mes: string): string {
   const texto = new Intl.DateTimeFormat("es-CO", {
