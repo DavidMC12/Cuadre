@@ -47,6 +47,8 @@ export interface ItemDePresupuesto {
   currency: string;
   categoryId: string | null;
   categoryName: string | null;
+  /** 'income' = lo que se espera recibir, 'expense' = lo que se espera gastar; nulo en ahorro. */
+  categoryKind: 'expense' | 'income' | null;
   accountId: string | null;
   accountName: string | null;
   label: string | null;
@@ -57,6 +59,7 @@ export interface ItemDePresupuesto {
 
 const CAMPOS_DEL_ITEM = sql`
   bi.id, bi.kind, bi.currency, bi.category_id as "categoryId", cat.name as "categoryName",
+  bi.category_kind as "categoryKind",
   bi.account_id as "accountId", acc.name as "accountName", bi.label,
   bi.archived_at as "archivedAt"
 `;
@@ -120,17 +123,17 @@ export async function crear(
     kind: BudgetItemKind;
     currency: string;
     categoryId: string | null;
+    /** Tipo real de la categoría ('expense' o 'income'); nulo en ahorro. */
+    categoryKind: 'expense' | 'income' | null;
     accountId: string | null;
     label: string | null;
     amount: string;
     mesEfectivoDesde: string;
   },
 ): Promise<string> {
-  // `category_kind` es puro plomería para la llave foránea que exige, en la
-  // base, que un ítem de categoría apunte de verdad a una de gasto — quien
-  // llama a `crear()` nunca la decide, siempre es 'expense' o nula según el
-  // tipo del ítem.
-  const categoryKind = datos.kind === 'category' ? 'expense' : null;
+  // `category_kind` es plomería para la llave foránea: la base exige que el
+  // tipo copiado aquí sea el que de verdad tiene la categoría.
+  const categoryKind = datos.kind === 'category' ? datos.categoryKind : null;
 
   return db.transaction(async (tx) => {
     const [fila] = (await tx.execute(sql`
@@ -251,6 +254,7 @@ export interface ObjetivoDelMes {
   currency: string;
   categoryId: string | null;
   categoryName: string | null;
+  categoryKind: 'expense' | 'income' | null;
   accountId: string | null;
   accountName: string | null;
   label: string | null;
@@ -260,6 +264,7 @@ export interface ObjetivoDelMes {
 
 const CAMPOS_DEL_OBJETIVO = sql`
   bi.id, bi.kind, bi.currency, bi.category_id as "categoryId", cat.name as "categoryName",
+  bi.category_kind as "categoryKind",
   bi.account_id as "accountId", acc.name as "accountName", bi.label
 `;
 

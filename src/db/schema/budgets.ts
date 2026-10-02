@@ -46,11 +46,11 @@ export const budgetItems = pgTable(
     /** Solo cuando `kind = 'category'`. */
     categoryId: uuid('category_id'),
     /**
-     * Copia de `categories.kind` en el momento de crear el ítem, siempre
-     * 'expense'. Existe solo para que `budget_items_category_fk` pueda exigir
-     * en la base —no solo en el service— que un ítem de presupuesto nunca
-     * apunte a una categoría de ingresos. La pone `repository.crear()`, nunca
-     * la persona que usa la API.
+     * Copia de `categories.kind` en el momento de crear el ítem: 'expense'
+     * (cuánto se espera gastar) o 'income' (cuánto se espera recibir).
+     * Existe para que `budget_items_category_fk` exija en la base —no solo en
+     * el service— que el tipo copiado sea el real de la categoría. La pone
+     * `repository.crear()`, nunca la persona que usa la API.
      */
     categoryKind: text('category_kind'),
     /** Solo cuando `kind = 'savings'`. */
@@ -102,7 +102,7 @@ export const budgetItems = pgTable(
     // que hace cumplible la llave foránea de arriba.
     check(
       'budget_items_category_kind_matches',
-      sql`(${t.kind} = 'category' and ${t.categoryKind} = 'expense')
+      sql`(${t.kind} = 'category' and ${t.categoryKind} in ('expense', 'income'))
        or (${t.kind} = 'savings'  and ${t.categoryKind} is null)`,
     ),
   ],
