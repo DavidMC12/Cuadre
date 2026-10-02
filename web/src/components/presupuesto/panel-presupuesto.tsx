@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CheckIcon, ChevronDown, ListTodo, Plus, TriangleAlert } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -17,7 +17,7 @@ import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { ItemDelChecklist } from "@/lib/api/types";
 import { agruparPresupuesto, type GrupoPresupuesto } from "@/lib/agrupar-presupuesto";
-import { COLOR_NEUTRO, mapaColoresCategorias, modoDeTema } from "@/lib/chart-colors";
+import { COLOR_NEUTRO, mapaColoresCategoriasDelCatalogo, modoDeTema } from "@/lib/chart-colors";
 import { aUnidadesMinimas, restar, textoMonto } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +66,7 @@ export function PanelPresupuesto({
   compartePantalla?: boolean;
 }) {
   const soloMirar = useSoloMirar();
+  const idBase = useId();
   const { resolvedTheme } = useTheme();
   const modo = modoDeTema(resolvedTheme);
   // Mismo catálogo y mismo mapa que la gráfica "Por categoría": una categoría
@@ -111,21 +112,46 @@ export function PanelPresupuesto({
   // el anuncio, así que vive en una sola variable.
   const falloChecklist = isError && !checklist && !isLoading;
 
-  const archivados = (todosLosItems ?? []).filter((item) => item.archivedAt !== null);
-  const itemPorId = new Map((todosLosItems ?? []).map((item) => [item.id, item]));
+  const archivados = useMemo(
+    () => (todosLosItems ?? []).filter((item) => item.archivedAt !== null),
+    [todosLosItems]
+  );
+  const itemPorId = useMemo(
+    () => new Map((todosLosItems ?? []).map((item) => [item.id, item])),
+    [todosLosItems]
+  );
   // Sin los ítems no hay categoría que agrupar: el checklist por sí solo no la
   // trae. Mientras no lleguen (o si su consulta falla) se muestra plano, en vez
-  // de afirmar "Sin categoría" sobre algo que sí la tiene.
-  const tieneMetadatos = todosLosItems !== undefined;
-  const grupos = tieneMetadatos ? agruparPresupuesto(checklist?.items ?? [], itemPorId) : [];
+  // de afirmar "Sin categoría" sobre algo que sí la tiene. Se exige que TODOS
+  // los renglones tengan su ítem: si la lista llega incompleta, un renglón
+  // quedaría sin botón de edición y bajo un grupo que no es el suyo.
+  const tieneMetadatos =
+    todosLosItems !== undefined &&
+    (checklist?.items ?? []).every((renglon) => itemPorId.has(renglon.id));
 
   // Los mismos ocho tonos (y el gris de la novena en adelante) que las
-  // gráficas, asignados sobre las categorías de gasto ordenadas por nombre.
-  const categoriasDeGasto = (catalogo ?? [])
-    .filter((categoria) => categoria.kind === "expense")
-    .slice()
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const colorPorCategoria = mapaColoresCategorias(categoriasDeGasto, modo);
+  // gráficas, con el helper compartido: no pueden divergir. `nombrePorCategoria`
+  // resuelve el título cuando el checklist no trae el nombre.
+  const { colorPorCategoria, nombrePorCategoria } = useMemo(() => {
+    const nombres = new Map<string, string>();
+    for (const categoria of catalogo ?? []) nombres.set(categoria.id, categoria.name);
+    return {
+      colorPorCategoria: mapaColoresCategoriasDelCatalogo(catalogo ?? [], "expense", modo),
+      nombrePorCategoria: nombres,
+    };
+  }, [catalogo, modo]);
+
+  const grupos = useMemo(
+    () =>
+      tieneMetadatos
+        ? agruparPresupuesto(
+            checklist?.items ?? [],
+            itemPorId,
+            (categoryId) => nombrePorCategoria.get(categoryId) ?? null
+          )
+        : [],
+    [tieneMetadatos, checklist?.items, itemPorId, nombrePorCategoria]
+  );
 
   function colorDeGrupo(grupo: GrupoPresupuesto): string {
     if (!grupo.categoryId) return COLOR_NEUTRO[modo];
@@ -223,7 +249,14 @@ export function PanelPresupuesto({
             ) : (
               grupos.map((grupo) => {
                 const colapsado = gruposColapsados.has(grupo.clave);
-                const idLista = `grupo-presupuesto-${grupo.clave}`;
+                const idLista = `${idBase}-${grupo.clave}`;
+                const cantidad = grupo.items.length;
+                // Un tope excedido no puede perderse de vista solo porque el
+                // grupo esté replegado: sobrevive como aviso en el encabezado.
+                const excedido = grupo.items.some((renglon) => renglon.exceeded);
+                const etiquetaGrupo =
+                  `${grupo.titulo}, ${cantidad} ${cantidad === 1 ? "ítem" : "ítems"}` +
+                  (colapsado && excedido ? ", con un tope excedido" : "");
 
                 return (
                   <section key={grupo.clave}>
@@ -231,7 +264,7 @@ export function PanelPresupuesto({
                       type="button"
                       aria-expanded={!colapsado}
                       aria-controls={idLista}
-                      aria-label={grupo.titulo}
+                      aria-label={etiquetaGrupo}
                       onClick={() => alternarGrupo(grupo.clave)}
                       className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-medium text-muted-foreground hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
                     >
@@ -245,7 +278,15 @@ export function PanelPresupuesto({
                       <span className="min-w-0 flex-1 truncate" title={grupo.titulo}>
                         {grupo.titulo}
                       </span>
-                      <span className="tabular-nums">{grupo.items.length}</span>
+                      <span className="tabular-nums">{cantidad}</span>
+                      {colapsado && excedido && (
+                        <span
+                          aria-hidden
+                          className="flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive"
+                        >
+                          <TriangleAlert className="size-3.5" />
+                        </span>
+                      )}
                       <ChevronDown
                         aria-hidden
                         className={cn(

@@ -77,13 +77,18 @@ describe("agruparPresupuesto", () => {
     expect(grupos[1].titulo).toBe("Sin categoría");
   });
 
-  it("si hay categoría pero falta su nombre, usa la etiqueta del ítem en vez de mentir con 'Sin categoría'", () => {
+  it("si falta el nombre de la categoría, lo toma del catálogo; nunca del label libre del ítem", () => {
     const items = [item({ id: "c1", categoryId: "comida", label: "Mercado del mes" })];
-    const grupos = agruparPresupuesto([renglon("c1")], mapa(items));
+    const catalogo = (id: string) => (id === "comida" ? "Comida" : null);
 
-    expect(grupos).toHaveLength(1);
-    expect(grupos[0].clave).toBe("comida");
-    expect(grupos[0].titulo).toBe("Mercado del mes");
-    expect(grupos[0].categoryId).toBe("comida");
+    const conCatalogo = agruparPresupuesto([renglon("c1")], mapa(items), catalogo);
+    expect(conCatalogo[0].clave).toBe("comida");
+    expect(conCatalogo[0].titulo).toBe("Comida");
+
+    // Sin ninguna fuente del nombre, un título neutro: jamás el label libre,
+    // que podría mezclar ítems de la misma categoría bajo el primero.
+    const sinCatalogo = agruparPresupuesto([renglon("c1")], mapa(items));
+    expect(sinCatalogo[0].titulo).toBe("Categoría");
+    expect(sinCatalogo[0].titulo).not.toBe("Mercado del mes");
   });
 });
