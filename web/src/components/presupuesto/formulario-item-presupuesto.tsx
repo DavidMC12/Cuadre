@@ -55,17 +55,30 @@ const NINGUNO = "__sin_elegir__";
  * editar un mes pasado ya es cosa normal, sin historial de versiones a la
  * vista. Desde la cuenta de otra persona no se abre nada: el servidor
  * rechazaría la escritura de todos modos.
+ *
+ * `montoDelMes` es el monto que el ítem tenía en ese mes visto (el `target`
+ * del renglón del checklist): sirve tanto para prellenar el campo al editar
+ * como para no mandar el servidor cuando el monto no cambió. Si no llega
+ * porque nadie lo pasó, el formulario usa el monto vigente HOY, que solo es
+ * el correcto cuando el mes visto es el actual.
  */
 export function FormularioItemPresupuesto({
   item,
   moneda,
   mes,
+  montoDelMes,
   children,
 }: {
   item?: ItemPresupuesto;
   moneda: string;
   /** El mes que se está viendo ("YYYY-MM"): donde nacen o se cambian los montos. */
   mes?: string;
+  /**
+   * El monto del ítem en `mes` ("124.0000"), o `null` si el ítem no existía
+   * aún en ese mes. Distinto de no pasar nada: `undefined` dice "usa el
+   * monto vigente hoy" (comportamiento antiguo, mes actual).
+   */
+  montoDelMes?: string | null;
   children: React.ReactNode;
 }) {
   const soloMirar = useSoloMirar();
@@ -77,6 +90,11 @@ export function FormularioItemPresupuesto({
   // mismo por defecto).
   const mesVisto = mes ?? mesActual();
 
+  // El monto que importa: el del mes visto cuando se dijo, o el de hoy. Del
+  // que sale el prellenado y la comparación de "¿cambió de verdad?".
+  const montoDeReferencia =
+    montoDelMes === undefined ? item?.currentAmount ?? null : montoDelMes;
+
   const categoriasDeGasto = (categorias ?? []).filter(
     (categoria) => categoria.kind === "expense" && !categoria.archivedAt
   );
@@ -86,10 +104,17 @@ export function FormularioItemPresupuesto({
 
   const [abierto, setAbierto] = useState(false);
   const [tipo, setTipo] = useState<"category" | "savings">(item ? item.kind : "category");
+
+  const seleccionada = cuentasDeAhorro.find((cuenta) => cuenta.id === cuentaId) ?? null;
+
+  // La moneda con la que se lee lo escrito: la de la cuenta de ahorro elegida,
+  // o la del checklist para un ítem de categoría.
+  const monedaDelMonto = seleccionada?.currency ?? moneda;
+
   const [categoriaId, setCategoriaId] = useState<string | undefined>(item?.categoryId ?? undefined);
   const [cuentaId, setCuentaId] = useState<string | undefined>(item?.accountId ?? undefined);
-  const [monto, setMonto] = useState(
-    item?.currentAmount ? textoEditable(item.currentAmount, item.currency) : ""
+  const [monto, setMonto] = useState(() =>
+    montoDeReferencia ? textoEditable(montoDeReferencia, monedaDelMonto) : ""
   );
   const [etiqueta, setEtiqueta] = useState(item?.label ?? "");
   const [errorMonto, setErrorMonto] = useState<string | null>(null);
@@ -100,12 +125,6 @@ export function FormularioItemPresupuesto({
   const archivar = useArchivarItemPresupuesto();
   const desarchivar = useDesarchivarItemPresupuesto();
 
-  const seleccionada = cuentasDeAhorro.find((cuenta) => cuenta.id === cuentaId) ?? null;
-
-  // La moneda con la que se lee lo escrito: la de la cuenta de ahorro elegida,
-  // o la del checklist para un ítem de categoría.
-  const monedaDelMonto = seleccionada?.currency ?? moneda;
-
   function etiquetaNueva(): string | null {
     const limpia = etiqueta.trim();
     return limpia === "" ? null : limpia;
@@ -115,7 +134,7 @@ export function FormularioItemPresupuesto({
     setTipo(item ? item.kind : "category");
     setCategoriaId(item?.categoryId ?? undefined);
     setCuentaId(item?.accountId ?? undefined);
-    setMonto(item?.currentAmount ? textoEditable(item.currentAmount, item.currency) : "");
+    setMonto(montoDeReferencia ? textoEditable(montoDeReferencia, monedaDelMonto) : "");
     setEtiqueta(item?.label ?? "");
     setErrorMonto(null);
   }
@@ -141,17 +160,15 @@ export function FormularioItemPresupuesto({
 
     try {
       if (item) {
-        // El monto solo se manda si cambió de verdad respecto a lo que muestra
-        // el ítem HOY — esa comparación solo es correcta cuando lo que se
-        // edita es el mes actual; en otro mes no sabemos el monto que tenía
-        // desde el cliente, así que se manda tal cual y la base lo fija.
-        // Cada fijación es una fila nueva e inmutable en la base: guardar la
-        // misma cifra dos veces dejaría una fila idéntica que no cuenta nada.
-        const esElMesActual = mesVisto === mesActual();
+        // El monto solo se manda si cambió de verdad respecto al monto del
+        // mes visto (`montoDeReferencia`). Si el mes visto no tiene monto
+        // aún (`null`, el ítem no existía ese mes) o ningún monto de
+        // referencia llegó, siempre se manda. Cada fijación es una fila
+        // nueva e inmutable en la base: guardar la misma cifra dos veces
+        // dejaría una fila idéntica que no cuenta nada.
         const montoCambio =
-          !esElMesActual ||
-          !item.currentAmount ||
-          aUnidadesMinimas(lectura.monto) !== aUnidadesMinimas(item.currentAmount);
+          !montoDeReferencia ||
+          aUnidadesMinimas(lectura.monto) !== aUnidadesMinimas(montoDeReferencia);
 
         if (montoCambio) {
           await fijarMonto.mutateAsync({ id: item.id, amount: lectura.monto, month: mesVisto });
