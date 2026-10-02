@@ -26,6 +26,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { EmptyState } from "@/components/empty-state";
 import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
 import { PanelPresupuesto } from "@/components/presupuesto/panel-presupuesto";
+import { CuantoMeSobra } from "@/components/dashboard/cuanto-me-sobra";
 import { SelectorMes } from "@/components/dashboard/selector-mes";
 import { ResumenCards } from "@/components/dashboard/resumen-cards";
 import { TotalCuentas } from "@/components/dashboard/total-cuentas";
@@ -270,6 +271,15 @@ export default function PaginaResumen() {
 
       <SelectorMes mes={mes} onCambiar={setMes} />
 
+      {/* En móvil, el cuadrito de cuánto sobra es el primer bloque del mes. */}
+      {moneda && (
+        <CuantoMeSobra
+          mes={mes}
+          moneda={moneda}
+          compartePantalla={falloCuentas || falloResumen || falloTendencia}
+        />
+      )}
+
       <ResumenCards
         resumen={resumen}
         moneda={moneda ?? ""}
@@ -386,7 +396,13 @@ export default function PaginaResumen() {
       {/* Montado solo cuando de verdad se ve: un aside oculto con CSS
           consultaba al servidor igual, aunque nadie lo mirara. */}
       {pantallaAncha && moneda && (
-        <aside className="w-80 shrink-0 xl:sticky xl:top-8">
+        <aside className="flex w-80 shrink-0 flex-col gap-5 xl:sticky xl:top-8">
+          {/* Arriba del panel: cuánto sobra según lo previsto. */}
+          <CuantoMeSobra
+            mes={mes}
+            moneda={moneda}
+            compartePantalla={falloCuentas || falloResumen || falloTendencia}
+          />
           <PanelPresupuesto
             mes={mes}
             moneda={moneda}

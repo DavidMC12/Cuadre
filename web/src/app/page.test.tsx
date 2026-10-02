@@ -8,6 +8,7 @@ import * as ordenCuentas from "@/hooks/use-cuentas";
 import { GraficaTendencia } from "@/components/dashboard/grafica-tendencia";
 import { GraficaPorCategoria } from "@/components/dashboard/grafica-por-categoria";
 import { PanelPresupuesto } from "@/components/presupuesto/panel-presupuesto";
+import { CuantoMeSobra } from "@/components/dashboard/cuanto-me-sobra";
 import { ApiError } from "@/lib/api/client";
 import type { Cuenta, ResumenMes } from "@/lib/api/types";
 
@@ -40,6 +41,9 @@ vi.mock("@/components/dashboard/grafica-por-categoria", () => ({
 }));
 vi.mock("@/components/dashboard/grafica-tendencia", () => ({ GraficaTendencia: vi.fn(() => null) }));
 vi.mock("@/components/dashboard/grafica-ahorro", () => ({ GraficaAhorro: () => null }));
+vi.mock("@/components/dashboard/cuanto-me-sobra", () => ({
+  CuantoMeSobra: vi.fn(() => null),
+}));
 vi.mock("@/components/presupuesto/panel-presupuesto", () => ({
   PanelPresupuesto: vi.fn(() => null),
 }));
@@ -290,5 +294,24 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     // esta prop, el doble scroll vuelve sin que ninguna otra prueba se caiga.
     expect(props.variante).toBe("suelta");
     expect(props.topePropio).toBe(false);
+  });
+
+  it("monta 'Cuánto me sobra' con el mes y la moneda del Resumen, en móvil y en el aside", () => {
+    render(<PaginaResumen />);
+
+    // Móvil: el bloque vive en la columna principal (primer bloque del mes).
+    // Aparte, el aside solo se monta desde xl (aquí `pantallaAncha` es false),
+    // así que en jsdom solo hay una instancia: la de móvil.
+    const llamadas = vi.mocked(CuantoMeSobra).mock.calls;
+    expect(llamadas.length).toBeGreaterThan(0);
+
+    const props = llamadas.at(-1)?.[0] as unknown as {
+      mes?: string;
+      moneda?: string;
+      compartePantalla?: boolean;
+    };
+    expect(props.mes).toBeDefined();
+    expect(props.moneda).toBe("COP");
+    expect(props.compartePantalla).toBe(false);
   });
 });
