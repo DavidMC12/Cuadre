@@ -134,6 +134,7 @@ async function itemDeCategoria(categoriaId: string, monto: string, mes = MES): P
     kind: 'category',
     currency: 'COP',
     categoryId: categoriaId,
+    categoryKind: 'expense',
     accountId: null,
     label: null,
     amount: monto,
@@ -232,7 +233,7 @@ describe('fijarObjetivoDelMes', () => {
     expect(delSiguiente!.target).toBe('500000.0000');
   });
 
-  it('ediciones repetidas del mismo mes: gana la última', async () => {
+  it('ediciones repetidas del mismo mes: gana la última, y el futuro sigue heredando', async () => {
     const comida = await crearCategoria('Comida');
     const itemId = await itemDeCategoria(comida.id, '300000');
 
@@ -242,7 +243,9 @@ describe('fijarObjetivoDelMes', () => {
     const [deEsteMes] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
     const [delSiguiente] = await repositorio.objetivosDelMes(usuarioId, MES_SIGUIENTE, 'COP');
     expect(deEsteMes!.target).toBe('450000.0000');
-    expect(delSiguiente!.target).toBe('300000.0000');
+    // El mes siguiente es futuro: no se ancla, hereda el monto final — subir
+    // el tope de hoy rige "de aquí en adelante".
+    expect(delSiguiente!.target).toBe('450000.0000');
   });
 
   it('no deja fijar el monto de un ítem que no es de este usuario', async () => {
@@ -250,27 +253,34 @@ describe('fijarObjetivoDelMes', () => {
     const itemId = await itemDeCategoria(comida.id, '350000');
 
     const otroUsuarioId = await crearUsuario();
-    expect(await repositorio.fijarObjetivoDelMes(otroUsuarioId, itemId, MES, '999999')).toBe(
-      false,
-    );
+    expect(await repositorio.fijarObjetivoDelMes(otroUsuarioId, itemId, MES, '999999')).toBe(false);
 
     const [item] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
     expect(item!.target).toBe('350000.0000');
   });
 
-  it('no deja una fila de ancla cuando el mes siguiente ya tiene ese mismo monto vigente', async () => {
+  it('repetir el mismo monto en el mismo mes no agrega filas', async () => {
     const comida = await crearCategoria('Comida');
     const itemId = await itemDeCategoria(comida.id, '300000');
 
-    // Fijar el mes con su propio monto: el ancla del mes siguiente solo sirve
-    // para preservar un monto distinto; si ya heredaba el mismo valor,
-    // insertarla sería una fila idéntica que no cuenta nada.
+    // La fila original ya dice 300000: el reintento (doble toque, webhook
+    // repetido) debe terminar sin insertar nada.
     await repositorio.fijarObjetivoDelMes(usuarioId, itemId, MES, '300000');
 
-    const [cuenta] = await db.execute(sql`
+    const [cuenta] = (await db.execute(sql`
       select count(*)::int as n from budget_item_targets where budget_item_id = ${itemId}::uuid
-    `) as unknown as { n: number }[];
-    expect(Number(cuenta!.n)).toBe(2);
+    `)) as unknown as { n: number }[];
+    expect(Number(cuenta!.n)).toBe(1);
+  });
+
+  it('subir el monto del mes actual cambia también los meses futuros que no tienen fila propia', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '300000');
+
+    await repositorio.fijarObjetivoDelMes(usuarioId, itemId, MES, '600000');
+
+    const [delSiguiente] = await repositorio.objetivosDelMes(usuarioId, MES_SIGUIENTE, 'COP');
+    expect(delSiguiente!.target).toBe('600000.0000');
   });
 });
 
@@ -307,6 +317,30 @@ describe('listar', () => {
   });
 });
 
+describe('ítem de categoría de ingresos', () => {
+  it('se crea con el tipo de ingreso copiado de la categoría y lo devuelve en categoryKind', async () => {
+    const salario = await crearCategoria('Salario', 'income');
+    const itemId = await repositorio.crear(usuarioId, {
+      kind: 'category',
+      currency: 'COP',
+      categoryId: salario.id,
+      categoryKind: 'income',
+      accountId: null,
+      label: null,
+      amount: '900000',
+      mesEfectivoDesde: MES,
+    });
+
+    const [item] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
+    expect(item).toMatchObject({
+      id: itemId,
+      kind: 'category',
+      categoryKind: 'income',
+      target: '900000.0000',
+    });
+  });
+});
+
 describe('ítem de ahorro', () => {
   it('se crea contra una cuenta de ahorro real y se lee de vuelta con su nombre', async () => {
     const ahorro = await crearCuenta({ isSavings: true });
@@ -314,6 +348,7 @@ describe('ítem de ahorro', () => {
       kind: 'savings',
       currency: 'COP',
       categoryId: null,
+      categoryKind: null,
       accountId: ahorro.id,
       label: null,
       amount: '200000',
@@ -366,9 +401,7 @@ describe('aislamiento entre usuarios', () => {
     const itemId = await itemDeCategoria(comida.id, '350000');
 
     const otroUsuarioId = await crearUsuario();
-    expect(await repositorio.fijarObjetivoDelMes(otroUsuarioId, itemId, MES, '999999')).toBe(
-      false,
-    );
+    expect(await repositorio.fijarObjetivoDelMes(otroUsuarioId, itemId, MES, '999999')).toBe(false);
 
     const [item] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
     expect(item!.target).toBe('350000.0000');
@@ -407,6 +440,7 @@ describe('la base exige que el ítem tenga sentido con su tipo', () => {
         kind: 'category',
         currency: 'COP',
         categoryId: null,
+        categoryKind: 'expense',
         accountId: null,
         label: null,
         amount: '100000',
@@ -423,6 +457,7 @@ describe('la base exige que el ítem tenga sentido con su tipo', () => {
         kind: 'savings',
         currency: 'COP',
         categoryId: null,
+        categoryKind: null,
         accountId: ahorroUsd.id,
         label: null,
         amount: '100',
@@ -431,7 +466,7 @@ describe('la base exige que el ítem tenga sentido con su tipo', () => {
     ).rejects.toThrow();
   });
 
-  it('rechaza un ítem de categoría cuya categoría es de ingresos', async () => {
+  it('la llave foránea rechaza un category_kind que no es el real de la categoría', async () => {
     const sueldo = await crearCategoria('Sueldo', 'income');
 
     await expect(
@@ -439,6 +474,25 @@ describe('la base exige que el ítem tenga sentido con su tipo', () => {
         kind: 'category',
         currency: 'COP',
         categoryId: sueldo.id,
+        categoryKind: 'expense',
+        accountId: null,
+        label: null,
+        amount: '100000',
+        mesEfectivoDesde: MES,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('la llave foránea rechaza una categoría que no es de este usuario', async () => {
+    const comida = await crearCategoria('Comida');
+    const otroUsuarioId = await crearUsuario();
+
+    await expect(
+      repositorio.crear(otroUsuarioId, {
+        kind: 'category',
+        currency: 'COP',
+        categoryId: comida.id,
+        categoryKind: 'expense',
         accountId: null,
         label: null,
         amount: '100000',

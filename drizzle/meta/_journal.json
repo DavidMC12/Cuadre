@@ -64,6 +64,13 @@
       "when": 1790898812234,
       "tag": "0008_presupuesto_meses_pasados",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790900207444,
+      "tag": "0009_presupuesto_ingresos",
+      "breakpoints": true
     }
   ]
 }

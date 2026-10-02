@@ -13,6 +13,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
+import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { construirApp } from './aplicacion.js';
 import { closeDb, db } from './db/client.js';
@@ -119,7 +120,11 @@ async function registrar(cuentaId: string, monto: string, extras = {}): Promise<
   return cuerpo.data;
 }
 
-async function crearItemDeCategoria(categoriaId: string, amount: string, extras = {}): Promise<any> {
+async function crearItemDeCategoria(
+  categoriaId: string,
+  amount: string,
+  extras = {},
+): Promise<any> {
   const { estado, cuerpo } = await pedir('POST', '/api/v1/budgets/items', {
     kind: 'category',
     categoryId: categoriaId,
@@ -208,19 +213,25 @@ describe('crear ítems', () => {
     expect(estado).toBe(400);
   });
 
-  it('rechaza una categoría de ingresos', async () => {
+  it('crea un ítem de ingresos y su progreso es lo recibido en la categoría, nunca te pasaste', async () => {
     const sueldo = await crearCategoria('Sueldo', 'income');
+    const banco = await crearCuenta();
+    const item = await crearItemDeCategoria(sueldo.id, '900000');
 
-    const { estado, cuerpo } = await pedir('POST', '/api/v1/budgets/items', {
+    expect(item).toMatchObject({ kind: 'category', categoryKind: 'income' });
+
+    // Recibir de más: logro, y jamás un aviso en rojo.
+    await registrar(banco.id, '950000', { categoryId: sueldo.id });
+
+    const { items } = await checklist(mesRelativo(0).etiqueta);
+    expect(items[0]).toMatchObject({
       kind: 'category',
-      categoryId: sueldo.id,
-      currency: 'COP',
-      amount: '100000',
+      categoryKind: 'income',
+      target: '900000.0000',
+      progress: '950000.0000',
+      checked: true,
+      exceeded: false,
     });
-
-    expect(estado).toBe(422);
-    expect(cuerpo.error.code).toBe('RULE_VIOLATION');
-    expect(cuerpo.error.message).toMatch(/ingresos/);
   });
 
   it('rechaza una cuenta que no está marcada como de ahorro', async () => {
@@ -274,6 +285,7 @@ describe('el checklist del mes', () => {
       {
         id: expect.any(String),
         kind: 'category',
+        categoryKind: 'expense',
         currency: 'COP',
         label: 'Mercado',
         target: '100000.0000',
@@ -443,7 +455,7 @@ describe('el checklist del mes', () => {
 });
 
 describe('fijar el objetivo de un mes', () => {
-  it('fija el monto del mes pedido y ancla el siguiente con el que ya tenía', async () => {
+  it('fija el monto del mes pedido, y el siguiente (futuro) sigue heredando', async () => {
     const mercado = await crearCategoria('Mercado');
     const item = await crearItemDeCategoria(mercado.id, '100000');
 
@@ -459,9 +471,9 @@ describe('fijar el objetivo de un mes', () => {
     // El mes fijado muestra el monto nuevo...
     expect((await checklist(mesRelativo(0).etiqueta)).items[0].target).toBe('200000.0000');
 
-    // ...y el siguiente ya NO lo hereda: quedó anclado con el monto que tenía
-    // antes de la fijación, porque cada mes lleva el suyo.
-    expect((await checklist(mesRelativo(1).etiqueta)).items[0].target).toBe('100000.0000');
+    // ...y el siguiente, que es futuro, hereda: subir el tope de este mes
+    // rige "de aquí en adelante".
+    expect((await checklist(mesRelativo(1).etiqueta)).items[0].target).toBe('200000.0000');
 
     // Un mes anterior a que el ítem existiera sigue sin objetivo.
     const itemDeAyer = await checklist(mesRelativo(-1).etiqueta);
@@ -469,7 +481,7 @@ describe('fijar el objetivo de un mes', () => {
     expect(itemDeAyer.items[0].target).toBeNull();
   });
 
-  it('fija el monto de un mes que ya pasó, sin mover el actual', async () => {
+  it('fija el monto de un mes que ya pasó, sin mover el actual ni el siguiente', async () => {
     const mercado = await crearCategoria('Mercado');
     const item = await crearItemDeCategoria(mercado.id, '100000');
 
@@ -482,6 +494,7 @@ describe('fijar el objetivo de un mes', () => {
     expect((await checklist(mesRelativo(-1).etiqueta)).items[0].target).toBe('250000.0000');
     // El mes en curso conserva el suyo.
     expect((await checklist(mesRelativo(0).etiqueta)).items[0].target).toBe('100000.0000');
+    expect((await checklist(mesRelativo(1).etiqueta)).items[0].target).toBe('100000.0000');
   });
 
   it('ediciones repetidas del mismo mes: gana la última', async () => {
@@ -497,7 +510,41 @@ describe('fijar el objetivo de un mes', () => {
     }
 
     expect((await checklist(mesRelativo(0).etiqueta)).items[0].target).toBe('260000.0000');
-    expect((await checklist(mesRelativo(1).etiqueta)).items[0].target).toBe('100000.0000');
+    expect((await checklist(mesRelativo(1).etiqueta)).items[0].target).toBe('260000.0000');
+  });
+
+  it('repetir el mismo monto no crea segunda fila: reintento idempotente', async () => {
+    const mercado = await crearCategoria('Mercado');
+    const item = await crearItemDeCategoria(mercado.id, '100000');
+
+    for (const _vuelta of [1, 2]) {
+      const { estado } = await pedir('PATCH', `/api/v1/budgets/items/${item.id}/target`, {
+        amount: '140000',
+        month: mesRelativo(0).etiqueta,
+      });
+      expect(estado).toBe(200);
+    }
+
+    // La fila original decía 100000; el reintento con 140000 y otro igual:
+    // solo puede existir la fila nueva del 140000, ni una fila idéntica más.
+    const [cuenta] = (await db.execute(sql`
+      select count(*)::int as n
+      from budget_item_targets
+      where budget_item_id = ${item.id}::uuid and amount = 140000
+    `)) as unknown as { n: number }[];
+    expect(Number(cuenta!.n)).toBe(1);
+  });
+
+  it('rechaza un mes con año 0000 con 422, no con un 500 de Postgres', async () => {
+    const mercado = await crearCategoria('Mercado');
+    const item = await crearItemDeCategoria(mercado.id, '100000');
+
+    const { estado, cuerpo } = await pedir('PATCH', `/api/v1/budgets/items/${item.id}/target`, {
+      amount: '200000',
+      month: '0000-01',
+    });
+    expect(estado).toBe(422);
+    expect(cuerpo.error.code).toBe('RULE_VIOLATION');
   });
 
   it('rechaza un monto en cero o negativo', async () => {
