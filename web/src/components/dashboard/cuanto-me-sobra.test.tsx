@@ -82,9 +82,11 @@ describe('CuantoMeSobra', () => {
 
     render(<CuantoMeSobra mes={mesActual()} moneda="COP" />);
 
-    // El previsto va neutro, sin el "+" de una ganancia.
+    // El previsto va neutro, sin el "+" de una ganancia ni el verde.
     expect(montoConTexto('$1.000.000')).toBeTruthy();
     expect(montoConTexto('+$1.000.000')).toBeNull();
+    const previsto = montoConTexto('$1.000.000')!;
+    expect(previsto.className).not.toContain('emerald');
     expect(screen.getByText('Hasta hoy:')).toBeTruthy();
     expect(montoConTexto('$500.000')).toBeTruthy();
     expect(screen.getByText(/Te sobran según lo previsto/)).toBeTruthy();
@@ -199,6 +201,34 @@ describe('CuantoMeSobra', () => {
     expect(screen.queryByText(/según lo previsto/)).toBeNull();
   });
 
+  it('movimientos que se compensan (red cero) no son un mes vacío: muestra el real', () => {
+    // Sin presupuesto, pero entró tanto como salió: la red es cero y el mes
+    // no está vacío.
+    ajustar(
+      { data: { month: mesActual(), currency: 'COP', items: [] } },
+      { data: resumenDe('500000', '500000') },
+    );
+
+    render(<CuantoMeSobra mes={mesActual()} moneda="COP" />);
+
+    expect(screen.getByText('Hasta hoy:')).toBeTruthy();
+    expect(montoConTexto('$0')).toBeTruthy();
+  });
+
+  it('de un solo lado y sin movimientos: no es el vacío total si hay un presupuesto', () => {
+    // Solo ingresos presupuestados, sin movimientos: el vacío genérico
+    // mentiría — sí hay un presupuesto, falta el otro lado.
+    ajustar(
+      { data: { month: mesActual(), currency: 'COP', items: [renglonDe('income', '3000000')] } },
+      { data: resumenDe('0', '0') },
+    );
+
+    render(<CuantoMeSobra mes={mesActual()} moneda="COP" />);
+
+    expect(screen.queryByText(/Aún no hay presupuesto/)).toBeNull();
+    expect(screen.getByText(/Presupuesta los gastos que esperas tener/)).toBeTruthy();
+  });
+
   it('totalmente vacío (sin presupuesto ni movimientos): estado vacío, sin cifras', () => {
     ajustar(
       { data: { month: mesActual(), currency: 'COP', items: [] } },
@@ -233,6 +263,26 @@ describe('CuantoMeSobra', () => {
 
     expect(screen.getByText(/Sin conexión/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy();
+  });
+
+  it('una consulta pausada con datos ya en mano sigue mostrando las cifras', () => {
+    ajustar(
+      {
+        isPaused: true,
+        data: {
+          month: mesActual(),
+          currency: 'COP',
+          items: [renglonDe('income', '3000000'), renglonDe('expense', '2000000')],
+        },
+      },
+      { isPaused: true, data: resumenDe('1000000', '500000') },
+    );
+
+    render(<CuantoMeSobra mes={mesActual()} moneda="COP" />);
+
+    // El dato viejo no es falso: se muestra, no se cambia por "sin conexión".
+    expect(screen.queryByText(/Sin conexión/)).toBeNull();
+    expect(montoConTexto('$1.000.000')).toBeTruthy();
   });
 
   it('la variante suelta no mete una tarjeta dentro de otra', () => {

@@ -203,7 +203,7 @@ export default function PaginaResumen() {
                     mes={mes}
                     moneda={moneda}
                     variante="suelta"
-                    compartePantalla={falloCuentas || falloResumen || falloTendencia}
+                    compartePantalla={componenFallosConPresupuesto}
                     // El cajón ya scrollea: sin tope propio no se anidan dos.
                     topePropio={false}
                   />
@@ -254,7 +254,7 @@ export default function PaginaResumen() {
             onReintentar={() => recargarCuentas()}
             // Basta con que OTRO fallo conviva: este bloque deja de anunciar
             // solo y el anuncio único de arriba habla por todos.
-            compartePantalla={falloResumen || falloTendencia}
+            compartePantalla={componenFallosConPresupuesto}
           />
         ) : (
           <>
@@ -284,7 +284,7 @@ export default function PaginaResumen() {
         resumen={resumen}
         moneda={moneda ?? ""}
         cargando={cargandoResumen}
-        compartePantalla={falloCuentas || falloTendencia}
+        compartePantalla={componenFallosConPresupuesto}
         fallo={
           falloResumen
             ? {
@@ -316,7 +316,7 @@ export default function PaginaResumen() {
               onCambiarTipo={setTipoCategoria}
               // No sabe cuál otro falló ni hace falta: si cualquier otro
               // fallo convive, el suyo deja de anunciar solo.
-              compartePantalla={falloCuentas || falloResumen || falloTendencia}
+              compartePantalla={componenFallosConPresupuesto}
             />
           </CardContent>
         </Card>
@@ -345,7 +345,7 @@ export default function PaginaResumen() {
               tendencia={tendencia}
               moneda={moneda ?? ""}
               cargando={cargandoTendencia}
-              compartePantalla={falloCuentas || falloResumen}
+              compartePantalla={componenFallosConPresupuesto}
               fallo={
                 falloTendencia
                   ? {
@@ -376,7 +376,7 @@ export default function PaginaResumen() {
             <GraficaAhorro
               months={mesesTendencia}
               currency={moneda ?? ""}
-              compartePantalla={falloCuentas || falloResumen || falloTendencia}
+              compartePantalla={componenFallosConPresupuesto}
             />
           </CardContent>
         </Card>

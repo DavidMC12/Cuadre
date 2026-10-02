@@ -133,4 +133,21 @@ describe("cuantoSobraEnElMes", () => {
     expect(estado.hayIngresos).toBe(false);
     expect(estado.hayGastos).toBe(false);
   });
+
+  it("la red en cero con movimiento en ambos lados no es un mes vacío", () => {
+    const estado = cuantoSobraEnElMes({
+      renglones: [],
+      income: "500000",
+      expense: "500000",
+    });
+
+    expect(estado.realUnidades).toBe(0n);
+    // El neto es cero, pero sí hubo movimientos: no es el vacío del mes.
+    expect(estado.hayMovimientos).toBe(true);
+  });
+
+  it("sin movimientos, hayMovimientos es falso", () => {
+    const estado = cuantoSobraEnElMes({ renglones: [], income: "0", expense: "0" });
+    expect(estado.hayMovimientos).toBe(false);
+  });
 });

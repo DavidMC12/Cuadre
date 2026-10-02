@@ -382,5 +382,7 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     };
     expect(propsPanel.compartePantalla).toBe(true);
     expect(screen.getByRole("status")).not.toBeEmptyDOMElement();
+    // Y con la composición no queda ninguna alerta suelta compitiendo.
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

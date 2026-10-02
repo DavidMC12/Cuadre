@@ -91,8 +91,11 @@ export function CuantoMeSobra({
   const faltaIngresos = estado !== undefined && !estado.hayIngresos;
   const faltaGastos = estado !== undefined && !estado.hayGastos;
   const faltaUnLado = faltaIngresos || faltaGastos;
-  const sinMovimientos = estado !== undefined && estado.realUnidades === 0n;
-  const vacioTotal = faltaUnLado && sinMovimientos;
+  // El vacío total es no tener NADA que contar: ni un lado presupuestado ni
+  // movimientos. Un solo lado ya es presupuesto, y un mes con movimientos que
+  // se compensan (red cero) tampoco está vacío.
+  const vacioTotal =
+    estado !== undefined && faltaIngresos && faltaGastos && !estado.hayMovimientos;
 
   const tramo = tramoDelMes(mes);
 
@@ -133,9 +136,10 @@ export function CuantoMeSobra({
           }}
           compartePantalla={compartePantalla || (falloChecklist && !anunciaPresupuesto)}
         />
-      ) : pausada ? (
-        // Sin red la consulta queda en pausa, no en error: se dice y se ofrece
-        // reintentar en vez de un cuerpo en blanco.
+      ) : pausada && !estado ? (
+        // Sin red y sin nada en mano, la consulta queda en pausa (no en error):
+        // se dice y se ofrece reintentar en vez de un cuerpo en blanco. Con
+        // datos viejos en memoria se siguen mostrando (stale, no falsos).
         <FalloConsulta
           etiquetaBoton="Reintentar"
           mensaje="Sin conexión: no pudimos cargar este mes. Vuelve a intentarlo cuando tengas red."
@@ -161,13 +165,22 @@ export function CuantoMeSobra({
             // igual, y aquí se invita a completar el presupuesto. Nunca un
             // previsto inventado con un lado en cero.
             <>
-              <p className="text-sm text-muted-foreground">
-                {textoDelReal(tramo)}:{' '}
-                <Monto valor={estado.real} moneda={moneda} signo="negativo" className="text-base" />
-              </p>
-              <p className="mt-1 text-sm font-medium">
-                {textoDelSigno(estado.realUnidades)} este mes.
-              </p>
+              {tramo !== 'futuro' && (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    {textoDelReal(tramo)}:{' '}
+                    <Monto
+                      valor={estado.real}
+                      moneda={moneda}
+                      signo="neutro"
+                      className="text-base"
+                    />
+                  </p>
+                  <p className="mt-1 text-sm font-medium">
+                    {textoDelSigno(estado.realUnidades)} este mes.
+                  </p>
+                </>
+              )}
               <p className="mt-2 text-sm text-muted-foreground">
                 {faltaIngresos && faltaGastos
                   ? 'Presupuesta tus ingresos y tus gastos para saber cuánto te sobra.'
@@ -185,7 +198,7 @@ export function CuantoMeSobra({
               <Monto
                 valor={estado.previsto}
                 moneda={moneda}
-                signo="negativo"
+                signo="neutro"
                 className="text-2xl"
               />
               {/* El real solo tiene sentido en un mes ya empezado; en uno
@@ -197,7 +210,7 @@ export function CuantoMeSobra({
                   <Monto
                     valor={estado.real}
                     moneda={moneda}
-                    signo="negativo"
+                    signo="neutro"
                     className="text-base"
                   />
                 </p>

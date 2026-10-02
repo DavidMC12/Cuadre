@@ -45,6 +45,11 @@ export interface CuantoSobra {
   real: string;
   /** Lo mismo que `real`, en diezmilésimas enteras. */
   realUnidades: bigint;
+  /**
+   * ¿Hubo algún movimiento este mes? `realUnidades === 0` es la RED, no la
+   * ausencia: ingresos iguales a gastos dan cero sin que el mes esté vacío.
+   */
+  hayMovimientos: boolean;
 }
 
 export function cuantoSobraEnElMes({
@@ -75,6 +80,9 @@ export function cuantoSobraEnElMes({
   const gastos = sumarMontos(gastosPrevistos);
   const previsto = restar(ingresos, gastos);
   const real = restar(income, expense);
+  // La red puede dar cero con movimiento de sobra (entró tanto como salió):
+  // por eso se mira cada lado, no la resta.
+  const hayMovimientos = aUnidadesMinimas(income) !== 0n || aUnidadesMinimas(expense) !== 0n;
 
   return {
     previsto,
@@ -83,5 +91,6 @@ export function cuantoSobraEnElMes({
     hayGastos: gastosPrevistos.length > 0,
     real,
     realUnidades: aUnidadesMinimas(real),
+    hayMovimientos,
   };
 }
