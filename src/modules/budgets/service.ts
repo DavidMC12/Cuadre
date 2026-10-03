@@ -23,10 +23,15 @@ import {
 
 /**
  * La única puerta por la que un mes y un monto entran a este service: un
- * mes como "YYYY-MM" con año de verdad (el "0000-01" rompe a Postgres, no a
- * la app) y un monto positivo en texto, tal como lo define el schema de
- * entrada. Una sola validación, y no una copia en cada función: lo que la
- * ruta haya pasado por Zod no se asume.
+ * mes como "YYYY-MM" y un monto positivo en texto, tal como lo define el
+ * schema de entrada. Una sola validación, y no una copia en cada función:
+ * lo que la ruta haya pasado por Zod no se asume.
+ *
+ * El RANGO del mes (año 2000-2100; "0000" rompe a Postgres) vive en
+ * `MesSchema`, en schemas.ts: ahí lo aplican todas las rutas antes de
+ * llegar aquí, con un 400 de la validación del borde. Revalidar el formato
+ * en el service queda porque el service también se llama directo (sin HTTP)
+ * y no puede confiar en que la ruta pasara por Zod.
  *
  * Devuelve el mes a usar: el que llegó, o el actual si no llegó ninguno.
  */
@@ -38,10 +43,6 @@ async function validarMesYMonto(month: string | undefined, amount: string): Prom
     const leido = MesSchema.safeParse(month);
     if (!leido.success) {
       throw reglaViolada(leido.error.issues[0]?.message ?? 'El mes no es válido.');
-    }
-    // El año cero no existe para Postgres: "-01" de "0000-01" fuera de rango.
-    if (Number(month.slice(0, 4)) === 0) {
-      throw reglaViolada('El mes no admite el año "0000".');
     }
     mes = month;
   }

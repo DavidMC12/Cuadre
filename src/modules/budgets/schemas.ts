@@ -10,10 +10,23 @@ export const TIPOS_DE_ITEM = ['category', 'savings'] as const;
 export const TipoDeItemSchema = z.enum(TIPOS_DE_ITEM);
 export type BudgetItemKind = z.infer<typeof TipoDeItemSchema>;
 
-/** Un mes calendario, como "2026-09". Mismo formato que usan los reportes. */
+/**
+ * Un mes calendario, como "2026-09". Mismo formato que usan los reportes.
+ *
+ * El rango es una regla de la BASE, no solo de una pantalla: un mes como
+ * "0000-01" pasa la regex pero rompe a Postgres (su tipo de fecha no tiene
+ * año cero) y obligaría a una consulta a responder 500. Aquí, en el borde
+ * donde nace la validación, el año va de 2000 a 2100 y el mes de 01 a 12 —
+ * así TODA ruta que use este schema rechaza el dato malo con 400 antes de
+ * tocar la base, y el service no tiene que repetir la regla.
+ */
 export const MesSchema = z
   .string()
-  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'debe ser un mes como "2026-09"');
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'debe ser un mes como "2026-09"')
+  .refine((mes) => {
+    const anio = Number(mes.slice(0, 4));
+    return anio >= 2000 && anio <= 2100;
+  }, 'El año del mes debe estar entre 2000 y 2100.');
 
 const EtiquetaSchema = z.string().trim().min(1, 'la etiqueta no puede quedar vacía').max(120);
 
