@@ -259,7 +259,10 @@ describe('FormularioItemPresupuesto', () => {
 
     // El refetch responde con el monto ya fijado: llega dato fresco con el
     // cajón abierto y texto pendiente de guardar. Nada puede borrar lo
-    // que la persona tecleó.
+    // que la persona tecleó. Insistimos con la ETIQUETA porque es la
+    // aserción que por sí sola atrapa el bug: en un monto cuyo formato
+    // coincide con el del dato fresco, `reiniciar()` dejaría el
+    // mismo texto en pantalla y la aserción del monto no olería nada.
     vista.rerender(
       <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-09" montoDelMes="50000.0000">
         <button type="button">Editar</button>
@@ -303,5 +306,44 @@ describe('FormularioItemPresupuesto', () => {
       </FormularioItemPresupuesto>,
     );
     expect(screen.getByLabelText('Monto')).toHaveValue('45.000');
+  });
+
+  it('cambiar de mes con el cajón abierto reinicia aunque haya texto pendiente', () => {
+    // El texto tecleado describe un monto del mes que se veía: si el mes
+    // visto cambia, ese texto ya no aplica y se reinicia aunque la persona
+    // no haya guardado. (Hoy el cajón modal no deja tocar el selector, así
+    // que el flujo es teórico; la regla queda escrita y probada para que
+    // un refactor no la rompa sin decirlo.)
+    const item = {
+      id: 'item-1',
+      kind: 'category' as const,
+      currency: monedaCOP,
+      categoryId: 'cat-1',
+      categoryName: 'Mercado',
+      accountId: null,
+      accountName: null,
+      label: null,
+      currentAmount: '30000.0000',
+      archivedAt: null,
+      categoryKind: 'expense' as const,
+    };
+
+    const vista = render(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-09" montoDelMes="30000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    fireEvent.change(screen.getByLabelText('Etiqueta (opcional)'), {
+      target: { value: 'Para septiembre' },
+    });
+
+    vista.rerender(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-10" montoDelMes="60000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    expect(screen.getByLabelText('Monto')).toHaveValue('60.000');
+    expect((screen.getByLabelText('Etiqueta (opcional)') as HTMLInputElement).value).toBe('');
   });
 });

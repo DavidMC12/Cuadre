@@ -158,22 +158,30 @@ export function FormularioItemPresupuesto({
 
   const claveDelContexto = `${abierto}|${mesVisto}|${montoDeReferencia ?? ''}|${item?.id ?? ''}|${item?.label ?? ''}`;
   const claveVista = useRef(claveDelContexto);
+  const mesVistoAnterior = useRef(mesVisto);
   useEffect(() => {
+    const cambioDeMes = mesVistoAnterior.current !== mesVisto;
+    mesVistoAnterior.current = mesVisto;
     if (claveVista.current !== claveDelContexto) {
       claveVista.current = claveDelContexto;
-      // Distinguir "llegó dato fresco" de "hay texto sin guardar": la cita de
-      // la clave incluye el monto de referencia, así que un refetch que ve
-      // data nueva (por ejemplo, el monto que sí se guardó mientras la
+      // Distinguir "llegó dato fresco" de "hay texto sin guardar": la clave
+      // del contexto incluye el monto de referencia, así que un refetch que
+      // ve data nueva (por ejemplo, el monto que sí se guardó mientras la
       // etiqueta fallaba) dispara este efecto con el formulario ABIERTO y
       // texto en los campos. Reiniciar aquí borraría lo tecleado, aunque el
       // guardado no terminó — exactamente lo que el toast de error promete
       // que se conserva. Si hay texto pendiente, el dato fresco no lo pisa.
-      if (!hayTextoPendiente.current) {
+      //
+      // El cambio de MES es distinto: el texto tecleado describe un monto
+      // del mes que se veía antes, así que ya no aplica y el reinicio sigue
+      // aunque haya texto pendiente (hoy el cajón es modal y no deja tocar
+      // el selector, pero la regla no depende de eso).
+      if (!hayTextoPendiente.current || cambioDeMes) {
         reiniciar();
       }
     }
-    // El guard (claveVista) hace que solo se reinicie cuando el contexto de los
-    // props cambió;reiniciar solo lee props, nunca el texto tecleado.
+    // El guard (claveVista) hace que solo se reinicie cuando el contexto de
+    // los props cambió; reiniciar solo lee props, nunca el texto tecleado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claveDelContexto]);
 

@@ -551,10 +551,11 @@ describe('fijar el objetivo de un mes', () => {
 
   it('rechaza meses fuera de rango en TODA ruta que valide mes, antes de tocar la base', async () => {
     // El service ya no duplica la regla: el borde (MesSchema) es el único
-    // que la aplica. Tres malos en las dos rutas que llevan `month`:
+    // que la aplica. Cuatro malos (dos por regex, dos por rango) en las dos
+    // rutas que llevan `month`:
     // checklist (GET, querystring) y fijar objetivo (PATCH, body). Un fallo
     // aquí volvería a ser 500 de Postgres, no un 400 limpio.
-    for (const mes of ['0000-01', '2026-13', '1999-12']) {
+    for (const mes of ['0000-01', '2026-13', '1999-12', '2101-01']) {
       const checklistMalo = await app.inject({
         method: 'GET',
         url: `/api/v1/budgets/checklist?month=${mes}&currency=COP`,
@@ -578,6 +579,14 @@ describe('fijar el objetivo de un mes', () => {
     const mercado = await crearCategoria('Mercado');
     const item = await crearItemDeCategoria(mercado.id, '100000');
 
+    // El borde sano por ARRIBA también pasa (año 2100) y el normal igual.
+    const borde2100 = await app.inject({
+      method: 'GET',
+      url: '/api/v1/budgets/checklist?month=2100-12&currency=COP',
+    });
+    expect(borde2100.statusCode).not.toBe(400);
+    expect(borde2100.statusCode).not.toBe(500);
+
     // Un mes normal sigue aceptado (200): el refine de rango no comió de más.
     const { estado } = await pedir('PATCH', `/api/v1/budgets/items/${item.id}/target`, {
       amount: '200000',
@@ -585,14 +594,13 @@ describe('fijar el objetivo de un mes', () => {
     });
     expect(estado).toBe(200);
 
-    // El borde sano exacto (año 2000) no debe ser rechazado por formato: la
-    // respuesta puede ser 404/200 según el mes, pero nunca 400 de validación.
-    const borde = await app.inject({
+    // El borde sano exacto por abajo (año 2000) igual no queda fuera.
+    const borde2000 = await app.inject({
       method: 'GET',
       url: '/api/v1/budgets/checklist?month=2000-12&currency=COP',
     });
-    expect(borde.statusCode).not.toBe(400);
-    expect(borde.statusCode).not.toBe(500);
+    expect(borde2000.statusCode).not.toBe(400);
+    expect(borde2000.statusCode).not.toBe(500);
   });
 
   it('rechaza un monto en cero o negativo', async () => {
