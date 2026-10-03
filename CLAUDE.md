@@ -191,10 +191,10 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   de ingreso (salario, variables) en secciones Ingresos y Gastos: recibir de
   más nunca se pinta como "te pasaste". Migraciones `0008` (quita el
   disparador que bloqueaba montos en meses pasados) y `0009` (el check de
-  `budget_items` admite `category_kind = 'income'`): **no corren solas en
-  producción**, se aplican a mano con `npm run db:migrate`; el código nuevo
-  convive con la base sin migrar (solo falla fijar un mes pasado y crear
-  ítems de ingreso). Fijar un monto sigue siendo solo-`INSERT`: el mes
+  `budget_items` admite `category_kind = 'income'`): **aplicadas a la base de
+  producción el 2026-10-04** (verificado: 10 migraciones, sin el disparador
+  viejo, el check admite `income`). Las migraciones **no corren solas** en
+  cada despliegue: se aplican a mano con `npm run db:migrate`. Fijar un monto sigue siendo solo-`INSERT`: el mes
   siguiente solo se ancla si ya empezó, así subir el tope de hoy rige hacia
   adelante. Deuda anotada: fijar un mes anterior a la creación del ítem hace
   que el siguiente herede; el formulario pierde lo tecleado si el monto
