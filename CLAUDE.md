@@ -224,10 +224,11 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   dueño vio, con capturas, el cuadro "Cuánto me sobra" y las categorías
   abiertas del presupuesto recortados. Causa: las tarjetas del aside xl eran
   hijas de un flex con `overflow-hidden`, así que se encogían en vez de
-  desbordar y el aside nunca scrolleaba de verdad. Ahora `shrink-0` +
-  un solo scroll (el del aside, sin scroll anidado), el encabezado de cada
-  categoría queda pegado al recorrerla y hay un botón pequeño "Contraer
-  todo". Las clases viven en `web/src/lib/aside-resumen.ts`, que importan el
+  desbordar y el aside nunca scrolleaba de verdad. Primer arreglo: `shrink-0`
+  + scroll de toda la columna (SUPERADO por el rediseño de abajo: el dueño
+  pidió scroll solo para la lista del presupuesto); el encabezado de cada
+  categoría queda pegado al recorrerla y hay un botón "Contraer todo" (hoy
+  alterna con "Desplegar todo"). Las clases viven en `web/src/lib/aside-resumen.ts`, que importan el
   componente y la medición con Chromium (`npm run medir:aside`) para que no
   mida un espejo desactualizado. No se hizo scroll por categoría a propósito
   (atrapa el dedo y el cursor).
