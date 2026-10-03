@@ -141,12 +141,11 @@
 /* Scroll fino y discreto para lo que scrollea (la lista del presupuesto y el
    cajón móvil): riel transparente y pulgar en el gris secundario del tema
    —nunca un hex fijo, así sigue claro/oscuro— y algo más visible al pasar el
-   cursor. En Chromium manda `::-webkit-scrollbar`; en Firefox,
-   `scrollbar-width`/`scrollbar-color`. */
+   cursor. En Chromium mandan los pseudo-elementos `::-webkit-scrollbar` (6px);
+   las propiedades estándar van aisladas en un `@supports` de Firefox: si se
+   declaran también en Chromium, ese navegador ignora `::-webkit-scrollbar` y
+   la barra queda en su ancho "thin" (~10px), no en 6. */
 @utility scroll-fino {
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklch, var(--muted-foreground) 45%, transparent) transparent;
-
   &::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -163,5 +162,10 @@
 
   &:hover::-webkit-scrollbar-thumb {
     background-color: color-mix(in oklch, var(--muted-foreground) 70%, transparent);
+  }
+
+  @supports (-moz-appearance: none) {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--muted-foreground) 45%, transparent) transparent;
   }
 }

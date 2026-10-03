@@ -15,16 +15,17 @@
  *   5. los encabezados de grupo se pegan arriba dentro del scroll de la lista.
  *
  * Importa las clases reales de `src/lib/aside-resumen.ts` (el mismo módulo que
- * usan page.tsx y panel-presupuesto.tsx) y pasa las de Card por `cn`, el mismo
- * merge del componente. El caso "antes" conserva el aspecto viejo (aside con
- * scroll y encabezado apretado en una fila) como evidencia de que el script
- * sabe reproducir el defecto.
+ * usan page.tsx y panel-presupuesto.tsx), pasa las de Card por `cn` (el mismo
+ * merge del componente) y compila la CSS real de `globals.css` para que la
+ * barra fina (`scroll-fino`) y sus tokens entren en la medición. El caso
+ * "antes" conserva el comportamiento viejo (el aside con scroll propio y la
+ * tarjeta sin caber) como evidencia de que el script sabe reproducirlo.
  *
  * Uso: `npm run medir:aside` (necesita chromium en el PATH).
  */
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -163,14 +164,21 @@ ${caso("despues", "despues")}
 ${caso("antes", "antes")}
 </body></html>`;
 
-const CSS = `@import "tailwindcss" source(none);\n@source "./index.html";\n`;
-
 async function compilarCss(directorio) {
   const entradaTailwind = join(dirname(require.resolve("tailwindcss/package.json")), "index.css");
-  const resultado = await postcss([tailwindcss()]).process(
-    CSS.replace("./index.html", join(directorio, "index.html")).replace("tailwindcss", entradaTailwind),
-    { from: join(directorio, "aside.css") }
+  // La CSS real del proyecto: trae los tokens del tema y la utilidad
+  // `scroll-fino`, sin la cual el carril medido no sería el de verdad.
+  const globals = (await readFile(join(raizWeb, "src/app/globals.css"), "utf8"))
+    .replace('@import "tw-animate-css";', "")
+    .replace('@import "shadcn/tailwind.css";', "");
+  const fuente = join(directorio, "index.html").replace(/\\/g, "/");
+  const css = globals.replace(
+    '@import "tailwindcss";',
+    `@import "${entradaTailwind}" source(none);\n@source "${fuente}";`
   );
+  const resultado = await postcss([tailwindcss()]).process(css, {
+    from: join(directorio, "aside.css"),
+  });
   return resultado.css;
 }
 
@@ -273,6 +281,7 @@ const MEDICION_BASE = `(() => [...document.querySelectorAll("[data-caso]")].map(
     headerOverflowX: header.scrollWidth - header.clientWidth,
     regionOverflowX: region.scrollWidth - region.clientWidth,
     regionConScroll: region.scrollHeight - region.clientHeight > 1,
+    carril: region.offsetWidth - region.clientWidth,
     scrollables,
     agregarAlto: agregar.offsetHeight,
     alternarAlto: alternar.offsetHeight,
@@ -324,7 +333,7 @@ function revisar(base, pie, sticky) {
       `tarjeta ${m.cardTop}–${m.cardBottom} en ventana ${m.altoVentana} (cabe ${m.cardCabe}); ` +
       `desborde-x tarjeta ${m.cardOverflowX}, encabezado ${m.headerOverflowX}, lista ${m.regionOverflowX}; ` +
       `lista con scroll ${m.regionConScroll}; contenedores con scroll ${m.scrollables}; ` +
-      `Agregar ${m.agregarAlto}px, alternar ${m.alternarAlto}px; gutter ${m.gutter}`;
+      `Agregar ${m.agregarAlto}px, alternar ${m.alternarAlto}px; carril ${m.carril}px; gutter ${m.gutter}`;
     const delPie = pie.find((p) => p.id === m.id);
     const delSticky = sticky.find((s) => s.id === m.id);
     const haySticky = m.variante !== "antes";
@@ -353,6 +362,8 @@ function revisar(base, pie, sticky) {
     if (m.agregarAlto < 44) problemas.push(`Agregar de ${m.agregarAlto}px (piso 44px)`);
     if (m.alternarAlto < 44) problemas.push(`alternar de ${m.alternarAlto}px (piso 44px)`);
     if (!/\bstable\b/.test(m.gutter)) problemas.push(`la lista no reserva el carril (gutter ${m.gutter})`);
+    if (m.carril < 1 || m.carril > 8)
+      problemas.push(`la barra no es fina: carril de ${m.carril}px (esperado ~6px)`);
     if (haySticky && delSticky && !delSticky.pegado)
       problemas.push(`el encabezado no se pega a la lista (top ${delSticky.topHeader} vs ${delSticky.topRegion})`);
 

@@ -310,6 +310,8 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     // esta prop, el doble scroll vuelve sin que ninguna otra prueba se caiga.
     expect(props.variante).toBe("suelta");
     expect(props.topePropio).toBe(false);
+    // El contenedor que scrollea en el cajón lleva la barra fina.
+    expect(document.querySelector(".scroll-fino")).not.toBeNull();
   });
 
   it("monta 'Cuánto me sobra' una sola vez y fuera del aside, en todos los anchos", () => {

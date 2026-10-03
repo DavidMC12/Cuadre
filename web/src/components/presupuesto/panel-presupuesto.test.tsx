@@ -7,6 +7,7 @@ import { FormularioItemPresupuesto } from "@/components/presupuesto/formulario-i
 import * as useCategoriasModule from "@/hooks/use-categorias";
 import * as usePresupuestoModule from "@/hooks/use-presupuesto";
 import type { Categoria, ItemDelChecklist, ItemPresupuesto } from "@/lib/api/types";
+import { CLASES_ASIDE } from "@/lib/aside-resumen";
 import { mapaColoresCategoriasDelCatalogo } from "@/lib/chart-colors";
 
 vi.mock("@/hooks/use-presupuesto", () => ({
@@ -599,7 +600,14 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     expect(card.className).not.toContain("max-h-[70vh]");
   });
 
-  it("no impone un ancho fijo que recorte y el Agregar es de 44px", () => {
+  it("el aside no retoma su scroll y la lista reserva el carril (guarda contra el recorte)", () => {
+    // El recorte original venía del scroll de la COLUMNA (el aside) y de no
+    // reservar el carril de la barra. Esta prueba fija el contrato en las
+    // clases compartidas; la medición de Chromium lo comprueba en píxeles.
+    expect(CLASES_ASIDE).not.toContain("overflow-y-auto");
+    expect(CLASES_ASIDE).not.toContain("max-h-");
+    expect(CLASES_ASIDE).toContain("shrink-0");
+
     const items = [deCategoria("c1", "comida", "Mercado")];
     ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
 
@@ -607,14 +615,14 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
 
     const region = screen.getByRole("region", { name: "Ítems del presupuesto" });
     const card = container.querySelector("[data-slot='card']")!;
-    // La columna mide 320px: nada adentro puede clavar un ancho ni impedir el
-    // ajuste, o el contenido se sale y se recorta con la barra.
-    for (const clase of ["w-80", "w-[320px]", "whitespace-nowrap"]) {
+    // La columna mide 320px: el panel no clava ese ancho; la lista reserva el
+    // carril, así aparezca o no la barra el contenido no cambia de ancho.
+    for (const clase of ["w-80", "w-[320px]"]) {
       expect(region.classList.contains(clase)).toBe(false);
       expect(card.classList.contains(clase)).toBe(false);
     }
-    // La lista reserva el carril: aparece o no la barra, el ancho no cambia.
     expect(region.classList.contains("[scrollbar-gutter:stable]")).toBe(true);
+    expect(region.classList.contains("scroll-fino")).toBe(true);
     // Agregar no se recorta y se toca: 44px de alto.
     const agregar = screen.getByRole("button", { name: "Agregar" });
     expect(agregar.classList.contains("min-h-11")).toBe(true);

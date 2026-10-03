@@ -197,7 +197,7 @@ export default function PaginaResumen() {
                     {etiquetaMes(mes)} · {moneda}
                   </DrawerDescription>
                 </DrawerHeader>
-                <div className="overflow-y-auto px-4 pb-4">
+                <div className="scroll-fino [scrollbar-gutter:stable] overflow-y-auto px-4 pb-4">
               {/* Sin Card ni encabezado propio: el cajón ya trae título y los
                   dos contenedores peleaban por encabezar la misma pantalla. */}
                   <PanelPresupuesto
