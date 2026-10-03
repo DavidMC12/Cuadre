@@ -80,11 +80,15 @@ let yaSeAbrioLaApp = false;
  */
 export function useIrAPantallaDeInicio(): boolean {
   const router = useRouter();
-  const { data: perfil, isPending } = usePerfil();
+  const { data: perfil, isPending, isPaused } = usePerfil();
 
+  // Sin red, el perfil queda en pausa sin datos: esperar a que llegue dejaría
+  // el esqueleto eterno. Se deja de esperar y la pantalla decide qué decir
+  // (su propia política de "sin conexión"); si el perfil llega después, ya se
+  // gastó el momento de abrir la app y nadie salta de pantalla en plena sesión.
   const decision = decidirInicio({
     yaSeAbrio: yaSeAbrioLaApp,
-    buscandoPerfil: isPending,
+    buscandoPerfil: isPending && !isPaused,
     pantalla: perfil?.startPage,
   });
 

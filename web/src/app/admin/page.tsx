@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { ShieldCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 
-import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
+import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
 import { EmptyState } from "@/components/empty-state";
 import { Seccion } from "@/components/ajustes/seccion";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +21,12 @@ import { etiquetaFecha, etiquetaMesDeFecha, horaCorta } from "@/lib/fecha";
 
 export default function PaginaAdmin() {
   const router = useRouter();
-  const { data: perfil, isPending: cargandoPerfil } = usePerfil();
+  const {
+    data: perfil,
+    isPending: cargandoPerfil,
+    isPaused: perfilPausado,
+    refetch: recargarPerfil,
+  } = usePerfil();
   const puedeAdministrar = perfil?.isAdmin ?? false;
 
   const {
@@ -29,11 +34,24 @@ export default function PaginaAdmin() {
     isPending,
     isError,
     error,
+    isPaused,
     isFetching,
     refetch: recargarPersonas,
   } = useUsuariosDelSistema(puedeAdministrar);
   const { data: registro } = useRegistroDeSuplantaciones(puedeAdministrar);
   const suplantar = useSuplantar();
+
+  // Perder la red mientras se busca el perfil no puede dejar el esqueleto
+  // eterno: sin saber si administra, se dice "sin conexión" y se ofrece
+  // reintentar.
+  const pausadaPerfil = !perfil && perfilPausado === true;
+  const estadoPersonas = estadoDeConsulta({
+    data: personas,
+    isError,
+    isPaused,
+    isLoading: isPending,
+  });
+  const pausadaPersonas = estadoPersonas === "pausada";
 
   function entrarComo(persona: UsuarioDelSistema) {
     suplantar.mutate(
@@ -49,11 +67,23 @@ export default function PaginaAdmin() {
     );
   }
 
-  if (cargandoPerfil) {
+  if (cargandoPerfil && !pausadaPerfil) {
     return (
       <div className="flex flex-col gap-4">
         <h1 className="text-xl font-semibold">Administración</h1>
         <Skeleton className="h-40 w-full rounded-lg" />
+      </div>
+    );
+  }
+
+  if (pausadaPerfil) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-xl font-semibold">Administración</h1>
+        <FalloConsulta
+          mensaje={mensajeSinConexion("tus ajustes")}
+          onReintentar={() => recargarPerfil()}
+        />
       </div>
     );
   }
@@ -87,7 +117,7 @@ export default function PaginaAdmin() {
         </p>
       </div>
 
-      {isPending && (
+      {isPending && !pausadaPersonas && (
         <div className="flex flex-col gap-2">
           <Skeleton className="h-16 w-full rounded-lg" />
           <Skeleton className="h-16 w-full rounded-lg" />
@@ -100,11 +130,15 @@ export default function PaginaAdmin() {
           el error no borra lo que ya está en el libro. */}
       {isError && !personas && (
         <FalloConsulta
-          mensaje={mensajeDeFallo(
-            error,
-            "No pudimos traer la lista de personas. Puede ser que el servidor esté dormido."
-          )}
+          mensaje={mensajeDeFallo(error, mensajeDeCargaFallida("la lista de personas"))}
           reintento={isFetching}
+          onReintentar={() => recargarPersonas()}
+        />
+      )}
+
+      {pausadaPersonas && (
+        <FalloConsulta
+          mensaje={mensajeSinConexion("la lista de personas")}
           onReintentar={() => recargarPersonas()}
         />
       )}
