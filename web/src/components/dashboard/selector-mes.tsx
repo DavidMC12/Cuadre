@@ -20,6 +20,9 @@ export function SelectorMes({
         type="button"
         variant="ghost"
         size="icon-sm"
+        // Piso de toque de 44px (el icono sigue en 28px de dibujo): la
+        // flecha es un control que se toca con el dedo.
+        className="min-h-11 min-w-11"
         onClick={() => onCambiar(sumarMeses(mes, -1))}
         aria-label="Mes anterior"
       >
@@ -30,6 +33,7 @@ export function SelectorMes({
         type="button"
         variant="ghost"
         size="icon-sm"
+        className="min-h-11 min-w-11"
         onClick={() => onCambiar(sumarMeses(mes, 1))}
         disabled={esMesActual}
         aria-label="Mes siguiente"
