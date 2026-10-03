@@ -142,46 +142,66 @@ export function FormularioItemPresupuesto({
   const archivar = useArchivarItemPresupuesto();
   const desarchivar = useDesarchivarItemPresupuesto();
 
-  // Todo lo que define qué hay en el campo: si cambia con el formulario
-  // montado (cambió el mes que se ve, o llegó el monto fresco de una
-  // recarga), el estado queda pisado con la respuesta del mes anterior y
-  // un 'Guardar' sin tocar escribiría la cifra equivocada. Al detectar el
-  // cambio (incluido el abrir del cajón), el estado vuelve a nacer de los
-  // props. Escribe lo que tengas pendiente no lo toca: las dependencias no
-  // incluyen lo tecleado.
-  // ¿Hay texto que la persona tecleó y aún no se guardó? Un ref, no estado:
-  // no dibuja nada, solo alimenta la decisión del efecto de abajo. Se enciende
-  // con cada tecleo (monto o etiqueta) y se apaga al reiniciar (cerrar,
-  // guardar bien o llamar a reiniciar), que es cuando el texto pendiente deja
-  // de existir de verdad.
-  const hayTextoPendiente = useRef(false);
+  // El contexto del formulario: si cambia con el cajón montado (cambió el
+  // mes que se ve, cambió el ítem, o llegó el dato fresco de una recarga),
+  // el estado quedaría pisado con la respuesta del contexto anterior y un
+  // 'Guardar' sin tocar escribiría valores equivocados. El efecto de abajo
+  // lo detecta (incluido el abrir del cajón) y decide entre reiniciar el
+  // estado a la precarga o conservar lo editado que está pendiente de
+  // guardar.
+
+  // Qué campos editables ha tocado la persona desde el último reinicio: no
+  // solo lo tecleado en monto y etiqueta (que fue el error por el que vive
+  // esto), sino también el tipo, la categoría o la cuenta de ahorro
+  // elegidas, que son decisiones aún no guardadas. Cada setter que responde
+  // a un gesto de la persona marca su campo aquí; `reiniciar()` lo vacía,
+  // que es el único momento en que el estado vuelve a nacer de los props.
+  // Un ref y no un estado derivado por comparación contra la precarga:
+  // distingue "la persona lo tocó" de "llegó una precarga tardía", que
+  // cambiaría el valor de referencia sin que nadie editara nada.
+  const camposTocados = useRef(new Set<string>());
+  function marcarTocado(campo: string): void {
+    camposTocados.current.add(campo);
+  }
 
   const claveDelContexto = `${abierto}|${mesVisto}|${montoDeReferencia ?? ''}|${item?.id ?? ''}|${item?.label ?? ''}`;
   const claveVista = useRef(claveDelContexto);
   const mesVistoAnterior = useRef(mesVisto);
+  const itemAnterior = useRef(item?.id);
   useEffect(() => {
+    // Dos cambios que SÍ justifican reiniciar aun habiendo textos pendientes:
+    // - El MES: lo tecleado describe un monto del mes que se veía antes y
+    //   ya no aplica. (Hoy el cajón es modal y no deja tocar el selector,
+    //   pero la regla no depende de eso.)
+    // - El ÍTEM: los campos describen el ítem anterior, no el nuevo; un
+    //   Guardar escribiría lo de A sobre B.
     const cambioDeMes = mesVistoAnterior.current !== mesVisto;
+    const cambioDeItem = itemAnterior.current !== item?.id;
     mesVistoAnterior.current = mesVisto;
+    itemAnterior.current = item?.id;
     if (claveVista.current !== claveDelContexto) {
       claveVista.current = claveDelContexto;
-      // Distinguir "llegó dato fresco" de "hay texto sin guardar": la clave
+      // Distinguir "llegó dato fresco" de "hay algo sin guardar": la clave
       // del contexto incluye el monto de referencia, así que un refetch que
       // ve data nueva (por ejemplo, el monto que sí se guardó mientras la
       // etiqueta fallaba) dispara este efecto con el formulario ABIERTO y
-      // texto en los campos. Reiniciar aquí borraría lo tecleado, aunque el
-      // guardado no terminó — exactamente lo que el toast de error promete
-      // que se conserva. Si hay texto pendiente, el dato fresco no lo pisa.
+      // campos editados. Reiniciar aquí borraría lo que la persona puso,
+      // aunque el toast de error promete que se conserva. Con algo pendiente
+      // y sin cambio de mes ni de ítem, el dato fresco no pisa.
       //
-      // El cambio de MES es distinto: el texto tecleado describe un monto
-      // del mes que se veía antes, así que ya no aplica y el reinicio sigue
-      // aunque haya texto pendiente (hoy el cajón es modal y no deja tocar
-      // el selector, pero la regla no depende de eso).
-      if (!hayTextoPendiente.current || cambioDeMes) {
+      // Un matiz: si la persona escribió y luego volvió el texto a como
+      // estaba, el campo queda marcado aunque iguala la precarga. No pasa
+      // nada: el reinicio que se salta es exactamente el que la
+      // devolvería al mismo valor, así que no hay nada perdido; el estado
+      // se sincroniza al cerrar, al guardar o al cambiar el mes o el ítem.
+      // (Ver la prueba de revertir abajo.)
+      if (camposTocados.current.size === 0 || cambioDeMes || cambioDeItem) {
         reiniciar();
       }
     }
     // El guard (claveVista) hace que solo se reinicie cuando el contexto de
-    // los props cambió; reiniciar solo lee props, nunca el texto tecleado.
+    // los props cambió; reiniciar solo lee props y estado fresco del
+    // render, nunca esconde el texto tecleado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claveDelContexto]);
 
@@ -197,7 +217,7 @@ export function FormularioItemPresupuesto({
     setMonto(montoDeReferencia ? textoEditable(montoDeReferencia, monedaDelMonto) : '');
     setEtiqueta(item?.label ?? '');
     setErrorMonto(null);
-    hayTextoPendiente.current = false;
+    camposTocados.current = new Set();
   }
 
   function cerrarYReiniciar() {
@@ -332,7 +352,10 @@ export function FormularioItemPresupuesto({
                 <ToggleGroup
                   value={[tipo]}
                   onValueChange={(valores) => {
-                    if (valores.length > 0) setTipo(valores[0] as 'category' | 'savings');
+                    if (valores.length > 0) {
+                      marcarTocado('tipo');
+                      setTipo(valores[0] as 'category' | 'savings');
+                    }
                   }}
                   variant="outline"
                   size="tap"
@@ -353,9 +376,10 @@ export function FormularioItemPresupuesto({
                 <Label>Categoría</Label>
                 <Select
                   value={categoriaId ?? NINGUNO}
-                  onValueChange={(valor) =>
-                    setCategoriaId(valor === NINGUNO || valor == null ? undefined : valor)
-                  }
+                  onValueChange={(valor) => {
+                    marcarTocado('categoriaId');
+                    setCategoriaId(valor === NINGUNO || valor == null ? undefined : valor);
+                  }}
                   disabled={todasLasCategorias.length === 0}
                 >
                   <SelectTrigger className="w-full" aria-invalid={Boolean(errorMonto)}>
@@ -411,9 +435,10 @@ export function FormularioItemPresupuesto({
                 <Label>Cuenta de ahorro</Label>
                 <Select
                   value={cuentaId ?? NINGUNO}
-                  onValueChange={(valor) =>
-                    setCuentaId(valor === NINGUNO || valor == null ? undefined : valor)
-                  }
+                  onValueChange={(valor) => {
+                    marcarTocado('cuentaId');
+                    setCuentaId(valor === NINGUNO || valor == null ? undefined : valor);
+                  }}
                   disabled={cuentasDeAhorro.length === 0}
                 >
                   <SelectTrigger className="w-full" aria-invalid={Boolean(errorMonto)}>
@@ -447,7 +472,7 @@ export function FormularioItemPresupuesto({
                 moneda={monedaDelMonto}
                 value={monto}
                 onChange={(valor) => {
-                  hayTextoPendiente.current = true;
+                  marcarTocado('monto');
                   setMonto(valor);
                 }}
                 // El checklist espera montos siempre positivos.
@@ -469,7 +494,7 @@ export function FormularioItemPresupuesto({
                 placeholder={tipo === 'category' ? 'Ej. Mercado del mes' : 'Ej. Apartado viaje'}
                 value={etiqueta}
                 onChange={(evento) => {
-                  hayTextoPendiente.current = true;
+                  marcarTocado('etiqueta');
                   setEtiqueta(evento.target.value);
                 }}
                 maxLength={120}

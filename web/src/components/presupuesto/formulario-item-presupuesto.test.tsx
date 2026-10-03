@@ -346,4 +346,115 @@ describe('FormularioItemPresupuesto', () => {
     expect(screen.getByLabelText('Monto')).toHaveValue('60.000');
     expect((screen.getByLabelText('Etiqueta (opcional)') as HTMLInputElement).value).toBe('');
   });
+
+  it('crear: cambiar a Ahorro se conserva cuando llega dato fresco', () => {
+    // El pendiente cubre TODO el estado editable, no solo lo tecleado: en
+    // crear, la persona se va a Ahorro; un refetch que cambia la precarga
+    // del monto no puede devolver el formulario a 'category' (sobre lo que
+    // un Guardar posterior guardaría un tope distinto del que la persona
+    // quiso).
+    const vista = render(
+      <FormularioItemPresupuesto moneda={monedaCOP}>
+        <button type="button">Agregar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ahorro' }));
+
+    // Llega dato fresco (precarga tardía del monto del mes).
+    vista.rerender(
+      <FormularioItemPresupuesto moneda={monedaCOP} montoDelMes="45000.0000">
+        <button type="button">Agregar</button>
+      </FormularioItemPresupuesto>,
+    );
+    // La sección de cuenta de ahorro solo se renderiza en modo 'savings' (la
+    // Label del select no lleva htmlFor, así que se busca por texto).
+    expect(screen.getByText('Cuenta de ahorro')).toBeTruthy();
+  });
+
+  it('cambiar de ítem con el cajón abierto reinicia aunque haya texto pendiente', () => {
+    // Los campos describen al ítem A; si la instancia empieza a representar
+    // al ítem B, un Guardar escribiría lo de A sobre B. El reinicio manda.
+    const itemA = {
+      id: 'item-a',
+      kind: 'category' as const,
+      currency: monedaCOP,
+      categoryId: 'cat-1',
+      categoryName: 'Mercado',
+      accountId: null,
+      accountName: null,
+      label: null,
+      currentAmount: '30000.0000',
+      archivedAt: null,
+      categoryKind: 'expense' as const,
+    };
+    const itemB = { ...itemA, id: 'item-b', currentAmount: '80000.0000', label: 'Otro' };
+
+    const vista = render(
+      <FormularioItemPresupuesto item={itemA} moneda={monedaCOP} mes="2026-09" montoDelMes="30000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    fireEvent.change(screen.getByLabelText('Etiqueta (opcional)'), {
+      target: { value: 'Texto del ítem A' },
+    });
+
+    vista.rerender(
+      <FormularioItemPresupuesto item={itemB} moneda={monedaCOP} mes="2026-09" montoDelMes="80000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    expect(screen.getByLabelText('Monto')).toHaveValue('80.000');
+    expect((screen.getByLabelText('Etiqueta (opcional)') as HTMLInputElement).value).toBe('Otro');
+  });
+
+  it('teclear y volver al valor de precarga: no se pierde nada (matiz del pendiente)', () => {
+    // Viene del hallazgo de la revisión: el campo marcado como tocado no se
+    // desmarca aunque el texto vuelva a igualar la precarga. Aquí se
+    // justifica: el reinicio que se salta pondría JUSTO ese mismo texto, así
+    // que no hay nada que recuperar; y al cerrar (cuando el guardado o el
+    // descarte de verdad terminan) sí reinicia. Si mañana el salto empezara
+    // a costar algo, esta prueba se rompe primero.
+    const item = {
+      id: 'item-1',
+      kind: 'category' as const,
+      currency: monedaCOP,
+      categoryId: 'cat-1',
+      categoryName: 'Mercado',
+      accountId: null,
+      accountName: null,
+      label: null,
+      currentAmount: '30000.0000',
+      archivedAt: null,
+      categoryKind: 'expense' as const,
+    };
+
+    const vista = render(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-09" montoDelMes="30000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+
+    // Toca la etiqueta y la devuelve al valor de precarga ("").
+    fireEvent.change(screen.getByLabelText('Etiqueta (opcional)'), {
+      target: { value: 'algo' },
+    });
+    fireEvent.change(screen.getByLabelText('Etiqueta (opcional)'), { target: { value: '' } });
+
+    // Y toca el monto para devolverlo a su valor de precarga ("30.000").
+    fireEvent.change(screen.getByLabelText('Monto'), { target: { value: '31.000' } });
+    fireEvent.change(screen.getByLabelText('Monto'), { target: { value: '30.000' } });
+
+    // Dato fresco idéntico a la precarga: el skip no cuesta nada visible.
+    vista.rerender(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-09" montoDelMes="30000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    expect(screen.getByLabelText('Monto')).toHaveValue('30.000');
+    expect((screen.getByLabelText('Etiqueta (opcional)') as HTMLInputElement).value).toBe('');
+    expect(screen.getByLabelText('Monto')).toBeTruthy(); // cajón abierto
+  });
 });
