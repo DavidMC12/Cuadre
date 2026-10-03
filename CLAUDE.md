@@ -243,8 +243,10 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   `useSyncExternalStore` evita errores de hidratación y mantiene sincronizados
   dos paneles montados y las pestañas (evento `storage`). La poda de
   categorías borradas nunca corre mientras una consulta está en curso. No se
-  sincroniza entre dispositivos: haría falta guardarlo en la cuenta
-  (backend); queda como decisión del dueño.
+  sincroniza entre dispositivos y así se queda (decisión del dueño,
+  2026-10-04): guardarlo en la cuenta exigiría backend y migración para una
+  preferencia de pantalla, y el botón "Contraer/Desplegar todo" ya resuelve
+  la molestia de repetirlo en otro aparato.
 
 - **Deuda menor del presupuesto pagada** (2026-10-04): `MesSchema` vive
   una sola vez en `src/shared/schemas.ts` con rango sano (año 2000-2100):
