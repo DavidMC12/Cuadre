@@ -11,10 +11,9 @@ import { MonedaSchema } from '../../shared/schemas.js';
 export const TIPOS_DE_CATEGORIA = ['income', 'expense'] as const;
 export const TipoDeCategoriaSchema = z.enum(TIPOS_DE_CATEGORIA);
 
-/** Un mes calendario, como "2026-09". */
-export const MesSchema = z
-  .string()
-  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'debe ser un mes como "2026-09"');
+/** Un mes calendario, como "2026-09", con rango sano: el de `shared/schemas.ts`, definido una vez (el repository lo convierte en fecha de Postgres, y un "0000-01" fuera de rango era un 500). */
+export { MesSchema } from '../../shared/schemas.js';
+import { MesSchema } from '../../shared/schemas.js';
 
 // -----------------------------------------------------------------------------
 // Peticiones
