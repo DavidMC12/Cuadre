@@ -419,8 +419,8 @@ export default function PaginaResumen() {
             mes={mes}
             moneda={moneda}
             compartePantalla={componenFallosConPresupuesto}
-            // El aside scrollea: el panel no necesita su propio tope.
-            topePropio={false}
+            // El aside no scrollea: la lista del panel tiene su propio tope y
+            // scrollea dentro de la tarjeta.
           />
         </aside>
       )}

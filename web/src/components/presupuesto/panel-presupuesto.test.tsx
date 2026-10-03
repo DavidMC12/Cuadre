@@ -505,15 +505,25 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     expect(puntoTransporte.style.backgroundColor).toBe("rgb(237, 161, 0)");
   });
 
-  it("contiene la lista en una región con altura máxima y scroll interno", () => {
+  it("en el aside la tarjeta se ajusta a la ventana y la lista toma el alto que sobra, con su carril reservado", () => {
     const items = [deCategoria("c1", "comida", "Mercado")];
     ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
 
-    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+    const { container } = render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // La tarjeta lleva el tope de ventana; su contenido es una columna flex.
+    const card = container.querySelector("[data-slot='card']")!;
+    expect(card.className).toContain("max-h-[calc(100vh-2rem)]");
 
     const region = screen.getByRole("region", { name: "Ítems del presupuesto" });
-    expect(region.classList.contains("max-h-[70vh]")).toBe(true);
+    // La lista toma el espacio libre y scrollea solo ella, con el carril de la
+    // barra reservado para que el contenido no cambie de ancho.
+    expect(region.classList.contains("flex-1")).toBe(true);
+    expect(region.classList.contains("min-h-0")).toBe(true);
     expect(region.classList.contains("overflow-y-auto")).toBe(true);
+    expect(region.classList.contains("[scrollbar-gutter:stable]")).toBe(true);
+    expect(region.classList.contains("scroll-fino")).toBe(true);
+    expect(region.classList.contains("max-h-[70vh]")).toBe(false);
     // Enfocable para poder recorrerla con el teclado.
     expect(region.tabIndex).toBe(0);
 
@@ -525,7 +535,21 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     expect(fila.className).not.toContain("-mx-2");
   });
 
-  it("sin tope propio (dentro del aside o del cajón que ya scrollea) la región no scrollea sola", () => {
+  it("en la pantalla de Presupuesto (suelta) la región conserva su tope de 70vh y su carril", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" variante="suelta" />);
+
+    const region = screen.getByRole("region", { name: "Ítems del presupuesto" });
+    expect(region.classList.contains("max-h-[70vh]")).toBe(true);
+    expect(region.classList.contains("overflow-y-auto")).toBe(true);
+    expect(region.classList.contains("[scrollbar-gutter:stable]")).toBe(true);
+    expect(region.classList.contains("scroll-fino")).toBe(true);
+    expect(region.classList.contains("flex-1")).toBe(false);
+  });
+
+  it("sin tope propio (dentro del cajón que ya scrollea) la región no scrollea sola", () => {
     const items = [deCategoria("c1", "comida", "Mercado")];
     ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
 
@@ -536,44 +560,64 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     const region = screen.getByRole("region", { name: "Ítems del presupuesto" });
     // Sin tope propio el scroll lo hace el contenedor que envuelve al panel.
     // La región tampoco lleva su propio `overflow-y-auto`: un scroll anidado
-    // atraparía el dedo (y en el aside trabaría el encabezado `sticky`).
+    // atraparía el dedo.
     expect(region.classList.contains("max-h-[70vh]")).toBe(false);
     expect(region.classList.contains("overflow-y-auto")).toBe(false);
-    expect(region.classList.contains("overflow-visible")).toBe(false);
+    expect(region.classList.contains("flex-1")).toBe(false);
   });
 
-  it("la tarjeta del panel no se encoge dentro del aside (shrink-0)", () => {
+  it("la tarjeta del panel no se encoge dentro del aside (shrink-0) y se ajusta a la ventana", () => {
     const items = [deCategoria("c1", "comida", "Mercado")];
     ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
 
     const { container } = render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
     const card = container.querySelector("[data-slot='card']")!;
-    // Sin `shrink-0` el flex encoge la Card (su `overflow-hidden` anula el
-    // mínimo automático) y el contenido se recorta en vez de scrollear el
-    // aside. La medición de Chromium y esta prueba lo vigilan.
+    // Sin `shrink-0` el flex podría aplastarla; el tope de ventana la hace
+    // caber entera aunque la lista sea larga.
     expect(card.className).toContain("shrink-0");
-    expect(card.className).toContain("min-h-fit");
+    expect(card.className).toContain("max-h-[calc(100vh-2rem)]");
   });
 
-  it("el encabezado del grupo queda pegado al scrollear (sticky) y la tarjeta cede su overflow", () => {
+  it("el encabezado del grupo queda pegado al scroll de la lista (sticky)", () => {
     const items = [deCategoria("c1", "comida", "Mercado")];
     ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
 
     const { container } = render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
 
     const header = screen.getByRole("button", { name: etiquetaGrupo("Comida", 1) });
-    // Pegado al scroll del contenedor, con fondo que tapa los renglones que
-    // pasan por debajo y z-index para pintar por encima.
+    // Pegado al scroll de la lista, con fondo que tapa los renglones que pasan
+    // por debajo y z-index para pintar por encima.
     expect(header.classList.contains("sticky")).toBe(true);
     expect(header.classList.contains("top-0")).toBe(true);
     expect(header.classList.contains("z-10")).toBe(true);
     expect(header.classList.contains("bg-card")).toBe(true);
 
-    // El `cn` de Card descarta `overflow-hidden` a favor de `overflow-visible`:
-    // si no, la Card sería el contenedor de scroll y el sticky no se pegaría.
+    // La tarjeta conserva su `overflow-hidden` (recorta a su radio): el sticky
+    // se pega a la región, que es la que scrollea, no a la tarjeta.
     const card = container.querySelector("[data-slot='card']")!;
-    expect(card.className).toContain("overflow-visible");
-    expect(card.className).not.toContain("overflow-hidden");
+    expect(card.className).toContain("overflow-hidden");
+    expect(card.className).not.toContain("max-h-[70vh]");
+  });
+
+  it("no impone un ancho fijo que recorte y el Agregar es de 44px", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    const { container } = render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const region = screen.getByRole("region", { name: "Ítems del presupuesto" });
+    const card = container.querySelector("[data-slot='card']")!;
+    // La columna mide 320px: nada adentro puede clavar un ancho ni impedir el
+    // ajuste, o el contenido se sale y se recorta con la barra.
+    for (const clase of ["w-80", "w-[320px]", "whitespace-nowrap"]) {
+      expect(region.classList.contains(clase)).toBe(false);
+      expect(card.classList.contains(clase)).toBe(false);
+    }
+    // La lista reserva el carril: aparece o no la barra, el ancho no cambia.
+    expect(region.classList.contains("[scrollbar-gutter:stable]")).toBe(true);
+    // Agregar no se recorta y se toca: 44px de alto.
+    const agregar = screen.getByRole("button", { name: "Agregar" });
+    expect(agregar.classList.contains("min-h-11")).toBe(true);
   });
 
   it("en la variante suelta el encabezado no se pega ni pinta fondo de tarjeta", () => {

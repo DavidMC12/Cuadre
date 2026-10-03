@@ -1,31 +1,24 @@
 /**
  * Medición real del aside del Resumen (page.tsx, columna xl) a 1280×700.
  *
- * El aside es `xl:sticky xl:top-8` con tope `max-h-[calc(100vh-2rem)]` y
- * `overflow-y-auto`, y contiene el cuadrito "cuánto me sobra" más el panel de
- * presupuesto agrupado. El defecto que este script vigila: sus hijos directos
- * son flex items con `min-height: auto`, pero como las Cards llevan
- * `overflow-hidden`, el mínimo automático cae a 0 y el flex los ENCOGE en vez
- * de dejarlos desbordar. Resultado: el aside nunca scrollea de verdad, el
- * cuadrito sale recortado y los últimos renglones de un grupo abierto no se
- * alcanzan.
+ * Contrato nuevo (lo pidió el dueño tras ver la pantalla):
  *
- * A diferencia de la versión anterior, este script NO replica las clases a
- * mano: importa `src/lib/aside-resumen.ts`, el MISMO módulo que usan
- * page.tsx, cuanto-me-sobra.tsx y panel-presupuesto.tsx. El caso "después"
- * mide las clases reales exportadas; el caso "antes" conserva las clases
- * viejas como evidencia de que el defecto existía. Si alguien quita el
- * `shrink-0` del módulo, la medición lo ve.
+ *   1. el aside NO scrollea: solo scrollea la lista del presupuesto, dentro de
+ *      su tarjeta;
+ *   2. la tarjeta entera del presupuesto (título, Agregar, alternar, lista,
+ *      pie) cabe en la ventana a 1280×700: su pie se alcanza sin scrollear la
+ *      página;
+ *   3. hay UN solo contenedor con scroll: la región de la lista;
+ *   4. con la barra de scroll presente, ni la tarjeta ni el encabezado
+ *      desbordan en horizontal (scrollWidth ≤ clientWidth) y "Agregar" se ve
+ *      completo y de 44px; la lista reserva el carril (`scrollbar-gutter`);
+ *   5. los encabezados de grupo se pegan arriba dentro del scroll de la lista.
  *
- * Escenario: 2 grupos abiertos de 7 ítems cada uno. Comprueba que
- *   1. el cuadrito tiene caja >= su contenido (no se corta);
- *   2. el cuadrito entero es visible dentro del aside sin scrollear;
- *   3. el aside scrollea (el contenido supera la ventana);
- *   4. hay UN solo contenedor con scroll: el aside, ni la región del panel ni
- *      las Cards;
- *   5. el último renglón se alcanza con el aside al fondo;
- *   6. si el encabezado de grupo trae `sticky`, queda pegado arriba al
- *      recorrer los ítems dentro del scroll del aside.
+ * Importa las clases reales de `src/lib/aside-resumen.ts` (el mismo módulo que
+ * usan page.tsx y panel-presupuesto.tsx) y pasa las de Card por `cn`, el mismo
+ * merge del componente. El caso "antes" conserva el aspecto viejo (aside con
+ * scroll y encabezado apretado en una fila) como evidencia de que el script
+ * sabe reproducir el defecto.
  *
  * Uso: `npm run medir:aside` (necesita chromium en el PATH).
  */
@@ -40,8 +33,9 @@ import http from "node:http";
 import {
   CLASES_ASIDE,
   CLASES_BLOQUE_ASIDE,
-  CLASES_CARD_PANEL_ASIDE,
+  CLASES_CARD_PANEL_VENTANA,
   CLASES_REGION_PANEL,
+  CLASES_REGION_PANEL_VENTANA,
   CLASES_ENCABEZADO_GRUPO,
   CLASES_ENCABEZADO_GRUPO_FIJO,
 } from "../src/lib/aside-resumen.ts";
@@ -56,36 +50,17 @@ const ALTO_VENTANA = 700;
 const ANCHO_VENTANA = 1280;
 const ITEMS_POR_GRUPO = 7;
 
-/**
- * Las clases del caso. "despues" usa las reales del módulo compartido; "antes"
- * conserva las viejas (sin `shrink-0` en las Cards) para probar que el defecto
- * existía y que el script sabe reproducirlo.
- */
-const CLASES_VIEJAS = {
-  aside:
-    "flex w-80 shrink-0 flex-col gap-5 xl:sticky xl:top-8 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto",
-  bloque: "",
-  cardPanel: "",
-  region:
-    "flex flex-col overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85",
-  header:
-    "flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-medium text-muted-foreground hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85",
-};
-
-const CLASES_REALES = {
-  aside: CLASES_ASIDE,
-  bloque: CLASES_BLOQUE_ASIDE,
-  cardPanel: CLASES_CARD_PANEL_ASIDE,
-  // En el aside el panel va con `topePropio={false}`: sin tope, la región no
-  // lleva su `max-h`.
-  region: CLASES_REGION_PANEL,
-  // En la tarjeta del aside el encabezado va pegado: base + extra fijo.
-  header: [CLASES_ENCABEZADO_GRUPO, CLASES_ENCABEZADO_GRUPO_FIJO].join(" "),
-};
-
-function clasesDe(variante) {
-  return variante === "antes" ? CLASES_VIEJAS : CLASES_REALES;
-}
+// Base real de Card/CardHeader/CardContent (card.tsx) + botones (button.tsx),
+// recortadas a lo geométrico. Mismo `cn` que el componente para el reparto.
+const CARD =
+  "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)]";
+const CARD_HEADER =
+  "group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl px-(--card-spacing) has-data-[slot=card-action]:grid-cols-[1fr_auto]";
+const CARD_CONTENT = "px-(--card-spacing)";
+const BTN =
+  "inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2.5 text-[0.8rem] font-medium";
+const BTN_OUTLINE = cn(BTN, "border border-border bg-background");
+const BTN_GHOST = cn(BTN, "text-foreground");
 
 function renglon(texto, ultimo) {
   return `
@@ -113,29 +88,66 @@ function grupo(titulo, cantidad, clasesHeader, ultimoGrupo) {
   </div>`;
 }
 
-function caso(id, variante) {
-  const c = clasesDe(variante);
-  // La base real de `Card` (card.tsx) + las clases del módulo, pasadas por el
-  // mismo `cn` que usa el componente: si una clase nueva pisa a `overflow-
-  // hidden`, el espejo lo resuelve igual y no miente.
-  const CARD =
-    "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)]";
-  return `<div data-caso="${id}" data-variante="${variante}">
-    <aside data-aside class="${c.aside}">
-      <div data-card-sobra class="${cn(CARD, c.bloque)}">
-        <div class="font-heading text-base font-medium">Cuánto me sobra este mes</div>
-        <div class="mt-2 font-mono text-2xl">$1.000.000</div>
-        <p class="mt-2 text-sm text-muted-foreground">Hasta hoy: <span class="font-mono">$0</span></p>
-        <p class="mt-1 text-sm font-medium">Ni te sobra ni te falta este mes.</p>
+function lista(clasesHeader) {
+  return `
+    <section class="flex flex-col">
+      <h3 class="px-2 pt-3 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Gastos</h3>
+      ${grupo("Hogar", ITEMS_POR_GRUPO, clasesHeader, false)}
+      ${grupo("Transporte", ITEMS_POR_GRUPO, clasesHeader, true)}
+    </section>`;
+}
+
+/** Encabezado viejo: título + alternar + Agregar apretados en una fila. */
+function encabezadoApretado() {
+  return `
+  <div data-header class="${CARD_HEADER}">
+    <div class="font-heading text-base leading-snug font-medium">Presupuesto del mes</div>
+    <div data-slot="card-action" class="col-start-2 row-span-2 row-start-1 self-start justify-self-end">
+      <div class="flex items-center gap-1">
+        <button data-alternar class="${BTN_GHOST}">Contraer todo</button>
+        <button data-agregar class="${BTN_OUTLINE}">Agregar</button>
       </div>
-      <div data-panel class="${cn(CARD, c.bloque, c.cardPanel)}">
-        <div class="font-heading text-base font-medium">Presupuesto del mes</div>
-        <div data-region class="${c.region}">
-          <section class="flex flex-col">
-            <h3 class="px-2 pt-3 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Gastos</h3>
-            ${grupo("Hogar", ITEMS_POR_GRUPO, c.header, false)}
-            ${grupo("Transporte", ITEMS_POR_GRUPO, c.header, true)}
-          </section>
+    </div>
+  </div>`;
+}
+
+/** Encabezado nuevo: título con Agregar a la derecha; alternar en su fila. */
+function encabezadoSereno() {
+  return `
+  <div data-header class="${CARD_HEADER} shrink-0">
+    <div class="min-w-0 truncate font-heading text-base leading-snug font-medium">Presupuesto del mes</div>
+    <div data-slot="card-action" class="col-start-2 row-span-2 row-start-1 self-start justify-self-end">
+      <button data-agregar class="${BTN_OUTLINE}">Agregar</button>
+    </div>
+  </div>`;
+}
+
+function caso(id, variante) {
+  const antes = variante === "antes";
+  const clasesAside = antes
+    ? "flex w-80 shrink-0 flex-col gap-5 xl:sticky xl:top-8 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto"
+    : CLASES_ASIDE;
+  const clasesCard = antes
+    ? cn(CARD, "shrink-0")
+    : cn(CARD, CLASES_BLOQUE_ASIDE, CLASES_CARD_PANEL_VENTANA);
+  const clasesContenido = antes ? CARD_CONTENT : cn(CARD_CONTENT, "flex min-h-0 flex-1 flex-col");
+  const clasesRegion = antes
+    ? "flex flex-col overflow-y-auto pr-1"
+    : cn(CLASES_REGION_PANEL, CLASES_REGION_PANEL_VENTANA);
+  const clasesHeader = antes ? CLASES_ENCABEZADO_GRUPO : cn(CLASES_ENCABEZADO_GRUPO, CLASES_ENCABEZADO_GRUPO_FIJO);
+
+  return `<div data-caso="${id}" data-variante="${variante}" class="p-8">
+    <aside data-aside class="${clasesAside}">
+      <div data-card class="${clasesCard}">
+        ${antes ? encabezadoApretado() : encabezadoSereno()}
+        <div data-content class="${clasesContenido}">
+          ${antes
+            ? ""
+            : `<div class="flex shrink-0 justify-end pb-1"><button data-alternar class="${BTN_GHOST}">Contraer todo</button></div>`}
+          <div data-region role="region" aria-label="Ítems del presupuesto" tabindex="0" class="${clasesRegion}">
+            ${lista(clasesHeader)}
+          </div>
+          <div data-pie class="mt-3 shrink-0 border-t border-border pt-3 text-xs text-muted-foreground">Archivados (2)</div>
         </div>
       </div>
     </aside>
@@ -146,9 +158,9 @@ const HTML = `<!doctype html>
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="./aside.css"></head>
-<body class="p-8">
-${caso("antes", "antes")}
+<body>
 ${caso("despues", "despues")}
+${caso("antes", "antes")}
 </body></html>`;
 
 const CSS = `@import "tailwindcss" source(none);\n@source "./index.html";\n`;
@@ -237,8 +249,11 @@ function esperarEvento(ws, metodo, limiteMs = 15_000) {
 
 const MEDICION_BASE = `(() => [...document.querySelectorAll("[data-caso]")].map((caso) => {
   const aside = caso.querySelector("[data-aside]");
-  const card = caso.querySelector("[data-card-sobra]");
+  const card = caso.querySelector("[data-card]");
+  const header = caso.querySelector("[data-header]");
   const region = caso.querySelector("[data-region]");
+  const agregar = caso.querySelector("[data-agregar]");
+  const alternar = caso.querySelector("[data-alternar]");
   const a = aside.getBoundingClientRect();
   const c = card.getBoundingClientRect();
   const scrollables = [caso, ...caso.querySelectorAll("*")].filter((el) => {
@@ -249,51 +264,54 @@ const MEDICION_BASE = `(() => [...document.querySelectorAll("[data-caso]")].map(
     id: caso.dataset.caso,
     variante: caso.dataset.variante,
     altoVentana: window.innerHeight,
-    altoCajaSobra: card.clientHeight,
-    altoContenidoSobra: card.scrollHeight,
-    sobraVisible: c.top >= a.top - 1 && c.bottom <= a.bottom + 1,
-    altoAside: aside.scrollHeight,
-    altoCajaAside: aside.clientHeight,
+    asideOverflowY: getComputedStyle(aside).overflowY,
     asideConScroll: aside.scrollHeight - aside.clientHeight > 1,
+    cardTop: Math.round(c.top),
+    cardBottom: Math.round(c.bottom),
+    cardCabe: c.top >= a.top - 1 && c.bottom <= window.innerHeight + 1,
+    cardOverflowX: card.scrollWidth - card.clientWidth,
+    headerOverflowX: header.scrollWidth - header.clientWidth,
+    regionOverflowX: region.scrollWidth - region.clientWidth,
     regionConScroll: region.scrollHeight - region.clientHeight > 1,
-    regionOverflowY: getComputedStyle(region).overflowY,
     scrollables,
+    agregarAlto: agregar.offsetHeight,
+    alternarAlto: alternar.offsetHeight,
+    gutter: getComputedStyle(region).scrollbarGutter,
   };
 }))()`;
 
-// Al fondo del aside: el último renglón debe quedar dentro de la caja del aside.
+// Con la lista al fondo, el pie de la tarjeta debe seguir dentro de la ventana.
 const MEDICION_PIE = `(() => {
-  document.querySelectorAll("[data-aside]").forEach((a) => { a.scrollTop = a.scrollHeight; });
+  document.querySelectorAll("[data-region]").forEach((r) => { r.scrollTop = r.scrollHeight; });
   return [...document.querySelectorAll("[data-caso]")].map((caso) => {
-    const aside = caso.querySelector("[data-aside]");
+    const pie = caso.querySelector("[data-pie]");
     const ultimo = caso.querySelector("[data-ultimo]");
-    const a = aside.getBoundingClientRect();
-    const r = ultimo.getBoundingClientRect();
+    const p = pie.getBoundingClientRect();
+    const u = ultimo.getBoundingClientRect();
+    const region = caso.querySelector("[data-region]");
+    const rr = region.getBoundingClientRect();
     return {
       id: caso.dataset.caso,
-      visible: r.top >= a.top - 1 && r.bottom <= a.bottom + 1,
-      top: Math.round(r.top),
-      bottom: Math.round(r.bottom),
-      asideTop: Math.round(a.top),
-      asideBottom: Math.round(a.bottom),
+      pieVisible: p.top >= -1 && p.bottom <= window.innerHeight + 1,
+      ultimoEnRegion: u.top >= rr.top - 1 && u.bottom <= rr.bottom + 1,
     };
   });
 })()`;
 
-// Con el encabezado del primer grupo un poco por encima del borde superior del
-// scrollport, sticky debe sostenerlo ahí (top del encabezado == top del aside).
+// Sticky: con un encabezado de grupo por encima del borde de la región,
+// debe quedar pegado al borde superior de la región.
 const MEDICION_STICKY = `(() => [...document.querySelectorAll("[data-caso]")].map((caso) => {
-  const aside = caso.querySelector("[data-aside]");
+  const region = caso.querySelector("[data-region]");
   const header = caso.querySelector("[data-grupo]");
-  const delta = header.getBoundingClientRect().top - aside.getBoundingClientRect().top;
-  aside.scrollTop += delta + 20;
-  const a = aside.getBoundingClientRect();
-  const r = header.getBoundingClientRect();
+  const delta = header.getBoundingClientRect().top - region.getBoundingClientRect().top;
+  region.scrollTop += delta + 20;
+  const rr = region.getBoundingClientRect();
+  const hr = header.getBoundingClientRect();
   return {
     id: caso.dataset.caso,
-    pegado: Math.abs(r.top - a.top) <= 1,
-    topHeader: Math.round(r.top),
-    topAside: Math.round(a.top),
+    pegado: Math.abs(hr.top - rr.top) <= 1,
+    topHeader: Math.round(hr.top),
+    topRegion: Math.round(rr.top),
   };
 }))()`;
 
@@ -302,49 +320,48 @@ let fallos = 0;
 function revisar(base, pie, sticky) {
   for (const m of base) {
     const resumen =
-      `cuadro ${m.altoCajaSobra}px (contenido ${m.altoContenidoSobra}px), visible ${m.sobraVisible}; ` +
-      `aside ${m.altoAside}px (caja ${m.altoCajaAside}px) en ventana ${m.altoVentana}px; ` +
-      `scroll propio ${m.asideConScroll}; región con scroll ${m.regionConScroll} ` +
-      `(overflow-y ${m.regionOverflowY}); contenedores con scroll ${m.scrollables}`;
+      `aside overflow-y ${m.asideOverflowY}, scroll propio ${m.asideConScroll}; ` +
+      `tarjeta ${m.cardTop}–${m.cardBottom} en ventana ${m.altoVentana} (cabe ${m.cardCabe}); ` +
+      `desborde-x tarjeta ${m.cardOverflowX}, encabezado ${m.headerOverflowX}, lista ${m.regionOverflowX}; ` +
+      `lista con scroll ${m.regionConScroll}; contenedores con scroll ${m.scrollables}; ` +
+      `Agregar ${m.agregarAlto}px, alternar ${m.alternarAlto}px; gutter ${m.gutter}`;
     const delPie = pie.find((p) => p.id === m.id);
     const delSticky = sticky.find((s) => s.id === m.id);
-    const haySticky = clasesDe(m.variante).header.includes("sticky");
+    const haySticky = m.variante !== "antes";
 
     if (m.variante === "antes") {
       console.log(`  · antes:   ${resumen}`);
-      const corta = m.altoCajaSobra < m.altoContenidoSobra - 1;
-      if (!corta && m.asideConScroll) {
+      const overflow = m.headerOverflowX > 0 || m.cardOverflowX > 0;
+      if (!overflow && !m.asideConScroll) {
         fallos += 1;
-        console.log("    ✗ el defecto (cuadro cortado / aside sin scroll) ya no se reproduce");
+        console.log("    ✗ el defecto (desborde del encabezado / scroll del aside) ya no se reproduce");
       }
       continue;
     }
 
     const problemas = [];
-    if (m.altoCajaSobra < m.altoContenidoSobra - 1)
-      problemas.push(`el cuadro se corta (${m.altoCajaSobra}px < contenido ${m.altoContenidoSobra}px)`);
-    if (!m.sobraVisible) problemas.push("el cuadro no entra en el aside");
-    if (m.altoAside > m.altoCajaAside && !m.asideConScroll)
-      problemas.push("el aside no scrollea");
-    if (m.regionConScroll) problemas.push("la región del panel conserva scroll propio (anidado)");
+    if (m.asideConScroll) problemas.push("el aside scrollea (debe scrollear solo la lista)");
+    if (m.asideOverflowY !== "visible") problemas.push(`el aside tiene overflow ${m.asideOverflowY}`);
+    if (!m.cardCabe) problemas.push("la tarjeta no cabe en la ventana");
     if (m.scrollables !== 1)
-      problemas.push(`hay ${m.scrollables} contenedores con scroll (debe haber 1: el aside)`);
-    if (delPie && !delPie.visible)
-      problemas.push(
-        `el último renglón no se alcanza (top ${delPie.top}, bottom ${delPie.bottom} vs aside ${delPie.asideTop}–${delPie.asideBottom})`
-      );
+      problemas.push(`hay ${m.scrollables} contenedores con scroll (debe haber 1: la lista)`);
+    if (delPie && !delPie.pieVisible) problemas.push("el pie de la tarjeta no se alcanza");
+    if (delPie && !delPie.ultimoEnRegion) problemas.push("el último renglón no se alcanza en la lista");
+    if (m.cardOverflowX > 0) problemas.push(`la tarjeta desborda en horizontal (${m.cardOverflowX}px)`);
+    if (m.headerOverflowX > 0) problemas.push(`el encabezado desborda en horizontal (${m.headerOverflowX}px)`);
+    if (m.regionOverflowX > 0) problemas.push(`la lista desborda en horizontal (${m.regionOverflowX}px)`);
+    if (m.agregarAlto < 44) problemas.push(`Agregar de ${m.agregarAlto}px (piso 44px)`);
+    if (m.alternarAlto < 44) problemas.push(`alternar de ${m.alternarAlto}px (piso 44px)`);
+    if (!/\bstable\b/.test(m.gutter)) problemas.push(`la lista no reserva el carril (gutter ${m.gutter})`);
     if (haySticky && delSticky && !delSticky.pegado)
-      problemas.push(
-        `el encabezado no se pega arriba (top ${delSticky.topHeader} vs aside ${delSticky.topAside})`
-      );
+      problemas.push(`el encabezado no se pega a la lista (top ${delSticky.topHeader} vs ${delSticky.topRegion})`);
 
     if (problemas.length > 0) {
       fallos += 1;
       console.log(`  ✗ después: ${resumen} → ${problemas.join("; ")}`);
     } else {
       console.log(`  ✓ después: ${resumen}`);
-      if (delPie) console.log(`      último renglón alcanzado (bottom ${delPie.bottom}).`);
-      if (haySticky && delSticky) console.log(`      encabezado pegado arriba (top ${delSticky.topHeader}).`);
+      if (delSticky) console.log(`      encabezado pegado a la lista (top ${delSticky.topHeader}).`);
     }
   }
 }
@@ -372,7 +389,7 @@ try {
       deviceScaleFactor: 1,
       mobile: false,
     });
-    const { result: baseLimpia } = await pedir(ws, 4, "Runtime.evaluate", {
+    const { result: base } = await pedir(ws, 4, "Runtime.evaluate", {
       expression: MEDICION_BASE,
       returnByValue: true,
     });
@@ -384,7 +401,7 @@ try {
       expression: MEDICION_PIE,
       returnByValue: true,
     });
-    revisar(baseLimpia.value, pie.value, sticky.value);
+    revisar(base.value, pie.value, sticky.value);
   } finally {
     proceso.kill("SIGKILL");
   }
@@ -394,8 +411,7 @@ try {
     process.exitCode = 1;
   } else {
     console.log(
-      "\nContrato cumplido: el cuadro entra completo, el aside scrollea solo, el pie se alcanza" +
-        (CLASES_REALES.header.includes("sticky") ? " y el encabezado queda pegado." : ".")
+      "\nContrato cumplido: el aside no scrollea, la tarjeta cabe entera con su pie, la lista scrollea sola y nada desborda en horizontal."
     );
   }
 } finally {

@@ -348,7 +348,7 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     expect(props.anunciaPresupuesto).toBe(true);
   });
 
-  it("desde xl, el panel del aside cede su tope propio (el aside scrollea)", () => {
+  it("desde xl, el panel del aside conserva su propio tope (el aside no scrollea)", () => {
     ventanaAncha = true;
 
     render(<PaginaResumen />);
@@ -356,9 +356,9 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     const props = vi.mocked(PanelPresupuesto).mock.calls.at(-1)?.[0] as unknown as {
       topePropio?: boolean;
     };
-    // El aside tiene scroll propio: si el panel conservara el suyo, habría
-    // doble scroll.
-    expect(props.topePropio).toBe(false);
+    // El scroll vive en la lista del panel, dentro de la tarjeta; el aside no
+    // scrollea, así que el panel NO cede su tope.
+    expect(props.topePropio).toBeUndefined();
   });
 
   it("un fallo del presupuesto desde el cuadrito compone el anuncio único con otro fallo", () => {
