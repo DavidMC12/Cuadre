@@ -253,4 +253,24 @@ describe("GraficaPorCategoria: un fallo de red no es 'sin gastos este mes'", () 
 
     expect(avisar).toHaveBeenCalledWith(true);
   });
+
+  it("con datos avisa false (no se dispara de más) y al desmontar resetea", () => {
+    const avisar = vi.fn();
+    ajustarConsultas({ data: [], catalogo: [] });
+
+    const { unmount } = render(
+      <GraficaPorCategoria
+        mes="2026-09"
+        moneda="COP"
+        tipo="expense"
+        onCambiarTipo={vi.fn()}
+        onNoLeible={avisar}
+      />
+    );
+
+    expect(avisar).toHaveBeenCalledWith(false);
+    avisar.mockClear();
+    unmount();
+    expect(avisar).toHaveBeenCalledWith(false);
+  });
 });

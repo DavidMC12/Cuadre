@@ -135,4 +135,18 @@ describe("Admin: la lista de personas se cae con el mismo vocabulario del resto"
     expect(screen.queryByText("No hay nadie registrado")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
   });
+
+  it("sin red mientras busca el perfil, dice 'tu perfil' en vez de dejar el esqueleto eterno", () => {
+    ajustarPerfil({ isPending: true, isPaused: true, data: undefined });
+    ajustarPersonas({ data: undefined });
+
+    render(<PaginaAdmin />);
+
+    expect(
+      screen.getByText(
+        "Sin conexión: no pudimos cargar tu perfil. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toBeInTheDocument();
+    expect(document.querySelector(".animate-pulse")).toBeNull();
+  });
 });

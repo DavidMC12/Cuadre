@@ -160,4 +160,22 @@ describe("GraficaAhorro: el anuncio del fallo depende de la compañía", () => {
 
     expect(avisar).toHaveBeenCalledWith(true);
   });
+
+  it("con datos avisa false (no se dispara de más) y al desmontar resetea", () => {
+    const avisar = vi.fn();
+    ajustar(meses);
+
+    const { unmount } = render(
+      <GraficaAhorro months={2} currency="COP" onNoLeible={avisar} />
+    );
+
+    // Con datos legibles, la consulta no cuenta en la composición.
+    expect(avisar).toHaveBeenCalledWith(false);
+    avisar.mockClear();
+
+    // Al desmontar avisa false: un estado viejo no puede suprimir un alert
+    // legítimo de otra consulta que sí falló.
+    unmount();
+    expect(avisar).toHaveBeenCalledWith(false);
+  });
 });

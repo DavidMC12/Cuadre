@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import Link from 'next/link';
 import { PiggyBank } from 'lucide-react';
 
@@ -12,6 +11,7 @@ import { EmptyState } from '@/components/empty-state';
 import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from '@/components/fallo-consulta';
 import { useChecklistDelMes } from '@/hooks/use-presupuesto';
 import { useResumenMes } from '@/hooks/use-reportes';
+import { useSubirNoLeible } from '@/hooks/use-subir-no-leible';
 import { CLASES_BLOQUE_ASIDE } from '@/lib/aside-resumen';
 import { cuantoSobraEnElMes } from '@/lib/cuanto-sobra';
 import { etiquetaMes, tramoDelMes } from '@/lib/fecha';
@@ -73,7 +73,7 @@ export function CuantoMeSobra({
 
   // La pantalla necesita saber que el presupuesto no se pudo leer —sea fallo o
   // pausa— para no lanzar dos anuncios por dos bloques con la misma causa.
-  useSubirFallo(falloChecklist || pausadaChecklist, onFalloPresupuesto);
+  useSubirNoLeible(falloChecklist || pausadaChecklist, onFalloPresupuesto);
 
   // El error manda sobre el esqueleto: si UNA consulta falló y la otra sigue
   // cargando, el fallo no puede quedar tapado por el "cargando".
@@ -270,12 +270,4 @@ function textoDelSigno(unidades: bigint): string {
   if (unidades > 0n) return 'Te sobran';
   if (unidades < 0n) return 'Te faltan';
   return 'Ni te sobra ni te falta';
-}
-
-/** Sube a la pantalla el fallo del presupuesto cuando cambia (un solo sitio
- * que consulta el checklist reporta, aunque el panel lo consulte también). */
-function useSubirFallo(fallo: boolean, avisar?: (fallo: boolean) => void) {
-  useEffect(() => {
-    avisar?.(fallo);
-  }, [fallo, avisar]);
 }

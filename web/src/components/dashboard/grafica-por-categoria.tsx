@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 
@@ -9,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
 import { useCategorias } from "@/hooks/use-categorias";
 import { usePorCategoria } from "@/hooks/use-reportes";
+import { useSubirNoLeible } from "@/hooks/use-subir-no-leible";
 import type { TipoCategoria } from "@/lib/api/types";
 import { textoMonto, sumarMontos } from "@/lib/money";
 import { mapaColoresCategoriasDelCatalogo, COLOR_NEUTRO, modoDeTema } from "@/lib/chart-colors";
@@ -240,12 +240,4 @@ export function GraficaPorCategoria({
       )}
     </div>
   );
-}
-
-/** Sube a la pantalla si esta consulta no se pudo leer (fallo o pausa) cuando
- * cambia, para que componga el anuncio único contándola. */
-function useSubirNoLeible(noLeible: boolean, avisar?: (noLeible: boolean) => void) {
-  useEffect(() => {
-    avisar?.(noLeible);
-  }, [noLeible, avisar]);
 }

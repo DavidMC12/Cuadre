@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { useTheme } from "next-themes";
 import {
   Bar,
@@ -17,6 +16,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
 import { useAhorroMensual } from "@/hooks/use-reportes";
+import { useSubirNoLeible } from "@/hooks/use-subir-no-leible";
 import { etiquetaMes, etiquetaMesCorta } from "@/lib/fecha";
 import { sumarMontos, textoMonto } from "@/lib/money";
 import { colorPorSigno, modoDeTema } from "@/lib/chart-colors";
@@ -224,12 +224,4 @@ export function GraficaAhorro({
       </table>
     </div>
   );
-}
-
-/** Sube a la pantalla si esta consulta no se pudo leer (fallo o pausa) cuando
- * cambia, para que componga el anuncio único contándola. */
-function useSubirNoLeible(noLeible: boolean, avisar?: (noLeible: boolean) => void) {
-  useEffect(() => {
-    avisar?.(noLeible);
-  }, [noLeible, avisar]);
 }
