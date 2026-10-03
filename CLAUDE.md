@@ -230,6 +230,19 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   mida un espejo desactualizado. No se hizo scroll por categoría a propósito
   (atrapa el dedo y el cursor).
 
+- **El panel recuerda qué categorías quedaron abiertas y cerradas**
+  (2026-10-04): el dueño lo pidió "tal cual". Se guarda en `localStorage`
+  del navegador (clave `cuadre:presupuesto:grupos-cerrados:v1`), por ser
+  una preferencia de pantalla y no dinero; igual en el Resumen (aside y
+  cajón móvil) y en `/presupuesto`, en todos los meses y monedas. Un grupo
+  nunca visto sale abierto. Almacén bloqueado, modo privado o JSON corrupto
+  caen a "todo abierto" sin romper (el toggle sigue funcionando en memoria);
+  `useSyncExternalStore` evita errores de hidratación y mantiene sincronizados
+  dos paneles montados y las pestañas (evento `storage`). La poda de
+  categorías borradas nunca corre mientras una consulta está en curso. No se
+  sincroniza entre dispositivos: haría falta guardarlo en la cuenta
+  (backend); queda como decisión del dueño.
+
 Pendiente, sin fecha: otra ronda de `impeccable critique` más adelante
 para medir el puntaje tras estos arreglos.
 
