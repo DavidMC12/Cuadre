@@ -9,29 +9,27 @@
  */
 import { conflicto, noEncontrado, reglaViolada } from '../../http/errores.js';
 import { compare } from '../../shared/money.js';
-import { MontoPositivoSchema } from '../../shared/schemas.js';
+import { MesSchema, MontoPositivoSchema } from '../../shared/schemas.js';
 import * as cuentasService from '../accounts/service.js';
 import * as categoriasService from '../categories/service.js';
 import * as reportsService from '../reports/service.js';
 import * as repositorio from './repository.js';
-import {
-  MesSchema,
-  type CrearItem,
-  type ItemDePresupuesto,
-  type ItemDelChecklist,
-} from './schemas.js';
+import { type CrearItem, type ItemDePresupuesto, type ItemDelChecklist } from './schemas.js';
 
 /**
  * La única puerta por la que un mes y un monto entran a este service: un
- * mes como "YYYY-MM" y un monto positivo en texto, tal como lo define el
- * schema de entrada. Una sola validación, y no una copia en cada función:
- * lo que la ruta haya pasado por Zod no se asume.
+ * mes como "YYYY-MM" y un monto positivo en texto, con la MISMA definición
+ * de `shared/schemas.ts` que ya aplican las rutas por Zod.
  *
  * El RANGO del mes (año 2000-2100; "0000" rompe a Postgres) vive en
- * `MesSchema`, en schemas.ts: ahí lo aplican todas las rutas antes de
- * llegar aquí, con un 400 de la validación del borde. Revalidar el formato
- * en el service queda porque el service también se llama directo (sin HTTP)
- * y no puede confiar en que la ruta pasara por Zod.
+ * `MesSchema` compartido — lo impone Zod en el borde de cada ruta, con un
+ * 400 de VALIDATION_ERROR; ninguna migración lo frena en la base. Aquí no
+ * se duplica la regla ad hoc: se reusa el mismo schema porque el service
+ * también se llama directo (sin HTTP, como en las pruebas) y no puede
+ * asumir que la ruta pasara por Zod. La única voz distinta es el código:
+ * en una llamada directa la regla sale como RULE_VIOLATION (422) del
+ * service, en la ruta como VALIDATION_ERROR (400) del borde, que es la
+ * convención del proyecto.
  *
  * Devuelve el mes a usar: el que llegó, o el actual si no llegó ninguno.
  */

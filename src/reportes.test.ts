@@ -685,7 +685,7 @@ describe('ahorro mensual', () => {
  * VALIDATION_ERROR — la convención del proyecto — antes de tocar la base.
  */
 describe('validación del mes en el borde (reports)', () => {
-  const MESES_MALOS = ['0000-01', '2026-13', '1999-12'];
+  const MESES_MALOS = ['0000-01', '2026-13', '1999-12', '2101-01'];
 
   it('resumen con un mes de verdad (el actual) responde 200, como siempre', async () => {
     const { estado, cuerpo } = await pedir(
@@ -698,6 +698,11 @@ describe('validación del mes en el borde (reports)', () => {
 
   it('resumen con un mes del rango sano pero antiguo (2000-12) no queda fuera', async () => {
     const { estado } = await pedir('GET', '/api/v1/reports/summary?month=2000-12&currency=COP');
+    expect(estado).toBe(200);
+  });
+
+  it('resumen con el borde sano por arriba (2100-12) también responde 200', async () => {
+    const { estado } = await pedir('GET', '/api/v1/reports/summary?month=2100-12&currency=COP');
     expect(estado).toBe(200);
   });
 

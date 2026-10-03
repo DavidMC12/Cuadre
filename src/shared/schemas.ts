@@ -36,13 +36,16 @@ export const MonedaSchema = z
  * uno: reportes y presupuesto lo usan igual, y en el repository acaba
  * convertido en fecha de Postgres.
  *
- * El rango es una regla de la BASE, no solo de una pantalla: un mes como
- * "0000-01" pasa la regex pero rompe a Postgres (su tipo de fecha no tiene
- * año cero) y obligaría a una consulta a responder 500. Aquí, en el borde
- * donde nace la validación, el año va de 2000 a 2100 y el mes de 01 a 12 —
- * así TODA ruta que use este schema rechaza el dato malo con 400 (la
- * convención del proyecto para la validación del borde) antes de tocar la
- * base, y ningún service tiene que repetir la regla.
+ * La regex en un solo lugar evita lo que ya pasó: una copia sin rango dejaba
+ * pasar "0000-01", que una consulta de verdad moría en Postgres (su tipo de
+ * fecha no tiene año cero) con un 500.
+ *
+ * IMPORTANTE sobre el rango (año 2000-2100, mes 01-12): lo impone ESTE
+ * schema — Zod en el borde de cada ruta —, no una migración ni una
+ * restricción de la base. Si algún día la base lo impusiera, aquí seguiría
+ * valiendo para responder 400 (la convención del proyecto: 400
+ * VALIDATION_ERROR para validación del borde, 422 solo RULE_VIOLATION del
+ * service) antes de tocar Postgres.
  */
 export const MesSchema = z
   .string()

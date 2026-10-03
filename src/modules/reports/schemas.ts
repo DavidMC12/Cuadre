@@ -5,15 +5,11 @@
  * JavaScript ya perdió precisión antes de llegar a la pantalla.
  */
 import { z } from 'zod';
-import { MonedaSchema } from '../../shared/schemas.js';
+import { MesSchema, MonedaSchema } from '../../shared/schemas.js';
 
 /** Ingresos o gastos. Es el lado del reporte que se está mirando. */
 export const TIPOS_DE_CATEGORIA = ['income', 'expense'] as const;
 export const TipoDeCategoriaSchema = z.enum(TIPOS_DE_CATEGORIA);
-
-/** Un mes calendario, como "2026-09", con rango sano: el de `shared/schemas.ts`, definido una vez (el repository lo convierte en fecha de Postgres, y un "0000-01" fuera de rango era un 500). */
-export { MesSchema } from '../../shared/schemas.js';
-import { MesSchema } from '../../shared/schemas.js';
 
 // -----------------------------------------------------------------------------
 // Peticiones
