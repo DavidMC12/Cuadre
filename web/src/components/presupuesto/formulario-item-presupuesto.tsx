@@ -149,12 +149,28 @@ export function FormularioItemPresupuesto({
   // cambio (incluido el abrir del cajón), el estado vuelve a nacer de los
   // props. Escribe lo que tengas pendiente no lo toca: las dependencias no
   // incluyen lo tecleado.
+  // ¿Hay texto que la persona tecleó y aún no se guardó? Un ref, no estado:
+  // no dibuja nada, solo alimenta la decisión del efecto de abajo. Se enciende
+  // con cada tecleo (monto o etiqueta) y se apaga al reiniciar (cerrar,
+  // guardar bien o llamar a reiniciar), que es cuando el texto pendiente deja
+  // de existir de verdad.
+  const hayTextoPendiente = useRef(false);
+
   const claveDelContexto = `${abierto}|${mesVisto}|${montoDeReferencia ?? ''}|${item?.id ?? ''}|${item?.label ?? ''}`;
   const claveVista = useRef(claveDelContexto);
   useEffect(() => {
     if (claveVista.current !== claveDelContexto) {
       claveVista.current = claveDelContexto;
-      reiniciar();
+      // Distinguir "llegó dato fresco" de "hay texto sin guardar": la cita de
+      // la clave incluye el monto de referencia, así que un refetch que ve
+      // data nueva (por ejemplo, el monto que sí se guardó mientras la
+      // etiqueta fallaba) dispara este efecto con el formulario ABIERTO y
+      // texto en los campos. Reiniciar aquí borraría lo tecleado, aunque el
+      // guardado no terminó — exactamente lo que el toast de error promete
+      // que se conserva. Si hay texto pendiente, el dato fresco no lo pisa.
+      if (!hayTextoPendiente.current) {
+        reiniciar();
+      }
     }
     // El guard (claveVista) hace que solo se reinicie cuando el contexto de los
     // props cambió;reiniciar solo lee props, nunca el texto tecleado.
@@ -173,6 +189,7 @@ export function FormularioItemPresupuesto({
     setMonto(montoDeReferencia ? textoEditable(montoDeReferencia, monedaDelMonto) : '');
     setEtiqueta(item?.label ?? '');
     setErrorMonto(null);
+    hayTextoPendiente.current = false;
   }
 
   function cerrarYReiniciar() {
@@ -421,7 +438,10 @@ export function FormularioItemPresupuesto({
                 id="monto-item"
                 moneda={monedaDelMonto}
                 value={monto}
-                onChange={setMonto}
+                onChange={(valor) => {
+                  hayTextoPendiente.current = true;
+                  setMonto(valor);
+                }}
                 // El checklist espera montos siempre positivos.
                 permiteSigno={false}
                 placeholder="0"
@@ -440,7 +460,10 @@ export function FormularioItemPresupuesto({
                 id="etiqueta-item"
                 placeholder={tipo === 'category' ? 'Ej. Mercado del mes' : 'Ej. Apartado viaje'}
                 value={etiqueta}
-                onChange={(evento) => setEtiqueta(evento.target.value)}
+                onChange={(evento) => {
+                  hayTextoPendiente.current = true;
+                  setEtiqueta(evento.target.value);
+                }}
                 maxLength={120}
               />
               <p className="text-xs text-muted-foreground">
