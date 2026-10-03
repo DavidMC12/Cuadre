@@ -17,6 +17,14 @@ import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { ItemDelChecklist } from "@/lib/api/types";
 import { agruparPresupuesto, type GrupoPresupuesto } from "@/lib/agrupar-presupuesto";
+import {
+  CLASES_BLOQUE_ASIDE,
+  CLASES_CARD_PANEL_ASIDE,
+  CLASES_ENCABEZADO_GRUPO,
+  CLASES_ENCABEZADO_GRUPO_FIJO,
+  CLASES_REGION_PANEL,
+  CLASES_REGION_PANEL_CON_TOPE,
+} from "@/lib/aside-resumen";
 import { COLOR_NEUTRO, mapaColoresCategoriasDelCatalogo, modoDeTema } from "@/lib/chart-colors";
 import { nombreDelMes } from "@/lib/fecha";
 import { aUnidadesMinimas, restar, textoMonto } from "@/lib/money";
@@ -179,6 +187,12 @@ export function PanelPresupuesto({
     return mapa.get(grupo.categoryId) ?? COLOR_NEUTRO[modo];
   }
 
+  // En la tarjeta (el aside) el encabezado de cada grupo se pega al scroll de
+  // la columna. En la variante suelta (/presupuesto y el cajón) no: la
+  // superficie no es `bg-card` y un encabezado opaco dejaría una banda de otro
+  // color en tema oscuro.
+  const encabezadosFijos = variante === "tarjeta";
+
   const accionAgregar = !soloMirar && (
     <FormularioItemPresupuesto moneda={moneda} mes={mes}>
       <Button variant="outline" size="sm">
@@ -186,6 +200,23 @@ export function PanelPresupuesto({
         Agregar
       </Button>
     </FormularioItemPresupuesto>
+  );
+
+  // Con todos los grupos cerrados no se muestra: el panel abre con todo
+  // abierto, así que la acción frecuente es contraer. Un "Expandir todo" en
+  // ese estado sería un segundo botón con dos estados para resolver algo que
+  // los propios encabezados ya hacen; ocultarlo es lo más simple.
+  const hayGrupoAbierto = grupos.some((grupo) => !gruposColapsados.has(grupo.clave));
+  const accionContraer = hayGrupoAbierto && (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="min-h-11"
+      aria-label="Contraer todo"
+      onClick={() => setGruposColapsados(new Set(grupos.map((grupo) => grupo.clave)))}
+    >
+      Contraer todo
+    </Button>
   );
 
   function renderRenglon(renglon: ItemDelChecklist, indice: number) {
@@ -232,7 +263,7 @@ export function PanelPresupuesto({
                 <button> nativo como disparador. */}
             <button
               type="button"
-              className="flex w-full cursor-pointer flex-col gap-1.5 rounded-lg px-2 py-3 text-left outline-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
+              className="flex w-full cursor-pointer scroll-mt-11 flex-col gap-1.5 rounded-lg px-2 py-3 text-left outline-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
             >
               <ContenidoRenglon
                 renglon={renglon}
@@ -270,7 +301,7 @@ export function PanelPresupuesto({
           aria-controls={idLista}
           aria-label={etiquetaGrupo}
           onClick={() => alternarGrupo(grupo.clave)}
-          className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-medium text-muted-foreground hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
+          className={cn(CLASES_ENCABEZADO_GRUPO, encabezadosFijos && CLASES_ENCABEZADO_GRUPO_FIJO)}
         >
           {/* El color es refuerzo, nunca el único dato: el nombre de la
               categoría va en texto, al lado. */}
@@ -346,12 +377,7 @@ export function PanelPresupuesto({
             role="region"
             aria-label="Ítems del presupuesto"
             tabIndex={0}
-            className={cn(
-              "flex flex-col overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85",
-              // Con contenedor que ya scrollea (el cajón), el panel no pone su
-              // propio tope: evita el scroll anidado.
-              topePropio && "max-h-[70vh]"
-            )}
+            className={cn(CLASES_REGION_PANEL, topePropio && CLASES_REGION_PANEL_CON_TOPE)}
           >
             {!tieneMetadatos ? (
               // Aún no sabemos la categoría de cada ítem (o su consulta falló):
@@ -458,17 +484,29 @@ export function PanelPresupuesto({
   if (variante === "suelta") {
     return (
       <div className="flex flex-col">
-        {accionAgregar && <div className="flex justify-end pb-3">{accionAgregar}</div>}
+        {(accionContraer || accionAgregar) && (
+          <div className="flex items-center justify-end gap-1 pb-3">
+            {accionContraer}
+            {accionAgregar}
+          </div>
+        )}
         {cuerpo}
       </div>
     );
   }
 
   return (
-    <Card>
+    <Card className={cn(CLASES_BLOQUE_ASIDE, encabezadosFijos && CLASES_CARD_PANEL_ASIDE)}>
       <CardHeader>
         <CardTitle>Presupuesto del mes</CardTitle>
-        {accionAgregar && <CardAction>{accionAgregar}</CardAction>}
+        {(accionContraer || accionAgregar) && (
+          <CardAction>
+            <div className="flex items-center gap-1">
+              {accionContraer}
+              {accionAgregar}
+            </div>
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent>{cuerpo}</CardContent>
     </Card>

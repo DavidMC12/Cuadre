@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/empty-state';
 import { FalloConsulta, mensajeDeFallo } from '@/components/fallo-consulta';
 import { useChecklistDelMes } from '@/hooks/use-presupuesto';
 import { useResumenMes } from '@/hooks/use-reportes';
+import { CLASES_BLOQUE_ASIDE } from '@/lib/aside-resumen';
 import { cuantoSobraEnElMes } from '@/lib/cuanto-sobra';
 import { etiquetaMes, tramoDelMes } from '@/lib/fecha';
 import { cn } from '@/lib/utils';
@@ -238,7 +239,7 @@ export function CuantoMeSobra({
   }
 
   return (
-    <Card>
+    <Card className={CLASES_BLOQUE_ASIDE}>
       <CardHeader>
         <CardTitle>Cuánto me sobra este mes</CardTitle>
       </CardHeader>

@@ -524,7 +524,7 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     expect(fila.className).not.toContain("-mx-2");
   });
 
-  it("sin tope propio (dentro del cajón que ya scrollea) la región no se acota", () => {
+  it("sin tope propio (dentro del aside o del cajón que ya scrollea) la región no scrollea sola", () => {
     const items = [deCategoria("c1", "comida", "Mercado")];
     ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
 
@@ -533,9 +533,73 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     );
 
     const region = screen.getByRole("region", { name: "Ítems del presupuesto" });
-    // Sin tope propio: el scroll lo hace el cajón que lo envuelve, no el panel.
+    // Sin tope propio el scroll lo hace el contenedor que envuelve al panel.
+    // La región tampoco lleva su propio `overflow-y-auto`: un scroll anidado
+    // atraparía el dedo (y en el aside trabaría el encabezado `sticky`).
     expect(region.classList.contains("max-h-[70vh]")).toBe(false);
-    expect(region.classList.contains("overflow-y-auto")).toBe(true);
+    expect(region.classList.contains("overflow-y-auto")).toBe(false);
+    expect(region.classList.contains("overflow-visible")).toBe(false);
+  });
+
+  it("la tarjeta del panel no se encoge dentro del aside (shrink-0)", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    const { container } = render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+    const card = container.querySelector("[data-slot='card']")!;
+    // Sin `shrink-0` el flex encoge la Card (su `overflow-hidden` anula el
+    // mínimo automático) y el contenido se recorta en vez de scrollear el
+    // aside. La medición de Chromium y esta prueba lo vigilan.
+    expect(card.className).toContain("shrink-0");
+    expect(card.className).toContain("min-h-fit");
+  });
+
+  it("el encabezado del grupo queda pegado al scrollear (sticky) y la tarjeta cede su overflow", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    const { container } = render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const header = screen.getByRole("button", { name: etiquetaGrupo("Comida", 1) });
+    // Pegado al scroll del contenedor, con fondo que tapa los renglones que
+    // pasan por debajo y z-index para pintar por encima.
+    expect(header.classList.contains("sticky")).toBe(true);
+    expect(header.classList.contains("top-0")).toBe(true);
+    expect(header.classList.contains("z-10")).toBe(true);
+    expect(header.classList.contains("bg-card")).toBe(true);
+
+    // El `cn` de Card descarta `overflow-hidden` a favor de `overflow-visible`:
+    // si no, la Card sería el contenedor de scroll y el sticky no se pegaría.
+    const card = container.querySelector("[data-slot='card']")!;
+    expect(card.className).toContain("overflow-visible");
+    expect(card.className).not.toContain("overflow-hidden");
+  });
+
+  it("en la variante suelta el encabezado no se pega ni pinta fondo de tarjeta", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" variante="suelta" topePropio={false} />);
+
+    const header = screen.getByRole("button", { name: etiquetaGrupo("Comida", 1) });
+    // Fuera de la tarjeta (la pantalla /presupuesto o el cajón) el encabezado
+    // sigue transparente: en tema oscuro un `bg-card` pegado dejaría una banda
+    // de otro color.
+    expect(header.classList.contains("sticky")).toBe(false);
+    expect(header.classList.contains("bg-card")).toBe(false);
+    expect(header.classList.contains("z-10")).toBe(false);
+  });
+
+  it("el renglón editable deja margen de scroll para no quedar bajo el encabezado fijo", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const boton = screen.getByText("Mercado").closest("button")!;
+    // Al enfocar con Tab, el navegador deja 44px arriba: el foco no queda
+    // oculto debajo del encabezado `sticky`.
+    expect(boton.classList.contains("scroll-mt-11")).toBe(true);
   });
 
   it("el botón de un renglón editable muestra anillo de foco, no queda ciego", () => {
@@ -547,6 +611,115 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     const boton = screen.getByText("Mercado").closest("button")!;
     expect(boton.className).toContain("focus-visible:ring-3");
     expect(boton.className).toContain("focus-visible:ring-ring/85");
+  });
+});
+
+// -------------------------------------------------------------------------
+// Contraer todo
+// -------------------------------------------------------------------------
+
+describe("PanelPresupuesto: contraer todo", () => {
+  it("ofrece 'Contraer todo' de 44px mientras haya un grupo abierto y lo oculta al cerrar todos", () => {
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("c2", "comida", "Restaurantes"),
+      deCategoria("t1", "transporte", "Bus"),
+    ];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const contraer = screen.getByRole("button", { name: "Contraer todo" });
+    // Texto pequeño, fantasma y piso de toque de 44px.
+    expect(contraer.textContent).toBe("Contraer todo");
+    expect(contraer.classList.contains("min-h-11")).toBe(true);
+
+    fireEvent.click(contraer);
+
+    // Los dos grupos quedan replegados...
+    expect(screen.getAllByRole("button", { expanded: false })).toHaveLength(2);
+    // ...y el botón desaparece: no hay nada abierto que contraer.
+    expect(
+      screen.queryByRole("button", { name: "Contraer todo" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("con un grupo cerrado y otro abierto sigue ofreciéndolo", () => {
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("t1", "transporte", "Bus"),
+    ];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // Cierro solo Comida: queda Transporte abierto.
+    fireEvent.click(screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true }));
+
+    expect(
+      screen.getByRole("button", { name: "Contraer todo" })
+    ).toBeInTheDocument();
+  });
+
+  it("con una clave replegada de otro mes, el grupo nuevo abierto cuenta igual (no se oculta el botón)", () => {
+    const comida = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: comida.map(renglonDe) } }, { data: comida }, CATALOGO);
+    const { rerender } = render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // Cambio de mes: Comida queda replegada (clave obsoleta en el estado).
+    fireEvent.click(screen.getByRole("button", { name: "Contraer todo" }));
+    expect(
+      screen.queryByRole("button", { name: "Contraer todo" })
+    ).not.toBeInTheDocument();
+
+    // El mes nuevo solo trae Transporte, que no está en el estado: sale
+    // abierto y el botón debe seguir ahí aunque el tamaño de la clave vieja
+    // coincida con el número de grupos.
+    const transporte = [deCategoria("t1", "transporte", "Bus")];
+    ajustarConsultas({ data: { items: transporte.map(renglonDe) } }, { data: transporte }, CATALOGO);
+    rerender(<PanelPresupuesto mes="2026-10" moneda="COP" />);
+
+    expect(
+      screen.getByRole("button", { name: "Contraer todo" })
+    ).toBeInTheDocument();
+  });
+
+  it("no se muestra en la lista plana (sin metadatos de categoría)", () => {
+    ajustarConsultas({ data: { items: [renglon] } });
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(
+      screen.queryByRole("button", { name: "Contraer todo" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("en la variante suelta también aparece, junto al encabezado de la lista", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" variante="suelta" />);
+
+    expect(
+      screen.getByRole("button", { name: "Contraer todo" })
+    ).toBeInTheDocument();
+  });
+
+  it("al contraer todo, el aviso de un tope excedido sobrevive en el encabezado", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    const checklist = items.map((item) => ({ ...renglonDe(item), exceeded: true }));
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Contraer todo" }));
+
+    expect(
+      screen.getByRole("button", {
+        name: `${etiquetaGrupo("Comida", 1)}, con un tope excedido`,
+        expanded: false,
+      })
+    ).toBeInTheDocument();
   });
 });
 

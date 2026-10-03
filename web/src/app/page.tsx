@@ -39,6 +39,7 @@ import { useIrAPantallaDeInicio } from "@/hooks/use-perfil";
 import { usePantallaAncha } from "@/hooks/use-pantalla-ancha";
 import { useMonedas, useResumenMes, useTendencia } from "@/hooks/use-reportes";
 import type { TipoCategoria } from "@/lib/api/types";
+import { CLASES_ASIDE } from "@/lib/aside-resumen";
 import { etiquetaMes, mesActual } from "@/lib/fecha";
 import { cn } from "@/lib/utils";
 
@@ -396,7 +397,7 @@ export default function PaginaResumen() {
       {/* Montado solo cuando de verdad se ve: un aside oculto con CSS
           consultaba al servidor igual, aunque nadie lo mirara. */}
       {pantallaAncha && moneda && (
-        <aside className="flex w-80 shrink-0 flex-col gap-5 xl:sticky xl:top-8 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
+        <aside className={CLASES_ASIDE}>
           {/* Arriba del panel: cuánto sobra según lo previsto. Si falla el
               presupuesto, el panel de abajo ya lo anuncia: este bloque no
               repite la interrupción por la misma consulta. */}
