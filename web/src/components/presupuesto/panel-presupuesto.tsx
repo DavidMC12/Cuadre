@@ -12,11 +12,17 @@ import { EmptyState } from "@/components/empty-state";
 import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
 import { FormularioItemPresupuesto } from "@/components/presupuesto/formulario-item-presupuesto";
 import { useCategorias } from "@/hooks/use-categorias";
+import { useGruposColapsados } from "@/hooks/use-grupos-colapsados";
 import { useChecklistDelMes, useDesarchivarItemPresupuesto, usePresupuestoItems } from "@/hooks/use-presupuesto";
 import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { ItemDelChecklist } from "@/lib/api/types";
-import { agruparPresupuesto, type GrupoPresupuesto } from "@/lib/agrupar-presupuesto";
+import {
+  agruparPresupuesto,
+  CLAVE_AHORRO,
+  CLAVE_SIN_CATEGORIA,
+  type GrupoPresupuesto,
+} from "@/lib/agrupar-presupuesto";
 import {
   CLASES_BLOQUE_ASIDE,
   CLASES_CARD_PANEL_ASIDE,
@@ -108,18 +114,25 @@ export function PanelPresupuesto({
   const desarchivar = useDesarchivarItemPresupuesto();
 
   const [viendoArchivados, setViendoArchivados] = useState(false);
-  // Grupos que la persona replegó. Vacío = todos abiertos: la información se
-  // ve de entrada; replegar es una decisión suya, no un estado por defecto.
-  const [gruposColapsados, setGruposColapsados] = useState<Set<string>>(new Set());
 
-  function alternarGrupo(clave: string) {
-    setGruposColapsados((previos) => {
-      const siguientes = new Set(previos);
-      if (siguientes.has(clave)) siguientes.delete(clave);
-      else siguientes.add(clave);
-      return siguientes;
-    });
-  }
+  // Las claves de grupo que existen hoy en el catálogo (incluidas las
+  // archivadas) más las claves propias del panel. Mientras el catálogo no
+  // llegue es `null`: sin podar.
+  const clavesValidas = useMemo(() => {
+    if (!catalogo) return null;
+    const claves = new Set<string>([CLAVE_AHORRO, CLAVE_SIN_CATEGORIA]);
+    for (const categoria of catalogo) claves.add(categoria.id);
+    return claves;
+  }, [catalogo]);
+  // Los grupos replegados se recuerdan en el navegador (preferencia de
+  // pantalla, no dinero) y se comparten entre el Resumen y /presupuesto, entre
+  // meses y monedas. Vacío = todos abiertos: replegar es una decisión de quien
+  // usa la app, no un estado por defecto.
+  const {
+    colapsados: gruposColapsados,
+    alternar: alternarGrupo,
+    contraerTodo,
+  } = useGruposColapsados(clavesValidas);
 
   // La consulta del checklist no se pudo leer y no hay nada que mostrar: la
   // misma expresión decide el bloque de fallo y si los archivados le ceden
@@ -213,7 +226,7 @@ export function PanelPresupuesto({
       size="sm"
       className="min-h-11"
       aria-label="Contraer todo"
-      onClick={() => setGruposColapsados(new Set(grupos.map((grupo) => grupo.clave)))}
+      onClick={() => contraerTodo(grupos.map((grupo) => grupo.clave))}
     >
       Contraer todo
     </Button>
