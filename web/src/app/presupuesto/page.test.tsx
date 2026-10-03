@@ -86,4 +86,14 @@ describe("Página Presupuesto: casa propia del checklist", () => {
     // Con una sola moneda no hay selector de moneda, como en el Resumen.
     expect(screen.queryByText("Mostrando")).not.toBeInTheDocument();
   });
+
+  it("el selector de moneda lleva el piso de toque de 44px", () => {
+    // Séptima critique: con dos monedas el SelectTrigger size="sm" medía 28px.
+    ajustarMonedas({ data: ["COP", "USD"] });
+
+    render(<PaginaPresupuesto />);
+
+    const disparador = screen.getByRole("combobox");
+    expect(disparador.classList.contains("h-11")).toBe(true);
+  });
 });

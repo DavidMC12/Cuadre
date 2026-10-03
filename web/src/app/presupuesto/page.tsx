@@ -92,7 +92,7 @@ export default function PaginaPresupuesto() {
         <div className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-sm">
           <span className="text-muted-foreground">Mostrando</span>
           <Select value={moneda} onValueChange={(valor) => setMonedaElegida(valor ?? undefined)}>
-            <SelectTrigger size="sm" className="w-20">
+            <SelectTrigger size="sm" className="h-11 w-20">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
