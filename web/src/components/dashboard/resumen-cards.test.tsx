@@ -18,14 +18,14 @@ describe("ResumenCards", () => {
         moneda="COP"
         cargando={false}
         fallo={{
-          mensaje: "No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido.",
+          mensaje: "No pudimos cargar el resumen del mes. Revisa tu conexión y vuelve a intentarlo.",
           onReintentar: reintentar,
         }}
       />
     );
 
     expect(
-      screen.getByText("No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido.")
+      screen.getByText("No pudimos cargar el resumen del mes. Revisa tu conexión y vuelve a intentarlo.")
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
     // La pantalla de fallo no deriva nada del resumen que no existe.
@@ -46,7 +46,7 @@ describe("ResumenCards", () => {
         cargando={false}
         compartePantalla
         fallo={{
-          mensaje: "No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido.",
+          mensaje: "No pudimos cargar el resumen del mes. Revisa tu conexión y vuelve a intentarlo.",
           onReintentar: vi.fn(),
           etiquetaBoton: "Reintentar resumen",
         }}

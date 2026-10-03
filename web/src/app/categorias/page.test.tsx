@@ -19,6 +19,7 @@ interface Stub {
   data?: unknown;
   isLoading?: boolean;
   isError?: boolean;
+  isPaused?: boolean;
   error?: unknown;
   isFetching?: boolean;
   refetch?: () => void;
@@ -62,7 +63,7 @@ describe("Categorías: un fallo de red no es 'no tienes categorías'", () => {
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "No pudimos cargar tus categorías. Puede ser que el servidor esté dormido."
+        "No pudimos cargar tus categorías. Revisa tu conexión y vuelve a intentarlo."
       )
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar categorías" })).toBeInTheDocument();
@@ -111,5 +112,20 @@ describe("Categorías: un fallo de red no es 'no tienes categorías'", () => {
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(screen.queryByText("No hay categorías archivadas")).not.toBeInTheDocument();
+  });
+
+  it("una consulta pausada sin red no se disfraza de 'todavía no tienes categorías'", () => {
+    ajustar({ data: undefined, isPaused: true });
+
+    render(<PaginaCategorias />);
+
+    // Si alguien revierte la política, esto vuelve a dibujar el vacío y se cae.
+    expect(
+      screen.getByText(
+        "Sin conexión: no pudimos cargar tus categorías. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Todavía no tienes categorías")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar categorías" })).toBeInTheDocument();
   });
 });

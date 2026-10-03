@@ -112,7 +112,7 @@ describe("PanelPresupuesto: una variante por contenedor", () => {
 
     expect(
       screen.getByText(
-        "No pudimos cargar los ítems archivados. Puede ser que el servidor esté dormido."
+        "No pudimos cargar los ítems archivados. Revisa tu conexión y vuelve a intentarlo."
       )
     ).toBeInTheDocument();
     expect(
@@ -135,10 +135,10 @@ describe("PanelPresupuesto: una variante por contenedor", () => {
     // otra queda visible y navegable, con su Reintentar propio.
     expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "No pudimos cargar tu presupuesto del mes. Puede ser que el servidor esté dormido."
+      "No pudimos cargar tu presupuesto del mes. Revisa tu conexión y vuelve a intentarlo."
     );
     expect(screen.getByRole("group")).toHaveTextContent(
-      "No pudimos cargar los ítems archivados. Puede ser que el servidor esté dormido."
+      "No pudimos cargar los ítems archivados. Revisa tu conexión y vuelve a intentarlo."
     );
     expect(screen.getByRole("button", { name: "Reintentar presupuesto" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar archivados" })).toBeInTheDocument();
@@ -168,9 +168,80 @@ describe("PanelPresupuesto: una variante por contenedor", () => {
 
     expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "No pudimos cargar los ítems archivados. Puede ser que el servidor esté dormido."
+      "No pudimos cargar los ítems archivados. Revisa tu conexión y vuelve a intentarlo."
     );
     expect(screen.queryByRole("group")).not.toBeInTheDocument();
+  });
+
+  it("una consulta pausada sin red no se disfraza de 'nada por revisar este mes'", () => {
+    ajustarConsultas({ data: undefined, isPaused: true }, { data: [] });
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // Falla si el panel vuelve a mostrar el vacío con la consulta pausada.
+    expect(
+      screen.getByText(
+        "Sin conexión: no pudimos cargar tu presupuesto del mes. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Nada por revisar este mes")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar presupuesto" })).toBeInTheDocument();
+  });
+
+  it("si la consulta de archivados queda pausada, no dice que no archivaste nada", () => {
+    ajustarConsultas({ data: { items: [renglon] } }, { data: undefined, isPaused: true });
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(
+      screen.getByText(
+        "Sin conexión: no pudimos cargar los ítems archivados. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Archivados \(/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar archivados" })).toBeInTheDocument();
+  });
+
+  it("con el checklist pausado y los archivados pausados, una sola voz (el checklist anuncia)", () => {
+    ajustarConsultas({ data: undefined, isPaused: true }, { data: undefined, isPaused: true });
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Sin conexión: no pudimos cargar tu presupuesto del mes."
+    );
+    expect(screen.getByRole("group")).toHaveTextContent(
+      "Sin conexión: no pudimos cargar los ítems archivados."
+    );
+  });
+
+  it("los controles de recuperación del panel miden 44px: Reintentar, Restaurar y Archivados", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas(
+      { data: { items: items.map(renglonDe) } },
+      { data: [{ ...items[0], archivedAt: "2026-01-01T00:00:00Z" }] },
+      CATALOGO
+    );
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const archivados = screen.getByRole("button", { name: "Archivados (1)" });
+    expect(archivados.classList.contains("min-h-11")).toBe(true);
+
+    fireEvent.click(archivados);
+
+    const restaurar = screen.getByRole("button", { name: "Restaurar" });
+    expect(restaurar.classList.contains("min-h-11")).toBe(true);
+  });
+
+  it("el botón Reintentar del bloque de fallo también mide 44px", () => {
+    ajustarConsultas({ data: undefined, isError: true, error: new Error("boom") });
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const reintentar = screen.getByRole("button", { name: "Reintentar presupuesto" });
+    expect(reintentar.classList.contains("min-h-11")).toBe(true);
   });
 });
 
@@ -752,6 +823,71 @@ describe("PanelPresupuesto: contraer/desplegar todo", () => {
     expect(
       screen.queryByRole("button", { name: "Contraer todo" })
     ).not.toBeInTheDocument();
+  });
+
+  it("con una categoría cerrada de varias, una pista discreta cuenta cuántas y las vuelve a mostrar", () => {
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("t1", "transporte", "Bus"),
+    ];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // Con todo abierto no hay ruido.
+    expect(screen.queryByText("1 categoría cerrada")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true }));
+
+    // La pista aparece y es la entrada para desplegar: piso de 44px y sin
+    // depender solo del color (es texto).
+    const pista = screen.getByRole("button", { name: "1 categoría cerrada" });
+    expect(pista.classList.contains("min-h-11")).toBe(true);
+
+    fireEvent.click(pista);
+
+    expect(
+      screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true })
+    ).toBeInTheDocument();
+    expect(screen.queryByText("1 categoría cerrada")).not.toBeInTheDocument();
+  });
+
+  it("con dos cerradas la pista va en plural y sigue siendo la entrada a desplegar", () => {
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("t1", "transporte", "Bus"),
+      deCategoria("o1", "ocio", "Cine"),
+    ];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    fireEvent.click(screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true }));
+    fireEvent.click(screen.getByRole("button", { name: etiquetaGrupo("Transporte", 1), expanded: true }));
+
+    fireEvent.click(screen.getByRole("button", { name: "2 categorías cerradas" }));
+
+    expect(
+      screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: etiquetaGrupo("Transporte", 1), expanded: true })
+    ).toBeInTheDocument();
+  });
+
+  it("con todo cerrado no se duplica la pista: el alternante ya dice 'Desplegar todo'", () => {
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("t1", "transporte", "Bus"),
+    ];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Contraer todo" }));
+
+    expect(screen.getByRole("button", { name: "Desplegar todo" })).toBeInTheDocument();
+    expect(screen.queryByText("2 categorías cerradas")).not.toBeInTheDocument();
   });
 
   it("en la variante suelta también aparece, junto al encabezado de la lista", () => {

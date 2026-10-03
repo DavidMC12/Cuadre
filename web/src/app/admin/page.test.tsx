@@ -85,7 +85,7 @@ describe("Admin: la lista de personas se cae con el mismo vocabulario del resto"
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "No pudimos traer la lista de personas. Puede ser que el servidor esté dormido."
+        "No pudimos cargar la lista de personas. Revisa tu conexión y vuelve a intentarlo."
       )
     ).toBeInTheDocument();
     // Un error de red no es lo mismo que "no hay nadie registrado".
@@ -119,5 +119,20 @@ describe("Admin: la lista de personas se cae con el mismo vocabulario del resto"
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByText("Personas (1)")).toBeInTheDocument();
     expect(screen.getByText("Sam")).toBeInTheDocument();
+  });
+
+  it("una consulta pausada sin red no se disfraza de 'no hay nadie registrado'", () => {
+    ajustarPerfil();
+    ajustarPersonas({ data: undefined, isPaused: true });
+
+    render(<PaginaAdmin />);
+
+    expect(
+      screen.getByText(
+        "Sin conexión: no pudimos cargar la lista de personas. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText("No hay nadie registrado")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
   });
 });

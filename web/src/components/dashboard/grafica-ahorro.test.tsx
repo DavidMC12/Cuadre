@@ -120,4 +120,27 @@ describe("GraficaAhorro: el anuncio del fallo depende de la compañía", () => {
     expect(screen.getByRole("group")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar ahorro" })).toBeInTheDocument();
   });
+
+  it("una consulta pausada sin red no se disfraza de cuentas de ahorro quietas", () => {
+    vi.mocked(reportes.useAhorroMensual).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      isPaused: true,
+      error: null,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as never);
+
+    render(<GraficaAhorro months={2} currency="COP" />);
+
+    expect(
+      screen.getByText(
+        "Sin conexión: no pudimos cargar el ahorro. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Todavía no hay movimientos en tus cuentas de ahorro.")
+    ).not.toBeInTheDocument();
+  });
 });

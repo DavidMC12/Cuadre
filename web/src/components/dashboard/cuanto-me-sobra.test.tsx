@@ -265,6 +265,20 @@ describe('CuantoMeSobra', () => {
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy();
   });
 
+  it('una consulta pausada sin nada en mano no se disfraza del vacío', () => {
+    ajustar({ isPaused: true }, { isPaused: true });
+
+    render(<CuantoMeSobra mes={mesActual()} moneda="COP" />);
+
+    // Falla si el cuadrito cae al vacío "Aún no hay presupuesto" estando pausado.
+    expect(screen.getByText(/Sin conexión/)).toBeTruthy();
+    expect(screen.queryByText(/Aún no hay presupuesto/)).toBeNull();
+    // El "Reintentar" de recuperación mide 44px.
+    expect(screen.getByRole('button', { name: 'Reintentar' }).classList.contains('min-h-11')).toBe(
+      true,
+    );
+  });
+
   it('una consulta pausada con datos ya en mano sigue mostrando las cifras', () => {
     ajustar(
       {

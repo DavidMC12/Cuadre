@@ -58,7 +58,7 @@ describe("GraficaPorCategoria: un fallo de red no es 'sin gastos este mes'", () 
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "No pudimos cargar los gastos por categoría. Puede ser que el servidor esté dormido."
+        "No pudimos cargar los gastos por categoría. Revisa tu conexión y vuelve a intentarlo."
       )
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar por categoría" })).toBeInTheDocument();
@@ -209,10 +209,31 @@ describe("GraficaPorCategoria: un fallo de red no es 'sin gastos este mes'", () 
     expect(
       screen
         .getByText(
-          "No pudimos cargar los gastos por categoría. Puede ser que el servidor esté dormido."
+          "No pudimos cargar los gastos por categoría. Revisa tu conexión y vuelve a intentarlo."
         )
         .closest('[role="group"]')
     ).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Reintentar por categoría" })).toBeInTheDocument();
+  });
+
+  it("una consulta pausada sin red no se disfraza de 'sin gastos este mes'", () => {
+    ajustarConsultas({ data: undefined, isPaused: true });
+
+    render(
+      <GraficaPorCategoria
+        mes="2026-09"
+        moneda="COP"
+        tipo="expense"
+        onCambiarTipo={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByText(
+        "Sin conexión: no pudimos cargar los gastos por categoría. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Sin gastos este mes.")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar por categoría" })).toBeInTheDocument();
   });
 });
