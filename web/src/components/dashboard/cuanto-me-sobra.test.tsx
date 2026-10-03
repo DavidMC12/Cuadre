@@ -363,6 +363,19 @@ describe('CuantoMeSobra', () => {
     expect(screen.getByRole('button', { name: 'Reintentar presupuesto' })).toBeTruthy();
   });
 
+  it('en pantalla ancha, una pausa del presupuesto cede el anuncio al panel', () => {
+    // `anunciaPresupuesto={false}` es el caso de xl: el panel del presupuesto
+    // es quien anuncia, así que el cuadrito no puede disparar su propia alerta
+    // por la MISMA consulta pausada.
+    ajustar({ isPaused: true }, { data: resumenDe('0', '0') });
+
+    render(<CuantoMeSobra mes={mesActual()} moneda="COP" anunciaPresupuesto={false} />);
+
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('group')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy();
+  });
+
   it('el mes futuro se anuncia igual: el previsto es una promesa', () => {
     const futuro = sumarMeses(mesActual(), 3);
     ajustar(

@@ -143,4 +143,21 @@ describe("GraficaAhorro: el anuncio del fallo depende de la compañía", () => {
       screen.queryByText("Todavía no hay movimientos en tus cuentas de ahorro.")
     ).not.toBeInTheDocument();
   });
+
+  it("avisa a la pantalla si no se pudo leer, para que componga el anuncio único", () => {
+    const avisar = vi.fn();
+    vi.mocked(reportes.useAhorroMensual).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      isPaused: true,
+      error: null,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as never);
+
+    render(<GraficaAhorro months={2} currency="COP" onNoLeible={avisar} />);
+
+    expect(avisar).toHaveBeenCalledWith(true);
+  });
 });

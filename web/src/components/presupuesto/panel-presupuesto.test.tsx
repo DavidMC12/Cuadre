@@ -839,9 +839,10 @@ describe("PanelPresupuesto: contraer/desplegar todo", () => {
 
     fireEvent.click(screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true }));
 
-    // La pista aparece y es la entrada para desplegar: piso de 44px y sin
-    // depender solo del color (es texto).
-    const pista = screen.getByRole("button", { name: "1 categoría cerrada" });
+    // La pista aparece y es la entrada para desplegar: piso de 44px, sin
+    // depender solo del color (es texto) y con nombre audible de acción.
+    const pista = screen.getByRole("button", { name: "Desplegar 1 categoría cerrada" });
+    expect(pista).toHaveTextContent("1 categoría cerrada");
     expect(pista.classList.contains("min-h-11")).toBe(true);
 
     fireEvent.click(pista);
@@ -865,7 +866,9 @@ describe("PanelPresupuesto: contraer/desplegar todo", () => {
     fireEvent.click(screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true }));
     fireEvent.click(screen.getByRole("button", { name: etiquetaGrupo("Transporte", 1), expanded: true }));
 
-    fireEvent.click(screen.getByRole("button", { name: "2 categorías cerradas" }));
+    const pista = screen.getByRole("button", { name: "Desplegar 2 categorías cerradas" });
+    expect(pista).toHaveTextContent("2 categorías cerradas");
+    fireEvent.click(pista);
 
     expect(
       screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true })

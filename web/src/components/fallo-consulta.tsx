@@ -34,16 +34,19 @@ export type EstadoDeConsulta = "ok" | "cargando" | "fallo" | "pausada";
  * confundir "no se pudo leer" con "no tienes nada".
  *
  * El orden importa:
- * 1. un fallo sin datos es un fallo (manda sobre el esqueleto);
- * 2. una consulta pausada (sin red) y sin datos es "sin conexión", no un
- *    vacío ni un esqueleto eterno;
- * 3. mientras carga, esqueleto;
- * 4. con datos —aunque estén viejos—, se muestran: un dato obsoleto no es
- *    falso, así que un refetch fallido no borra lo que ya está en pantalla.
+ * 1. con datos —aunque estén viejos— se muestran: un dato obsoleto no es
+ *    falso, así que un refetch fallido no borra lo que ya está en pantalla;
+ * 2. sin datos, un fallo manda sobre el esqueleto;
+ * 3. sin datos y pausada (sin red) es "sin conexión", no un vacío ni un
+ *    esqueleto eterno;
+ * 4. mientras carga sin datos, esqueleto.
  */
 export function estadoDeConsulta(consulta: SenalesDeConsulta): EstadoDeConsulta {
-  if (consulta.isError && consulta.data === undefined) return "fallo";
-  if (consulta.isPaused === true && consulta.data === undefined) return "pausada";
+  // Con datos en mano, siempre "ok": un dato viejo se muestra, no se cambia
+  // por un esqueleto ni por un fallo.
+  if (consulta.data !== undefined) return "ok";
+  if (consulta.isError) return "fallo";
+  if (consulta.isPaused === true) return "pausada";
   if (consulta.isLoading) return "cargando";
   return "ok";
 }

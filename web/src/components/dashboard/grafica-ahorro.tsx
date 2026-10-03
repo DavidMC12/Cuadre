@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useTheme } from "next-themes";
 import {
   Bar,
@@ -60,12 +61,17 @@ export function GraficaAhorro({
   months,
   currency,
   compartePantalla,
+  onNoLeible,
 }: {
   months: number;
   currency: string;
   /** `true` cuando otros fallos conviven en la misma pantalla: el bloque
    * deja de anunciar solo: la pantalla compone el anuncio único (role="status") o queda un solo alert hablando por todos. */
   compartePantalla?: boolean;
+  /** Avisa a la pantalla si esta consulta no se pudo leer (fallo o pausa sin
+   * red), para que la composición del anuncio único la cuente y no queden dos
+   * voces compitiendo. */
+  onNoLeible?: (noLeible: boolean) => void;
 }) {
   const { resolvedTheme } = useTheme();
   const modo = modoDeTema(resolvedTheme);
@@ -80,6 +86,9 @@ export function GraficaAhorro({
   } = useAhorroMensual({ months, currency });
 
   const estado = estadoDeConsulta({ data: ahorro, isError, isPaused, isLoading });
+  const noLeible = estado === "fallo" || estado === "pausada";
+
+  useSubirNoLeible(noLeible, onNoLeible);
 
   // La consulta del ahorro no se pudo leer, o quedó pausada sin red: no es lo
   // mismo que una cuenta de ahorro quieta. Se dice y se ofrece reintentar.
@@ -215,4 +224,12 @@ export function GraficaAhorro({
       </table>
     </div>
   );
+}
+
+/** Sube a la pantalla si esta consulta no se pudo leer (fallo o pausa) cuando
+ * cambia, para que componga el anuncio único contándola. */
+function useSubirNoLeible(noLeible: boolean, avisar?: (noLeible: boolean) => void) {
+  useEffect(() => {
+    avisar?.(noLeible);
+  }, [noLeible, avisar]);
 }

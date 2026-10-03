@@ -63,10 +63,12 @@ export function CuantoMeSobra({
   // La política única: con datos viejos en memoria se siguen mostrando (stale,
   // no falsos); un fallo sin nada en mano o una consulta pausada sin red
   // tampoco pueden disfrazarse de vacío.
-  const falloChecklist = checklist.isError && !checklist.data;
-  const falloResumen = resumen.isError && !resumen.data;
-  const pausadaChecklist = estadoDeConsulta(checklist) === "pausada";
-  const pausadaResumen = estadoDeConsulta(resumen) === "pausada";
+  const estadoChecklist = estadoDeConsulta(checklist);
+  const estadoResumen = estadoDeConsulta(resumen);
+  const falloChecklist = estadoChecklist === "fallo";
+  const falloResumen = estadoResumen === "fallo";
+  const pausadaChecklist = estadoChecklist === "pausada";
+  const pausadaResumen = estadoResumen === "pausada";
   const pausada = pausadaChecklist || pausadaResumen;
 
   // La pantalla necesita saber que el presupuesto no se pudo leer —sea fallo o
@@ -143,7 +145,9 @@ export function CuantoMeSobra({
       ) : pausada && !estado ? (
         // Sin red y sin nada en mano, la consulta queda en pausa (no en error):
         // se dice y se ofrece reintentar en vez de un cuerpo en blanco. Con
-        // datos viejos en memoria se siguen mostrando (stale, no falsos).
+        // datos viejos en memoria se siguen mostrando (stale, no falsos). En
+        // pantalla ancha, si el presupuesto quedó pausado, el panel ya anuncia:
+        // este bloque cede igual que en su rama de fallo.
         <FalloConsulta
           etiquetaBoton="Reintentar"
           mensaje={mensajeSinConexion('este mes')}
@@ -152,7 +156,7 @@ export function CuantoMeSobra({
             void checklist.refetch();
             void resumen.refetch();
           }}
-          compartePantalla={compartePantalla}
+          compartePantalla={compartePantalla || (pausadaChecklist && !anunciaPresupuesto)}
         />
       ) : vacioTotal ? (
         <EmptyState

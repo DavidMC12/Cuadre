@@ -253,6 +253,14 @@ export function PanelPresupuesto({
       variant="ghost"
       size="sm"
       className="min-h-11 text-muted-foreground"
+      // El nombre audible dice la acción (no solo el conteo): quien lo enfoca
+      // de oído sabe que lo toca para desplegar. El texto visible conserva el
+      // conteo.
+      aria-label={
+        cerradosVisibles === 1
+          ? "Desplegar 1 categoría cerrada"
+          : `Desplegar ${cerradosVisibles} categorías cerradas`
+      }
       onClick={expandirTodo}
     >
       {cerradosVisibles === 1 ? "1 categoría cerrada" : `${cerradosVisibles} categorías cerradas`}

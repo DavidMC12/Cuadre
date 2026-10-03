@@ -236,4 +236,21 @@ describe("GraficaPorCategoria: un fallo de red no es 'sin gastos este mes'", () 
     expect(screen.queryByText("Sin gastos este mes.")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar por categoría" })).toBeInTheDocument();
   });
+
+  it("avisa a la pantalla si no se pudo leer, para que componga el anuncio único", () => {
+    const avisar = vi.fn();
+    ajustarConsultas({ data: undefined, isPaused: true });
+
+    render(
+      <GraficaPorCategoria
+        mes="2026-09"
+        moneda="COP"
+        tipo="expense"
+        onCambiarTipo={vi.fn()}
+        onNoLeible={avisar}
+      />
+    );
+
+    expect(avisar).toHaveBeenCalledWith(true);
+  });
 });

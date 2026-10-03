@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 
@@ -40,6 +41,7 @@ export function GraficaPorCategoria({
   tipo,
   onCambiarTipo,
   compartePantalla,
+  onNoLeible,
 }: {
   mes: string;
   moneda: string;
@@ -48,6 +50,10 @@ export function GraficaPorCategoria({
   /** `true` cuando otros fallos conviven en la misma pantalla: el bloque
    * deja de anunciar solo: la pantalla compone el anuncio único (role="status") o queda un solo alert hablando por todos. */
   compartePantalla?: boolean;
+  /** Avisa a la pantalla si esta consulta no se pudo leer (fallo o pausa sin
+   * red), para que la composición del anuncio único la cuente y no queden dos
+   * voces compitiendo. */
+  onNoLeible?: (noLeible: boolean) => void;
 }) {
   const { resolvedTheme } = useTheme();
   const modo = modoDeTema(resolvedTheme);
@@ -129,6 +135,8 @@ export function GraficaPorCategoria({
   const estado = estadoDeConsulta({ data: porCategoria, isError, isPaused, isLoading });
   const falloDeConsulta = estado === "fallo";
   const pausada = estado === "pausada";
+
+  useSubirNoLeible(falloDeConsulta || pausada, onNoLeible);
 
   const nombreDeLoQueFalta = tipo === "expense" ? "los gastos por categoría" : "los ingresos por categoría";
 
@@ -232,4 +240,12 @@ export function GraficaPorCategoria({
       )}
     </div>
   );
+}
+
+/** Sube a la pantalla si esta consulta no se pudo leer (fallo o pausa) cuando
+ * cambia, para que componga el anuncio único contándola. */
+function useSubirNoLeible(noLeible: boolean, avisar?: (noLeible: boolean) => void) {
+  useEffect(() => {
+    avisar?.(noLeible);
+  }, [noLeible, avisar]);
 }

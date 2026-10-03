@@ -54,6 +54,11 @@ export default function PaginaResumen() {
   // también): la página lo usa para componer el anuncio único y para que
   // ningún bloque se quede sin voz.
   const [presupuestoNoLeible, setPresupuestoNoLeible] = useState(false);
+  // Las gráficas "Por categoría" y "Ahorro" consultan adentro de sus
+  // componentes: si no reportaran, dos caídas de la misma causa dispararían dos
+  // alertas. Igual que el presupuesto, cada una sube si no se pudo leer.
+  const [porCategoriaNoLeible, setPorCategoriaNoLeible] = useState(false);
+  const [ahorroNoLeible, setAhorroNoLeible] = useState(false);
 
   // Quien eligió abrir en otra pantalla se va de aquí antes de que esto pinte.
   const yendoseAOtraPantalla = useIrAPantallaDeInicio();
@@ -149,25 +154,21 @@ export default function PaginaResumen() {
   const falloTendencia = estadoTendencia === "fallo";
   const pausadaTendencia = estadoTendencia === "pausada";
 
-  // Los fallos que esta pantalla conoce: los cuatro de sus propias consultas
-  // (incluidas las que quedaron pausadas sin red) y el del presupuesto, que
-  // sube `CuantoMeSobra` (el panel consulta lo mismo; que lo reporte un solo
-  // bloque evita contarlo dos veces). Con dos o más caídas a la vez, cada
+  // Los fallos que esta pantalla conoce: las cuatro consultas propias
+  // (incluidas las que quedaron pausadas sin red) y las que viven adentro de
+  // otros bloques y suben su estado — el presupuesto (`CuantoMeSobra`), el
+  // desglose por categoría y el ahorro. Con dos o más caídas a la vez, cada
   // bloque con su propia `role="alert"` sería una tormenta para quien escucha
   // la pantalla: el anuncio pasa a ser uno solo, aquí abajo, y los bloques
   // bajan a `role="group"`. Con un solo fallo se sigue anunciando él.
-  //
-  // Lo que la composición no cubre, a sabiendas: si SOLO fallan o quedan
-  // pausadas consultas que viven adentro de sus componentes sin reportar (por
-  // categoría + ahorro), esos bloques siguen siendo alerta cada uno — una
-  // tormenta de dos, y necesita que dos endpoints independientes caigan juntos
-  // mientras el resto sirve.
   const componenFallosConPresupuesto =
     [
       falloCuentas || pausadaCuentas,
       falloResumen || pausadaResumen,
       falloTendencia || pausadaTendencia,
       presupuestoNoLeible,
+      porCategoriaNoLeible,
+      ahorroNoLeible,
     ].filter(Boolean).length >= 2;
   if (cargandoMonedas || yendoseAOtraPantalla) {
     return (
@@ -378,6 +379,7 @@ export default function PaginaResumen() {
               // No sabe cuál otro falló ni hace falta: si cualquier otro
               // fallo convive, el suyo deja de anunciar solo.
               compartePantalla={componenFallosConPresupuesto}
+              onNoLeible={setPorCategoriaNoLeible}
             />
           </CardContent>
         </Card>
@@ -440,6 +442,7 @@ export default function PaginaResumen() {
               months={mesesTendencia}
               currency={moneda ?? ""}
               compartePantalla={componenFallosConPresupuesto}
+              onNoLeible={setAhorroNoLeible}
             />
           </CardContent>
         </Card>

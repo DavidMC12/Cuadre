@@ -81,7 +81,7 @@ export default function PaginaAdmin() {
       <div className="flex flex-col gap-4">
         <h1 className="text-xl font-semibold">Administración</h1>
         <FalloConsulta
-          mensaje={mensajeSinConexion("tus ajustes")}
+          mensaje={mensajeSinConexion("tu perfil")}
           onReintentar={() => recargarPerfil()}
         />
       </div>
