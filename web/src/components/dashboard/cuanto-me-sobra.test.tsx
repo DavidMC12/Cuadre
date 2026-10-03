@@ -306,6 +306,27 @@ describe('CuantoMeSobra', () => {
     expect(screen.getByText(/Te sobran según lo previsto/)).toBeTruthy();
   });
 
+  it('la tarjeta no se encoge dentro del aside (shrink-0)', () => {
+    ajustar(
+      {
+        data: {
+          month: mesActual(),
+          currency: 'COP',
+          items: [renglonDe('income', '3000000'), renglonDe('expense', '2000000')],
+        },
+      },
+      { data: resumenDe('1000000', '500000') },
+    );
+
+    const { container } = render(<CuantoMeSobra mes={mesActual()} moneda="COP" />);
+
+    const card = container.querySelector("[data-slot='card']")!;
+    // Sin `shrink-0` el aside encoge la tarjeta (su `overflow-hidden` anula el
+    // mínimo automático) y el cuadro sale cortado en vez de scrollear el aside.
+    expect(card.className).toContain('shrink-0');
+    expect(card.className).toContain('min-h-fit');
+  });
+
   it('avisa a la pantalla cuando el presupuesto no se pudo leer', () => {
     const avisar = vi.fn();
     ajustar({ isError: true, error: new Error('tan dormido') }, { data: resumenDe('0', '0') });

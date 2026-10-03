@@ -524,7 +524,7 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     expect(fila.className).not.toContain("-mx-2");
   });
 
-  it("sin tope propio (dentro del cajón que ya scrollea) la región no se acota", () => {
+  it("sin tope propio (dentro del aside o del cajón que ya scrollea) la región no scrollea sola", () => {
     const items = [deCategoria("c1", "comida", "Mercado")];
     ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
 
@@ -533,9 +533,25 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     );
 
     const region = screen.getByRole("region", { name: "Ítems del presupuesto" });
-    // Sin tope propio: el scroll lo hace el cajón que lo envuelve, no el panel.
+    // Sin tope propio el scroll lo hace el contenedor que envuelve al panel.
+    // La región tampoco lleva su propio `overflow-y-auto`: un scroll anidado
+    // atraparía el dedo (y en el aside trabaría el encabezado `sticky`).
     expect(region.classList.contains("max-h-[70vh]")).toBe(false);
-    expect(region.classList.contains("overflow-y-auto")).toBe(true);
+    expect(region.classList.contains("overflow-y-auto")).toBe(false);
+    expect(region.classList.contains("overflow-visible")).toBe(false);
+  });
+
+  it("la tarjeta del panel no se encoge dentro del aside (shrink-0)", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    const { container } = render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+    const card = container.querySelector("[data-slot='card']")!;
+    // Sin `shrink-0` el flex encoge la Card (su `overflow-hidden` anula el
+    // mínimo automático) y el contenido se recorta en vez de scrollear el
+    // aside. La medición de Chromium y esta prueba lo vigilan.
+    expect(card.className).toContain("shrink-0");
+    expect(card.className).toContain("min-h-fit");
   });
 
   it("el botón de un renglón editable muestra anillo de foco, no queda ciego", () => {

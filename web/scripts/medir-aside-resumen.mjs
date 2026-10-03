@@ -42,9 +42,9 @@ import {
   CLASES_BLOQUE_ASIDE,
   CLASES_CARD_PANEL_ASIDE,
   CLASES_REGION_PANEL,
-  CLASES_REGION_PANEL_CON_TOPE,
   CLASES_ENCABEZADO_GRUPO,
 } from "../src/lib/aside-resumen.ts";
+import { cn } from "cn";
 
 const raizWeb = join(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(join(raizWeb, "package.json"));
@@ -75,7 +75,9 @@ const CLASES_REALES = {
   aside: CLASES_ASIDE,
   bloque: CLASES_BLOQUE_ASIDE,
   cardPanel: CLASES_CARD_PANEL_ASIDE,
-  region: [CLASES_REGION_PANEL, CLASES_REGION_PANEL_CON_TOPE].join(" "),
+  // En el aside el panel va con `topePropio={false}`: sin tope, la región no
+  // lleva su `max-h`.
+  region: CLASES_REGION_PANEL,
   header: CLASES_ENCABEZADO_GRUPO,
 };
 
@@ -111,17 +113,20 @@ function grupo(titulo, cantidad, clasesHeader, ultimoGrupo) {
 
 function caso(id, variante) {
   const c = clasesDe(variante);
-  const cardBase =
-    "flex flex-col overflow-hidden rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10";
+  // La base real de `Card` (card.tsx) + las clases del módulo, pasadas por el
+  // mismo `cn` que usa el componente: si una clase nueva pisa a `overflow-
+  // hidden`, el espejo lo resuelve igual y no miente.
+  const CARD =
+    "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)]";
   return `<div data-caso="${id}" data-variante="${variante}">
     <aside data-aside class="${c.aside}">
-      <div data-card-sobra class="${cardBase} ${c.bloque}">
+      <div data-card-sobra class="${cn(CARD, c.bloque)}">
         <div class="font-heading text-base font-medium">Cuánto me sobra este mes</div>
         <div class="mt-2 font-mono text-2xl">$1.000.000</div>
         <p class="mt-2 text-sm text-muted-foreground">Hasta hoy: <span class="font-mono">$0</span></p>
         <p class="mt-1 text-sm font-medium">Ni te sobra ni te falta este mes.</p>
       </div>
-      <div data-panel class="${cardBase} ${c.bloque} ${c.cardPanel}">
+      <div data-panel class="${cn(CARD, c.bloque, c.cardPanel)}">
         <div class="font-heading text-base font-medium">Presupuesto del mes</div>
         <div data-region class="${c.region}">
           <section class="flex flex-col">
@@ -234,9 +239,10 @@ const MEDICION_BASE = `(() => [...document.querySelectorAll("[data-caso]")].map(
   const region = caso.querySelector("[data-region]");
   const a = aside.getBoundingClientRect();
   const c = card.getBoundingClientRect();
-  const scrollables = [caso, ...caso.querySelectorAll("*")].filter(
-    (el) => el.scrollHeight - el.clientHeight > 1
-  ).length;
+  const scrollables = [caso, ...caso.querySelectorAll("*")].filter((el) => {
+    const overflowY = getComputedStyle(el).overflowY;
+    return (overflowY === "auto" || overflowY === "scroll") && el.scrollHeight - el.clientHeight > 1;
+  }).length;
   return {
     id: caso.dataset.caso,
     variante: caso.dataset.variante,
