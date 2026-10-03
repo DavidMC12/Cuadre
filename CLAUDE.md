@@ -243,6 +243,19 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   sincroniza entre dispositivos: haría falta guardarlo en la cuenta
   (backend); queda como decisión del dueño.
 
+- **Deuda menor del presupuesto pagada** (2026-10-04): `MesSchema` vive
+  una sola vez en `src/shared/schemas.ts` con rango sano (año 2000-2100):
+  un mes como `0000-01`, `2026-13` o `1999-12` responde 400 (la convención
+  de validación del borde) en reportes y presupuesto, en vez de 500 de
+  Postgres; la regla la impone Zod en el borde, no la base. El formulario de
+  ítem de presupuesto conserva TODO lo que la persona editó (monto,
+  etiqueta, tipo, categoría, cuenta) cuando llega un refetch con el cajón
+  abierto, y reinicia al cambiar de mes o de ítem. Comentario de
+  `checked`/`exceeded` corregido para ingresos. Quedan anotados: el cliente
+  no pone cota a la navegación de meses (1999-12 es inalcanzable en uso
+  real), y un campo tocado y vuelto a su valor sigue "pendiente" hasta
+  cerrar o guardar.
+
 Pendiente, sin fecha: otra ronda de `impeccable critique` más adelante
 para medir el puntaje tras estos arreglos.
 
