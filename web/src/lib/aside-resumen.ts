@@ -39,10 +39,17 @@ export const CLASES_REGION_PANEL =
 export const CLASES_REGION_PANEL_CON_TOPE = "max-h-[70vh] overflow-y-auto";
 
 /**
- * El encabezado tocable de cada grupo de categoría. Queda pegado arriba
- * (`sticky top-0`) mientras se recorren sus ítems dentro del scroll del
- * contenedor, con fondo de tarjeta para tapar los renglones que pasan por
- * debajo y `z-10` para pintar por encima de ellos.
+ * El encabezado tocable de cada grupo de categoría. Es la base para cualquier
+ * variante; el pegado al scroll se agrega aparte.
  */
 export const CLASES_ENCABEZADO_GRUPO =
-  "sticky top-0 z-10 flex min-h-11 w-full items-center gap-2 rounded-lg bg-card px-2 text-left text-xs font-medium text-muted-foreground hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85";
+  "flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-medium text-muted-foreground hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85";
+
+/**
+ * Extra cuando el panel vive en la tarjeta del aside: el encabezado se pega
+ * arriba (`sticky top-0`) mientras se recorren sus ítems dentro del scroll de
+ * la columna, con fondo de tarjeta (solo ahí la superficie es `bg-card`) para
+ * tapar los renglones que pasan por debajo, `z-10` para pintar por encima y un
+ * hover opaco para que no se transparenten mientras se pasa el cursor.
+ */
+export const CLASES_ENCABEZADO_GRUPO_FIJO = "sticky top-0 z-10 bg-card hover:bg-accent";

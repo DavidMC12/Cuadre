@@ -43,6 +43,7 @@ import {
   CLASES_CARD_PANEL_ASIDE,
   CLASES_REGION_PANEL,
   CLASES_ENCABEZADO_GRUPO,
+  CLASES_ENCABEZADO_GRUPO_FIJO,
 } from "../src/lib/aside-resumen.ts";
 import { cn } from "cn";
 
@@ -78,7 +79,8 @@ const CLASES_REALES = {
   // En el aside el panel va con `topePropio={false}`: sin tope, la región no
   // lleva su `max-h`.
   region: CLASES_REGION_PANEL,
-  header: CLASES_ENCABEZADO_GRUPO,
+  // En la tarjeta del aside el encabezado va pegado: base + extra fijo.
+  header: [CLASES_ENCABEZADO_GRUPO, CLASES_ENCABEZADO_GRUPO_FIJO].join(" "),
 };
 
 function clasesDe(variante) {
@@ -393,7 +395,7 @@ try {
   } else {
     console.log(
       "\nContrato cumplido: el cuadro entra completo, el aside scrollea solo, el pie se alcanza" +
-        (CLASES_ENCABEZADO_GRUPO.includes("sticky") ? " y el encabezado queda pegado." : ".")
+        (CLASES_REALES.header.includes("sticky") ? " y el encabezado queda pegado." : ".")
     );
   }
 } finally {

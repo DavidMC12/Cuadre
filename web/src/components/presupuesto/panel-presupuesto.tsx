@@ -21,6 +21,7 @@ import {
   CLASES_BLOQUE_ASIDE,
   CLASES_CARD_PANEL_ASIDE,
   CLASES_ENCABEZADO_GRUPO,
+  CLASES_ENCABEZADO_GRUPO_FIJO,
   CLASES_REGION_PANEL,
   CLASES_REGION_PANEL_CON_TOPE,
 } from "@/lib/aside-resumen";
@@ -186,6 +187,12 @@ export function PanelPresupuesto({
     return mapa.get(grupo.categoryId) ?? COLOR_NEUTRO[modo];
   }
 
+  // En la tarjeta (el aside) el encabezado de cada grupo se pega al scroll de
+  // la columna. En la variante suelta (/presupuesto y el cajón) no: la
+  // superficie no es `bg-card` y un encabezado opaco dejaría una banda de otro
+  // color en tema oscuro.
+  const encabezadosFijos = variante === "tarjeta";
+
   const accionAgregar = !soloMirar && (
     <FormularioItemPresupuesto moneda={moneda} mes={mes}>
       <Button variant="outline" size="sm">
@@ -199,13 +206,13 @@ export function PanelPresupuesto({
   // abierto, así que la acción frecuente es contraer. Un "Expandir todo" en
   // ese estado sería un segundo botón con dos estados para resolver algo que
   // los propios encabezados ya hacen; ocultarlo es lo más simple.
-  const hayGrupoAbierto = grupos.length > 0 && gruposColapsados.size < grupos.length;
+  const hayGrupoAbierto = grupos.some((grupo) => !gruposColapsados.has(grupo.clave));
   const accionContraer = hayGrupoAbierto && (
     <Button
       variant="ghost"
       size="sm"
       className="min-h-11"
-      aria-label="Contraer todas las categorías"
+      aria-label="Contraer todo"
       onClick={() => setGruposColapsados(new Set(grupos.map((grupo) => grupo.clave)))}
     >
       Contraer todo
@@ -256,7 +263,7 @@ export function PanelPresupuesto({
                 <button> nativo como disparador. */}
             <button
               type="button"
-              className="flex w-full cursor-pointer flex-col gap-1.5 rounded-lg px-2 py-3 text-left outline-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
+              className="flex w-full cursor-pointer scroll-mt-11 flex-col gap-1.5 rounded-lg px-2 py-3 text-left outline-none focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
             >
               <ContenidoRenglon
                 renglon={renglon}
@@ -294,7 +301,7 @@ export function PanelPresupuesto({
           aria-controls={idLista}
           aria-label={etiquetaGrupo}
           onClick={() => alternarGrupo(grupo.clave)}
-          className={CLASES_ENCABEZADO_GRUPO}
+          className={cn(CLASES_ENCABEZADO_GRUPO, encabezadosFijos && CLASES_ENCABEZADO_GRUPO_FIJO)}
         >
           {/* El color es refuerzo, nunca el único dato: el nombre de la
               categoría va en texto, al lado. */}
@@ -489,7 +496,7 @@ export function PanelPresupuesto({
   }
 
   return (
-    <Card className={cn(CLASES_BLOQUE_ASIDE, CLASES_CARD_PANEL_ASIDE)}>
+    <Card className={cn(CLASES_BLOQUE_ASIDE, encabezadosFijos && CLASES_CARD_PANEL_ASIDE)}>
       <CardHeader>
         <CardTitle>Presupuesto del mes</CardTitle>
         {(accionContraer || accionAgregar) && (

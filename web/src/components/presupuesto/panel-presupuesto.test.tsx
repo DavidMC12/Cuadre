@@ -575,6 +575,33 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     expect(card.className).not.toContain("overflow-hidden");
   });
 
+  it("en la variante suelta el encabezado no se pega ni pinta fondo de tarjeta", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" variante="suelta" topePropio={false} />);
+
+    const header = screen.getByRole("button", { name: etiquetaGrupo("Comida", 1) });
+    // Fuera de la tarjeta (la pantalla /presupuesto o el cajón) el encabezado
+    // sigue transparente: en tema oscuro un `bg-card` pegado dejaría una banda
+    // de otro color.
+    expect(header.classList.contains("sticky")).toBe(false);
+    expect(header.classList.contains("bg-card")).toBe(false);
+    expect(header.classList.contains("z-10")).toBe(false);
+  });
+
+  it("el renglón editable deja margen de scroll para no quedar bajo el encabezado fijo", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const boton = screen.getByText("Mercado").closest("button")!;
+    // Al enfocar con Tab, el navegador deja 44px arriba: el foco no queda
+    // oculto debajo del encabezado `sticky`.
+    expect(boton.classList.contains("scroll-mt-11")).toBe(true);
+  });
+
   it("el botón de un renglón editable muestra anillo de foco, no queda ciego", () => {
     const items = [deCategoria("c1", "comida", "Mercado")];
     ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
@@ -602,7 +629,7 @@ describe("PanelPresupuesto: contraer todo", () => {
 
     render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
 
-    const contraer = screen.getByRole("button", { name: "Contraer todas las categorías" });
+    const contraer = screen.getByRole("button", { name: "Contraer todo" });
     // Texto pequeño, fantasma y piso de toque de 44px.
     expect(contraer.textContent).toBe("Contraer todo");
     expect(contraer.classList.contains("min-h-11")).toBe(true);
@@ -613,7 +640,7 @@ describe("PanelPresupuesto: contraer todo", () => {
     expect(screen.getAllByRole("button", { expanded: false })).toHaveLength(2);
     // ...y el botón desaparece: no hay nada abierto que contraer.
     expect(
-      screen.queryByRole("button", { name: "Contraer todas las categorías" })
+      screen.queryByRole("button", { name: "Contraer todo" })
     ).not.toBeInTheDocument();
   });
 
@@ -630,7 +657,30 @@ describe("PanelPresupuesto: contraer todo", () => {
     fireEvent.click(screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true }));
 
     expect(
-      screen.getByRole("button", { name: "Contraer todas las categorías" })
+      screen.getByRole("button", { name: "Contraer todo" })
+    ).toBeInTheDocument();
+  });
+
+  it("con una clave replegada de otro mes, el grupo nuevo abierto cuenta igual (no se oculta el botón)", () => {
+    const comida = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: comida.map(renglonDe) } }, { data: comida }, CATALOGO);
+    const { rerender } = render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // Cambio de mes: Comida queda replegada (clave obsoleta en el estado).
+    fireEvent.click(screen.getByRole("button", { name: "Contraer todo" }));
+    expect(
+      screen.queryByRole("button", { name: "Contraer todo" })
+    ).not.toBeInTheDocument();
+
+    // El mes nuevo solo trae Transporte, que no está en el estado: sale
+    // abierto y el botón debe seguir ahí aunque el tamaño de la clave vieja
+    // coincida con el número de grupos.
+    const transporte = [deCategoria("t1", "transporte", "Bus")];
+    ajustarConsultas({ data: { items: transporte.map(renglonDe) } }, { data: transporte }, CATALOGO);
+    rerender(<PanelPresupuesto mes="2026-10" moneda="COP" />);
+
+    expect(
+      screen.getByRole("button", { name: "Contraer todo" })
     ).toBeInTheDocument();
   });
 
@@ -640,7 +690,7 @@ describe("PanelPresupuesto: contraer todo", () => {
     render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
 
     expect(
-      screen.queryByRole("button", { name: "Contraer todas las categorías" })
+      screen.queryByRole("button", { name: "Contraer todo" })
     ).not.toBeInTheDocument();
   });
 
@@ -651,7 +701,7 @@ describe("PanelPresupuesto: contraer todo", () => {
     render(<PanelPresupuesto mes="2026-09" moneda="COP" variante="suelta" />);
 
     expect(
-      screen.getByRole("button", { name: "Contraer todas las categorías" })
+      screen.getByRole("button", { name: "Contraer todo" })
     ).toBeInTheDocument();
   });
 
@@ -662,7 +712,7 @@ describe("PanelPresupuesto: contraer todo", () => {
 
     render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Contraer todas las categorías" }));
+    fireEvent.click(screen.getByRole("button", { name: "Contraer todo" }));
 
     expect(
       screen.getByRole("button", {
