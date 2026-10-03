@@ -71,19 +71,32 @@ describe("preferencias de grupos: leer y guardar", () => {
     expect(leerGruposCerrados(queLanza)).toEqual(new Set());
   });
 
-  it("si el almacén lanza al guardar, no propaga el error", () => {
+  it("si el almacén lanza al guardar, devuelve false y no propaga el error", () => {
     const queLanza: AlmacenDeGrupos = {
       getItem: () => null,
       setItem: () => {
         throw new Error("modo privado");
       },
     };
-    expect(() => guardarGruposCerrados(["cat-comida"], queLanza)).not.toThrow();
+    expect(guardarGruposCerrados(["cat-comida"], queLanza)).toBe(false);
   });
 
-  it("sin almacén (SSR) leer da vacío y guardar no rompe", () => {
+  it("sin almacén (SSR) leer da vacío y guardar devuelve false", () => {
     expect(leerGruposCerrados(null)).toEqual(new Set());
-    expect(() => guardarGruposCerrados(["cat-comida"], null)).not.toThrow();
+    expect(guardarGruposCerrados(["cat-comida"], null)).toBe(false);
+  });
+
+  it("guarda true cuando el almacén acepta", () => {
+    expect(guardarGruposCerrados(["cat-comida"], almacenFalso())).toBe(true);
+  });
+
+  it("un valor enorme se recorta al tope defensivo", () => {
+    const almacen = almacenFalso({
+      [CLAVE_ALMACEN_GRUPOS_CERRADOS]: JSON.stringify(
+        Array.from({ length: 1000 }, (_, i) => `cat-${i}`)
+      ),
+    });
+    expect(leerGruposCerrados(almacen).size).toBe(200);
   });
 });
 

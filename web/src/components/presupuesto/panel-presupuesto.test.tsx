@@ -782,6 +782,22 @@ describe("PanelPresupuesto: recuerda los grupos replegados", () => {
     ]);
   });
 
+  it("'Contraer todo' conserva lo ya cerrado de una categoría que hoy no aparece", () => {
+    // Contraer no reemplaza: suma. "cat-ocio" no tiene ítems este mes pero su
+    // preferencia debe sobrevivir.
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+    guardarCerrados(["cat-ocio"]);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+    fireEvent.click(screen.getByRole("button", { name: "Contraer todo" }));
+
+    expect(JSON.parse(window.localStorage.getItem(CLAVE_GRUPOS)!).sort()).toEqual([
+      "cat-comida",
+      "cat-ocio",
+    ]);
+  });
+
   it("un grupo nuevo aparece abierto aunque haya otros guardados cerrados", async () => {
     const items = [
       deCategoria("c1", "comida", "Mercado"),

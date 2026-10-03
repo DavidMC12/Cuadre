@@ -18,6 +18,11 @@ import {
  * Next (el servidor usa un conjunto vacío y el cliente lee `localStorage`), y
  * hace que dos paneles montados a la vez —o dos pestañas— vean lo mismo.
  *
+ * El primer render es "todo abierto": leer en un efecto o esperar a un
+ * esqueleto haría parpadear la pantalla o esconder el checklist un instante.
+ * Como los grupos recién se pintan cuando llegan los datos (consulta
+ * asíncrona), lo guardado ya está aplicado para cuando se ven.
+ *
  * Un grupo nunca visto aparece abierto. La poda de claves que ya no existen
  * solo corre cuando `clavesValidas` (el catálogo completo + las claves propias)
  * ya se conoce; nunca mientras una consulta está en curso.
@@ -76,9 +81,24 @@ function suscribir(oyente: Escucha): () => void {
 }
 
 function escribir(siguientes: Set<string>) {
-  guardarGruposCerrados(siguientes);
-  // El siguiente `getSnapshot` ya refleja lo escrito (se relee `localStorage`).
+  const guardado = guardarGruposCerrados(siguientes);
+  if (!guardado) {
+    // Sin persistencia (modo privado, almacén bloqueado o lleno) igual hay que
+    // reflejar la intención en memoria: si no, el toggle no haría nada porque
+    // el snapshot no cambiaría. El conjunto vive en el caché hasta que se
+    // pueda volver a escribir.
+    ultimoCrudo = crudoDelNavegador();
+    ultimoConjunto = siguientes;
+  }
+  // El siguiente `getSnapshot` ya refleja lo escrito (se relee `localStorage`);
+  // si no se pudo guardar, devuelve el conjunto en memoria.
   avisarATodos();
+}
+
+/** Solo para pruebas: olvida el estado en memoria del almacén externo. */
+export function olvidarGruposColapsadosEnMemoria() {
+  ultimoCrudo = undefined;
+  ultimoConjunto = VACIO;
 }
 
 export function useGruposColapsados(clavesValidas: ReadonlySet<string> | null) {

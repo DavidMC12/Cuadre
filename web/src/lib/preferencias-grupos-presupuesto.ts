@@ -27,6 +27,9 @@ export interface AlmacenDeGrupos {
  * formato sin pisar datos viejos. */
 export const CLAVE_ALMACEN_GRUPOS_CERRADOS = "cuadre:presupuesto:grupos-cerrados:v1";
 
+/** Tope defensivo al leer: un valor corrupto enorme no infla la memoria. */
+const MAXIMO_CLAVES = 200;
+
 /** El `localStorage` del navegador, o `null` si no se puede acceder. */
 export function almacenDelNavegador(): AlmacenDeGrupos | null {
   try {
@@ -51,25 +54,30 @@ export function leerGruposCerrados(
     if (!crudo) return new Set();
     const datos = JSON.parse(crudo);
     if (!Array.isArray(datos)) return new Set();
-    return new Set(datos.filter((valor): valor is string => typeof valor === "string"));
+    return new Set(
+      datos.filter((valor): valor is string => typeof valor === "string").slice(0, MAXIMO_CLAVES)
+    );
   } catch {
     return new Set();
   }
 }
 
 /**
- * Guarda el conjunto de grupos cerrados. Nunca lanza: si el almacén está
- * bloqueado o lleno, la preferencia simplemente no se recuerda.
+ * Guarda el conjunto de grupos cerrados. Devuelve `true` si quedó persistido
+ * y `false` si no (sin almacén, bloqueado, lleno). Nunca lanza: quien llama
+ * decide qué hacer si no se pudo guardar.
  */
 export function guardarGruposCerrados(
   claves: Iterable<string>,
   almacen: AlmacenDeGrupos | null = almacenDelNavegador()
-): void {
-  if (!almacen) return;
+): boolean {
+  if (!almacen) return false;
   try {
     almacen.setItem(CLAVE_ALMACEN_GRUPOS_CERRADOS, JSON.stringify([...claves].sort()));
+    return true;
   } catch {
-    // Modo privado, cuota llena o permiso bloqueado: se ignora.
+    // Modo privado, cuota llena o permiso bloqueado.
+    return false;
   }
 }
 

@@ -115,25 +115,6 @@ export function PanelPresupuesto({
 
   const [viendoArchivados, setViendoArchivados] = useState(false);
 
-  // Las claves de grupo que existen hoy en el catálogo (incluidas las
-  // archivadas) más las claves propias del panel. Mientras el catálogo no
-  // llegue es `null`: sin podar.
-  const clavesValidas = useMemo(() => {
-    if (!catalogo) return null;
-    const claves = new Set<string>([CLAVE_AHORRO, CLAVE_SIN_CATEGORIA]);
-    for (const categoria of catalogo) claves.add(categoria.id);
-    return claves;
-  }, [catalogo]);
-  // Los grupos replegados se recuerdan en el navegador (preferencia de
-  // pantalla, no dinero) y se comparten entre el Resumen y /presupuesto, entre
-  // meses y monedas. Vacío = todos abiertos: replegar es una decisión de quien
-  // usa la app, no un estado por defecto.
-  const {
-    colapsados: gruposColapsados,
-    alternar: alternarGrupo,
-    contraerTodo,
-  } = useGruposColapsados(clavesValidas);
-
   // La consulta del checklist no se pudo leer y no hay nada que mostrar: la
   // misma expresión decide el bloque de fallo y si los archivados le ceden
   // el anuncio, así que vive en una sola variable.
@@ -184,6 +165,28 @@ export function PanelPresupuesto({
         : [],
     [tieneMetadatos, checklist?.items, itemPorId, nombrePorCategoria]
   );
+
+  // Claves que pueden tener preferencia guardada: las del catálogo completo
+  // (archivadas incluidas) más las propias del panel, más las de los grupos de
+  // este mes por si un ítem apunta a una categoría que no está en el catálogo.
+  // Mientras el catálogo no llegue es `null`: sin podar, para no borrar nada de
+  // una consulta en curso.
+  const clavesValidas = useMemo(() => {
+    if (!catalogo) return null;
+    const claves = new Set<string>([CLAVE_AHORRO, CLAVE_SIN_CATEGORIA]);
+    for (const categoria of catalogo) claves.add(categoria.id);
+    for (const grupo of grupos) claves.add(grupo.clave);
+    return claves;
+  }, [catalogo, grupos]);
+  // Los grupos replegados se recuerdan en el navegador (preferencia de pantalla,
+  // no dinero) y se comparten entre el Resumen y /presupuesto, entre meses y
+  // monedas. Vacío = todos abiertos: replegar es una decisión de quien usa la
+  // app, no un estado por defecto.
+  const {
+    colapsados: gruposColapsados,
+    alternar: alternarGrupo,
+    contraerTodo,
+  } = useGruposColapsados(clavesValidas);
 
   // Dos secciones, como el dinero: lo que se espera recibir y lo que se espera
   // gastar. El ahorro es del segundo tipo (apartar, no recibir) y cierra
