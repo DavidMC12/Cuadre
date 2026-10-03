@@ -57,10 +57,10 @@ vi.mock("@/components/dashboard/grafica-por-categoria", () => ({
 vi.mock("@/components/dashboard/grafica-tendencia", () => ({ GraficaTendencia: vi.fn(() => null) }));
 vi.mock("@/components/dashboard/grafica-ahorro", () => ({ GraficaAhorro: () => null }));
 vi.mock("@/components/dashboard/cuanto-me-sobra", () => ({
-  CuantoMeSobra: vi.fn(() => null),
+  CuantoMeSobra: vi.fn(() => <div data-testid="me-sobra" />),
 }));
 vi.mock("@/components/presupuesto/panel-presupuesto", () => ({
-  PanelPresupuesto: vi.fn(() => null),
+  PanelPresupuesto: vi.fn(() => <div data-testid="panel-presupuesto" />),
 }));
 
 interface Stub {
@@ -312,43 +312,40 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     expect(props.topePropio).toBe(false);
   });
 
-  it("monta 'Cuánto me sobra' con el mes y la moneda del Resumen, en móvil y en el aside", () => {
+  it("monta 'Cuánto me sobra' una sola vez y fuera del aside, en todos los anchos", () => {
+    ventanaAncha = true;
     render(<PaginaResumen />);
 
-    // Móvil: el bloque vive en la columna principal (primer bloque del mes).
-    // Aparte, el aside solo se monta desde xl (aquí `pantallaAncha` es false),
-    // así que en jsdom solo hay una instancia: la de móvil.
-    const llamadas = vi.mocked(CuantoMeSobra).mock.calls;
-    expect(llamadas.length).toBeGreaterThan(0);
-
-    const props = llamadas.at(-1)?.[0] as unknown as {
+    const props = vi.mocked(CuantoMeSobra).mock.calls.at(-1)![0] as unknown as {
       mes?: string;
       moneda?: string;
+      variante?: string;
       compartePantalla?: boolean;
+      anunciaPresupuesto?: boolean;
     };
     expect(props.mes).toBeDefined();
     expect(props.moneda).toBe("COP");
+    expect(props.variante).toBe("suelta");
     expect(props.compartePantalla).toBe(false);
+    // En xl el panel del presupuesto es el que anuncia: el bloque cede.
+    expect(props.anunciaPresupuesto).toBe(false);
+
+    // Una sola instancia en pantalla, y vive en la columna principal, nunca
+    // dentro del aside del presupuesto.
+    expect(screen.getAllByTestId("me-sobra")).toHaveLength(1);
+    expect(screen.getByTestId("me-sobra").closest("aside")).toBeNull();
+    expect(screen.getByTestId("panel-presupuesto").closest("aside")).not.toBeNull();
   });
 
-  it("desde xl, el cuadrito del aside cede el anuncio del presupuesto al panel", () => {
-    ventanaAncha = true;
-
+  it("en móvil también es una sola instancia y anuncia él mismo el presupuesto", () => {
+    ventanaAncha = false;
     render(<PaginaResumen />);
 
-    // El aside monta el suyo y le cede al panel el anuncio del presupuesto.
-    const delAside = vi
-      .mocked(CuantoMeSobra)
-      .mock.calls.map((c) => c[0] as unknown as { anunciaPresupuesto?: boolean })
-      .filter((p) => p.anunciaPresupuesto === false);
-    expect(delAside).toHaveLength(1);
-    // La instancia de móvil (la que no cede) también existe en jsdom, que no
-    // aplica breakpoints: no se puede distinguir por CSS desde aquí.
-    const deMovil = vi
-      .mocked(CuantoMeSobra)
-      .mock.calls.map((c) => c[0] as unknown as { anunciaPresupuesto?: boolean })
-      .filter((p) => p.anunciaPresupuesto === undefined);
-    expect(deMovil).toHaveLength(1);
+    expect(screen.getAllByTestId("me-sobra")).toHaveLength(1);
+    const props = vi.mocked(CuantoMeSobra).mock.calls.at(-1)![0] as unknown as {
+      anunciaPresupuesto?: boolean;
+    };
+    expect(props.anunciaPresupuesto).toBe(true);
   });
 
   it("desde xl, el panel del aside cede su tope propio (el aside scrollea)", () => {
