@@ -22,8 +22,10 @@ export const CLASES_ASIDE =
  */
 export const CLASES_BLOQUE_ASIDE = "shrink-0 min-h-fit";
 
-/** Reservado para ajustes de la tarjeta del panel dentro del aside. */
-export const CLASES_CARD_PANEL_ASIDE = "";
+/** Reservado para ajustes de la tarjeta del panel dentro del aside. En el
+ * aside la tarjeta cede su `overflow-hidden` para que el encabezado `sticky`
+ * de cada grupo se pegue al scroll del aside y no a una Card que no scrollea. */
+export const CLASES_CARD_PANEL_ASIDE = "overflow-visible";
 
 /**
  * La región de la lista del panel: siempre enfocable, con `pr-1`. Sin
@@ -36,6 +38,11 @@ export const CLASES_REGION_PANEL =
 /** El tope propio de la región, solo cuando ningún contenedor ya scrollea. */
 export const CLASES_REGION_PANEL_CON_TOPE = "max-h-[70vh] overflow-y-auto";
 
-/** El encabezado tocable de cada grupo de categoría. */
+/**
+ * El encabezado tocable de cada grupo de categoría. Queda pegado arriba
+ * (`sticky top-0`) mientras se recorren sus ítems dentro del scroll del
+ * contenedor, con fondo de tarjeta para tapar los renglones que pasan por
+ * debajo y `z-10` para pintar por encima de ellos.
+ */
 export const CLASES_ENCABEZADO_GRUPO =
-  "flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-medium text-muted-foreground hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85";
+  "sticky top-0 z-10 flex min-h-11 w-full items-center gap-2 rounded-lg bg-card px-2 text-left text-xs font-medium text-muted-foreground hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85";

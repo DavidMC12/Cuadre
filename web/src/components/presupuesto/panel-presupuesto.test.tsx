@@ -554,6 +554,27 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     expect(card.className).toContain("min-h-fit");
   });
 
+  it("el encabezado del grupo queda pegado al scrollear (sticky) y la tarjeta cede su overflow", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    const { container } = render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const header = screen.getByRole("button", { name: etiquetaGrupo("Comida", 1) });
+    // Pegado al scroll del contenedor, con fondo que tapa los renglones que
+    // pasan por debajo y z-index para pintar por encima.
+    expect(header.classList.contains("sticky")).toBe(true);
+    expect(header.classList.contains("top-0")).toBe(true);
+    expect(header.classList.contains("z-10")).toBe(true);
+    expect(header.classList.contains("bg-card")).toBe(true);
+
+    // El `cn` de Card descarta `overflow-hidden` a favor de `overflow-visible`:
+    // si no, la Card sería el contenedor de scroll y el sticky no se pegaría.
+    const card = container.querySelector("[data-slot='card']")!;
+    expect(card.className).toContain("overflow-visible");
+    expect(card.className).not.toContain("overflow-hidden");
+  });
+
   it("el botón de un renglón editable muestra anillo de foco, no queda ciego", () => {
     const items = [deCategoria("c1", "comida", "Mercado")];
     ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
