@@ -17,6 +17,13 @@ import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { ItemDelChecklist } from "@/lib/api/types";
 import { agruparPresupuesto, type GrupoPresupuesto } from "@/lib/agrupar-presupuesto";
+import {
+  CLASES_BLOQUE_ASIDE,
+  CLASES_CARD_PANEL_ASIDE,
+  CLASES_ENCABEZADO_GRUPO,
+  CLASES_REGION_PANEL,
+  CLASES_REGION_PANEL_CON_TOPE,
+} from "@/lib/aside-resumen";
 import { COLOR_NEUTRO, mapaColoresCategoriasDelCatalogo, modoDeTema } from "@/lib/chart-colors";
 import { nombreDelMes } from "@/lib/fecha";
 import { aUnidadesMinimas, restar, textoMonto } from "@/lib/money";
@@ -270,7 +277,7 @@ export function PanelPresupuesto({
           aria-controls={idLista}
           aria-label={etiquetaGrupo}
           onClick={() => alternarGrupo(grupo.clave)}
-          className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-medium text-muted-foreground hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
+          className={CLASES_ENCABEZADO_GRUPO}
         >
           {/* El color es refuerzo, nunca el único dato: el nombre de la
               categoría va en texto, al lado. */}
@@ -346,12 +353,7 @@ export function PanelPresupuesto({
             role="region"
             aria-label="Ítems del presupuesto"
             tabIndex={0}
-            className={cn(
-              "flex flex-col overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85",
-              // Con contenedor que ya scrollea (el cajón), el panel no pone su
-              // propio tope: evita el scroll anidado.
-              topePropio && "max-h-[70vh]"
-            )}
+            className={cn(CLASES_REGION_PANEL, topePropio && CLASES_REGION_PANEL_CON_TOPE)}
           >
             {!tieneMetadatos ? (
               // Aún no sabemos la categoría de cada ítem (o su consulta falló):
@@ -465,7 +467,7 @@ export function PanelPresupuesto({
   }
 
   return (
-    <Card>
+    <Card className={cn(CLASES_BLOQUE_ASIDE, CLASES_CARD_PANEL_ASIDE)}>
       <CardHeader>
         <CardTitle>Presupuesto del mes</CardTitle>
         {accionAgregar && <CardAction>{accionAgregar}</CardAction>}
