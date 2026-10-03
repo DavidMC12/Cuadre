@@ -675,3 +675,53 @@ describe('ahorro mensual', () => {
     ]);
   });
 });
+
+/**
+ * El MesSchema de reports vive en `shared/schemas.ts` (el mismo que usa el
+ * presupuesto): la regla de rango es UNA. Aquí se prueba en las dos rutas de
+ * reports que llevan `month`: resumen (la consulta principal del Resumen) y
+ * por categoría. Antes, un mes como "0000-01" pasaba el borde y llegaba a
+ * Postgres, que no tiene año cero: 500. Ahora el borde responde 400
+ * VALIDATION_ERROR — la convención del proyecto — antes de tocar la base.
+ */
+describe('validación del mes en el borde (reports)', () => {
+  const MESES_MALOS = ['0000-01', '2026-13', '1999-12', '2101-01'];
+
+  it('resumen con un mes de verdad (el actual) responde 200, como siempre', async () => {
+    const { estado, cuerpo } = await pedir(
+      'GET',
+      `/api/v1/reports/summary?month=${mesRelativo(0).etiqueta}&currency=COP`,
+    );
+    expect(estado).toBe(200);
+    expect(cuerpo.data.month).toBe(mesRelativo(0).etiqueta);
+  });
+
+  it('resumen con un mes del rango sano pero antiguo (2000-12) no queda fuera', async () => {
+    const { estado } = await pedir('GET', '/api/v1/reports/summary?month=2000-12&currency=COP');
+    expect(estado).toBe(200);
+  });
+
+  it('resumen con el borde sano por arriba (2100-12) también responde 200', async () => {
+    const { estado } = await pedir('GET', '/api/v1/reports/summary?month=2100-12&currency=COP');
+    expect(estado).toBe(200);
+  });
+
+  it('resumen con meses fuera de rango responde 400, no 500', async () => {
+    for (const mes of MESES_MALOS) {
+      const { estado, cuerpo } = await pedir('GET', `/api/v1/reports/summary?month=${mes}&currency=COP`);
+      expect(estado, `resumen mes ${mes}`).toBe(400);
+      expect(cuerpo.error.code, `resumen mes ${mes}`).toBe('VALIDATION_ERROR');
+    }
+  });
+
+  it('desglose por categoría con meses fuera de rango también responde 400', async () => {
+    for (const mes of MESES_MALOS) {
+      const { estado, cuerpo } = await pedir(
+        'GET',
+        `/api/v1/reports/by-category?month=${mes}&currency=COP&kind=expense`,
+      );
+      expect(estado, `por-categoria mes ${mes}`).toBe(400);
+      expect(cuerpo.error.code, `por-categoria mes ${mes}`).toBe('VALIDATION_ERROR');
+    }
+  });
+});

@@ -278,13 +278,19 @@ export interface ItemDelChecklist {
   /** Texto exacto, nunca number. */
   progress: string;
   /**
-   * La meta se alcanzó. Solo puede ser `true` en un ítem de ahorro: un tope
-   * de gasto no se "cumple", por eso no se pinta en verde al gastarlo.
+   * La meta se alcanzó: `progress` llegó o pasó de `target`. Puede ser
+   * `true` en una meta de ahorro (llegar es el logro) y en un renglón de
+   * ingresos (recibir lo esperado es el logro); en un tope de gasto siempre
+   * es `false`, porque un tope no se "cumple" gastando. Siempre `false` si
+   * `target` es nulo.
    */
   checked: boolean;
   /**
-   * El tope se pasó. Solo puede ser `true` en un ítem de categoría: es la
-   * señal para avisar, no para celebrar.
+   * El tope se pasó: `progress` superó `target`. Solo puede ser `true` en un
+   * tope de gasto (es la señal para avisar, no para celebrar); en una meta
+   * de ahorro y en un renglón de ingresos siempre es `false` — recibir de
+   * más es bueno, no algo que avisar en rojo. Siempre `false` si `target`
+   * es nulo.
    */
   exceeded: boolean;
 }

@@ -32,6 +32,30 @@ export const MonedaSchema = z
   .regex(/^[A-Z]{3}$/, 'debe ser un código de tres letras en mayúsculas, como COP o USD');
 
 /**
+ * Un mes calendario, como "2026-09". El mismo para todo módulo que reciba
+ * uno: reportes y presupuesto lo usan igual, y en el repository acaba
+ * convertido en fecha de Postgres.
+ *
+ * La regex en un solo lugar evita lo que ya pasó: una copia sin rango dejaba
+ * pasar "0000-01", que una consulta de verdad moría en Postgres (su tipo de
+ * fecha no tiene año cero) con un 500.
+ *
+ * IMPORTANTE sobre el rango (año 2000-2100, mes 01-12): lo impone ESTE
+ * schema — Zod en el borde de cada ruta —, no una migración ni una
+ * restricción de la base. Si algún día la base lo impusiera, aquí seguiría
+ * valiendo para responder 400 (la convención del proyecto: 400
+ * VALIDATION_ERROR para validación del borde, 422 solo RULE_VIOLATION del
+ * service) antes de tocar Postgres.
+ */
+export const MesSchema = z
+  .string()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'debe ser un mes como "2026-09"')
+  .refine((mes) => {
+    const anio = Number(mes.slice(0, 4));
+    return anio >= 2000 && anio <= 2100;
+  }, 'El año del mes debe estar entre 2000 y 2100.');
+
+/**
  * Acepta una fecha suelta ("2026-01-31") o un instante completo con zona.
  * Lleva mensaje propio porque, al ser una unión, Zod diría solo "Entrada
  * inválida" y eso no le dice nada a nadie.

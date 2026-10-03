@@ -5,16 +5,11 @@
  * JavaScript ya perdió precisión antes de llegar a la pantalla.
  */
 import { z } from 'zod';
-import { MonedaSchema } from '../../shared/schemas.js';
+import { MesSchema, MonedaSchema } from '../../shared/schemas.js';
 
 /** Ingresos o gastos. Es el lado del reporte que se está mirando. */
 export const TIPOS_DE_CATEGORIA = ['income', 'expense'] as const;
 export const TipoDeCategoriaSchema = z.enum(TIPOS_DE_CATEGORIA);
-
-/** Un mes calendario, como "2026-09". */
-export const MesSchema = z
-  .string()
-  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'debe ser un mes como "2026-09"');
 
 // -----------------------------------------------------------------------------
 // Peticiones

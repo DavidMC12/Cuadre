@@ -10,16 +10,26 @@
  * habría atrapado.
  */
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 
 import { FormularioItemPresupuesto } from './formulario-item-presupuesto';
 import { mesActual, nombreDelMes } from '@/lib/fecha';
 
+// Mocks controlables: el hook devuelve siempre el mismo `mutateAsync`, así
+// que la prueba decide qué guarda bien y qué falla.
+const mocksDeGuardar = vi.hoisted(() => ({
+  fijarMonto: vi.fn(),
+  editarEtiqueta: vi.fn(),
+}));
+
 vi.mock('@/hooks/use-presupuesto', () => ({
   useCrearItemPresupuesto: vi.fn(() => ({ isPending: false, mutateAsync: vi.fn() })),
-  useFijarMontoDelMes: vi.fn(() => ({ isPending: false, mutateAsync: vi.fn() })),
-  useEditarEtiquetaItem: vi.fn(() => ({ isPending: false, mutateAsync: vi.fn() })),
+  useFijarMontoDelMes: vi.fn(() => ({ isPending: false, mutateAsync: mocksDeGuardar.fijarMonto })),
+  useEditarEtiquetaItem: vi.fn(() => ({
+    isPending: false,
+    mutateAsync: mocksDeGuardar.editarEtiqueta,
+  })),
   useArchivarItemPresupuesto: vi.fn(() => ({ isPending: false })),
   useDesarchivarItemPresupuesto: vi.fn(() => ({ isPending: false })),
 }));
@@ -45,6 +55,10 @@ vi.mock('@/hooks/use-cuentas', () => ({
 
 describe('FormularioItemPresupuesto', () => {
   afterEach(cleanup);
+  beforeEach(() => {
+    mocksDeGuardar.fijarMonto.mockReset();
+    mocksDeGuardar.editarEtiqueta.mockReset();
+  });
 
   const monedaCOP = 'COP';
 
@@ -196,5 +210,251 @@ describe('FormularioItemPresupuesto', () => {
         Boolean(el?.textContent?.startsWith(`Este es el monto de ${nombreDelMes(mesActual())}.`))
       ).length
     ).toBeGreaterThan(0);
+  });
+
+  it('monto que sí guarda + etiqueta que falla: lo tecleado queda y el cajón sigue abierto', async () => {
+    // Reproduce el error real: la mutación del monto sale bien, la de la
+    // etiqueta falla, y el refetch de la consulta inyecta un montoDelMes
+    // fresco que disparaba el reinicio — borrando lo tecleado, aunque el
+    // toast dice "No se pudo guardar". El dato fresco no puede pisar texto
+    // pendiente de guardar.
+    mocksDeGuardar.fijarMonto.mockResolvedValue(undefined);
+    mocksDeGuardar.editarEtiqueta.mockRejectedValue(new Error('fallo de etiqueta'));
+
+    const item = {
+      id: 'item-1',
+      kind: 'category' as const,
+      currency: monedaCOP,
+      categoryId: 'cat-1',
+      categoryName: 'Mercado',
+      accountId: null,
+      accountName: null,
+      label: null,
+      currentAmount: '30000.0000',
+      archivedAt: null,
+      categoryKind: 'expense' as const,
+    };
+
+    const vista = render(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-09" montoDelMes="30000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+
+    fireEvent.change(screen.getByLabelText('Monto'), { target: { value: '50000' } });
+    const montoTecleado = (screen.getByLabelText('Monto') as HTMLInputElement).value;
+    expect(montoTecleado).not.toBe('');
+    fireEvent.change(screen.getByLabelText('Etiqueta (opcional)'), {
+      target: { value: 'Mercado del mes' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    // Mutación 1 (monto) OK, mutación 2 (etiqueta) falla: el cajón no se
+    // cierra porque el intento terminó en error.
+    await waitFor(() => expect(mocksDeGuardar.editarEtiqueta).toHaveBeenCalled());
+    expect(mocksDeGuardar.fijarMonto).toHaveBeenCalled();
+    expect(screen.getByLabelText('Monto')).toBeTruthy();
+
+    // El refetch responde con el monto ya fijado: llega dato fresco con el
+    // cajón abierto y texto pendiente de guardar. Nada puede borrar lo
+    // que la persona tecleó. Insistimos con la ETIQUETA porque es la
+    // aserción que por sí sola atrapa el bug: en un monto cuyo formato
+    // coincide con el del dato fresco, `reiniciar()` dejaría el
+    // mismo texto en pantalla y la aserción del monto no olería nada.
+    vista.rerender(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-09" montoDelMes="50000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    expect((screen.getByLabelText('Monto') as HTMLInputElement).value).toBe(montoTecleado);
+    expect((screen.getByLabelText('Etiqueta (opcional)') as HTMLInputElement).value).toBe(
+      'Mercado del mes'
+    );
+  });
+
+  it('dato fresco sin texto pendiente sigue reiniciando (mes nuevo u otro monto)', () => {
+    // El complemento de la prueba anterior: si no hay texto tecleado, el
+    // reinicio por dato fresco sigue funcionando — es el caso de la prueba
+    // del rerender por mes, pero con cambio SOLO de montoDeReferencia (un
+    // refetch), que sin texto pendiente sí trae el campo a la data nueva.
+    const item = {
+      id: 'item-1',
+      kind: 'category' as const,
+      currency: monedaCOP,
+      categoryId: 'cat-1',
+      categoryName: 'Mercado',
+      accountId: null,
+      accountName: null,
+      label: null,
+      currentAmount: '30000.0000',
+      archivedAt: null,
+      categoryKind: 'expense' as const,
+    };
+
+    const vista = render(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-09" montoDelMes="30000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+
+    vista.rerender(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-09" montoDelMes="45000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    expect(screen.getByLabelText('Monto')).toHaveValue('45.000');
+  });
+
+  it('cambiar de mes con el cajón abierto reinicia aunque haya texto pendiente', () => {
+    // El texto tecleado describe un monto del mes que se veía: si el mes
+    // visto cambia, ese texto ya no aplica y se reinicia aunque la persona
+    // no haya guardado. (Hoy el cajón modal no deja tocar el selector, así
+    // que el flujo es teórico; la regla queda escrita y probada para que
+    // un refactor no la rompa sin decirlo.)
+    const item = {
+      id: 'item-1',
+      kind: 'category' as const,
+      currency: monedaCOP,
+      categoryId: 'cat-1',
+      categoryName: 'Mercado',
+      accountId: null,
+      accountName: null,
+      label: null,
+      currentAmount: '30000.0000',
+      archivedAt: null,
+      categoryKind: 'expense' as const,
+    };
+
+    const vista = render(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-09" montoDelMes="30000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    fireEvent.change(screen.getByLabelText('Etiqueta (opcional)'), {
+      target: { value: 'Para septiembre' },
+    });
+
+    vista.rerender(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-10" montoDelMes="60000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    expect(screen.getByLabelText('Monto')).toHaveValue('60.000');
+    expect((screen.getByLabelText('Etiqueta (opcional)') as HTMLInputElement).value).toBe('');
+  });
+
+  it('crear: cambiar a Ahorro se conserva cuando llega dato fresco', () => {
+    // El pendiente cubre TODO el estado editable, no solo lo tecleado: en
+    // crear, la persona se va a Ahorro; un refetch que cambia la precarga
+    // del monto no puede devolver el formulario a 'category' (sobre lo que
+    // un Guardar posterior guardaría un tope distinto del que la persona
+    // quiso).
+    const vista = render(
+      <FormularioItemPresupuesto moneda={monedaCOP}>
+        <button type="button">Agregar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ahorro' }));
+
+    // Llega dato fresco (precarga tardía del monto del mes).
+    vista.rerender(
+      <FormularioItemPresupuesto moneda={monedaCOP} montoDelMes="45000.0000">
+        <button type="button">Agregar</button>
+      </FormularioItemPresupuesto>,
+    );
+    // La sección de cuenta de ahorro solo se renderiza en modo 'savings' (la
+    // Label del select no lleva htmlFor, así que se busca por texto).
+    expect(screen.getByText('Cuenta de ahorro')).toBeTruthy();
+  });
+
+  it('cambiar de ítem con el cajón abierto reinicia aunque haya texto pendiente', () => {
+    // Los campos describen al ítem A; si la instancia empieza a representar
+    // al ítem B, un Guardar escribiría lo de A sobre B. El reinicio manda.
+    const itemA = {
+      id: 'item-a',
+      kind: 'category' as const,
+      currency: monedaCOP,
+      categoryId: 'cat-1',
+      categoryName: 'Mercado',
+      accountId: null,
+      accountName: null,
+      label: null,
+      currentAmount: '30000.0000',
+      archivedAt: null,
+      categoryKind: 'expense' as const,
+    };
+    const itemB = { ...itemA, id: 'item-b', currentAmount: '80000.0000', label: 'Otro' };
+
+    const vista = render(
+      <FormularioItemPresupuesto item={itemA} moneda={monedaCOP} mes="2026-09" montoDelMes="30000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    fireEvent.change(screen.getByLabelText('Etiqueta (opcional)'), {
+      target: { value: 'Texto del ítem A' },
+    });
+
+    vista.rerender(
+      <FormularioItemPresupuesto item={itemB} moneda={monedaCOP} mes="2026-09" montoDelMes="80000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    expect(screen.getByLabelText('Monto')).toHaveValue('80.000');
+    expect((screen.getByLabelText('Etiqueta (opcional)') as HTMLInputElement).value).toBe('Otro');
+  });
+
+  it('teclear y volver al valor de precarga: no se pierde nada (matiz del pendiente)', () => {
+    // Viene del hallazgo de la revisión: el campo marcado como tocado no se
+    // desmarca aunque el texto vuelva a igualar la precarga. Aquí se
+    // justifica: el reinicio que se salta pondría JUSTO ese mismo texto, así
+    // que no hay nada que recuperar; y al cerrar (cuando el guardado o el
+    // descarte de verdad terminan) sí reinicia. Si mañana el salto empezara
+    // a costar algo, esta prueba se rompe primero.
+    const item = {
+      id: 'item-1',
+      kind: 'category' as const,
+      currency: monedaCOP,
+      categoryId: 'cat-1',
+      categoryName: 'Mercado',
+      accountId: null,
+      accountName: null,
+      label: null,
+      currentAmount: '30000.0000',
+      archivedAt: null,
+      categoryKind: 'expense' as const,
+    };
+
+    const vista = render(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-09" montoDelMes="30000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+
+    // Toca la etiqueta y la devuelve al valor de precarga ("").
+    fireEvent.change(screen.getByLabelText('Etiqueta (opcional)'), {
+      target: { value: 'algo' },
+    });
+    fireEvent.change(screen.getByLabelText('Etiqueta (opcional)'), { target: { value: '' } });
+
+    // Y toca el monto para devolverlo a su valor de precarga ("30.000").
+    fireEvent.change(screen.getByLabelText('Monto'), { target: { value: '31.000' } });
+    fireEvent.change(screen.getByLabelText('Monto'), { target: { value: '30.000' } });
+
+    // Dato fresco idéntico a la precarga: el skip no cuesta nada visible.
+    vista.rerender(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-09" montoDelMes="30000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    expect(screen.getByLabelText('Monto')).toHaveValue('30.000');
+    expect((screen.getByLabelText('Etiqueta (opcional)') as HTMLInputElement).value).toBe('');
+    expect(screen.getByLabelText('Monto')).toBeTruthy(); // cajón abierto
   });
 });

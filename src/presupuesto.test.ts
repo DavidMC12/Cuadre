@@ -535,16 +535,79 @@ describe('fijar el objetivo de un mes', () => {
     expect(Number(cuenta!.n)).toBe(1);
   });
 
-  it('rechaza un mes con año 0000 con 422, no con un 500 de Postgres', async () => {
+  it('rechaza un mes con año 0000 con 400 por validación del borde, no 500 de Postgres', async () => {
     const mercado = await crearCategoria('Mercado');
     const item = await crearItemDeCategoria(mercado.id, '100000');
 
+    // La regla de rango vive en MesSchema (schema del borde), así que el
+    // responsable es Zod y el contrato es VALIDATION_ERROR: 400.
     const { estado, cuerpo } = await pedir('PATCH', `/api/v1/budgets/items/${item.id}/target`, {
       amount: '200000',
       month: '0000-01',
     });
-    expect(estado).toBe(422);
-    expect(cuerpo.error.code).toBe('RULE_VIOLATION');
+    expect(estado).toBe(400);
+    expect(cuerpo.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('rechaza meses fuera de rango en TODA ruta que valide mes, sin insertar nada', async () => {
+    // El service no repite la regla: el borde (MesSchema) es el único que la
+    // aplica. Cuatro malos (dos por regex, dos por rango) en las dos rutas
+    // que llevan `month`: checklist (GET, querystring) y fijar objetivo
+    // (PATCH, body). Un fallo aquí volvería a ser 500 de Postgres, no un
+    // 400 limpio.
+    for (const mes of ['0000-01', '2026-13', '1999-12', '2101-01']) {
+      const checklistMalo = await app.inject({
+        method: 'GET',
+        url: `/api/v1/budgets/checklist?month=${mes}&currency=COP`,
+      });
+      expect(checklistMalo.statusCode, `checklist mes ${mes}`).toBe(400);
+      expect(checklistMalo.json().error.code, `checklist mes ${mes}`).toBe('VALIDATION_ERROR');
+
+      const mercado = await crearCategoria(`Mercado ${mes}`);
+      const item = await crearItemDeCategoria(mercado.id, '100000');
+      const fijarMal = await app.inject({
+        method: 'PATCH',
+        url: `/api/v1/budgets/items/${item.id}/target`,
+        payload: { amount: '200000', month: mes },
+      });
+      expect(fijarMal.statusCode, `target mes ${mes}`).toBe(400);
+      expect(fijarMal.json().error.code, `target mes ${mes}`).toBe('VALIDATION_ERROR');
+
+      // Y no quedó rastro: el rechazo del borde ocurre antes de tocar la
+      // base, así que la única fila de montos del ítem sigue siendo la de
+      // su creación (100000, del mes actual).
+      const [filas] = (await db.execute(sql`
+        select count(*)::int as n
+        from budget_item_targets
+        where budget_item_id = ${item.id}::uuid
+      `)) as unknown as { n: number }[];
+      expect(Number(filas!.n), `filas del monto tras rechazar ${mes}`).toBe(1);
+    }
+  });
+
+  it('los meses válidos (bordes del rango y el actual) responden 200 de verdad', async () => {
+    // "No 400/500" no basta: un 404 u otro código con forma de éxito no
+    // probaría nada. Los tres blancos claros:
+    // - pequeño: 2000-12 (primer año sano),
+    // - grande: 2100-12 (último año sano),
+    // - el mes que sigue (flujo normal del checklist).
+    for (const mes of ['2000-12', '2100-12']) {
+      const checklistBom = await app.inject({
+        method: 'GET',
+        url: `/api/v1/budgets/checklist?month=${mes}&currency=COP`,
+      });
+      expect(checklistBom.statusCode, `checklist mes ${mes}`).toBe(200);
+      expect(checklistBom.json().error, `checklist mes ${mes}`).toBeUndefined();
+    }
+
+    const mercado = await crearCategoria('Mercado');
+    const item = await crearItemDeCategoria(mercado.id, '100000');
+    const { estado, cuerpo } = await pedir('PATCH', `/api/v1/budgets/items/${item.id}/target`, {
+      amount: '200000',
+      month: mesRelativo(1).etiqueta,
+    });
+    expect(estado).toBe(200);
+    expect(cuerpo.data.currentAmount).toBe('100000.0000'); // hoy no cambió
   });
 
   it('rechaza un monto en cero o negativo', async () => {

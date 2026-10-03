@@ -4,16 +4,11 @@
  * Los montos, igual que en cuentas y movimientos, siempre viajan como texto.
  */
 import { z } from 'zod';
-import { MonedaSchema, MontoPositivoSchema } from '../../shared/schemas.js';
+import { MesSchema, MonedaSchema, MontoPositivoSchema } from '../../shared/schemas.js';
 
 export const TIPOS_DE_ITEM = ['category', 'savings'] as const;
 export const TipoDeItemSchema = z.enum(TIPOS_DE_ITEM);
 export type BudgetItemKind = z.infer<typeof TipoDeItemSchema>;
-
-/** Un mes calendario, como "2026-09". Mismo formato que usan los reportes. */
-export const MesSchema = z
-  .string()
-  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'debe ser un mes como "2026-09"');
 
 const EtiquetaSchema = z.string().trim().min(1, 'la etiqueta no puede quedar vacía').max(120);
 
