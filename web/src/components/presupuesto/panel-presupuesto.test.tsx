@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, within, waitFor } from "@testing-library/react";
 
 import { PanelPresupuesto } from "./panel-presupuesto";
 import { FormularioItemPresupuesto } from "@/components/presupuesto/formulario-item-presupuesto";
@@ -77,6 +77,7 @@ function ajustarConsultas(
 
 afterEach(() => {
   cleanup();
+  window.localStorage.clear();
   vi.mocked(FormularioItemPresupuesto).mockClear();
 });
 
@@ -720,6 +721,147 @@ describe("PanelPresupuesto: contraer todo", () => {
         expanded: false,
       })
     ).toBeInTheDocument();
+  });
+});
+
+// -------------------------------------------------------------------------
+// Persistencia de grupos replegados (localStorage)
+// -------------------------------------------------------------------------
+
+const CLAVE_GRUPOS = "cuadre:presupuesto:grupos-cerrados:v1";
+
+function guardarCerrados(claves: string[]) {
+  window.localStorage.setItem(CLAVE_GRUPOS, JSON.stringify(claves));
+}
+
+describe("PanelPresupuesto: recuerda los grupos replegados", () => {
+  it("lee lo guardado y monta cerrado ese grupo", async () => {
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("t1", "transporte", "Bus"),
+    ];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+    guardarCerrados(["cat-comida"]);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: false })
+      ).toBeInTheDocument()
+    );
+    // El que no estaba guardado sigue abierto.
+    expect(
+      screen.getByRole("button", { name: etiquetaGrupo("Transporte", 1), expanded: true })
+    ).toBeInTheDocument();
+  });
+
+  it("al cerrar un grupo lo guarda", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+    fireEvent.click(screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true }));
+
+    expect(JSON.parse(window.localStorage.getItem(CLAVE_GRUPOS)!)).toEqual(["cat-comida"]);
+  });
+
+  it("'Contraer todo' guarda todos los grupos", () => {
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("t1", "transporte", "Bus"),
+    ];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+    fireEvent.click(screen.getByRole("button", { name: "Contraer todo" }));
+
+    expect(JSON.parse(window.localStorage.getItem(CLAVE_GRUPOS)!).sort()).toEqual([
+      "cat-comida",
+      "cat-transporte",
+    ]);
+  });
+
+  it("'Contraer todo' conserva lo ya cerrado de una categoría que hoy no aparece", () => {
+    // Contraer no reemplaza: suma. "cat-ocio" no tiene ítems este mes pero su
+    // preferencia debe sobrevivir.
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+    guardarCerrados(["cat-ocio"]);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+    fireEvent.click(screen.getByRole("button", { name: "Contraer todo" }));
+
+    expect(JSON.parse(window.localStorage.getItem(CLAVE_GRUPOS)!).sort()).toEqual([
+      "cat-comida",
+      "cat-ocio",
+    ]);
+  });
+
+  it("un grupo nuevo aparece abierto aunque haya otros guardados cerrados", async () => {
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("t1", "transporte", "Bus"),
+    ];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+    guardarCerrados(["cat-comida"]);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: etiquetaGrupo("Transporte", 1), expanded: true })
+      ).toBeInTheDocument()
+    );
+  });
+
+  it("con JSON corrupto no rompe y todo aparece abierto", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+    window.localStorage.setItem(CLAVE_GRUPOS, "{no es json");
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(
+      screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true })
+    ).toBeInTheDocument();
+  });
+
+  it("dos paneles montados a la vez se mantienen sincronizados", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(
+      <>
+        <PanelPresupuesto mes="2026-09" moneda="COP" variante="suelta" />
+        <PanelPresupuesto mes="2026-09" moneda="COP" variante="suelta" />
+      </>
+    );
+
+    const abiertos = screen.getAllByRole("button", {
+      name: etiquetaGrupo("Comida", 1),
+      expanded: true,
+    });
+    expect(abiertos).toHaveLength(2);
+
+    fireEvent.click(abiertos[0]);
+
+    // El segundo panel (mismo documento) releyó el almacén: quedó cerrado.
+    expect(
+      screen.getAllByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: false })
+    ).toHaveLength(2);
+  });
+
+  it("poda una clave de una categoría que ya no existe", async () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+    guardarCerrados(["cat-comida", "cat-borrada"]);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    await waitFor(() =>
+      expect(JSON.parse(window.localStorage.getItem(CLAVE_GRUPOS)!)).toEqual(["cat-comida"])
+    );
   });
 });
 
