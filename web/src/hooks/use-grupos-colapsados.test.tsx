@@ -8,7 +8,7 @@ import { CLAVE_ALMACEN_GRUPOS_CERRADOS } from "@/lib/preferencias-grupos-presupu
 const VALIDAS = new Set(["cat-comida", "cat-transporte", "cat-ocio", "ahorro", "sin-categoria"]);
 
 function Sonda() {
-  const { colapsados, alternar, contraerTodo } = useGruposColapsados(VALIDAS);
+  const { colapsados, alternar, contraerTodo, expandirTodo } = useGruposColapsados(VALIDAS);
   return (
     <div>
       <span data-testid="estado">{[...colapsados].sort().join(",")}</span>
@@ -17,6 +17,9 @@ function Sonda() {
       </button>
       <button type="button" onClick={() => contraerTodo(["cat-transporte"])}>
         sumar transporte
+      </button>
+      <button type="button" onClick={() => expandirTodo()}>
+        desplegar
       </button>
     </div>
   );
@@ -93,5 +96,20 @@ describe("useGruposColapsados", () => {
     fireEvent.click(screen.getByRole("button", { name: "sumar transporte" }));
 
     expect(screen.getByTestId("estado").textContent).toBe("cat-ocio,cat-transporte");
+  });
+
+  it("expandirTodo vacía lo cerrado y lo guardado", () => {
+    window.localStorage.setItem(
+      CLAVE_ALMACEN_GRUPOS_CERRADOS,
+      JSON.stringify(["cat-ocio", "cat-transporte"])
+    );
+
+    render(<Sonda />);
+    expect(screen.getByTestId("estado").textContent).toBe("cat-ocio,cat-transporte");
+
+    fireEvent.click(screen.getByRole("button", { name: "desplegar" }));
+
+    expect(screen.getByTestId("estado").textContent).toBe("");
+    expect(JSON.parse(window.localStorage.getItem(CLAVE_ALMACEN_GRUPOS_CERRADOS)!)).toEqual([]);
   });
 });

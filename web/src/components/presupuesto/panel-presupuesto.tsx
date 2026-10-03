@@ -186,6 +186,7 @@ export function PanelPresupuesto({
     colapsados: gruposColapsados,
     alternar: alternarGrupo,
     contraerTodo,
+    expandirTodo,
   } = useGruposColapsados(clavesValidas);
 
   // Dos secciones, como el dinero: lo que se espera recibir y lo que se espera
@@ -218,20 +219,22 @@ export function PanelPresupuesto({
     </FormularioItemPresupuesto>
   );
 
-  // Con todos los grupos cerrados no se muestra: el panel abre con todo
-  // abierto, así que la acción frecuente es contraer. Un "Expandir todo" en
-  // ese estado sería un segundo botón con dos estados para resolver algo que
-  // los propios encabezados ya hacen; ocultarlo es lo más simple.
-  const hayGrupoAbierto = grupos.some((grupo) => !gruposColapsados.has(grupo.clave));
-  const accionContraer = hayGrupoAbierto && (
+  // Un solo botón que alterna y que siempre está visible mientras haya
+  // grupos: "Contraer todo" con al menos uno abierto; "Desplegar todo" con
+  // todos cerrados. Con la lista plana (sin grupos) no hay nada que alternar.
+  const hayGrupos = grupos.length > 0;
+  const todosCerrados = hayGrupos && grupos.every((grupo) => gruposColapsados.has(grupo.clave));
+  const accionAlternar = hayGrupos && (
     <Button
       variant="ghost"
       size="sm"
       className="min-h-11"
-      aria-label="Contraer todo"
-      onClick={() => contraerTodo(grupos.map((grupo) => grupo.clave))}
+      aria-label={todosCerrados ? "Desplegar todo" : "Contraer todo"}
+      onClick={() =>
+        todosCerrados ? expandirTodo() : contraerTodo(grupos.map((grupo) => grupo.clave))
+      }
     >
-      Contraer todo
+      {todosCerrados ? "Desplegar todo" : "Contraer todo"}
     </Button>
   );
 
@@ -500,9 +503,9 @@ export function PanelPresupuesto({
   if (variante === "suelta") {
     return (
       <div className="flex flex-col">
-        {(accionContraer || accionAgregar) && (
+        {(accionAlternar || accionAgregar) && (
           <div className="flex items-center justify-end gap-1 pb-3">
-            {accionContraer}
+            {accionAlternar}
             {accionAgregar}
           </div>
         )}
@@ -515,10 +518,10 @@ export function PanelPresupuesto({
     <Card className={cn(CLASES_BLOQUE_ASIDE, encabezadosFijos && CLASES_CARD_PANEL_ASIDE)}>
       <CardHeader>
         <CardTitle>Presupuesto del mes</CardTitle>
-        {(accionContraer || accionAgregar) && (
+        {(accionAlternar || accionAgregar) && (
           <CardAction>
             <div className="flex items-center gap-1">
-              {accionContraer}
+              {accionAlternar}
               {accionAgregar}
             </div>
           </CardAction>

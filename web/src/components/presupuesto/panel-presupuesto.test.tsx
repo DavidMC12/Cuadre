@@ -619,8 +619,8 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
 // Contraer todo
 // -------------------------------------------------------------------------
 
-describe("PanelPresupuesto: contraer todo", () => {
-  it("ofrece 'Contraer todo' de 44px mientras haya un grupo abierto y lo oculta al cerrar todos", () => {
+describe("PanelPresupuesto: contraer/desplegar todo", () => {
+  it("un solo botón alterna: 'Contraer todo' con algo abierto y 'Desplegar todo' con todo cerrado", () => {
     const items = [
       deCategoria("c1", "comida", "Mercado"),
       deCategoria("c2", "comida", "Restaurantes"),
@@ -639,10 +639,16 @@ describe("PanelPresupuesto: contraer todo", () => {
 
     // Los dos grupos quedan replegados...
     expect(screen.getAllByRole("button", { expanded: false })).toHaveLength(2);
-    // ...y el botón desaparece: no hay nada abierto que contraer.
-    expect(
-      screen.queryByRole("button", { name: "Contraer todo" })
-    ).not.toBeInTheDocument();
+    // ...y el botón NO desaparece: pasa a ofrecer desplegar.
+    const desplegar = screen.getByRole("button", { name: "Desplegar todo" });
+    expect(desplegar.textContent).toBe("Desplegar todo");
+    expect(desplegar.classList.contains("min-h-11")).toBe(true);
+
+    fireEvent.click(desplegar);
+
+    // Vuelve a abrir todo y el botón vuelve a contraer.
+    expect(screen.getAllByRole("button", { expanded: true })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Contraer todo" })).toBeInTheDocument();
   });
 
   it("con un grupo cerrado y otro abierto sigue ofreciéndolo", () => {
@@ -660,6 +666,9 @@ describe("PanelPresupuesto: contraer todo", () => {
     expect(
       screen.getByRole("button", { name: "Contraer todo" })
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Desplegar todo" })
+    ).not.toBeInTheDocument();
   });
 
   it("con una clave replegada de otro mes, el grupo nuevo abierto cuenta igual (no se oculta el botón)", () => {
@@ -669,13 +678,11 @@ describe("PanelPresupuesto: contraer todo", () => {
 
     // Cambio de mes: Comida queda replegada (clave obsoleta en el estado).
     fireEvent.click(screen.getByRole("button", { name: "Contraer todo" }));
-    expect(
-      screen.queryByRole("button", { name: "Contraer todo" })
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Desplegar todo" })).toBeInTheDocument();
 
     // El mes nuevo solo trae Transporte, que no está en el estado: sale
-    // abierto y el botón debe seguir ahí aunque el tamaño de la clave vieja
-    // coincida con el número de grupos.
+    // abierto y el botón debe ofrecer contraer aunque el tamaño de la clave
+    // vieja coincida con el número de grupos.
     const transporte = [deCategoria("t1", "transporte", "Bus")];
     ajustarConsultas({ data: { items: transporte.map(renglonDe) } }, { data: transporte }, CATALOGO);
     rerender(<PanelPresupuesto mes="2026-10" moneda="COP" />);
@@ -796,6 +803,19 @@ describe("PanelPresupuesto: recuerda los grupos replegados", () => {
       "cat-comida",
       "cat-ocio",
     ]);
+  });
+
+  it("'Desplegar todo' vacía el conjunto guardado", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+    guardarCerrados(["cat-comida", "cat-ocio"]);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Desplegar todo" }));
+
+    expect(JSON.parse(window.localStorage.getItem(CLAVE_GRUPOS)!)).toEqual([]);
+    expect(screen.getByRole("button", { name: "Contraer todo" })).toBeInTheDocument();
   });
 
   it("un grupo nuevo aparece abierto aunque haya otros guardados cerrados", async () => {
