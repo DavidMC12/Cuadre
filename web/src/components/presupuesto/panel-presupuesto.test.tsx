@@ -588,6 +588,92 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
 });
 
 // -------------------------------------------------------------------------
+// Contraer todo
+// -------------------------------------------------------------------------
+
+describe("PanelPresupuesto: contraer todo", () => {
+  it("ofrece 'Contraer todo' de 44px mientras haya un grupo abierto y lo oculta al cerrar todos", () => {
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("c2", "comida", "Restaurantes"),
+      deCategoria("t1", "transporte", "Bus"),
+    ];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const contraer = screen.getByRole("button", { name: "Contraer todas las categorías" });
+    // Texto pequeño, fantasma y piso de toque de 44px.
+    expect(contraer.textContent).toBe("Contraer todo");
+    expect(contraer.classList.contains("min-h-11")).toBe(true);
+
+    fireEvent.click(contraer);
+
+    // Los dos grupos quedan replegados...
+    expect(screen.getAllByRole("button", { expanded: false })).toHaveLength(2);
+    // ...y el botón desaparece: no hay nada abierto que contraer.
+    expect(
+      screen.queryByRole("button", { name: "Contraer todas las categorías" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("con un grupo cerrado y otro abierto sigue ofreciéndolo", () => {
+    const items = [
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("t1", "transporte", "Bus"),
+    ];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // Cierro solo Comida: queda Transporte abierto.
+    fireEvent.click(screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true }));
+
+    expect(
+      screen.getByRole("button", { name: "Contraer todas las categorías" })
+    ).toBeInTheDocument();
+  });
+
+  it("no se muestra en la lista plana (sin metadatos de categoría)", () => {
+    ajustarConsultas({ data: { items: [renglon] } });
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(
+      screen.queryByRole("button", { name: "Contraer todas las categorías" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("en la variante suelta también aparece, junto al encabezado de la lista", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" variante="suelta" />);
+
+    expect(
+      screen.getByRole("button", { name: "Contraer todas las categorías" })
+    ).toBeInTheDocument();
+  });
+
+  it("al contraer todo, el aviso de un tope excedido sobrevive en el encabezado", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    const checklist = items.map((item) => ({ ...renglonDe(item), exceeded: true }));
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Contraer todas las categorías" }));
+
+    expect(
+      screen.getByRole("button", {
+        name: `${etiquetaGrupo("Comida", 1)}, con un tope excedido`,
+        expanded: false,
+      })
+    ).toBeInTheDocument();
+  });
+});
+
+// -------------------------------------------------------------------------
 // Dos secciones: Ingresos y Gastos
 // -------------------------------------------------------------------------
 

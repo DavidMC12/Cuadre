@@ -195,6 +195,23 @@ export function PanelPresupuesto({
     </FormularioItemPresupuesto>
   );
 
+  // Con todos los grupos cerrados no se muestra: el panel abre con todo
+  // abierto, así que la acción frecuente es contraer. Un "Expandir todo" en
+  // ese estado sería un segundo botón con dos estados para resolver algo que
+  // los propios encabezados ya hacen; ocultarlo es lo más simple.
+  const hayGrupoAbierto = grupos.length > 0 && gruposColapsados.size < grupos.length;
+  const accionContraer = hayGrupoAbierto && (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="min-h-11"
+      aria-label="Contraer todas las categorías"
+      onClick={() => setGruposColapsados(new Set(grupos.map((grupo) => grupo.clave)))}
+    >
+      Contraer todo
+    </Button>
+  );
+
   function renderRenglon(renglon: ItemDelChecklist, indice: number) {
     const item = itemPorId.get(renglon.id);
     const porcentaje =
@@ -460,7 +477,12 @@ export function PanelPresupuesto({
   if (variante === "suelta") {
     return (
       <div className="flex flex-col">
-        {accionAgregar && <div className="flex justify-end pb-3">{accionAgregar}</div>}
+        {(accionContraer || accionAgregar) && (
+          <div className="flex items-center justify-end gap-1 pb-3">
+            {accionContraer}
+            {accionAgregar}
+          </div>
+        )}
         {cuerpo}
       </div>
     );
@@ -470,7 +492,14 @@ export function PanelPresupuesto({
     <Card className={cn(CLASES_BLOQUE_ASIDE, CLASES_CARD_PANEL_ASIDE)}>
       <CardHeader>
         <CardTitle>Presupuesto del mes</CardTitle>
-        {accionAgregar && <CardAction>{accionAgregar}</CardAction>}
+        {(accionContraer || accionAgregar) && (
+          <CardAction>
+            <div className="flex items-center gap-1">
+              {accionContraer}
+              {accionAgregar}
+            </div>
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent>{cuerpo}</CardContent>
     </Card>
