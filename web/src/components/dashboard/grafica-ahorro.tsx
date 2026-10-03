@@ -14,7 +14,7 @@ import {
 } from "recharts";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
+import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
 import { useAhorroMensual } from "@/hooks/use-reportes";
 import { etiquetaMes, etiquetaMesCorta } from "@/lib/fecha";
 import { sumarMontos, textoMonto } from "@/lib/money";
@@ -74,21 +74,32 @@ export function GraficaAhorro({
     isLoading,
     isError,
     error,
+    isPaused,
     isFetching,
     refetch,
   } = useAhorroMensual({ months, currency });
 
-  // La consulta del ahorro no se pudo leer: no es lo mismo que una cuenta
-  // de ahorro quieta. Se dice y se ofrece reintentar.
-  if (isError && !ahorro && !isLoading) {
+  const estado = estadoDeConsulta({ data: ahorro, isError, isPaused, isLoading });
+
+  // La consulta del ahorro no se pudo leer, o quedó pausada sin red: no es lo
+  // mismo que una cuenta de ahorro quieta. Se dice y se ofrece reintentar.
+  if (estado === "fallo") {
     return (
       <FalloConsulta
         etiquetaBoton="Reintentar ahorro"
-        mensaje={mensajeDeFallo(
-          error,
-          "No pudimos cargar el ahorro. Puede ser que el servidor esté dormido."
-        )}
+        mensaje={mensajeDeFallo(error, mensajeDeCargaFallida("el ahorro"))}
         reintento={isFetching}
+        onReintentar={() => refetch()}
+        compartePantalla={compartePantalla}
+      />
+    );
+  }
+
+  if (estado === "pausada") {
+    return (
+      <FalloConsulta
+        etiquetaBoton="Reintentar ahorro"
+        mensaje={mensajeSinConexion("el ahorro")}
         onReintentar={() => refetch()}
         compartePantalla={compartePantalla}
       />
