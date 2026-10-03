@@ -218,6 +218,18 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   rama); el relevo lo tomó worker1 y la revisión independiente atrapó dos
   fallos graves que sus pruebas no veían.
 
+- **Columna del Resumen sin cortes + "Contraer todo"** (2026-10-04): el
+  dueño vio, con capturas, el cuadro "Cuánto me sobra" y las categorías
+  abiertas del presupuesto recortados. Causa: las tarjetas del aside xl eran
+  hijas de un flex con `overflow-hidden`, así que se encogían en vez de
+  desbordar y el aside nunca scrolleaba de verdad. Ahora `shrink-0` +
+  un solo scroll (el del aside, sin scroll anidado), el encabezado de cada
+  categoría queda pegado al recorrerla y hay un botón pequeño "Contraer
+  todo". Las clases viven en `web/src/lib/aside-resumen.ts`, que importan el
+  componente y la medición con Chromium (`npm run medir:aside`) para que no
+  mida un espejo desactualizado. No se hizo scroll por categoría a propósito
+  (atrapa el dedo y el cursor).
+
 Pendiente, sin fecha: otra ronda de `impeccable critique` más adelante
 para medir el puntaje tras estos arreglos.
 
