@@ -7,36 +7,45 @@
  * alguien quita un `shrink-0`, la medición lo ve en vez de medir un espejo
  * que se quedó atrás.
  *
- * El aside tiene tope de alto (`100vh - 2rem`) y scroll propio: es el ÚNICO
- * scroll de la columna. Sus hijos directos son las tarjetas de "cuánto me
- * sobra" y del presupuesto.
+ * El aside NO scrollea: solo la lista del presupuesto lo hace, dentro de su
+ * tarjeta. La tarjeta se ajusta a la ventana para que el pie quede a la vista
+ * sin que la página tenga que scrollear. Sus hijos directos no se encogen.
  */
-export const CLASES_ASIDE =
-  "flex w-80 shrink-0 flex-col gap-5 xl:sticky xl:top-8 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto";
+export const CLASES_ASIDE = "flex w-80 shrink-0 flex-col gap-5 xl:sticky xl:top-8";
 
 /**
- * Cada tarjeta hija del aside. Sin esto el flex las encogía: la Card trae
- * `overflow-hidden`, así que su `min-height: auto` cae a 0 y en vez de
- * desbordar el aside se aplastaba la tarjeta y se recortaba su contenido.
- * `shrink-0` la deja crecer con su contenido; `min-h-fit` lo refuerza.
+ * Cada tarjeta hija del aside. `shrink-0` evita que el flex la aplaste. Ya no
+ * lleva `min-h-fit`: con el tope de ventana de la tarjeta del panel, un
+ * mínimo basado en el contenido ganaría al tope y el scroll interno no
+ * llegaría a activarse.
  */
-export const CLASES_BLOQUE_ASIDE = "shrink-0 min-h-fit";
-
-/** Reservado para ajustes de la tarjeta del panel dentro del aside. En el
- * aside la tarjeta cede su `overflow-hidden` para que el encabezado `sticky`
- * de cada grupo se pegue al scroll del aside y no a una Card que no scrollea. */
-export const CLASES_CARD_PANEL_ASIDE = "overflow-visible";
+export const CLASES_BLOQUE_ASIDE = "shrink-0";
 
 /**
- * La región de la lista del panel: siempre enfocable, con `pr-1`. Sin
- * `overflow-y-auto` propio: con tope scrollea con el tope, y sin tope deja
- * que scrollee su contenedor (el aside o el cajón). Así hay un solo scroll.
+ * La tarjeta del panel dentro del aside: se ajusta a la ventana (el alto que
+ * sobra tras la cabecera y los márgenes). Su lista toma el espacio libre y
+ * scrollea; la tarjeta mantiene su borde y su radio completos porque el scroll
+ * vive adentro, no en la columna.
+ */
+export const CLASES_CARD_PANEL_VENTANA = "max-h-[calc(100vh-2rem)]";
+
+/**
+ * La región de la lista del panel: enfocable, con `pr-1` y la barra fina. Por
+ * sí sola no scrollea; se le suma el tope o el ajuste a ventana.
  */
 export const CLASES_REGION_PANEL =
-  "flex flex-col pr-1 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85";
+  "scroll-fino flex flex-col pr-1 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85";
 
-/** El tope propio de la región, solo cuando ningún contenedor ya scrollea. */
-export const CLASES_REGION_PANEL_CON_TOPE = "max-h-[70vh] overflow-y-auto";
+/** El tope propio de la región (pantalla de Presupuesto): alto fijo y scroll,
+ * con el carril de la barra reservado para que el contenido no cambie de
+ * ancho. */
+export const CLASES_REGION_PANEL_CON_TOPE =
+  "max-h-[70vh] overflow-y-auto [scrollbar-gutter:stable]";
+
+/** La región del panel del aside: toma el alto que deja la tarjeta, scrollea
+ * solo ella y reserva el carril de la barra. */
+export const CLASES_REGION_PANEL_VENTANA =
+  "min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]";
 
 /**
  * El encabezado tocable de cada grupo de categoría. Es la base para cualquier
@@ -48,7 +57,7 @@ export const CLASES_ENCABEZADO_GRUPO =
 /**
  * Extra cuando el panel vive en la tarjeta del aside: el encabezado se pega
  * arriba (`sticky top-0`) mientras se recorren sus ítems dentro del scroll de
- * la columna, con fondo de tarjeta (solo ahí la superficie es `bg-card`) para
+ * la lista, con fondo de tarjeta (solo ahí la superficie es `bg-card`) para
  * tapar los renglones que pasan por debajo, `z-10` para pintar por encima y un
  * hover opaco para que no se transparenten mientras se pasa el cursor.
  */

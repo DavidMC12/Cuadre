@@ -25,11 +25,12 @@ import {
 } from "@/lib/agrupar-presupuesto";
 import {
   CLASES_BLOQUE_ASIDE,
-  CLASES_CARD_PANEL_ASIDE,
+  CLASES_CARD_PANEL_VENTANA,
   CLASES_ENCABEZADO_GRUPO,
   CLASES_ENCABEZADO_GRUPO_FIJO,
   CLASES_REGION_PANEL,
   CLASES_REGION_PANEL_CON_TOPE,
+  CLASES_REGION_PANEL_VENTANA,
 } from "@/lib/aside-resumen";
 import { COLOR_NEUTRO, mapaColoresCategoriasDelCatalogo, modoDeTema } from "@/lib/chart-colors";
 import { nombreDelMes } from "@/lib/fecha";
@@ -186,6 +187,7 @@ export function PanelPresupuesto({
     colapsados: gruposColapsados,
     alternar: alternarGrupo,
     contraerTodo,
+    expandirTodo,
   } = useGruposColapsados(clavesValidas);
 
   // Dos secciones, como el dinero: lo que se espera recibir y lo que se espera
@@ -203,35 +205,38 @@ export function PanelPresupuesto({
     return mapa.get(grupo.categoryId) ?? COLOR_NEUTRO[modo];
   }
 
-  // En la tarjeta (el aside) el encabezado de cada grupo se pega al scroll de
-  // la columna. En la variante suelta (/presupuesto y el cajón) no: la
-  // superficie no es `bg-card` y un encabezado opaco dejaría una banda de otro
-  // color en tema oscuro.
-  const encabezadosFijos = variante === "tarjeta";
+  // La tarjeta (el aside) se ajusta a la ventana: su lista toma el alto que
+  // sobra y scrollea ella, no la columna. Ahí también los encabezados de grupo
+  // se pegan al scroll de la lista. En la variante suelta (/presupuesto y el
+  // cajón) no: la superficie no es `bg-card` y un encabezado opaco dejaría una
+  // banda de otro color en tema oscuro.
+  const enVentana = variante === "tarjeta";
 
   const accionAgregar = !soloMirar && (
     <FormularioItemPresupuesto moneda={moneda} mes={mes}>
-      <Button variant="outline" size="sm">
+      <Button variant="outline" size="sm" className="min-h-11">
         <Plus />
         Agregar
       </Button>
     </FormularioItemPresupuesto>
   );
 
-  // Con todos los grupos cerrados no se muestra: el panel abre con todo
-  // abierto, así que la acción frecuente es contraer. Un "Expandir todo" en
-  // ese estado sería un segundo botón con dos estados para resolver algo que
-  // los propios encabezados ya hacen; ocultarlo es lo más simple.
-  const hayGrupoAbierto = grupos.some((grupo) => !gruposColapsados.has(grupo.clave));
-  const accionContraer = hayGrupoAbierto && (
+  // Un solo botón que alterna y que siempre está visible mientras haya
+  // grupos: "Contraer todo" con al menos uno abierto; "Desplegar todo" con
+  // todos cerrados. Con la lista plana (sin grupos) no hay nada que alternar.
+  const hayGrupos = grupos.length > 0;
+  const todosCerrados = hayGrupos && grupos.every((grupo) => gruposColapsados.has(grupo.clave));
+  const accionAlternar = hayGrupos && (
     <Button
       variant="ghost"
       size="sm"
       className="min-h-11"
-      aria-label="Contraer todo"
-      onClick={() => contraerTodo(grupos.map((grupo) => grupo.clave))}
+      aria-label={todosCerrados ? "Desplegar todo" : "Contraer todo"}
+      onClick={() =>
+        todosCerrados ? expandirTodo() : contraerTodo(grupos.map((grupo) => grupo.clave))
+      }
     >
-      Contraer todo
+      {todosCerrados ? "Desplegar todo" : "Contraer todo"}
     </Button>
   );
 
@@ -317,7 +322,7 @@ export function PanelPresupuesto({
           aria-controls={idLista}
           aria-label={etiquetaGrupo}
           onClick={() => alternarGrupo(grupo.clave)}
-          className={cn(CLASES_ENCABEZADO_GRUPO, encabezadosFijos && CLASES_ENCABEZADO_GRUPO_FIJO)}
+          className={cn(CLASES_ENCABEZADO_GRUPO, enVentana && CLASES_ENCABEZADO_GRUPO_FIJO)}
         >
           {/* El color es refuerzo, nunca el único dato: el nombre de la
               categoría va en texto, al lado. */}
@@ -393,7 +398,12 @@ export function PanelPresupuesto({
             role="region"
             aria-label="Ítems del presupuesto"
             tabIndex={0}
-            className={cn(CLASES_REGION_PANEL, topePropio && CLASES_REGION_PANEL_CON_TOPE)}
+            className={cn(
+              CLASES_REGION_PANEL,
+              enVentana
+                ? CLASES_REGION_PANEL_VENTANA
+                : topePropio && CLASES_REGION_PANEL_CON_TOPE
+            )}
           >
             {!tieneMetadatos ? (
               // Aún no sabemos la categoría de cada ítem (o su consulta falló):
@@ -443,7 +453,7 @@ export function PanelPresupuesto({
             anuncio: dos alertas del mismo panel serían una tormenta — queda
             visible, con su Reintentar, pero no interrumpe dos veces. */}
         {errorDeItems && !todosLosItems ? (
-          <div className="mt-3 border-t border-border pt-3">
+          <div className="mt-3 shrink-0 border-t border-border pt-3">
             <FalloConsulta
               etiquetaBoton="Reintentar archivados"
               mensaje={mensajeDeFallo(
@@ -456,7 +466,7 @@ export function PanelPresupuesto({
             />
           </div>
         ) : archivados.length > 0 ? (
-          <div className="mt-3 border-t border-border pt-3">
+          <div className="mt-3 shrink-0 border-t border-border pt-3">
             {viendoArchivados ? (
               <ul className="flex flex-col gap-1 pb-1">
                 {archivados.map((item) => (
@@ -500,9 +510,9 @@ export function PanelPresupuesto({
   if (variante === "suelta") {
     return (
       <div className="flex flex-col">
-        {(accionContraer || accionAgregar) && (
+        {(accionAlternar || accionAgregar) && (
           <div className="flex items-center justify-end gap-1 pb-3">
-            {accionContraer}
+            {accionAlternar}
             {accionAgregar}
           </div>
         )}
@@ -512,19 +522,22 @@ export function PanelPresupuesto({
   }
 
   return (
-    <Card className={cn(CLASES_BLOQUE_ASIDE, encabezadosFijos && CLASES_CARD_PANEL_ASIDE)}>
-      <CardHeader>
-        <CardTitle>Presupuesto del mes</CardTitle>
-        {(accionContraer || accionAgregar) && (
-          <CardAction>
-            <div className="flex items-center gap-1">
-              {accionContraer}
-              {accionAgregar}
-            </div>
-          </CardAction>
-        )}
+    <Card className={cn(CLASES_BLOQUE_ASIDE, enVentana && CLASES_CARD_PANEL_VENTANA)}>
+      <CardHeader className={cn(enVentana && "shrink-0")}>
+        {/* El título en su fila, con solo "Agregar" a la derecha: a 320px el
+            alternar ya no cabe en esa fila y pasa a la suya (abajo). */}
+        <CardTitle className="min-w-0 truncate">Presupuesto del mes</CardTitle>
+        {accionAgregar && <CardAction>{accionAgregar}</CardAction>}
       </CardHeader>
-      <CardContent>{cuerpo}</CardContent>
+      <CardContent className={cn(enVentana && "flex min-h-0 flex-1 flex-col")}>
+        {/* El alternar va debajo del título, discreto y a la derecha: es una
+            acción de la lista entera, no de una sección (puede haber Ingresos
+            y Gastos), y así el encabezado no se aprieta. */}
+        {enVentana && accionAlternar && (
+          <div className="flex shrink-0 justify-end pb-1">{accionAlternar}</div>
+        )}
+        {cuerpo}
+      </CardContent>
     </Card>
   );
 }

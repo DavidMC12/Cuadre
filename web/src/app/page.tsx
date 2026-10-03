@@ -197,7 +197,7 @@ export default function PaginaResumen() {
                     {etiquetaMes(mes)} · {moneda}
                   </DrawerDescription>
                 </DrawerHeader>
-                <div className="overflow-y-auto px-4 pb-4">
+                <div className="scroll-fino [scrollbar-gutter:stable] overflow-y-auto px-4 pb-4">
               {/* Sin Card ni encabezado propio: el cajón ya trae título y los
                   dos contenedores peleaban por encabezar la misma pantalla. */}
                   <PanelPresupuesto
@@ -269,18 +269,6 @@ export default function PaginaResumen() {
 
       <SelectorMes mes={mes} onCambiar={setMes} />
 
-      {/* En móvil, el cuadrito de cuánto sobra es el primer bloque del mes.
-          Desde `xl` vive en el aside; este se monta solo si el aside no está
-          (antes que CSS), y así el bloque nunca aparece dos veces. */}
-      {moneda && !pantallaAncha && (
-        <CuantoMeSobra
-          mes={mes}
-          moneda={moneda}
-          compartePantalla={componenFallosConPresupuesto}
-          onFalloPresupuesto={setFalloChecklist}
-        />
-      )}
-
       <ResumenCards
         resumen={resumen}
         moneda={moneda ?? ""}
@@ -300,6 +288,35 @@ export default function PaginaResumen() {
             : undefined
         }
       />
+
+      {/* "Cuánto me sobra" ya no compite arriba del presupuesto en la columna
+          derecha: es la síntesis del mes, así que va serena a lo ancho de la
+          columna principal, justo debajo de las tarjetas de balance y antes del
+          detalle de las gráficas. Sin caja pesada: la separa un hilo, la
+          jerarquía la lleva el propio contenido (título, cifra prevista,
+          real como línea secundaria). Una sola instancia para todos los
+          anchos; en xl le cede al panel el anuncio del presupuesto. */}
+      {moneda && (
+        <section
+          aria-labelledby="me-sobra-titulo"
+          className="flex flex-col gap-1 border-t border-border pt-5"
+        >
+          <h2
+            id="me-sobra-titulo"
+            className="font-heading text-base leading-snug font-medium"
+          >
+            Cuánto me sobra este mes
+          </h2>
+          <CuantoMeSobra
+            mes={mes}
+            moneda={moneda}
+            variante="suelta"
+            compartePantalla={componenFallosConPresupuesto}
+            anunciaPresupuesto={!pantallaAncha}
+            onFalloPresupuesto={setFalloChecklist}
+          />
+        </section>
+      )}
 
       {/* Desde `lg` van lado a lado: apiladas dejaban media pantalla vacía
           en escritorio. `min-w-0` para que la gráfica de tendencia pueda
@@ -398,22 +415,12 @@ export default function PaginaResumen() {
           consultaba al servidor igual, aunque nadie lo mirara. */}
       {pantallaAncha && moneda && (
         <aside className={CLASES_ASIDE}>
-          {/* Arriba del panel: cuánto sobra según lo previsto. Si falla el
-              presupuesto, el panel de abajo ya lo anuncia: este bloque no
-              repite la interrupción por la misma consulta. */}
-          <CuantoMeSobra
-            mes={mes}
-            moneda={moneda}
-            compartePantalla={componenFallosConPresupuesto}
-            anunciaPresupuesto={false}
-            onFalloPresupuesto={setFalloChecklist}
-          />
           <PanelPresupuesto
             mes={mes}
             moneda={moneda}
             compartePantalla={componenFallosConPresupuesto}
-            // El aside scrollea: el panel no necesita su propio tope.
-            topePropio={false}
+            // El aside no scrollea: la lista del panel tiene su propio tope y
+            // scrollea dentro de la tarjeta.
           />
         </aside>
       )}

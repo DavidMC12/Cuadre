@@ -29,7 +29,7 @@
  */
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,7 +41,7 @@ const postcss = require("postcss");
 const tailwindcss = require("@tailwindcss/postcss");
 
 const CLASES_REGION =
-  "flex flex-col overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85";
+  "scroll-fino flex flex-col overflow-y-auto pr-1 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85";
 const CLASES_HEADER =
   "flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-medium text-muted-foreground hover:bg-accent/50";
 
@@ -142,20 +142,21 @@ ${caso(
 )}
 </body></html>`;
 
-const CSS = `
-@import "tailwindcss" source(none);
-@source "./index.html";
-`;
-
 async function compilarCss(directorio) {
   const entradaTailwind = join(dirname(require.resolve("tailwindcss/package.json")), "index.css");
-  const resultado = await postcss([tailwindcss()]).process(
-    CSS.replace("./index.html", join(directorio, "index.html")).replace(
-      "tailwindcss",
-      entradaTailwind
-    ),
-    { from: join(directorio, "panel.css") }
+  // La CSS real del proyecto para que la utilidad `scroll-fino` (y sus tokens)
+  // entren en la medición; se le inyecta el `@source` del espejo.
+  const globals = (await readFile(join(raizWeb, "src/app/globals.css"), "utf8"))
+    .replace('@import "tw-animate-css";', "")
+    .replace('@import "shadcn/tailwind.css";', "");
+  const fuente = join(directorio, "index.html").replace(/\\/g, "/");
+  const css = globals.replace(
+    '@import "tailwindcss";',
+    `@import "${entradaTailwind}" source(none);\n@source "${fuente}";`
   );
+  const resultado = await postcss([tailwindcss()]).process(css, {
+    from: join(directorio, "panel.css"),
+  });
   return resultado.css;
 }
 

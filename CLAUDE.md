@@ -214,6 +214,8 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   manda sobre el esqueleto y una consulta pausada sin red avisa en vez de
   quedar en blanco. La columna derecha del Resumen en xl scrollea sola (no
   deja el pie inalcanzable en laptops bajas; `npm run medir:aside`).
+  *(Superado el 2026-10-04: el aside ya no scrollea; ver "Resumen sereno,
+  scroll fino y el alternar de verdad".)*
   Aprendizaje: la sesión de worker2 se saturó y se estancó (inventó una
   rama); el relevo lo tomó worker1 y la revisión independiente atrapó dos
   fallos graves que sus pruebas no veían.
@@ -255,6 +257,28 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   no pone cota a la navegación de meses (1999-12 es inalcanzable en uso
   real), y un campo tocado y vuelto a su valor sigue "pendiente" hasta
   cerrar o guardar.
+
+- **Resumen sereno, scroll fino y el alternar de verdad** (2026-10-04): el
+  dueño corrigió la columna derecha sobre captura. (1) "Contraer todo" ya no
+  desaparece: es un solo botón que alterna a "Desplegar todo" con todos los
+  grupos cerrados (siempre visible mientras haya grupos; `expandirTodo` vacía
+  lo guardado). (2) El aside xl ya NO scrollea; scrollea solo la lista del
+  presupuesto dentro de su tarjeta, que se ajusta a la ventana
+  (`max-h calc(100vh-2rem)` + `flex-1 min-h-0`), así el pie se alcanza sin
+  scrollear la página. (3) El scroll de la columna comía ancho y recortaba el
+  borde de la tarjeta y "Agregar": la lista reserva el carril
+  (`scrollbar-gutter: stable`) y la barra es fina (`scroll-fino` en
+  `globals.css`: 6px en Chromium, riel transparente, pulgar en
+  `--muted-foreground`; en Firefox `scrollbar-width/color`). El encabezado a
+  320px se rediseñó: título en su fila con "Agregar" (44px) a la derecha y el
+  alternar en una fila discreta debajo; nada desborda en horizontal. (4)
+  "Cuánto me sobra" salió de la columna derecha y vive sereno, a lo ancho de
+  la columna principal, debajo de las tarjetas de balance y antes de las
+  gráficas (una sola instancia para todos los anchos; en xl le cede al panel
+  el anuncio del presupuesto). Medición Chromium (`npm run medir:aside`) y
+  detector `impeccable detect --scope layout` sin hallazgos. Deuda anotada: un
+  fallo SOLO del resumen del mes se anuncia dos veces (`ResumenCards` y "me
+  sobra" consultan lo mismo); es previo a este cambio y no se tocó.
 
 Pendiente, sin fecha: otra ronda de `impeccable critique` más adelante
 para medir el puntaje tras estos arreglos.

@@ -306,7 +306,7 @@ describe('CuantoMeSobra', () => {
     expect(screen.getByText(/Te sobran según lo previsto/)).toBeTruthy();
   });
 
-  it('la tarjeta no se encoge dentro del aside (shrink-0)', () => {
+  it('la tarjeta conserva el bloque del aside (shrink-0), sin encogerse', () => {
     ajustar(
       {
         data: {
@@ -321,10 +321,10 @@ describe('CuantoMeSobra', () => {
     const { container } = render(<CuantoMeSobra mes={mesActual()} moneda="COP" />);
 
     const card = container.querySelector("[data-slot='card']")!;
-    // Sin `shrink-0` el aside encoge la tarjeta (su `overflow-hidden` anula el
-    // mínimo automático) y el cuadro sale cortado en vez de scrollear el aside.
+    // La tarjeta no se encoge cuando vive como hijo de un contenedor flex.
+    // (La variante que el Resumen monta ahora es "suelta"; esto guarda el
+    // bloque compartido por si vuelve a colocarse en una columna.)
     expect(card.className).toContain('shrink-0');
-    expect(card.className).toContain('min-h-fit');
   });
 
   it('avisa a la pantalla cuando el presupuesto no se pudo leer', () => {

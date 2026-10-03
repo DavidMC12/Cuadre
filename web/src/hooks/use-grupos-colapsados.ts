@@ -129,5 +129,10 @@ export function useGruposColapsados(clavesValidas: ReadonlySet<string> | null) {
     escribir(siguientes);
   }, []);
 
-  return { colapsados, alternar, contraerTodo };
+  const expandirTodo = useCallback(() => {
+    // Desplegar todo vacía el conjunto: no queda ningún grupo cerrado.
+    escribir(new Set());
+  }, []);
+
+  return { colapsados, alternar, contraerTodo, expandirTodo };
 }
