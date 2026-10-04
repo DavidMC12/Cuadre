@@ -585,7 +585,7 @@ export function FormularioMovimiento({
                     // categoría: no hace falta abrir "Más detalles" para eso.
                     onClick={() => setCategoryId(elegida ? undefined : categoria.id)}
                     className={cn(
-                      "rounded-full border px-3.5 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85",
+                      "min-h-11 rounded-full border px-3.5 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85",
                       elegida
                         ? "border-foreground bg-foreground text-background"
                         : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
