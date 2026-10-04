@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import Link from 'next/link';
 import { PiggyBank } from 'lucide-react';
 
@@ -9,9 +8,10 @@ import { buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Monto } from '@/components/monto';
 import { EmptyState } from '@/components/empty-state';
-import { FalloConsulta, mensajeDeFallo } from '@/components/fallo-consulta';
+import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from '@/components/fallo-consulta';
 import { useChecklistDelMes } from '@/hooks/use-presupuesto';
 import { useResumenMes } from '@/hooks/use-reportes';
+import { useSubirNoLeible } from '@/hooks/use-subir-no-leible';
 import { CLASES_BLOQUE_ASIDE } from '@/lib/aside-resumen';
 import { cuantoSobraEnElMes } from '@/lib/cuanto-sobra';
 import { etiquetaMes, tramoDelMes } from '@/lib/fecha';
@@ -60,21 +60,26 @@ export function CuantoMeSobra({
   const checklist = useChecklistDelMes({ month: mes, currency: moneda });
   const resumen = useResumenMes({ month: mes, currency: moneda });
 
-  // Con datos viejos en memoria se siguen mostrando (stale, no falsos); un
-  // fallo sin nada en mano es lo que aquí se dice.
-  const falloChecklist = checklist.isError && !checklist.data;
-  const falloResumen = resumen.isError && !resumen.data;
-  // Una consulta pausada (sin conexión) no está cargando ni falló: sin esto
-  // el cuadrito quedaría en blanco sin decir por qué.
-  const pausada = checklist.isPaused || resumen.isPaused;
+  // La política única: con datos viejos en memoria se siguen mostrando (stale,
+  // no falsos); un fallo sin nada en mano o una consulta pausada sin red
+  // tampoco pueden disfrazarse de vacío.
+  const estadoChecklist = estadoDeConsulta(checklist);
+  const estadoResumen = estadoDeConsulta(resumen);
+  const falloChecklist = estadoChecklist === "fallo";
+  const falloResumen = estadoResumen === "fallo";
+  const pausadaChecklist = estadoChecklist === "pausada";
+  const pausadaResumen = estadoResumen === "pausada";
+  const pausada = pausadaChecklist || pausadaResumen;
 
-  useSubirFallo(falloChecklist, onFalloPresupuesto);
+  // La pantalla necesita saber que el presupuesto no se pudo leer —sea fallo o
+  // pausa— para no lanzar dos anuncios por dos bloques con la misma causa.
+  useSubirNoLeible(falloChecklist || pausadaChecklist, onFalloPresupuesto);
 
   // El error manda sobre el esqueleto: si UNA consulta falló y la otra sigue
   // cargando, el fallo no puede quedar tapado por el "cargando".
   const cargando =
-    (checklist.isLoading && !falloResumen && !resumen.isPaused) ||
-    (resumen.isLoading && !falloChecklist && !checklist.isPaused);
+    (checklist.isLoading && !falloResumen && !pausadaResumen) ||
+    (resumen.isLoading && !falloChecklist && !pausadaChecklist);
 
   const estado =
     !falloChecklist && !falloResumen && checklist.data && resumen.data
@@ -123,11 +128,11 @@ export function CuantoMeSobra({
             falloChecklist
               ? mensajeDeFallo(
                   checklist.error,
-                  'No pudimos cargar tu presupuesto del mes. Puede ser que el servidor esté dormido.',
+                  mensajeDeCargaFallida("tu presupuesto del mes"),
                 )
               : mensajeDeFallo(
                   resumen.error,
-                  'No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido.',
+                  mensajeDeCargaFallida("el resumen del mes"),
                 )
           }
           reintento={checklist.isFetching || resumen.isFetching}
@@ -140,16 +145,18 @@ export function CuantoMeSobra({
       ) : pausada && !estado ? (
         // Sin red y sin nada en mano, la consulta queda en pausa (no en error):
         // se dice y se ofrece reintentar en vez de un cuerpo en blanco. Con
-        // datos viejos en memoria se siguen mostrando (stale, no falsos).
+        // datos viejos en memoria se siguen mostrando (stale, no falsos). En
+        // pantalla ancha, si el presupuesto quedó pausado, el panel ya anuncia:
+        // este bloque cede igual que en su rama de fallo.
         <FalloConsulta
           etiquetaBoton="Reintentar"
-          mensaje="Sin conexión: no pudimos cargar este mes. Vuelve a intentarlo cuando tengas red."
+          mensaje={mensajeSinConexion('este mes')}
           reintento={false}
           onReintentar={() => {
             void checklist.refetch();
             void resumen.refetch();
           }}
-          compartePantalla={compartePantalla}
+          compartePantalla={compartePantalla || (pausadaChecklist && !anunciaPresupuesto)}
         />
       ) : vacioTotal ? (
         <EmptyState
@@ -263,12 +270,4 @@ function textoDelSigno(unidades: bigint): string {
   if (unidades > 0n) return 'Te sobran';
   if (unidades < 0n) return 'Te faltan';
   return 'Ni te sobra ni te falta';
-}
-
-/** Sube a la pantalla el fallo del presupuesto cuando cambia (un solo sitio
- * que consulta el checklist reporta, aunque el panel lo consulte también). */
-function useSubirFallo(fallo: boolean, avisar?: (fallo: boolean) => void) {
-  useEffect(() => {
-    avisar?.(fallo);
-  }, [fallo, avisar]);
 }

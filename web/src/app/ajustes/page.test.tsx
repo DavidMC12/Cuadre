@@ -50,7 +50,7 @@ describe("Ajustes: mismo bloque de fallo que el resto de la app", () => {
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "No pudimos cargar tus ajustes. Puede ser que el servidor esté dormido."
+        "No pudimos cargar tus ajustes. Revisa tu conexión y vuelve a intentarlo."
       )
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
@@ -126,5 +126,20 @@ describe("Ajustes: mismo bloque de fallo que el resto de la app", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText("Reintentar")).not.toBeInTheDocument();
     expect(screen.getByText("Sam")).toBeInTheDocument();
+  });
+
+  it("una consulta pausada sin red dice 'Sin conexión' en vez de un esqueleto eterno", () => {
+    ajustarPerfil({ isPending: true, isPaused: true });
+
+    render(<PaginaAjustes />);
+
+    expect(
+      screen.getByText(
+        "Sin conexión: no pudimos cargar tus ajustes. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    // El esqueleto no se queda pegado.
+    expect(document.querySelector(".animate-pulse")).toBeNull();
   });
 });

@@ -5,18 +5,21 @@ import { Plus, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
-import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
+import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
 import { CuentaCard } from "@/components/cuentas/cuenta-card";
 import { FormularioCuenta } from "@/components/cuentas/formulario-cuenta";
 import { useCuentas } from "@/hooks/use-cuentas";
 import { agruparCuentasPorMoneda } from "@/lib/agrupar-cuentas";
 
 export default function PaginaCuentas() {
-  const { data: cuentas, isLoading, isError, error, isFetching, refetch } = useCuentas();
+  const { data: cuentas, isLoading, isError, error, isFetching, isPaused, refetch } = useCuentas();
 
-  // Un fallo no es "no tienes cuentas": mientras no haya nada que mostrar, se
-  // dice. Con datos ya en memoria (un refetch fallido) se siguen mostrando.
-  const fallo = isError && !cuentas;
+  // Un fallo no es "no tienes cuentas", y una consulta pausada sin red tampoco:
+  // mientras no haya nada que mostrar, se dice. Con datos ya en memoria (un
+  // refetch fallido) se siguen mostrando.
+  const estado = estadoDeConsulta({ data: cuentas, isError, isPaused, isLoading });
+  const fallo = estado === "fallo";
+  const pausada = estado === "pausada";
 
   const grupos = agruparCuentasPorMoneda(cuentas ?? []);
   // Con una sola moneda el encabezado no dice nada que la pantalla ya no
@@ -52,16 +55,21 @@ export default function PaginaCuentas() {
       {fallo && (
         <FalloConsulta
           etiquetaBoton="Reintentar cuentas"
-          mensaje={mensajeDeFallo(
-            error,
-            "No pudimos cargar tus cuentas. Puede ser que el servidor esté dormido."
-          )}
+          mensaje={mensajeDeFallo(error, mensajeDeCargaFallida("tus cuentas"))}
           reintento={isFetching}
           onReintentar={() => refetch()}
         />
       )}
 
-      {!isLoading && !fallo && cuentas && cuentas.length === 0 && (
+      {pausada && (
+        <FalloConsulta
+          etiquetaBoton="Reintentar cuentas"
+          mensaje={mensajeSinConexion("tus cuentas")}
+          onReintentar={() => refetch()}
+        />
+      )}
+
+      {!isLoading && !fallo && !pausada && cuentas && cuentas.length === 0 && (
         <EmptyState
           Icono={Wallet}
           titulo="Todavía no tienes cuentas"

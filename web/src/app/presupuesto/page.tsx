@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
-import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
+import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
 import { SelectorMes } from "@/components/dashboard/selector-mes";
 import { PanelPresupuesto } from "@/components/presupuesto/panel-presupuesto";
 import { useMonedas } from "@/hooks/use-reportes";
@@ -36,6 +36,7 @@ export default function PaginaPresupuesto() {
     isLoading,
     isError,
     error,
+    isPaused,
     isFetching,
     refetch,
   } = useMonedas();
@@ -51,6 +52,19 @@ export default function PaginaPresupuesto() {
     );
   }
 
+  // Una consulta pausada sin red no es "aún no tienes presupuesto": se dice.
+  if (estadoDeConsulta({ data: monedas, isError, isPaused, isLoading }) === "pausada") {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-xl font-semibold">Presupuesto</h1>
+        <FalloConsulta
+          mensaje={mensajeSinConexion("las monedas")}
+          onReintentar={() => refetch()}
+        />
+      </div>
+    );
+  }
+
   // Un fallo de red no es "aún no tienes presupuesto": se dice y se ofrece
   // reintentar.
   if (isError && !monedas) {
@@ -58,10 +72,7 @@ export default function PaginaPresupuesto() {
       <div className="flex flex-col gap-4">
         <h1 className="text-xl font-semibold">Presupuesto</h1>
         <FalloConsulta
-          mensaje={mensajeDeFallo(
-            error,
-            "No pudimos cargar las monedas. Puede ser que el servidor esté dormido."
-          )}
+          mensaje={mensajeDeFallo(error, mensajeDeCargaFallida("las monedas"))}
           reintento={isFetching}
           onReintentar={() => refetch()}
         />

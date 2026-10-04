@@ -24,7 +24,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { EmptyState } from "@/components/empty-state";
-import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
+import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
 import { PanelPresupuesto } from "@/components/presupuesto/panel-presupuesto";
 import { CuantoMeSobra } from "@/components/dashboard/cuanto-me-sobra";
 import { SelectorMes } from "@/components/dashboard/selector-mes";
@@ -49,10 +49,16 @@ export default function PaginaResumen() {
   const [tipoCategoria, setTipoCategoria] = useState<TipoCategoria>("expense");
   const [mesesTendencia, setMesesTendencia] = useState<6 | 12>(6);
   const pantallaAncha = usePantallaAncha();
-  // El fallo del presupuesto lo reporta `CuantoMeSobra` (una sola vez, aunque
-  // el panel lo consulte también): la página lo usa para componer el anuncio
-  // único y para que ningún bloque se quede sin voz.
-  const [falloChecklist, setFalloChecklist] = useState(false);
+  // El presupuesto no legible (un fallo o una consulta pausada sin red) lo
+  // reporta `CuantoMeSobra` (una sola vez, aunque el panel lo consulte
+  // también): la página lo usa para componer el anuncio único y para que
+  // ningún bloque se quede sin voz.
+  const [presupuestoNoLeible, setPresupuestoNoLeible] = useState(false);
+  // Las gráficas "Por categoría" y "Ahorro" consultan adentro de sus
+  // componentes: si no reportaran, dos caídas de la misma causa dispararían dos
+  // alertas. Igual que el presupuesto, cada una sube si no se pudo leer.
+  const [porCategoriaNoLeible, setPorCategoriaNoLeible] = useState(false);
+  const [ahorroNoLeible, setAhorroNoLeible] = useState(false);
 
   // Quien eligió abrir en otra pantalla se va de aquí antes de que esto pinte.
   const yendoseAOtraPantalla = useIrAPantallaDeInicio();
@@ -61,6 +67,7 @@ export default function PaginaResumen() {
     data: monedas,
     isLoading: cargandoMonedas,
     isError: errorMonedas,
+    isPaused: pausaMonedas,
     error: porqueFalloMonedas,
     isFetching: recargandoMonedas,
     refetch: recargarMonedas,
@@ -71,6 +78,7 @@ export default function PaginaResumen() {
     data: cuentas,
     isLoading: cargandoCuentas,
     isError: errorCuentas,
+    isPaused: pausaCuentas,
     error: porqueFalloCuentas,
     isFetching: recargandoCuentas,
     refetch: recargarCuentas,
@@ -89,6 +97,7 @@ export default function PaginaResumen() {
     data: resumen,
     isLoading: cargandoResumen,
     isError: errorResumen,
+    isPaused: pausaResumen,
     error: porqueFalloResumen,
     isFetching: recargandoResumen,
     refetch: recargarResumen,
@@ -100,6 +109,7 @@ export default function PaginaResumen() {
     data: tendencia,
     isLoading: cargandoTendencia,
     isError: errorTendencia,
+    isPaused: pausaTendencia,
     error: porqueFalloTendencia,
     isFetching: recargandoTendencia,
     refetch: recargarTendencia,
@@ -108,29 +118,58 @@ export default function PaginaResumen() {
     currency: moneda ?? "",
   });
 
-  // Un fallo no es un dato: si una consulta no se pudo leer, no hay cifra que
-  // mostrar. Con datos viejos en la memoria se siguen mostrando esos (stale,
-  // no falsos); aquí importan solo los casos en que no hay nada que mostrar.
-  const falloMonedas = errorMonedas && !monedas;
-  const falloCuentas = errorCuentas && !cuentas;
-  const falloResumen = errorResumen && !resumen;
-  const falloTendencia = errorTendencia && !tendencia;
+  // La política única de cada consulta: un fallo sin datos o una consulta
+  // pausada (sin red) sin datos no son un vacío ni un esqueleto.
+  const estadoMonedas = estadoDeConsulta({
+    data: monedas,
+    isError: errorMonedas,
+    isPaused: pausaMonedas,
+    isLoading: cargandoMonedas,
+  });
+  const estadoCuentas = estadoDeConsulta({
+    data: cuentas,
+    isError: errorCuentas,
+    isPaused: pausaCuentas,
+    isLoading: cargandoCuentas,
+  });
+  const estadoResumen = estadoDeConsulta({
+    data: resumen,
+    isError: errorResumen,
+    isPaused: pausaResumen,
+    isLoading: cargandoResumen,
+  });
+  const estadoTendencia = estadoDeConsulta({
+    data: tendencia,
+    isError: errorTendencia,
+    isPaused: pausaTendencia,
+    isLoading: cargandoTendencia,
+  });
 
-  // Los fallos que esta pantalla conoce: los tres de sus propias consultas y
-  // el del presupuesto, que sube `CuantoMeSobra` (el panel consulta lo mismo;
-  // que lo reporte un solo bloque evita contarlo dos veces). Con dos o más
-  // caídas a la vez, cada bloque con su propia `role="alert"` sería una
-  // tormenta para quien escucha la pantalla: el anuncio pasa a ser uno solo,
-  // aquí abajo, y los bloques bajan a `role="group"`. Con un solo fallo se
-  // sigue anunciando él, como siempre.
-  //
-  // Lo que la composición no cubre, a sabiendas: si SOLO fallan consultas que
-  // viven adentro de sus componentes sin reportar (por categoría + ahorro),
-  // esos bloques siguen siendo alerta cada uno — una tormenta de dos, y
-  // necesita que dos endpoints independientes caigan juntos mientras el resto
-  // sirve.
+  const falloMonedas = estadoMonedas === "fallo";
+  const pausadaMonedas = estadoMonedas === "pausada";
+  const falloCuentas = estadoCuentas === "fallo";
+  const pausadaCuentas = estadoCuentas === "pausada";
+  const falloResumen = estadoResumen === "fallo";
+  const pausadaResumen = estadoResumen === "pausada";
+  const falloTendencia = estadoTendencia === "fallo";
+  const pausadaTendencia = estadoTendencia === "pausada";
+
+  // Los fallos que esta pantalla conoce: las cuatro consultas propias
+  // (incluidas las que quedaron pausadas sin red) y las que viven adentro de
+  // otros bloques y suben su estado — el presupuesto (`CuantoMeSobra`), el
+  // desglose por categoría y el ahorro. Con dos o más caídas a la vez, cada
+  // bloque con su propia `role="alert"` sería una tormenta para quien escucha
+  // la pantalla: el anuncio pasa a ser uno solo, aquí abajo, y los bloques
+  // bajan a `role="group"`. Con un solo fallo se sigue anunciando él.
   const componenFallosConPresupuesto =
-    [falloCuentas, falloResumen, falloTendencia, falloChecklist].filter(Boolean).length >= 2;
+    [
+      falloCuentas || pausadaCuentas,
+      falloResumen || pausadaResumen,
+      falloTendencia || pausadaTendencia,
+      presupuestoNoLeible,
+      porCategoriaNoLeible,
+      ahorroNoLeible,
+    ].filter(Boolean).length >= 2;
   if (cargandoMonedas || yendoseAOtraPantalla) {
     return (
       <div className="flex flex-col gap-4">
@@ -142,19 +181,20 @@ export default function PaginaResumen() {
     );
   }
 
-  // La consulta de monedas no pudo cargar: decirlo y ofrecer reintentar.
-  // Mostrar aquí el "Todavía no hay nada que resumir" diría que la CUA no
-  // empezó cuando quizá el problema es la conexión.
-  if (falloMonedas) {
+  // La consulta de monedas no pudo cargar, o quedó pausada sin red: decirlo y
+  // ofrecer reintentar. Mostrar aquí el "Todavía no hay nada que resumir"
+  // diría que la CUENTA no empezó cuando quizá el problema es la conexión.
+  if (falloMonedas || pausadaMonedas) {
     return (
       <div className="flex flex-col gap-4">
         <h1 className="text-xl font-semibold">Resumen</h1>
         <FalloConsulta
           etiquetaBoton="Reintentar monedas"
-          mensaje={mensajeDeFallo(
-            porqueFalloMonedas,
-            "No pudimos cargar las monedas. Puede ser que el servidor esté dormido."
-          )}
+          mensaje={
+            pausadaMonedas
+              ? mensajeSinConexion("las monedas")
+              : mensajeDeFallo(porqueFalloMonedas, mensajeDeCargaFallida("las monedas"))
+          }
           reintento={recargandoMonedas}
           onReintentar={() => recargarMonedas()}
         />
@@ -247,14 +287,16 @@ export default function PaginaResumen() {
       )}
 
       <div className={cn("grid gap-5", !falloCuentas && ahorroEnMoneda && "sm:grid-cols-2")}>
-        {/* Sin datos de cuentas no se suma: el "Tienes" no se inventa un cero. */}
-        {falloCuentas ? (
+        {/* Sin datos de cuentas no se suma: el "Tienes" no se inventa un cero;
+            y sin red y sin datos se dice "sin conexión" en vez de un cero. */}
+        {falloCuentas || pausadaCuentas ? (
           <FalloConsulta
             etiquetaBoton="Reintentar cuentas"
-            mensaje={mensajeDeFallo(
-              porqueFalloCuentas,
-              "No pudimos cargar tus cuentas. Puede ser que el servidor esté dormido."
-            )}
+            mensaje={
+              pausadaCuentas
+                ? mensajeSinConexion("tus cuentas")
+                : mensajeDeFallo(porqueFalloCuentas, mensajeDeCargaFallida("tus cuentas"))
+            }
             reintento={recargandoCuentas}
             onReintentar={() => recargarCuentas()}
             // Basta con que OTRO fallo conviva: este bloque deja de anunciar
@@ -279,12 +321,14 @@ export default function PaginaResumen() {
         cargando={cargandoResumen}
         compartePantalla={componenFallosConPresupuesto}
         fallo={
-          falloResumen
+          falloResumen || pausadaResumen
             ? {
-                mensaje: mensajeDeFallo(
-                  porqueFalloResumen,
-                  "No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido."
-                ),
+                mensaje: pausadaResumen
+                  ? mensajeSinConexion("el resumen del mes")
+                  : mensajeDeFallo(
+                      porqueFalloResumen,
+                      mensajeDeCargaFallida("el resumen del mes")
+                    ),
                 reintento: recargandoResumen,
                 onReintentar: () => recargarResumen(),
                 etiquetaBoton: "Reintentar resumen",
@@ -317,7 +361,7 @@ export default function PaginaResumen() {
             variante="suelta"
             compartePantalla={componenFallosConPresupuesto}
             anunciaPresupuesto={!pantallaAncha}
-            onFalloPresupuesto={setFalloChecklist}
+            onFalloPresupuesto={setPresupuestoNoLeible}
           />
         </section>
       )}
@@ -339,6 +383,7 @@ export default function PaginaResumen() {
               // No sabe cuál otro falló ni hace falta: si cualquier otro
               // fallo convive, el suyo deja de anunciar solo.
               compartePantalla={componenFallosConPresupuesto}
+              onNoLeible={setPorCategoriaNoLeible}
             />
           </CardContent>
         </Card>
@@ -369,12 +414,14 @@ export default function PaginaResumen() {
               cargando={cargandoTendencia}
               compartePantalla={componenFallosConPresupuesto}
               fallo={
-                falloTendencia
+                falloTendencia || pausadaTendencia
                   ? {
-                      mensaje: mensajeDeFallo(
-                        porqueFalloTendencia,
-                        "No pudimos cargar la tendencia. Puede ser que el servidor esté dormido."
-                      ),
+                      mensaje: pausadaTendencia
+                        ? mensajeSinConexion("la tendencia")
+                        : mensajeDeFallo(
+                            porqueFalloTendencia,
+                            mensajeDeCargaFallida("la tendencia")
+                          ),
                       reintento: recargandoTendencia,
                       onReintentar: () => recargarTendencia(),
                       etiquetaBoton: "Reintentar tendencia",
@@ -399,6 +446,7 @@ export default function PaginaResumen() {
               months={mesesTendencia}
               currency={moneda ?? ""}
               compartePantalla={componenFallosConPresupuesto}
+              onNoLeible={setAhorroNoLeible}
             />
           </CardContent>
         </Card>

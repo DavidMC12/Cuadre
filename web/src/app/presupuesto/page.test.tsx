@@ -53,7 +53,7 @@ describe("Página Presupuesto: casa propia del checklist", () => {
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "No pudimos cargar las monedas. Puede ser que el servidor esté dormido."
+        "No pudimos cargar las monedas. Revisa tu conexión y vuelve a intentarlo."
       )
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
@@ -95,5 +95,20 @@ describe("Página Presupuesto: casa propia del checklist", () => {
 
     const disparador = screen.getByRole("combobox");
     expect(disparador.classList.contains("h-11")).toBe(true);
+  });
+
+  it("una consulta pausada sin red no se disfraza de 'aún no hay nada por revisar'", () => {
+    ajustarMonedas({ data: undefined, isPaused: true });
+
+    render(<PaginaPresupuesto />);
+
+    expect(
+      screen.getByText(
+        "Sin conexión: no pudimos cargar las monedas. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Aún no hay nada por revisar")).not.toBeInTheDocument();
+    // Sin moneda no se monta el panel.
+    expect(screen.queryByText("panel-de-presupuesto")).not.toBeInTheDocument();
   });
 });

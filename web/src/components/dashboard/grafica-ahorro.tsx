@@ -14,8 +14,9 @@ import {
 } from "recharts";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
+import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
 import { useAhorroMensual } from "@/hooks/use-reportes";
+import { useSubirNoLeible } from "@/hooks/use-subir-no-leible";
 import { etiquetaMes, etiquetaMesCorta } from "@/lib/fecha";
 import { sumarMontos, textoMonto } from "@/lib/money";
 import { colorPorSigno, modoDeTema } from "@/lib/chart-colors";
@@ -60,12 +61,17 @@ export function GraficaAhorro({
   months,
   currency,
   compartePantalla,
+  onNoLeible,
 }: {
   months: number;
   currency: string;
   /** `true` cuando otros fallos conviven en la misma pantalla: el bloque
    * deja de anunciar solo: la pantalla compone el anuncio único (role="status") o queda un solo alert hablando por todos. */
   compartePantalla?: boolean;
+  /** Avisa a la pantalla si esta consulta no se pudo leer (fallo o pausa sin
+   * red), para que la composición del anuncio único la cuente y no queden dos
+   * voces compitiendo. */
+  onNoLeible?: (noLeible: boolean) => void;
 }) {
   const { resolvedTheme } = useTheme();
   const modo = modoDeTema(resolvedTheme);
@@ -74,21 +80,35 @@ export function GraficaAhorro({
     isLoading,
     isError,
     error,
+    isPaused,
     isFetching,
     refetch,
   } = useAhorroMensual({ months, currency });
 
-  // La consulta del ahorro no se pudo leer: no es lo mismo que una cuenta
-  // de ahorro quieta. Se dice y se ofrece reintentar.
-  if (isError && !ahorro && !isLoading) {
+  const estado = estadoDeConsulta({ data: ahorro, isError, isPaused, isLoading });
+  const noLeible = estado === "fallo" || estado === "pausada";
+
+  useSubirNoLeible(noLeible, onNoLeible);
+
+  // La consulta del ahorro no se pudo leer, o quedó pausada sin red: no es lo
+  // mismo que una cuenta de ahorro quieta. Se dice y se ofrece reintentar.
+  if (estado === "fallo") {
     return (
       <FalloConsulta
         etiquetaBoton="Reintentar ahorro"
-        mensaje={mensajeDeFallo(
-          error,
-          "No pudimos cargar el ahorro. Puede ser que el servidor esté dormido."
-        )}
+        mensaje={mensajeDeFallo(error, mensajeDeCargaFallida("el ahorro"))}
         reintento={isFetching}
+        onReintentar={() => refetch()}
+        compartePantalla={compartePantalla}
+      />
+    );
+  }
+
+  if (estado === "pausada") {
+    return (
+      <FalloConsulta
+        etiquetaBoton="Reintentar ahorro"
+        mensaje={mensajeSinConexion("el ahorro")}
         onReintentar={() => refetch()}
         compartePantalla={compartePantalla}
       />

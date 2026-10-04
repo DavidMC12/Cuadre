@@ -5,9 +5,10 @@ import { useTheme } from "next-themes";
 
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
+import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
 import { useCategorias } from "@/hooks/use-categorias";
 import { usePorCategoria } from "@/hooks/use-reportes";
+import { useSubirNoLeible } from "@/hooks/use-subir-no-leible";
 import type { TipoCategoria } from "@/lib/api/types";
 import { textoMonto, sumarMontos } from "@/lib/money";
 import { mapaColoresCategoriasDelCatalogo, COLOR_NEUTRO, modoDeTema } from "@/lib/chart-colors";
@@ -40,6 +41,7 @@ export function GraficaPorCategoria({
   tipo,
   onCambiarTipo,
   compartePantalla,
+  onNoLeible,
 }: {
   mes: string;
   moneda: string;
@@ -48,6 +50,10 @@ export function GraficaPorCategoria({
   /** `true` cuando otros fallos conviven en la misma pantalla: el bloque
    * deja de anunciar solo: la pantalla compone el anuncio único (role="status") o queda un solo alert hablando por todos. */
   compartePantalla?: boolean;
+  /** Avisa a la pantalla si esta consulta no se pudo leer (fallo o pausa sin
+   * red), para que la composición del anuncio único la cuente y no queden dos
+   * voces compitiendo. */
+  onNoLeible?: (noLeible: boolean) => void;
 }) {
   const { resolvedTheme } = useTheme();
   const modo = modoDeTema(resolvedTheme);
@@ -61,6 +67,7 @@ export function GraficaPorCategoria({
     isLoading,
     isError,
     error,
+    isPaused,
     isFetching,
     refetch,
   } = usePorCategoria({
@@ -123,9 +130,15 @@ export function GraficaPorCategoria({
 
   const valorMaximo = Math.max(1, ...datos.map((fila) => fila.valorNumerico));
 
-  // La consulta no se pudo leer: no es lo mismo que "no hubo gastos este
-  // mes" — eso solo el servidor lo puede decir, y aquí no contestó.
-  const falloDeConsulta = isError && !porCategoria && !isLoading;
+  // La consulta no se pudo leer, o quedó pausada sin red: no es lo mismo que
+  // "no hubo gastos este mes" — eso solo el servidor lo puede decir.
+  const estado = estadoDeConsulta({ data: porCategoria, isError, isPaused, isLoading });
+  const falloDeConsulta = estado === "fallo";
+  const pausada = estado === "pausada";
+
+  useSubirNoLeible(falloDeConsulta || pausada, onNoLeible);
+
+  const nombreDeLoQueFalta = tipo === "expense" ? "los gastos por categoría" : "los ingresos por categoría";
 
   return (
     <div className="flex flex-col gap-3">
@@ -151,11 +164,17 @@ export function GraficaPorCategoria({
       {falloDeConsulta && (
         <FalloConsulta
           etiquetaBoton="Reintentar por categoría"
-          mensaje={mensajeDeFallo(
-            error,
-            `No pudimos cargar los ${tipo === "expense" ? "gastos" : "ingresos"} por categoría. Puede ser que el servidor esté dormido.`
-          )}
+          mensaje={mensajeDeFallo(error, mensajeDeCargaFallida(nombreDeLoQueFalta))}
           reintento={isFetching}
+          onReintentar={() => refetch()}
+          compartePantalla={compartePantalla}
+        />
+      )}
+
+      {pausada && (
+        <FalloConsulta
+          etiquetaBoton="Reintentar por categoría"
+          mensaje={mensajeSinConexion(nombreDeLoQueFalta)}
           onReintentar={() => refetch()}
           compartePantalla={compartePantalla}
         />
@@ -169,13 +188,13 @@ export function GraficaPorCategoria({
         </div>
       )}
 
-      {!isLoading && !falloDeConsulta && datos.length === 0 && (
+      {!isLoading && !falloDeConsulta && !pausada && datos.length === 0 && (
         <p className="py-6 text-center text-sm text-muted-foreground">
           {tipo === "expense" ? "Sin gastos este mes." : "Sin ingresos este mes."}
         </p>
       )}
 
-      {!isLoading && !falloDeConsulta && datos.length > 0 && (
+      {!isLoading && !falloDeConsulta && !pausada && datos.length > 0 && (
         <div className="flex flex-col gap-2.5">
           {datos.map((fila) => {
             const porcentaje = Math.max((fila.valorNumerico / valorMaximo) * 100, 4);

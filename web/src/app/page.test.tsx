@@ -67,6 +67,7 @@ interface Stub {
   data?: unknown;
   isLoading?: boolean;
   isError?: boolean;
+  isPaused?: boolean;
   error?: unknown;
   isFetching?: boolean;
   refetch?: () => void;
@@ -138,7 +139,7 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "No pudimos cargar las monedas. Puede ser que el servidor esté dormido."
+        "No pudimos cargar las monedas. Revisa tu conexión y vuelve a intentarlo."
       )
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Reintentar/ })).toBeInTheDocument();
@@ -171,6 +172,51 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     expect(screen.queryByText("Reintentar")).not.toBeInTheDocument();
   });
 
+  it("si la consulta de monedas queda pausada sin red, no se disfraza de 'nada que resumir'", () => {
+    const recargar = vi.fn();
+    ajustar({ deMonedas: { data: undefined, isPaused: true, refetch: recargar } });
+
+    render(<PaginaResumen />);
+
+    // Falla si el Resumen vuelve a mostrar el vacío con la consulta pausada.
+    expect(
+      screen.getByText(
+        "Sin conexión: no pudimos cargar las monedas. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Todavía no hay nada que resumir")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar monedas" }));
+    expect(recargar).toHaveBeenCalledTimes(1);
+  });
+
+  it("con varias consultas pausadas por la misma causa, una sola voz (nada de tormenta de alertas)", () => {
+    ajustar({
+      deCuentas: { data: undefined, isPaused: true },
+      deResumen: { data: undefined, isPaused: true },
+    });
+
+    render(<PaginaResumen />);
+
+    // Ningún bloque interrumpe por su cuenta: la pantalla compone el anuncio.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(
+      screen
+        .getByText(
+          "Sin conexión: no pudimos cargar tus cuentas. Revisa tu conexión y vuelve a intentarlo."
+        )
+        .closest('[role="group"]')
+    ).not.toBeNull();
+    expect(
+      screen
+        .getByText(
+          "Sin conexión: no pudimos cargar el resumen del mes. Revisa tu conexión y vuelve a intentarlo."
+        )
+        .closest('[role="group"]')
+    ).not.toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent(/Varias partes del Resumen no cargaron/);
+  });
+
   it("si la consulta del resumen falla, no pinta $0 en Ingresos/Gastos/Balance: muestra error y Reintentar", () => {
     const recargar = vi.fn();
     ajustar({
@@ -186,7 +232,7 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
 
     expect(
       screen.getByText(
-        "No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido."
+        "No pudimos cargar el resumen del mes. Revisa tu conexión y vuelve a intentarlo."
       )
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Reintentar/ })).toBeInTheDocument();
@@ -247,12 +293,12 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     // fallo se busca por su mensaje.)
     expect(
       screen
-        .getByText("No pudimos cargar tus cuentas. Puede ser que el servidor esté dormido.")
+        .getByText("No pudimos cargar tus cuentas. Revisa tu conexión y vuelve a intentarlo.")
         .closest('[role="group"]')
     ).not.toBeNull();
     expect(
       screen
-        .getByText("No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido.")
+        .getByText("No pudimos cargar el resumen del mes. Revisa tu conexión y vuelve a intentarlo.")
         .closest('[role="group"]')
     ).not.toBeNull();
     expect(screen.getByRole("status")).toHaveTextContent(
@@ -291,7 +337,7 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     // maqueteada; sus dos compañeros bastan para fijar la política.
     expect(
       screen
-        .getByText("No pudimos cargar el resumen del mes. Puede ser que el servidor esté dormido.")
+        .getByText("No pudimos cargar el resumen del mes. Revisa tu conexión y vuelve a intentarlo.")
         .closest('[role="group"]')
     ).not.toBeNull();
   });

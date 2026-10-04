@@ -265,6 +265,20 @@ describe('CuantoMeSobra', () => {
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy();
   });
 
+  it('una consulta pausada sin nada en mano no se disfraza del vacío', () => {
+    ajustar({ isPaused: true }, { isPaused: true });
+
+    render(<CuantoMeSobra mes={mesActual()} moneda="COP" />);
+
+    // Falla si el cuadrito cae al vacío "Aún no hay presupuesto" estando pausado.
+    expect(screen.getByText(/Sin conexión/)).toBeTruthy();
+    expect(screen.queryByText(/Aún no hay presupuesto/)).toBeNull();
+    // El "Reintentar" de recuperación mide 44px.
+    expect(screen.getByRole('button', { name: 'Reintentar' }).classList.contains('min-h-11')).toBe(
+      true,
+    );
+  });
+
   it('una consulta pausada con datos ya en mano sigue mostrando las cifras', () => {
     ajustar(
       {
@@ -347,6 +361,19 @@ describe('CuantoMeSobra', () => {
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByRole('group')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Reintentar presupuesto' })).toBeTruthy();
+  });
+
+  it('en pantalla ancha, una pausa del presupuesto cede el anuncio al panel', () => {
+    // `anunciaPresupuesto={false}` es el caso de xl: el panel del presupuesto
+    // es quien anuncia, así que el cuadrito no puede disparar su propia alerta
+    // por la MISMA consulta pausada.
+    ajustar({ isPaused: true }, { data: resumenDe('0', '0') });
+
+    render(<CuantoMeSobra mes={mesActual()} moneda="COP" anunciaPresupuesto={false} />);
+
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('group')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy();
   });
 
   it('el mes futuro se anuncia igual: el previsto es una promesa', () => {
