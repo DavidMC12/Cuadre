@@ -283,6 +283,22 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   fallo SOLO del resumen del mes se anuncia dos veces (`ResumenCards` y "me
   sobra" consultan lo mismo); es previo a este cambio y no se tocó.
 
+- **Séptima ronda de `impeccable critique`** (2026-10-04, 28/40, sin P0):
+  la hicieron los workers (evaluación de diseño + detector, dos pasadas
+  aisladas). Hueco: no hubo navegador real, porque falta `web/.env.local`
+  con `NEON_AUTH_*` y Turbopack rechaza symlinks de `node_modules` en
+  worktrees. Los dos P1 quedaron resueltos en `main`: (1) una consulta
+  pausada sin datos ya no se disfraza de "no tienes nada" en ninguna
+  pantalla (una sola política "Sin conexión", y la voz de los errores
+  renovada, sin "servidor dormido"); (2) el piso de toque de 44px llegó a
+  los controles que quedaban (Reintentar, flechas de mes, Movimientos,
+  Admin, Categorías, Cuentas, selector de moneda, etc.). También entró la
+  pista "(n) categorías cerradas" del presupuesto. No se hicieron, a
+  elección del dueño o por quedar anotados: el signo del ahorro solo se
+  distingue por color (`grafica-ahorro.tsx`), un fallo SOLO del resumen
+  se anuncia dos veces, y quedan candidatos a 44px (ojo de contraseña,
+  `SelectTrigger` de filtros, "Cargar más", "Más detalles").
+
 Pendiente, sin fecha: otra ronda de `impeccable critique` más adelante
 para medir el puntaje tras estos arreglos.
 
