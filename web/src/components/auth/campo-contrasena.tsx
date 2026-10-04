@@ -53,7 +53,7 @@ export function CampoContrasena({
           aria-invalid={invalido}
           required
           autoFocus={autoFocus}
-          className="h-10 pr-10"
+          className="h-11 pr-10"
         />
         <button
           type="button"

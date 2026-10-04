@@ -164,7 +164,7 @@ export function CategoriaItem({ categoria }: { categoria: Categoria }) {
         // fácil archivar por error al querer renombrar (o al revés). Sin
         // `data-icon`: esa marca angosta el relleno de un lado y compite
         // con el `px-3` de acá, dejando el botón dispar.
-        className="h-10 shrink-0 gap-1.5 px-3"
+        className="h-11 shrink-0 gap-1.5 px-3"
         onClick={alternarArchivo}
         disabled={enProceso}
       >

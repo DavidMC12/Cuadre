@@ -99,7 +99,7 @@ export default function PaginaAdmin() {
           titulo="Esta parte no es para ti"
           descripcion="Solo quien administra el sistema puede entrar aquí."
         >
-          <Button type="button" variant="outline" size="sm" onClick={() => router.push("/ajustes")}>
+          <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => router.push("/ajustes")}>
             Volver a Ajustes
           </Button>
         </EmptyState>
@@ -188,7 +188,7 @@ export default function PaginaAdmin() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="shrink-0"
+                    className="min-h-11 shrink-0"
                     onClick={() => entrarComo(persona)}
                     disabled={suplantar.isPending}
                   >
