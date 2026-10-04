@@ -34,7 +34,7 @@ export default function PaginaCuentas() {
           {/* Sin `data-icon`: esa marca le da al botón un relleno más
               angosto del lado del ícono, y acá compite con `px-4` — el
               botón queda con menos aire de un lado que del otro. */}
-          <Button size="sm" className="h-10 gap-1.5 px-4">
+          <Button size="sm" className="h-11 gap-1.5 px-4">
             <Plus />
             Nueva
           </Button>
@@ -76,7 +76,7 @@ export default function PaginaCuentas() {
           descripcion="Crea la primera para empezar a registrar tus movimientos."
         >
           <FormularioCuenta>
-            <Button size="sm" className="mt-1">
+            <Button size="sm" className="mt-1 min-h-11">
               <Plus data-icon="inline-start" />
               Crear cuenta
             </Button>

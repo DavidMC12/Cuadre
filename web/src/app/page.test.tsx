@@ -431,3 +431,30 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
+
+describe("Resumen: piso de toque de 44px", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ventanaAncha = false;
+    ajustar({});
+  });
+  afterEach(cleanup);
+
+  it('el trigger "Presupuesto" del móvil lleva el piso de toque', () => {
+    // Séptima critique: el DrawerTrigger del cajón era size="sm" a 28px.
+    render(<PaginaResumen />);
+
+    const trigger = screen.getByRole("button", { name: /Presupuesto/ });
+    expect(trigger.classList.contains("min-h-11")).toBe(true);
+  });
+
+  it("el selector de moneda lleva el piso de toque de 44px", () => {
+    // El trigger está pegado a un bloque redondeado con el mes: la clase
+    // h-11 sube el objetivo al piso sin romper la franja.
+    ajustar({ deMonedas: { data: ["COP", "USD"] } });
+    render(<PaginaResumen />);
+
+    const disparador = screen.getByRole("combobox");
+    expect(disparador.classList.contains("min-h-11")).toBe(true);
+  });
+});

@@ -10,10 +10,15 @@ import type { Cuenta, Movimiento } from "@/lib/api/types";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => searchParams.url,
 }));
 
 const { anularMutate } = vi.hoisted(() => ({ anularMutate: vi.fn() }));
+const { searchParams, CATEGORIA_FILTRO } = vi.hoisted(() => ({
+  searchParams: { url: new URLSearchParams() },
+  // El filtro de la URL exige un UUID válido; una invención lo descarta.
+  CATEGORIA_FILTRO: "11111111-1111-4111-8111-111111111111",
+}));
 
 vi.mock("@/hooks/use-movimientos", () => ({
   useMovimientos: vi.fn(),
@@ -346,5 +351,57 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
     );
     expect(cuentasDelFormulario).toContain("a-activa");
     expect(cuentasDelFormulario).not.toContain("a-vieja");
+  });
+});
+
+describe("Movimientos: piso de toque de 44px", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // El searchParam es el mismo objeto hoisted para todo el archivo: sin
+    // esta línea, el filtro activo de una prueba se cuela en la otra.
+    searchParams.url = new URLSearchParams();
+    ajustar({ data: [] });
+  });
+  afterEach(cleanup);
+
+  it('el botón "Quitar filtro" del estado vacío lleva el piso de toque', () => {
+    // Séptima critique: era size="sm" (28px) dentro del EmptyState. El
+    // estado vacío con filtro necesita la categoría activa existente.
+    searchParams.url = new URLSearchParams(`categoria=${CATEGORIA_FILTRO}`);
+    vi.mocked(useCategoriasModule.useCategorias).mockReturnValue({
+      isLoading: false,
+      refetch: vi.fn(),
+      data: [{ id: CATEGORIA_FILTRO, name: "Mercado", kind: "expense", archivedAt: null }],
+    } as never);
+    render(<PaginaMovimientos />);
+
+    expect(screen.getByRole("button", { name: "Quitar filtro" }).className).toContain(
+      "min-h-11"
+    );
+  });
+
+  it('el botón "Registrar movimiento" del pie lleva el piso de toque', () => {
+    // Con cuentas el mes vacío muestra el cajón con su botón Registrar.
+    const [cuenta] = [
+      {
+        id: "cta-1",
+        name: "Bancolombia",
+        type: "bank",
+        currency: "COP",
+        balance: "1000000",
+        movementCount: 0,
+        lastMovementAt: null,
+        archivedAt: null,
+        isSavings: false,
+        creditLimit: null,
+        linkedAccountId: null,
+      } as unknown as Cuenta,
+    ];
+    ajustar({ data: [] }, [cuenta]);
+    render(<PaginaMovimientos />);
+
+    const registrar = screen.getByRole("button", { name: /Registrar movimiento/ });
+    expect(registrar.className).toContain("min-h-11");
+    expect(registrar.className).toContain("mt-1");
   });
 });

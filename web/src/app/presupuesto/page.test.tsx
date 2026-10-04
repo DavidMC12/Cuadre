@@ -87,6 +87,16 @@ describe("Página Presupuesto: casa propia del checklist", () => {
     expect(screen.queryByText("Mostrando")).not.toBeInTheDocument();
   });
 
+  it("el selector de moneda lleva el piso de toque de 44px", () => {
+    // Séptima critique: con dos monedas el SelectTrigger size="sm" medía 28px.
+    ajustarMonedas({ data: ["COP", "USD"] });
+
+    render(<PaginaPresupuesto />);
+
+    const disparador = screen.getByRole("combobox");
+    expect(disparador.classList.contains("min-h-11")).toBe(true);
+  });
+
   it("una consulta pausada sin red no se disfraza de 'aún no hay nada por revisar'", () => {
     ajustarMonedas({ data: undefined, isPaused: true });
 

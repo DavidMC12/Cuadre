@@ -64,7 +64,7 @@ export function BannerSuplantacion() {
           variant="secondary"
           onClick={volver}
           disabled={dejarDeSuplantar.isPending}
-          className="shrink-0"
+          className="min-h-11 shrink-0"
         >
           {dejarDeSuplantar.isPending ? "Saliendo…" : "Volver"}
         </Button>

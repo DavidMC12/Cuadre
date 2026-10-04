@@ -330,13 +330,13 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
                 Tienes cambios sin guardar. Si cierras ahora, se pierden.
               </p>
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setAvisoCierre(false)}>
+                <Button variant="ghost" size="sm" className="min-h-11" onClick={() => setAvisoCierre(false)}>
                   Seguir editando
                 </Button>
                 {/* No hace falta impedir el blur: con el aviso visible los
                     guardados están en pausa, así que "Descartar" descarta de
                     verdad con mouse, tacto o teclado. */}
-                <Button variant="outline" size="sm" onClick={cerrar}>
+                <Button variant="outline" size="sm" className="min-h-11" onClick={cerrar}>
                   Descartar
                 </Button>
               </div>

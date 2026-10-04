@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 
 import { FormularioMovimiento } from "./formulario-movimiento";
+import * as useCategoriasModule from "@/hooks/use-categorias";
 import type { Cuenta } from "@/lib/api/types";
 
 vi.mock("@/hooks/use-movimientos", () => ({
@@ -10,7 +11,8 @@ vi.mock("@/hooks/use-movimientos", () => ({
   useCrearTransferencia: () => ({ isPending: false, mutate: vi.fn() }),
 }));
 
-vi.mock("@/hooks/use-categorias", () => ({ useCategorias: () => ({ data: [] }) }));
+vi.mock("@/hooks/use-categorias", () => ({ useCategorias: vi.fn(() => ({ data: [] })) }));
+
 vi.mock("@/hooks/use-perfil", () => ({ useSoloMirar: () => false }));
 vi.mock("@/hooks/use-pantalla-grande", () => ({ usePantallaGrande: () => false }));
 // El selector real es un desplegable; aquí basta con ver qué valor recibió.
@@ -256,5 +258,24 @@ describe("FormularioMovimiento: la corrección conserva la cuenta original", () 
 
     expect(screen.getByLabelText("Cuenta")).toHaveTextContent("Efectivo");
     expect(document.getElementById("cuenta-archivada-aviso")).toBeNull();
+  });
+});
+
+describe("FormularioMovimiento: piso de toque de 44px", () => {
+  it("los chips rápidos de categoría llevan el piso de toque", () => {
+    // Séptima critique: los chips medían ~40px (py-2.5 sin piso). El chip
+    // entra en la 320px si sigue cabiendo: la altura sube, no el ancho.
+    vi.mocked(useCategoriasModule.useCategorias).mockReturnValue({
+      data: [
+        { id: "c-1", name: "Mercado", kind: "expense", archivedAt: null },
+        { id: "c-2", name: "Transporte", kind: "expense", archivedAt: null },
+      ],
+    } as never);
+
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+
+    const chip = screen.getByRole("button", { name: "Mercado" });
+    expect(chip.classList.contains("min-h-11")).toBe(true);
+    expect(chip.getAttribute("aria-pressed")).toBe("false");
   });
 });

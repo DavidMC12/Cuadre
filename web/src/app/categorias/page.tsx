@@ -43,7 +43,7 @@ export default function PaginaCategorias() {
           <FormularioCategoria>
             {/* Sin `data-icon`: esa marca angosta el relleno del lado del
                 ícono, y acá compite con `px-4` dejando el botón dispar. */}
-            <Button size="sm" className="h-10 gap-1.5 px-4">
+            <Button size="sm" className="h-11 gap-1.5 px-4">
               <Plus />
               Nueva
             </Button>
@@ -92,7 +92,7 @@ export default function PaginaCategorias() {
         >
           {!verArchivadas && (
             <FormularioCategoria>
-              <Button size="sm" className="mt-1">
+              <Button size="sm" className="mt-1 min-h-11">
                 <Plus data-icon="inline-start" />
                 Crear categoría
               </Button>
@@ -137,7 +137,7 @@ export default function PaginaCategorias() {
         type="button"
         variant="ghost"
         size="sm"
-        className="self-center text-muted-foreground"
+        className="min-h-11 self-center text-muted-foreground"
         onClick={() => setVerArchivadas((valor) => !valor)}
       >
         {verArchivadas ? "Ver categorías activas" : "Ver categorías archivadas"}

@@ -38,7 +38,7 @@ export function AccionRegistrar({ variante }: { variante: "flotante" | "lateral"
       ) : (
         <button
           type="button"
-          className="mb-4 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
+          className="mb-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
         >
           <Plus className="size-4" />
           Registrar
