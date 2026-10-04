@@ -22,7 +22,7 @@ afterEach(cleanup);
 
 describe("AccionRegistrar: piso de toque de 44px", () => {
   it("la variante lateral (botón entero) mide al menos 44px", () => {
-    render(<AccionRegistrar variante="cerrico" />);
+    render(<AccionRegistrar variante="lateral" />);
 
     const boton = screen.getByRole("button", { name: "Registrar" });
     expect(boton.className).toContain("min-h-11");
@@ -33,7 +33,7 @@ describe("AccionRegistrar: piso de toque de 44px", () => {
   it("la variante flotante (FAB del móvil) sigue en 56px", () => {
     render(<AccionRegistrar variante="flotante" />);
 
-    const boton = screen.getByLabel("Registrar movimiento");
+    const boton = screen.getByLabelText("Registrar movimiento");
     expect(boton.className).toContain("size-14");
   });
 });
