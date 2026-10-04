@@ -351,6 +351,7 @@ function ContenidoMovimientos() {
             type="button"
             variant="outline"
             size="sm"
+            className="min-h-11"
             onClick={() => cambiarCategoria(TODAS_LAS_CATEGORIAS)}
           >
             Quitar filtro
@@ -374,7 +375,7 @@ function ContenidoMovimientos() {
         >
           {hayCuentas && (
             <FormularioMovimiento cuentas={cuentas!}>
-              <Button size="sm" className="mt-1">
+              <Button size="sm" className="mt-1 min-h-11">
                 <Plus data-icon="inline-start" />
                 Registrar movimiento
               </Button>
