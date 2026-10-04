@@ -455,6 +455,6 @@ describe("Resumen: piso de toque de 44px", () => {
     render(<PaginaResumen />);
 
     const disparador = screen.getByRole("combobox");
-    expect(disparador.classList.contains("h-11")).toBe(true);
+    expect(disparador.classList.contains("min-h-11")).toBe(true);
   });
 });

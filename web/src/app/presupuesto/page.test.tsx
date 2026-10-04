@@ -94,7 +94,7 @@ describe("Página Presupuesto: casa propia del checklist", () => {
     render(<PaginaPresupuesto />);
 
     const disparador = screen.getByRole("combobox");
-    expect(disparador.classList.contains("h-11")).toBe(true);
+    expect(disparador.classList.contains("min-h-11")).toBe(true);
   });
 
   it("una consulta pausada sin red no se disfraza de 'aún no hay nada por revisar'", () => {
