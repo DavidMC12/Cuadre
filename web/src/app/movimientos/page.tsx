@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
-import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
+import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
 import { SelectorMes } from "@/components/dashboard/selector-mes";
 import { MovimientoItem } from "@/components/movimientos/movimiento-item";
 import { TransferenciaItem } from "@/components/movimientos/transferencia-item";
@@ -117,6 +117,7 @@ function ContenidoMovimientos() {
     isLoading,
     isError,
     error,
+    isPaused,
     isFetching,
     refetch,
     fetchNextPage,
@@ -124,6 +125,11 @@ function ContenidoMovimientos() {
     isFetchingNextPage,
   } = useMovimientos(filtros);
   const anularMovimiento = useAnularMovimiento();
+
+  // Una consulta pausada sin red no es un mes en blanco: la misma política
+  // que el resto de la app, para que el historial no se lea como vacío.
+  const estado = estadoDeConsulta({ data: movimientos, isError, isPaused, isLoading });
+  const pausada = estado === "pausada";
 
   const cuentasPorId = useMemo(
     () => new Map((cuentas ?? []).map((cuenta) => [cuenta.id, cuenta])),
@@ -330,16 +336,22 @@ function ContenidoMovimientos() {
           mostrando: el error no borra lo que ya está en el libro. */}
       {!isLoading && isError && !movimientos && (
         <FalloConsulta
-          mensaje={mensajeDeFallo(
-            error,
-            "No pudimos cargar tus movimientos. Puede ser que el servidor esté dormido."
-          )}
+          mensaje={mensajeDeFallo(error, mensajeDeCargaFallida("tus movimientos"))}
           reintento={isFetching}
           onReintentar={() => refetch()}
         />
       )}
 
-      {!isLoading && movimientos?.length === 0 && categoriaFiltro && (
+      {/* Sin red y sin nada en mano tampoco hay historial que mostrar: se dice
+          "sin conexión", nunca un mes en blanco. */}
+      {pausada && (
+        <FalloConsulta
+          mensaje={mensajeSinConexion("tus movimientos")}
+          onReintentar={() => refetch()}
+        />
+      )}
+
+      {!isLoading && !pausada && movimientos?.length === 0 && categoriaFiltro && (
         <EmptyState
           Icono={Filter}
           titulo="Sin movimientos con ese filtro"
@@ -358,7 +370,7 @@ function ContenidoMovimientos() {
         </EmptyState>
       )}
 
-      {!isLoading && movimientos?.length === 0 && !categoriaFiltro && (
+      {!isLoading && !pausada && movimientos?.length === 0 && !categoriaFiltro && (
         <EmptyState
           Icono={Receipt}
           titulo={

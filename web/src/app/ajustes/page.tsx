@@ -3,7 +3,7 @@
 import { ChevronRight } from "lucide-react";
 
 import { BotonExportar } from "@/components/ajustes/boton-exportar";
-import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
+import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
 import { EditarNombre } from "@/components/ajustes/editar-nombre";
 import { OpcionGuardada } from "@/components/ajustes/opcion-guardada";
 import { Fila, FilaEnlace, Seccion, ValorFijo } from "@/components/ajustes/seccion";
@@ -41,13 +41,18 @@ const PANTALLAS = [
 ] as const;
 
 export default function PaginaAjustes() {
-  const { data: perfil, isPending, isError, error, isFetching, refetch } = usePerfil();
+  const { data: perfil, isPending, isError, error, isFetching, isPaused, refetch } = usePerfil();
+
+  // La misma política del resto: sin datos y sin red se dice "sin conexión",
+  // no se deja el esqueleto eterno ni se pinta una pantalla vacía.
+  const estado = estadoDeConsulta({ data: perfil, isError, isPaused, isLoading: isPending });
+  const pausada = estado === "pausada";
 
   return (
     <div className="flex flex-col gap-5 pb-4">
       <h1 className="text-xl font-semibold">Ajustes</h1>
 
-      {isPending && (
+      {isPending && !pausada && (
         <div className="flex flex-col gap-4">
           <Skeleton className="h-32 w-full rounded-lg" />
           <Skeleton className="h-24 w-full rounded-lg" />
@@ -61,11 +66,15 @@ export default function PaginaAjustes() {
           con lo que dice el servidor: el error no borra lo que ya está. */}
       {isError && !perfil && (
         <FalloConsulta
-          mensaje={mensajeDeFallo(
-            error,
-            "No pudimos cargar tus ajustes. Puede ser que el servidor esté dormido."
-          )}
+          mensaje={mensajeDeFallo(error, mensajeDeCargaFallida("tus ajustes"))}
           reintento={isFetching}
+          onReintentar={() => refetch()}
+        />
+      )}
+
+      {pausada && (
+        <FalloConsulta
+          mensaje={mensajeSinConexion("tus ajustes")}
           onReintentar={() => refetch()}
         />
       )}

@@ -7,19 +7,23 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/empty-state";
-import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
+import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
 import { FormularioCategoria } from "@/components/categorias/formulario-categoria";
 import { CategoriaItem } from "@/components/categorias/categoria-item";
 import { useCategorias } from "@/hooks/use-categorias";
 
 export default function PaginaCategorias() {
   const [verArchivadas, setVerArchivadas] = useState(false);
-  const { data, isLoading, isError, error, isFetching, refetch } = useCategorias(verArchivadas);
+  const { data, isLoading, isError, error, isFetching, isPaused, refetch } =
+    useCategorias(verArchivadas);
 
-  // Un fallo no es "no tienes categorías": `hayCategorias` sale de `data ?? []`,
-  // así que sin esto el error se dibujaba como el vacío. Con datos viejos en
-  // memoria (un refetch fallido) se siguen mostrando.
-  const fallo = isError && !data;
+  // Un fallo no es "no tienes categorías", y una consulta pausada sin red
+  // tampoco: `hayCategorias` sale de `data ?? []`, así que sin esto ambos se
+  // dibujarían como el vacío. Con datos viejos en memoria (un refetch fallido)
+  // se siguen mostrando.
+  const estado = estadoDeConsulta({ data, isError, isPaused, isLoading });
+  const fallo = estado === "fallo";
+  const pausada = estado === "pausada";
 
   // `includeArchived=true` trae activas y archivadas juntas; para esta vista
   // solo interesan las archivadas, así que se filtra en el cliente.
@@ -62,16 +66,21 @@ export default function PaginaCategorias() {
       {fallo && (
         <FalloConsulta
           etiquetaBoton="Reintentar categorías"
-          mensaje={mensajeDeFallo(
-            error,
-            "No pudimos cargar tus categorías. Puede ser que el servidor esté dormido."
-          )}
+          mensaje={mensajeDeFallo(error, mensajeDeCargaFallida("tus categorías"))}
           reintento={isFetching}
           onReintentar={() => refetch()}
         />
       )}
 
-      {!isLoading && !fallo && !hayCategorias && (
+      {pausada && (
+        <FalloConsulta
+          etiquetaBoton="Reintentar categorías"
+          mensaje={mensajeSinConexion("tus categorías")}
+          onReintentar={() => refetch()}
+        />
+      )}
+
+      {!isLoading && !fallo && !pausada && !hayCategorias && (
         <EmptyState
           Icono={Tag}
           titulo={verArchivadas ? "No hay categorías archivadas" : "Todavía no tienes categorías"}

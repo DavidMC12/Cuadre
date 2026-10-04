@@ -98,6 +98,7 @@ interface Stub {
   data?: unknown;
   isLoading?: boolean;
   isError?: boolean;
+  isPaused?: boolean;
   error?: unknown;
   isFetching?: boolean;
   refetch?: () => void;
@@ -146,7 +147,7 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "No pudimos cargar tus movimientos. Puede ser que el servidor esté dormido."
+        "No pudimos cargar tus movimientos. Revisa tu conexión y vuelve a intentarlo."
       )
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
@@ -200,6 +201,23 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(document.querySelector(".animate-pulse")).not.toBeNull();
+  });
+
+  it("una consulta pausada sin red no se disfraza de mes en blanco", () => {
+    ajustar({ data: undefined, isPaused: true });
+
+    render(<PaginaMovimientos />);
+
+    // Falla si la pantalla vuelve a mostrar "Todavía no hay movimientos" o
+    // "Sin movimientos en ..." con la consulta pausada.
+    expect(
+      screen.getByText(
+        "Sin conexión: no pudimos cargar tus movimientos. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Todavía no hay movimientos")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sin movimientos en /)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
   });
 
   it("al confirmar la anulación abre el formulario precargado con el movimiento anulado", () => {

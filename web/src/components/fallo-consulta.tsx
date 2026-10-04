@@ -17,6 +17,56 @@ export function mensajeDeFallo(error: unknown, mensaje: string): string {
     : mensaje;
 }
 
+/** Las señales crudas de una consulta que esta política necesita mirar. Se
+ * aceptan por separado y no como el resultado entero de TanStack para que
+ * también sirvan con `useInfiniteQuery` y con los dobles de las pruebas. */
+export interface SenalesDeConsulta {
+  data: unknown;
+  isError?: boolean;
+  isPaused?: boolean;
+  isLoading?: boolean;
+}
+
+export type EstadoDeConsulta = "ok" | "cargando" | "fallo" | "pausada";
+
+/**
+ * La política única de una consulta, para que ninguna pantalla vuelva a
+ * confundir "no se pudo leer" con "no tienes nada".
+ *
+ * El orden importa:
+ * 1. con datos —aunque estén viejos— se muestran: un dato obsoleto no es
+ *    falso, así que un refetch fallido no borra lo que ya está en pantalla;
+ * 2. sin datos, un fallo manda sobre el esqueleto;
+ * 3. sin datos y pausada (sin red) es "sin conexión", no un vacío ni un
+ *    esqueleto eterno;
+ * 4. mientras carga sin datos, esqueleto.
+ */
+export function estadoDeConsulta(consulta: SenalesDeConsulta): EstadoDeConsulta {
+  // Con datos en mano, siempre "ok": un dato viejo se muestra, no se cambia
+  // por un esqueleto ni por un fallo.
+  if (consulta.data !== undefined) return "ok";
+  if (consulta.isError) return "fallo";
+  if (consulta.isPaused === true) return "pausada";
+  if (consulta.isLoading) return "cargando";
+  return "ok";
+}
+
+/**
+ * La voz de un fallo del que no sabemos más: sin jerga de servidores ni de
+ * infraestructura, que a quien está usando la app no le dice nada.
+ */
+export function mensajeDeCargaFallida(que: string): string {
+  return `No pudimos cargar ${que}. Revisa tu conexión y vuelve a intentarlo.`;
+}
+
+/**
+ * La voz de una consulta pausada por falta de red. Dice la causa verdadera
+ * ("sin conexión") y cómo seguir, en vez de un vacío que miente.
+ */
+export function mensajeSinConexion(que: string): string {
+  return `Sin conexión: no pudimos cargar ${que}. Revisa tu conexión y vuelve a intentarlo.`;
+}
+
 /**
  * El bloque de fallo: mensaje y botón para reintentar. Nunca un cero ni un
  * vacío fingiendo que todo está bien — "la cifra es la verdad", y si la
@@ -60,6 +110,9 @@ export function FalloConsulta({
         type="button"
         variant="outline"
         size="sm"
+        // El control de recuperación es el objetivo que más se toca cuando
+        // algo salió mal: piso de 44px aunque el texto sea chico.
+        className="min-h-11"
         onClick={onReintentar}
         disabled={reintento}
         // Mientras reintenta se le quita la etiqueta: el nombre audible pasa a

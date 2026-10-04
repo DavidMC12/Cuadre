@@ -21,6 +21,7 @@ interface Stub {
   data?: unknown;
   isLoading?: boolean;
   isError?: boolean;
+  isPaused?: boolean;
   error?: unknown;
   isFetching?: boolean;
   refetch?: () => void;
@@ -66,7 +67,7 @@ describe("Cuentas: un fallo de red no es 'todavía no tienes cuentas'", () => {
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(
-      screen.getByText("No pudimos cargar tus cuentas. Puede ser que el servidor esté dormido.")
+      screen.getByText("No pudimos cargar tus cuentas. Revisa tu conexión y vuelve a intentarlo.")
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar cuentas" })).toBeInTheDocument();
     // Antes, el fallo dejaba solo el h1 y el botón "Nueva": nada que explicara.
@@ -103,5 +104,30 @@ describe("Cuentas: un fallo de red no es 'todavía no tienes cuentas'", () => {
     // La promesa de la política: el error solo reemplaza cuando no hay datos.
     expect(screen.getByText("Bancolombia")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("una consulta pausada sin red no se disfraza de 'todavía no tienes cuentas'", () => {
+    ajustar({ data: undefined, isPaused: true });
+
+    render(<PaginaCuentas />);
+
+    // Esta prueba se cae si la pantalla vuelve a mostrar el vacío cuando la
+    // consulta está en pausa: el sentido de la política única.
+    expect(
+      screen.getByText(
+        "Sin conexión: no pudimos cargar tus cuentas. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Todavía no tienes cuentas")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar cuentas" })).toBeInTheDocument();
+  });
+
+  it("una consulta pausada con datos viejos en mano sigue mostrando las cuentas", () => {
+    ajustar({ data: [bancolombia], isPaused: true });
+
+    render(<PaginaCuentas />);
+
+    expect(screen.getByText("Bancolombia")).toBeInTheDocument();
+    expect(screen.queryByText(/Sin conexión/)).not.toBeInTheDocument();
   });
 });

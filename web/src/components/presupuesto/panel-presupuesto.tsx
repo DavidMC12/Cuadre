@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
-import { FalloConsulta, mensajeDeFallo } from "@/components/fallo-consulta";
+import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
 import { FormularioItemPresupuesto } from "@/components/presupuesto/formulario-item-presupuesto";
 import { useCategorias } from "@/hooks/use-categorias";
 import { useGruposColapsados } from "@/hooks/use-grupos-colapsados";
@@ -99,15 +99,17 @@ export function PanelPresupuesto({
     isLoading,
     isError,
     error,
+    isPaused: pausaChecklist,
     isFetching,
     refetch,
   } = useChecklistDelMes({ month: mes, currency: moneda });
   // Los archivados no son el plato principal pero sí parte de la pantalla:
-  // si su consulta falla también se dice, no se esconden como nunca
-  // archivados.
+  // si su consulta falla o queda pausada sin red también se dice, no se
+  // esconden como nunca archivados.
   const {
     data: todosLosItems,
     isError: errorDeItems,
+    isPaused: pausaItems,
     error: porqueFalloItems,
     isFetching: recargandoItems,
     refetch: recargarItems,
@@ -116,10 +118,24 @@ export function PanelPresupuesto({
 
   const [viendoArchivados, setViendoArchivados] = useState(false);
 
-  // La consulta del checklist no se pudo leer y no hay nada que mostrar: la
-  // misma expresión decide el bloque de fallo y si los archivados le ceden
-  // el anuncio, así que vive en una sola variable.
-  const falloChecklist = isError && !checklist && !isLoading;
+  // La política única del panel: un fallo sin datos o una consulta pausada sin
+  // red no pueden dibujarse como "nada por revisar". La misma expresión decide
+  // el bloque de fallo y si los archivados le ceden el anuncio.
+  const estadoChecklist = estadoDeConsulta({
+    data: checklist,
+    isError,
+    isPaused: pausaChecklist,
+    isLoading,
+  });
+  const falloChecklist = estadoChecklist === "fallo";
+  const pausadaChecklist = estadoChecklist === "pausada";
+  const estadoItems = estadoDeConsulta({
+    data: todosLosItems,
+    isError: errorDeItems,
+    isPaused: pausaItems,
+  });
+  const falloItems = estadoItems === "fallo";
+  const pausadaItems = estadoItems === "pausada";
 
   const archivados = useMemo(
     () => (todosLosItems ?? []).filter((item) => item.archivedAt !== null),
@@ -225,7 +241,31 @@ export function PanelPresupuesto({
   // grupos: "Contraer todo" con al menos uno abierto; "Desplegar todo" con
   // todos cerrados. Con la lista plana (sin grupos) no hay nada que alternar.
   const hayGrupos = grupos.length > 0;
-  const todosCerrados = hayGrupos && grupos.every((grupo) => gruposColapsados.has(grupo.clave));
+  const cerradosVisibles = grupos.filter((grupo) => gruposColapsados.has(grupo.clave)).length;
+  const todosCerrados = hayGrupos && cerradosVisibles === grupos.length;
+  // Pista de lo recordado: quien vuelve ve una categoría replegada y no sabe
+  // si no tiene ítems o si él la cerró. Cuando hay algo cerrado —pero no todo,
+  // que ya lo dice "Desplegar todo"— una entrada discreta al lado del
+  // alternante cuenta cuántas son y las muestra todas. Sin color como único
+  // portador y con piso de 44px.
+  const pistaCerradas = cerradosVisibles > 0 && !todosCerrados && (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="min-h-11 text-muted-foreground"
+      // El nombre audible dice la acción (no solo el conteo): quien lo enfoca
+      // de oído sabe que lo toca para desplegar. El texto visible conserva el
+      // conteo.
+      aria-label={
+        cerradosVisibles === 1
+          ? "Desplegar 1 categoría cerrada"
+          : `Desplegar ${cerradosVisibles} categorías cerradas`
+      }
+      onClick={expandirTodo}
+    >
+      {cerradosVisibles === 1 ? "1 categoría cerrada" : `${cerradosVisibles} categorías cerradas`}
+    </Button>
+  );
   const accionAlternar = hayGrupos && (
     <Button
       variant="ghost"
@@ -360,18 +400,23 @@ export function PanelPresupuesto({
 
   const cuerpo = (
     <>
-      {/* La consulta del checklist no se pudo leer: se dice y se ofrece
-          reintentar. "Nada por revisar" sería mentir con el mes en blanco.
-          Este es el anuncio principal del panel: conserva su alerta salvo que
-          la pantalla ya esté componiendo el anuncio único de varios fallos. */}
+      {/* La consulta del checklist no se pudo leer, o quedó pausada sin red:
+          se dice y se ofrece reintentar. "Nada por revisar" sería mentir con
+          el mes en blanco. Este es el anuncio principal del panel: conserva su
+          alerta salvo que la pantalla ya esté componiendo el anuncio único de
+          varios fallos. */}
       {falloChecklist ? (
         <FalloConsulta
           etiquetaBoton="Reintentar presupuesto"
-          mensaje={mensajeDeFallo(
-            error,
-            "No pudimos cargar tu presupuesto del mes. Puede ser que el servidor esté dormido."
-          )}
+          mensaje={mensajeDeFallo(error, mensajeDeCargaFallida("tu presupuesto del mes"))}
           reintento={isFetching}
+          onReintentar={() => refetch()}
+          compartePantalla={compartePantalla}
+        />
+      ) : pausadaChecklist ? (
+        <FalloConsulta
+          etiquetaBoton="Reintentar presupuesto"
+          mensaje={mensajeSinConexion("tu presupuesto del mes")}
           onReintentar={() => refetch()}
           compartePantalla={compartePantalla}
         />
@@ -452,17 +497,23 @@ export function PanelPresupuesto({
             reintentar. Si el checklist también falló, este bloque cede el
             anuncio: dos alertas del mismo panel serían una tormenta — queda
             visible, con su Reintentar, pero no interrumpe dos veces. */}
-        {errorDeItems && !todosLosItems ? (
+        {falloItems ? (
           <div className="mt-3 shrink-0 border-t border-border pt-3">
             <FalloConsulta
               etiquetaBoton="Reintentar archivados"
-              mensaje={mensajeDeFallo(
-                porqueFalloItems,
-                "No pudimos cargar los ítems archivados. Puede ser que el servidor esté dormido."
-              )}
+              mensaje={mensajeDeFallo(porqueFalloItems, mensajeDeCargaFallida("los ítems archivados"))}
               reintento={recargandoItems}
               onReintentar={() => recargarItems()}
-              compartePantalla={compartePantalla || falloChecklist}
+              compartePantalla={compartePantalla || falloChecklist || pausadaChecklist}
+            />
+          </div>
+        ) : pausadaItems ? (
+          <div className="mt-3 shrink-0 border-t border-border pt-3">
+            <FalloConsulta
+              etiquetaBoton="Reintentar archivados"
+              mensaje={mensajeSinConexion("los ítems archivados")}
+              onReintentar={() => recargarItems()}
+              compartePantalla={compartePantalla || falloChecklist || pausadaChecklist}
             />
           </div>
         ) : archivados.length > 0 ? (
@@ -477,6 +528,7 @@ export function PanelPresupuesto({
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="min-h-11"
                       disabled={soloMirar || desarchivar.isPending}
                       onClick={() =>
                         desarchivar.mutate(item.id, {
@@ -496,7 +548,12 @@ export function PanelPresupuesto({
                 ))}
               </ul>
             ) : null}
-            <Button variant="ghost" size="sm" onClick={() => setViendoArchivados(!viendoArchivados)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="min-h-11"
+              onClick={() => setViendoArchivados(!viendoArchivados)}
+            >
               {viendoArchivados ? "Ocultar archivados" : `Archivados (${archivados.length})`}
             </Button>
           </div>
@@ -510,8 +567,9 @@ export function PanelPresupuesto({
   if (variante === "suelta") {
     return (
       <div className="flex flex-col">
-        {(accionAlternar || accionAgregar) && (
-          <div className="flex items-center justify-end gap-1 pb-3">
+        {(pistaCerradas || accionAlternar || accionAgregar) && (
+          <div className="flex flex-wrap items-center justify-end gap-1 pb-3">
+            {pistaCerradas}
             {accionAlternar}
             {accionAgregar}
           </div>
@@ -532,9 +590,13 @@ export function PanelPresupuesto({
       <CardContent className={cn(enVentana && "flex min-h-0 flex-1 flex-col")}>
         {/* El alternar va debajo del título, discreto y a la derecha: es una
             acción de la lista entera, no de una sección (puede haber Ingresos
-            y Gastos), y así el encabezado no se aprieta. */}
-        {enVentana && accionAlternar && (
-          <div className="flex shrink-0 justify-end pb-1">{accionAlternar}</div>
+            y Gastos), y así el encabezado no se aprieta. La pista de las
+            cerradas lo acompaña cuando hace falta. */}
+        {enVentana && (pistaCerradas || accionAlternar) && (
+          <div className="flex shrink-0 flex-wrap justify-end gap-1 pb-1">
+            {pistaCerradas}
+            {accionAlternar}
+          </div>
         )}
         {cuerpo}
       </CardContent>

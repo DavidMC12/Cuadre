@@ -75,7 +75,7 @@ describe("GraficaTendencia: la gráfica también se puede leer sin verla", () =>
 
 describe("GraficaTendencia: el anuncio del fallo depende de la compañía", () => {
   const fallo = {
-    mensaje: "No pudimos cargar la tendencia. Puede ser que el servidor esté dormido.",
+    mensaje: "No pudimos cargar la tendencia. Revisa tu conexión y vuelve a intentarlo.",
     onReintentar: vi.fn(),
     etiquetaBoton: "Reintentar tendencia",
   };
