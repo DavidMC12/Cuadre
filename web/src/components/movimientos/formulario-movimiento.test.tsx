@@ -290,4 +290,41 @@ describe("FormularioMovimiento: piso de toque de 44px", () => {
       screen.getByRole("button", { name: /Más detalles/ }).classList.contains("min-h-11")
     ).toBe(true);
   });
+
+  it("el selector de cuenta y los campos Fecha y Descripción llevan el piso de toque", () => {
+    // Eran SelectTrigger/Input de 32px (h-8). En el SelectTrigger la altura
+    // h-8 gana la cascada, así que el piso va con min-h-11.
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+
+    expect(screen.getByLabelText("Cuenta").className).toContain("min-h-11");
+
+    fireEvent.click(screen.getByRole("button", { name: /Más detalles/ }));
+    expect(screen.getByLabelText("Fecha").className).toContain("min-h-11");
+    expect(screen.getByLabelText("Descripción (opcional)").className).toContain("min-h-11");
+  });
+
+  it("en una transferencia, los selectores Desde y Hacia llevan el piso de toque", () => {
+    const segunda: Cuenta = { ...cuentaActiva, id: "a-2", name: "Ahorros" };
+
+    render(<FormularioMovimiento cuentas={[cuentaActiva, segunda]} abierto tipoInicial="transferencia" />);
+
+    expect(screen.getByLabelText("Desde").className).toContain("min-h-11");
+    expect(screen.getByLabelText("Hacia").className).toContain("min-h-11");
+  });
+
+  it("el botón Registrar del cajón lleva el piso de toque", () => {
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+
+    expect(screen.getByRole("button", { name: "Registrar" }).classList.contains("min-h-11")).toBe(
+      true
+    );
+  });
+
+  it("el botón Entendido (sin cuentas) lleva el piso de toque", () => {
+    render(<FormularioMovimiento cuentas={[]} abierto />);
+
+    expect(screen.getByRole("button", { name: "Entendido" }).classList.contains("min-h-11")).toBe(
+      true
+    );
+  });
 });
