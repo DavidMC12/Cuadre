@@ -248,7 +248,7 @@ function ContenidoMovimientos() {
                 value={cuentaFiltro}
                 onValueChange={(valor) => setCuentaFiltro(valor ?? TODAS_LAS_CUENTAS)}
               >
-                <SelectTrigger className="w-full" aria-label="Filtrar por cuenta">
+                <SelectTrigger className="min-h-11 w-full" aria-label="Filtrar por cuenta">
                   {/* El popup de opciones vive en un portal que no está montado
                       mientras el selector está cerrado: hay que resolver el
                       nombre a mano, no asumir que lo encuentra solo. */}
@@ -280,7 +280,7 @@ function ContenidoMovimientos() {
                 value={categoriaFiltro ?? TODAS_LAS_CATEGORIAS}
                 onValueChange={(valor) => cambiarCategoria(valor ?? TODAS_LAS_CATEGORIAS)}
               >
-                <SelectTrigger className="w-full" aria-label="Filtrar por categoría">
+                <SelectTrigger className="min-h-11 w-full" aria-label="Filtrar por categoría">
                   {/* Igual que el de cuentas: el popup no está montado hasta
                       que se abre, así que el nombre se resuelve a mano. */}
                   <SelectValue>
@@ -438,7 +438,7 @@ function ContenidoMovimientos() {
           <Button
             type="button"
             variant="outline"
-            className="self-center"
+            className="min-h-11 self-center"
             onClick={() => fetchNextPage()}
             disabled={isFetchingNextPage}
           >
