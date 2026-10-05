@@ -49,10 +49,15 @@ export function ConfirmarAnulacion({
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={onCancelar} disabled={procesando}>
+          <Button variant="outline" className="min-h-11" onClick={onCancelar} disabled={procesando}>
             Cancelar
           </Button>
-          <Button variant="destructive" onClick={onConfirmar} disabled={procesando}>
+          <Button
+            variant="destructive"
+            className="min-h-11"
+            onClick={onConfirmar}
+            disabled={procesando}
+          >
             {procesando ? "Anulando…" : "Sí, anular"}
           </Button>
         </DialogFooter>

@@ -114,7 +114,7 @@ export function DetalleMovimiento({
           <DrawerFooter>
             {puedeCategorizarse && (
               <EditarCategoriaMovimiento movimiento={movimiento}>
-                <Button variant="outline">
+                <Button variant="outline" className="min-h-11">
                   <Tag data-icon="inline-start" />
                   Cambiar categoría
                 </Button>
@@ -123,6 +123,7 @@ export function DetalleMovimiento({
             {puedeAnularse && (
               <Button
                 variant="ghost"
+                className="min-h-11"
                 onClick={() => {
                   // La confirmación sigue viviendo en la página: este cajón se
                   // cierra y el diálogo de "Sí, anular" toma su lugar.
