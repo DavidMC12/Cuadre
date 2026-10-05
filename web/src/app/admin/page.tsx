@@ -5,11 +5,13 @@ import { ShieldCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
+import { ConfirmarEntrar } from "@/components/admin/confirmar-entrar";
 import { EmptyState } from "@/components/empty-state";
 import { Seccion } from "@/components/ajustes/seccion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useState } from "react";
 import {
   useRegistroDeSuplantaciones,
   useSuplantar,
@@ -21,6 +23,9 @@ import { etiquetaFecha, etiquetaMesDeFecha, horaCorta } from "@/lib/fecha";
 
 export default function PaginaAdmin() {
   const router = useRouter();
+  // La persona cuya cuenta se pidió abrir: vive aquí porque la decisión la
+  // toma la página, no la lista. Hasta confirmar en el diálogo no corre nada.
+  const [personaAEntrar, setPersonaAEntrar] = useState<UsuarioDelSistema | null>(null);
   const {
     data: perfil,
     isPending: cargandoPerfil,
@@ -53,11 +58,14 @@ export default function PaginaAdmin() {
   });
   const pausadaPersonas = estadoPersonas === "pausada";
 
+  // La suplantación SOLO corre desde la confirmación: el botón "Entrar" de la
+  // lista apenas la pide.
   function entrarComo(persona: UsuarioDelSistema) {
     suplantar.mutate(
       { id: persona.id, email: persona.email },
       {
         onSuccess: () => {
+          setPersonaAEntrar(null);
           toast.success(`Ahora estás viendo la cuenta de ${persona.email}.`);
           router.push("/");
           router.refresh();
@@ -189,7 +197,7 @@ export default function PaginaAdmin() {
                     variant="outline"
                     size="sm"
                     className="min-h-11 shrink-0"
-                    onClick={() => entrarComo(persona)}
+                    onClick={() => setPersonaAEntrar(persona)}
                     disabled={suplantar.isPending}
                   >
                     Entrar
@@ -216,6 +224,18 @@ export default function PaginaAdmin() {
           ))}
         </Seccion>
       )}
+
+      {/* El diálogo de confirmación vive al pie: abierto solo cuando hay
+          alguien pedido, y ni la suplantación ni el registro corren de más
+          mientras queda sin contestar. */}
+      <ConfirmarEntrar
+        persona={personaAEntrar}
+        procesando={suplantar.isPending}
+        onConfirmar={() => {
+          if (personaAEntrar) entrarComo(personaAEntrar);
+        }}
+        onCancelar={() => setPersonaAEntrar(null)}
+      />
     </div>
   );
 }

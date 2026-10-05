@@ -35,6 +35,7 @@ import { GraficaPorCategoria } from "@/components/dashboard/grafica-por-categori
 import { GraficaTendencia } from "@/components/dashboard/grafica-tendencia";
 import { GraficaAhorro } from "@/components/dashboard/grafica-ahorro";
 import { useCuentas } from "@/hooks/use-cuentas";
+import { useChecklistDelMes } from "@/hooks/use-presupuesto";
 import { useIrAPantallaDeInicio } from "@/hooks/use-perfil";
 import { usePantallaAncha } from "@/hooks/use-pantalla-ancha";
 import { useMonedas, useResumenMes, useTendencia } from "@/hooks/use-reportes";
@@ -105,6 +106,14 @@ export default function PaginaResumen() {
     month: mes,
     currency: moneda ?? "",
   });
+
+  // La página escucha también al checklist del presupuesto —la misma consulta
+  // que el cuadrito "me sobra" (misma caché, un solo pedido real) y la misma
+  // en cada render, sin estados guardados— para saber si el resumen es el
+  // único caído. Mientras el checklist resuelve (caché frío: primera visita,
+  // mes recién cambiado), el cuadrito tampoco suma su bloque repetido.
+  const checklist = useChecklistDelMes({ month: mes, currency: moneda ?? "" });
+  const estadoChecklist = estadoDeConsulta(checklist);
   const {
     data: tendencia,
     isLoading: cargandoTendencia,
@@ -153,6 +162,21 @@ export default function PaginaResumen() {
   const pausadaResumen = estadoResumen === "pausada";
   const falloTendencia = estadoTendencia === "fallo";
   const pausadaTendencia = estadoTendencia === "pausada";
+
+  // El cuadrito "me sobra" necesita el checklist Y el resumen: si el resumen
+  // del mes no se leyó (o quedó pausado sin red) y el checklist VIVE en
+  // pantalla con su propio error, el cuadrito sí tiene qué decir; en los
+  // demás estados del checklist (leído, cargando, pausado) solo sumaría —bajo
+  // el bloque de error que ResumenCards ya muestra— un segundo bloque
+  // idéntico con el mismo Reintentar (octava critique, P2). La sección se
+  // esconde entera, encabezado incluido: queda un solo bloque, con un
+  // Reintentar que refresca lo que hace falta y que la página conoce al
+  // primer render — el resumen. El anuncio único no cambia:
+  // `falloResumen`/`pausadaResumen` ya entran en la cuenta de arriba.
+  const elResumenEsElUnicoCaido =
+    estadoChecklist !== "fallo" &&
+    estadoChecklist !== "pausada" &&
+    (falloResumen || pausadaResumen);
 
   // Los fallos que esta pantalla conoce: las cuatro consultas propias
   // (incluidas las que quedaron pausadas sin red) y las que viven adentro de
@@ -344,7 +368,9 @@ export default function PaginaResumen() {
           jerarquía la lleva el propio contenido (título, cifra prevista,
           real como línea secundaria). Una sola instancia para todos los
           anchos; en xl le cede al panel el anuncio del presupuesto. */}
-      {moneda && (
+      {/* Con el resumen caído y el checklist bien, esta sección se calla:
+          el error del resumen ya habla una vez, arriba (ResumenCards). */}
+      {moneda && !elResumenEsElUnicoCaido && (
         <section
           aria-labelledby="me-sobra-titulo"
           className="flex flex-col gap-1 border-t border-border pt-5"
