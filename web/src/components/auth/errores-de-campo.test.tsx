@@ -8,7 +8,7 @@
  * poner `aria-invalid={Boolean(error)}` en cada campo no rompería nada más.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import { FormularioEntrar } from "./formulario-entrar";
 import { FormularioRegistro } from "./formulario-registro";
@@ -109,6 +109,18 @@ describe("FormularioEntrar", () => {
     expect(correo).not.toHaveAttribute("aria-describedby");
   });
 
+  it("el alfabeto en MAYÚSCULAS mapea el mismo campo", async () => {
+    // Neon Auth normaliza los códigos a minúsculas, pero la forma devuelta
+    // puede traerlos en MAYÚSCULAS: el mapeo cubre los dos alfabetos.
+    devolverError(auth.entrar, { code: "INVALID_PASSWORD" });
+    montarYEnviar();
+
+    const alerta = await esperarAlerta("Esa contraseña no es válida.");
+    expect(screen.getByLabelText("Contraseña")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Contraseña")).toHaveAttribute("aria-describedby", alerta.id);
+    expect(screen.getByLabelText("Correo")).toHaveAttribute("aria-invalid", "false");
+  });
+
   it("el camino que lanza también decide el campo", async () => {
     // Contra el servidor real, `authClient` lanza en vez de devolver
     // `{ error }` (ver auth/errors.ts): el mismo mapeo tiene que aplicar.
@@ -141,6 +153,7 @@ describe("FormularioRegistro", () => {
     expect(screen.getByLabelText("Nombre completo")).toHaveAttribute("aria-invalid", "false");
     expect(screen.getByLabelText("Contraseña")).toHaveAttribute("aria-invalid", "false");
     expect(screen.getByLabelText("Nombre completo")).not.toHaveAttribute("aria-describedby");
+    expect(screen.getByLabelText("Contraseña")).not.toHaveAttribute("aria-describedby");
   });
 
   it("contraseña débil marca solo la contraseña", async () => {
@@ -220,6 +233,18 @@ describe("FormularioRestablecer", () => {
     montarYEnviar();
 
     const alerta = await esperarAlerta("Ese enlace ya no sirve. Puede que haya vencido o que ya lo hayas usado.");
+    const campo = screen.getByLabelText("Contraseña nueva");
+    expect(campo).toHaveAttribute("aria-invalid", "false");
+    expect(campo).toHaveAttribute("aria-describedby", alerta.id);
+  });
+
+  it("un token inválido devuelto por el servidor también es general", async () => {
+    devolverError(auth.restablecer, { code: "INVALID_TOKEN" });
+    montarYEnviar();
+
+    const alerta = await esperarAlerta(
+      "Ese enlace ya no sirve. Puede que haya vencido o que ya lo hayas usado."
+    );
     const campo = screen.getByLabelText("Contraseña nueva");
     expect(campo).toHaveAttribute("aria-invalid", "false");
     expect(campo).toHaveAttribute("aria-describedby", alerta.id);
