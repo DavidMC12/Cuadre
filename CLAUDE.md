@@ -351,8 +351,25 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   (heredado del patrón de anular, benigno); caso preexistente checklist
   pausado + resumen caído en el cuadrito.
 
-Pendiente, sin fecha: otra ronda de `impeccable critique` para medir el
-puntaje tras estos cierres (estimado 31–32).
+
+- **Novena ronda de `impeccable critique`** (2026-10-05, 30/40 → 31/40,
+  "Bueno", **sin P0 ni P1**): la hicieron los workers (A diseño en
+  worker1, B detector y mediciones en worker2, sesiones nuevas). Confirmó
+  de fondo los 4 P2 de la octava (sube solo "reconocer y recuperar
+  errores"); detector con 0 hallazgos, `medir:nav/panel/aside` en verde y
+  466 pruebas. Sigue sin navegador real (falta `web/.env.local` con
+  `NEON_AUTH_*`). Quedan 2 P2: (1) el registro de suplantaciones de
+  `/admin` ("Cuentas a las que has entrado") desaparece en silencio si su
+  consulta falla o queda sin red — le falta `FalloConsulta`; (2) en el
+  ítem de presupuesto el error de Categoría/Cuenta se pinta bajo el campo
+  Monto (el `aria-describedby` sí apunta bien). P3 agrupado: el confirmar
+  de suplantar se puede cerrar mientras viaja la operación; `aria-invalid
+  ="false"` fijo en auth; el mes futuro es inalcanzable aunque el código lo
+  contempla; `Drawer` sin cierre visible. Reporte en
+  `.impeccable/critique/2026-10-05T13-03-31Z__web-src.md`.
+
+Pendiente, sin fecha: decidir si se atienden los 2 P2 de la novena ronda
+y otra ronda de `impeccable critique` después para medir el puntaje.
 
 ### Pasos adicionales, ya pasado el 100%
 
