@@ -10,10 +10,9 @@ import { Label } from "@/components/ui/label";
  * Un campo de contraseña con botón para mostrar u ocultar lo escrito.
  *
  * Sin esto, la única forma de revisar una contraseña larga antes de enviarla
- * es borrarla y volver a escribirla con cuidado. El botón mide 40px de alto y
- * de ancho —el mismo tamaño de control que ya usa el resto de la app para
- * algo que se toca con el dedo—, y ocupa toda la altura del campo para que el
- * área de toque no quede angosta.
+ * es borrarla y volver a escribirla con cuidado. El botón ocupa toda la
+ * altura del campo (44px) y por lo menos 44px de ancho —el piso de toque que
+ * ya usa el resto de la app para algo que se toca con el dedo—.
  */
 export function CampoContrasena({
   id,
@@ -53,12 +52,12 @@ export function CampoContrasena({
           aria-invalid={invalido}
           required
           autoFocus={autoFocus}
-          className="h-11 pr-10"
+          className="h-11 pr-11"
         />
         <button
           type="button"
           onClick={() => setVisible((valor) => !valor)}
-          className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-lg text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/85"
+          className="absolute inset-y-0 right-0 flex min-w-11 items-center justify-center rounded-lg text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/85"
           aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
         >
           {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
