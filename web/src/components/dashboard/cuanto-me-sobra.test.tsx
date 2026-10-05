@@ -364,7 +364,7 @@ describe('CuantoMeSobra', () => {
     expect(screen.getByRole('button', { name: 'Reintentar presupuesto' })).toBeTruthy();
   });
 
-  it('por defecto sí anuncia el fallo del resumen (alert)', () => {
+  it("por defecto sí anuncia el fallo del resumen (alert)", () => {
     ajustar(
       {
         data: {
@@ -382,7 +382,7 @@ describe('CuantoMeSobra', () => {
     expect(screen.getByRole('button', { name: 'Reintentar resumen' })).toBeTruthy();
   });
 
-  it('si el resumen ya lo anuncia ResumenCards, el cuadrito cede (group, sin alert)', () => {
+  it('con anunciaResumen=false el cuadrito cede el anuncio (group, sin alert)', () => {
     ajustar(
       {
         data: {

@@ -89,6 +89,45 @@ describe("GraficaAhorro: la gráfica también se puede leer sin verla", () => {
     expect(screen.getByText("Retiraste")).toBeInTheDocument();
   });
 
+  it("cada mes dice su movimiento en su propia fila, incluido un mes en cero", () => {
+    ajustar([
+      { month: "2026-08", amount: "100000.0000" },
+      { month: "2026-09", amount: "0.0000" },
+      { month: "2026-10", amount: "-50000.0000" },
+    ]);
+
+    render(<GraficaAhorro months={3} currency="COP" />);
+
+    const filaDe = (mes: string) =>
+      screen.getByText(mes).closest("tr")!.textContent ?? "";
+    // La palabra va pegada a su mes: un intercambio positivo↔negativo no
+    // pasaría esta prueba.
+    expect(filaDe("Agosto de 2026")).toContain("Ahorraste");
+    expect(filaDe("Septiembre de 2026")).toContain("Sin movimiento");
+    expect(filaDe("Octubre de 2026")).toContain("Retiraste");
+  });
+
+  it("un cero negativo no se muestra como '−$0'", () => {
+    const fila = {
+      payload: [
+        {
+          payload: {
+            mes: "2026-09",
+            etiqueta: "Sep",
+            monto: "-0.0000",
+            montoNumerico: -0,
+            color: "#000",
+          },
+        },
+      ],
+    };
+
+    render(<TooltipAhorro active label="Septiembre de 2026" moneda="COP" {...fila} />);
+
+    expect(screen.getByText("Sin movimientos: $0")).toBeInTheDocument();
+    expect(screen.queryByText("Sin movimientos: −$0")).not.toBeInTheDocument();
+  });
+
   it("el tooltip visible nombra el movimiento, no solo lo tiñe", () => {
     const fila = (monto: string) => ({
       payload: [

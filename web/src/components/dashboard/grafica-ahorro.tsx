@@ -18,7 +18,7 @@ import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo,
 import { useAhorroMensual } from "@/hooks/use-reportes";
 import { useSubirNoLeible } from "@/hooks/use-subir-no-leible";
 import { etiquetaMes, etiquetaMesCorta } from "@/lib/fecha";
-import { aUnidadesMinimas, negar, sumarMontos, textoMonto } from "@/lib/money";
+import { aUnidadesMinimas, esCero, negar, sumarMontos, textoMonto } from "@/lib/money";
 import { colorPorSigno, modoDeTema } from "@/lib/chart-colors";
 
 interface FilaAhorro {
@@ -65,7 +65,7 @@ export function TooltipAhorro({
       <p className="font-medium">{label}</p>
       <p style={{ color: fila.color }}>
         {verbo === "Sin movimiento"
-          ? `Sin movimientos: ${textoMonto(fila.monto, moneda)}`
+          ? `Sin movimientos: ${textoMonto(esCero(fila.monto) ? "0" : fila.monto, moneda)}`
           : `${verbo}: ${textoMonto(montoVisible, moneda)}`}
       </p>
     </div>
@@ -239,7 +239,7 @@ export function GraficaAhorro({
             <tr key={fila.mes}>
               <th scope="row">{etiquetaMes(fila.mes)}</th>
               <td>{verboDeAhorro(fila.monto)}</td>
-              <td>{textoMonto(fila.monto, currency)}</td>
+              <td>{textoMonto(esCero(fila.monto) ? "0" : fila.monto, currency)}</td>
             </tr>
           ))}
         </tbody>

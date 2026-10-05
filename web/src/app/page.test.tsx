@@ -342,6 +342,23 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     ).not.toBeNull();
   });
 
+  it("un fallo SOLO del resumen del mes deja una única alerta en la pantalla", () => {
+    ajustar({ deResumen: { data: undefined, isError: true, error: new Error("boom") } });
+
+    render(<PaginaResumen />);
+
+    // ResumenCards anuncia el fallo (role=alert) y el cuadrito "cuánto me
+    // sobra" —que consulta el MISMO resumen— cede: una sola voz para una
+    // sola consulta.
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Reintentar resumen" })).toBeInTheDocument();
+    // El cableado: el cuadrito recibe la orden de no anunciar el resumen.
+    const props = vi.mocked(CuantoMeSobra).mock.calls.at(-1)?.[0] as unknown as {
+      anunciaResumen?: boolean;
+    };
+    expect(props.anunciaResumen).toBe(false);
+  });
+
   it("el cajón móvil monta el panel sin tope propio (el cajón ya scrollea)", () => {
     render(<PaginaResumen />);
 
