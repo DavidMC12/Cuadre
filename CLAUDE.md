@@ -337,8 +337,22 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   los P2 de accesibilidad cerrados el estimado es 31–32. Reporte completo
   en `.impeccable/critique/2026-10-05T11-34-10Z__web-src.md`.
 
-Pendiente, sin fecha: decidir si se atienden los 4 P2 de la octava ronda
-y otra ronda de `impeccable critique` después para medir el puntaje.
+  **Los 4 P2, cerrados el mismo día** (dos ramas, en `main`): (1) el error
+  de entrar/registrarse/recuperar/restablecer marca solo el campo que
+  falló (`aria-invalid` + `aria-describedby`; el error general describe a
+  todos); (2) las etiquetas del ítem de presupuesto quedan ligadas a su
+  control y el error de selección ya no se cruza con el del monto;
+  (3) "Entrar" en `/admin` pide confirmación (`ConfirmarEntrar`: "¿Entrar
+  a la cuenta de X?", solo se mira, queda registrada; la suplantación solo
+  corre desde ahí); (4) con solo el resumen caído, la sección "Cuánto me
+  sobra" se esconde entera y queda un único bloque de error con un
+  Reintentar. Deuda anotada: el texto de ayuda "Al menos 8 caracteres."
+  no está ligado al campo; Esc durante "Entrando…" cierra el confirmar
+  (heredado del patrón de anular, benigno); caso preexistente checklist
+  pausado + resumen caído en el cuadrito.
+
+Pendiente, sin fecha: otra ronda de `impeccable critique` para medir el
+puntaje tras estos cierres (estimado 31–32).
 
 ### Pasos adicionales, ya pasado el 100%
 
