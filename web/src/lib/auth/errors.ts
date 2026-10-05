@@ -102,6 +102,19 @@ export function mensajeErrorAuth(error: ErrorAuth): string {
 }
 
 /**
+ * El código de auth que trae lo lanzado, o `null` si no se parece a un error
+ * de auth. Un solo lugar extrae el código, para que el mensaje y el campo no
+ * puedan divergir.
+ */
+function codigoDeErrorLanzado(excepcion: unknown): string | null {
+  if (excepcion && typeof excepcion === "object" && "code" in excepcion) {
+    const codigo = (excepcion as { code?: unknown }).code;
+    if (typeof codigo === "string") return codigo;
+  }
+  return null;
+}
+
+/**
  * Igual que `mensajeErrorAuth`, pero para el otro camino por el que puede
  * fallar una llamada a `authClient`: lanzando una excepción en vez de
  * devolver `{ error }` (es, en la práctica, el camino habitual: se
@@ -115,19 +128,6 @@ export function mensajeErrorAuth(error: ErrorAuth): string {
  * distintas según la pantalla: `bad_jwt` es tanto "tu sesión venció" como
  * "este enlace ya no sirve", y solo quien llama sabe cuál de las dos es.
  */
-/**
- * El código de auth que trae lo lanzado, o `null` si no se parece a un error
- * de auth. Un solo lugar extrae el código, para que el mensaje y el campo no
- * puedan divergir.
- */
-function codigoDeErrorLanzado(excepcion: unknown): string | null {
-  if (excepcion && typeof excepcion === "object" && "code" in excepcion) {
-    const codigo = (excepcion as { code?: unknown }).code;
-    if (typeof codigo === "string") return codigo;
-  }
-  return null;
-}
-
 export function mensajeErrorAuthLanzado(
   excepcion: unknown,
   sobrescrituras?: Record<string, string>
