@@ -63,7 +63,7 @@ export function FormularioRecuperar() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Link href="/entrar" className={cn(buttonVariants(), "h-10 w-full")}>
+          <Link href="/entrar" className={cn(buttonVariants(), "h-11 w-full")}>
             Volver a entrar
           </Link>
         </CardContent>
@@ -92,7 +92,7 @@ export function FormularioRecuperar() {
               aria-invalid={Boolean(error)}
               required
               autoFocus
-              className="h-10"
+              className="h-11"
             />
           </div>
 
@@ -102,7 +102,7 @@ export function FormularioRecuperar() {
             </p>
           )}
 
-          <Button type="submit" disabled={enviando} className="h-10 w-full">
+          <Button type="submit" disabled={enviando} className="h-11 w-full">
             {enviando ? "Enviando…" : "Enviar enlace"}
           </Button>
         </form>

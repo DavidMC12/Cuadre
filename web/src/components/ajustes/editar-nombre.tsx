@@ -88,6 +88,7 @@ export function EditarNombre({
             <Label htmlFor="nombre-perfil">Nombre</Label>
             <Input
               id="nombre-perfil"
+              className="min-h-11"
               value={nombre}
               onChange={(evento) => setNombre(evento.target.value)}
               aria-invalid={Boolean(error)}
@@ -98,7 +99,7 @@ export function EditarNombre({
           </div>
 
           <DrawerFooter>
-            <Button type="submit" disabled={guardar.isPending}>
+            <Button type="submit" className="min-h-11" disabled={guardar.isPending}>
               {guardar.isPending ? "Guardando…" : "Guardar"}
             </Button>
           </DrawerFooter>

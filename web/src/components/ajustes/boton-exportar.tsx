@@ -52,7 +52,7 @@ export function BotonExportar() {
       variant="outline"
       onClick={manejarClic}
       disabled={descargando}
-      className="w-full"
+      className="min-h-11 w-full"
     >
       <Download data-icon="inline-start" />
       {descargando

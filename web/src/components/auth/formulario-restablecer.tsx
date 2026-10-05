@@ -82,7 +82,7 @@ export function FormularioRestablecer({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Link href="/recuperar-contrasena" className={cn(buttonVariants(), "h-10 w-full")}>
+          <Link href="/recuperar-contrasena" className={cn(buttonVariants(), "h-11 w-full")}>
             Pedir un enlace nuevo
           </Link>
         </CardContent>
@@ -98,7 +98,7 @@ export function FormularioRestablecer({
           <CardDescription>Ya puedes entrar con tu contraseña nueva.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Link href="/entrar" className={cn(buttonVariants(), "h-10 w-full")}>
+          <Link href="/entrar" className={cn(buttonVariants(), "h-11 w-full")}>
             Entrar
           </Link>
         </CardContent>
@@ -132,7 +132,7 @@ export function FormularioRestablecer({
             </p>
           )}
 
-          <Button type="submit" disabled={enviando} className="h-10 w-full">
+          <Button type="submit" disabled={enviando} className="h-11 w-full">
             {enviando ? "Guardando…" : "Guardar contraseña"}
           </Button>
         </form>
