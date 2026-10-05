@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
@@ -11,14 +11,25 @@ import { Label } from "@/components/ui/label";
 import { CampoContrasena } from "@/components/auth/campo-contrasena";
 import { TituloAuth } from "@/components/auth/titulo-auth";
 import { authClient } from "@/lib/auth/client";
-import { mensajeErrorAuth, mensajeErrorAuthLanzado } from "@/lib/auth/errors";
+import {
+  interpretarErrorAuth,
+  interpretarErrorAuthLanzado,
+  type CampoDeAuth,
+  type ErrorAuthInterpretado,
+} from "@/lib/auth/errors";
 
 export function FormularioEntrar() {
   const router = useRouter();
   const [correo, setCorreo] = useState("");
   const [contrasena, setContrasena] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorAuthInterpretado | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const idError = useId();
+
+  // El error general (credenciales, red) describe a todos los campos; el
+  // específico, solo al que falló. Cuando no hay error, nadie queda descrito.
+  const descritoPor = (campo: CampoDeAuth) =>
+    error && (error.campo === null || error.campo === campo) ? idError : undefined;
 
   async function manejarEnvio(evento: React.FormEvent<HTMLFormElement>) {
     evento.preventDefault();
@@ -32,7 +43,7 @@ export function FormularioEntrar() {
       });
 
       if (errorAuth) {
-        setError(mensajeErrorAuth(errorAuth));
+        setError(interpretarErrorAuth(errorAuth));
         return;
       }
 
@@ -42,7 +53,7 @@ export function FormularioEntrar() {
       // La llamada puede lanzar en vez de devolver `error` (p. ej. si el
       // servicio de autenticación responde con un error que no sabe
       // interpretar). No debe quedar la pantalla congelada en "Entrando…".
-      setError(mensajeErrorAuthLanzado(excepcion));
+      setError(interpretarErrorAuthLanzado(excepcion));
     } finally {
       setEnviando(false);
     }
@@ -64,7 +75,8 @@ export function FormularioEntrar() {
               autoComplete="email"
               value={correo}
               onChange={(evento) => setCorreo(evento.target.value)}
-              aria-invalid={Boolean(error)}
+              aria-invalid={error?.campo === "correo"}
+              aria-describedby={descritoPor("correo")}
               required
               autoFocus
               className="h-11"
@@ -78,7 +90,8 @@ export function FormularioEntrar() {
               value={contrasena}
               onChange={setContrasena}
               autoComplete="current-password"
-              invalido={Boolean(error)}
+              invalido={error?.campo === "contrasena"}
+              ariaDescritoPor={descritoPor("contrasena")}
             />
             {/* -my-2 compensa el py-2: el texto queda en el mismo lugar de
                 siempre, pero el área que se puede tocar crece a los 40px
@@ -92,8 +105,8 @@ export function FormularioEntrar() {
           </div>
 
           {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
+            <p id={idError} role="alert" className="text-sm text-destructive">
+              {error.mensaje}
             </p>
           )}
 

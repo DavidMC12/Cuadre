@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
@@ -9,7 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TituloAuth } from "@/components/auth/titulo-auth";
 import { authClient } from "@/lib/auth/client";
-import { mensajeErrorAuth, mensajeErrorAuthLanzado } from "@/lib/auth/errors";
+import {
+  interpretarErrorAuth,
+  interpretarErrorAuthLanzado,
+  type CampoDeAuth,
+  type ErrorAuthInterpretado,
+} from "@/lib/auth/errors";
 import { cn } from "@/lib/utils";
 
 /**
@@ -25,7 +30,13 @@ export function FormularioRecuperar() {
   const [correo, setCorreo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorAuthInterpretado | null>(null);
+  const idError = useId();
+
+  // El error general describe al correo (el único campo); el específico,
+  // también. Aquí nunca hay error de contraseña.
+  const descritoPor = (campo: CampoDeAuth) =>
+    error && (error.campo === null || error.campo === campo) ? idError : undefined;
 
   async function manejarEnvio(evento: React.FormEvent<HTMLFormElement>) {
     evento.preventDefault();
@@ -40,13 +51,13 @@ export function FormularioRecuperar() {
       });
 
       if (errorAuth) {
-        setError(mensajeErrorAuth(errorAuth));
+        setError(interpretarErrorAuth(errorAuth));
         return;
       }
 
       setEnviado(true);
     } catch (excepcion) {
-      setError(mensajeErrorAuthLanzado(excepcion));
+      setError(interpretarErrorAuthLanzado(excepcion));
     } finally {
       setEnviando(false);
     }
@@ -89,7 +100,8 @@ export function FormularioRecuperar() {
               autoComplete="email"
               value={correo}
               onChange={(evento) => setCorreo(evento.target.value)}
-              aria-invalid={Boolean(error)}
+              aria-invalid={error?.campo === "correo"}
+              aria-describedby={descritoPor("correo")}
               required
               autoFocus
               className="h-11"
@@ -97,8 +109,8 @@ export function FormularioRecuperar() {
           </div>
 
           {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
+            <p id={idError} role="alert" className="text-sm text-destructive">
+              {error.mensaje}
             </p>
           )}
 

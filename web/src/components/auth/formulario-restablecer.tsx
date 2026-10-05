@@ -1,14 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { CampoContrasena } from "@/components/auth/campo-contrasena";
 import { TituloAuth } from "@/components/auth/titulo-auth";
 import { authClient } from "@/lib/auth/client";
-import { mensajeErrorAuth, mensajeErrorAuthLanzado } from "@/lib/auth/errors";
+import {
+  interpretarErrorAuth,
+  interpretarErrorAuthLanzado,
+  type CampoDeAuth,
+  type ErrorAuthInterpretado,
+} from "@/lib/auth/errors";
 import { cn } from "@/lib/utils";
 
 /**
@@ -38,7 +43,13 @@ export function FormularioRestablecer({
   const [contrasena, setContrasena] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [listo, setListo] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorAuthInterpretado | null>(null);
+  const idError = useId();
+
+  // El error general (un enlace vencido, la red) describe a la contraseña,
+  // que es el único campo; el específico, también.
+  const descritoPor = (campo: CampoDeAuth) =>
+    error && (error.campo === null || error.campo === campo) ? idError : undefined;
 
   async function manejarEnvio(evento: React.FormEvent<HTMLFormElement>) {
     evento.preventDefault();
@@ -54,7 +65,7 @@ export function FormularioRestablecer({
       });
 
       if (errorAuth) {
-        setError(mensajeErrorAuth(errorAuth));
+        setError(interpretarErrorAuth(errorAuth));
         return;
       }
 
@@ -62,7 +73,7 @@ export function FormularioRestablecer({
     } catch (excepcion) {
       // Un enlace vencido o ya usado llega hasta acá lanzado, no como
       // `{ error }`: ver el comentario de `bad_jwt` en auth/errors.ts.
-      setError(mensajeErrorAuthLanzado(excepcion, SOBRESCRITURAS_RESTABLECER));
+      setError(interpretarErrorAuthLanzado(excepcion, SOBRESCRITURAS_RESTABLECER));
     } finally {
       setEnviando(false);
     }
@@ -121,14 +132,15 @@ export function FormularioRestablecer({
             onChange={setContrasena}
             autoComplete="new-password"
             minLength={8}
-            invalido={Boolean(error)}
+            invalido={error?.campo === "contrasena"}
+            ariaDescritoPor={descritoPor("contrasena")}
             ayuda="Al menos 8 caracteres."
             autoFocus
           />
 
           {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
+            <p id={idError} role="alert" className="text-sm text-destructive">
+              {error.mensaje}
             </p>
           )}
 

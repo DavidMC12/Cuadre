@@ -4,7 +4,12 @@
  * mensaje genérico sin ninguna pista de qué corregir.
  */
 import { describe, expect, it } from "vitest";
-import { mensajeErrorAuth, mensajeErrorAuthLanzado } from "./errors";
+import {
+  interpretarErrorAuth,
+  interpretarErrorAuthLanzado,
+  mensajeErrorAuth,
+  mensajeErrorAuthLanzado,
+} from "./errors";
 
 describe("mensajeErrorAuth", () => {
   it("traduce los códigos conocidos", () => {
@@ -72,5 +77,51 @@ describe("mensajeErrorAuthLanzado", () => {
     expect(mensajeErrorAuthLanzado("un texto cualquiera")).toBe(generico);
     expect(mensajeErrorAuthLanzado(null)).toBe(generico);
     expect(mensajeErrorAuthLanzado({ mensaje: "sin campo code" })).toBe(generico);
+  });
+
+  it("una sobrescritura vacía no gana: manda el diccionario (regla de veracidad)", () => {
+    expect(mensajeErrorAuthLanzado({ code: "bad_jwt" }, { bad_jwt: "" })).toBe(
+      "Algo salió mal. Inténtalo de nuevo."
+    );
+  });
+});
+
+describe("interpretarErrorAuth", () => {
+  it("dice a qué campo pertenece cada código, en los dos alfabetos", () => {
+    expect(interpretarErrorAuth({ code: "email_address_invalid" })).toEqual({
+      mensaje: "Ese correo no es válido.",
+      campo: "correo",
+    });
+    expect(interpretarErrorAuth({ code: "INVALID_PASSWORD" })).toEqual({
+      mensaje: "Esa contraseña no es válida.",
+      campo: "contrasena",
+    });
+    expect(interpretarErrorAuth({ code: "user_already_exists" })).toEqual({
+      mensaje: "Ya existe una cuenta con ese correo.",
+      campo: "correo",
+    });
+    // Un error general no marca ningún campo.
+    expect(interpretarErrorAuth({ code: "invalid_credentials" })).toEqual({
+      mensaje: "Correo o contraseña incorrectos.",
+      campo: null,
+    });
+    expect(interpretarErrorAuth(null).campo).toBeNull();
+  });
+});
+
+describe("interpretarErrorAuthLanzado", () => {
+  it("el campo sale del código y el mensaje de la sobrescritura, sin divergir", () => {
+    expect(interpretarErrorAuthLanzado({ code: "bad_jwt" }, { bad_jwt: "Vencido." })).toEqual({
+      mensaje: "Vencido.",
+      campo: null,
+    });
+    expect(interpretarErrorAuthLanzado({ code: "weak_password" })).toEqual({
+      mensaje: "Esa contraseña no sirve: prueba con un largo distinto.",
+      campo: "contrasena",
+    });
+    expect(interpretarErrorAuthLanzado("nada")).toEqual({
+      mensaje: "Algo salió mal. Inténtalo de nuevo.",
+      campo: null,
+    });
   });
 });

@@ -55,6 +55,42 @@ const MENSAJES_POR_CODIGO: Record<string, string> = {
 
 const MENSAJE_GENERICO = "Algo salió mal. Inténtalo de nuevo.";
 
+/**
+ * A qué campo de un formulario de auth pertenece un error, si a alguno.
+ *
+ * `null` es un error general —credenciales inválidas, que son de la pareja
+ * correo+contraseña; un límite de peticiones; un fallo de red— y no marca un
+ * campo puntual. El nombre solo entra por completitud: Neon Auth no tiene un
+ * código propio para ese campo (el navegador lo valida antes de enviar).
+ */
+export type CampoDeAuth = "nombre" | "correo" | "contrasena";
+
+/**
+ * El campo que señala cada código de error. Solo entran los códigos que de
+ * verdad apuntan a un campo; el resto queda `null`. Las claves siguen los dos
+ * alfabetos de `MENSAJES_POR_CODIGO` (MAYÚSCULAS y minúsculas).
+ */
+const CAMPO_POR_CODIGO: Record<string, CampoDeAuth> = {
+  INVALID_EMAIL: "correo",
+  email_address_invalid: "correo",
+  USER_ALREADY_EXISTS: "correo",
+  user_already_exists: "correo",
+  USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: "correo",
+  EMAIL_NOT_VERIFIED: "correo",
+  email_not_confirmed: "correo",
+  INVALID_PASSWORD: "contrasena",
+  PASSWORD_TOO_SHORT: "contrasena",
+  PASSWORD_TOO_LONG: "contrasena",
+  weak_password: "contrasena",
+};
+
+/** El mensaje en español de un error de auth, con el campo al que pertenece. */
+export interface ErrorAuthInterpretado {
+  mensaje: string;
+  /** El campo señalado, o `null` si el error es general. */
+  campo: CampoDeAuth | null;
+}
+
 type ErrorAuth = { code?: string | null; message?: string | null } | null | undefined;
 
 /** Mensaje en espanol para un error de `authClient`. Nunca deja pasar un codigo en ingles. */
@@ -63,6 +99,19 @@ export function mensajeErrorAuth(error: ErrorAuth): string {
     return MENSAJES_POR_CODIGO[error.code];
   }
   return MENSAJE_GENERICO;
+}
+
+/**
+ * El código de auth que trae lo lanzado, o `null` si no se parece a un error
+ * de auth. Un solo lugar extrae el código, para que el mensaje y el campo no
+ * puedan divergir.
+ */
+function codigoDeErrorLanzado(excepcion: unknown): string | null {
+  if (excepcion && typeof excepcion === "object" && "code" in excepcion) {
+    const codigo = (excepcion as { code?: unknown }).code;
+    if (typeof codigo === "string") return codigo;
+  }
+  return null;
 }
 
 /**
@@ -83,12 +132,37 @@ export function mensajeErrorAuthLanzado(
   excepcion: unknown,
   sobrescrituras?: Record<string, string>
 ): string {
-  if (excepcion && typeof excepcion === "object" && "code" in excepcion) {
-    const codigo = (excepcion as { code?: unknown }).code;
-    if (typeof codigo === "string") {
-      if (sobrescrituras?.[codigo]) return sobrescrituras[codigo];
-      return mensajeErrorAuth({ code: codigo });
-    }
-  }
-  return mensajeErrorAuth(null);
+  const codigo = codigoDeErrorLanzado(excepcion);
+  if (codigo === null) return mensajeErrorAuth(null);
+  return sobrescrituras?.[codigo] || mensajeErrorAuth({ code: codigo });
+}
+
+/**
+ * El mensaje Y el campo que señala un error devuelto por `authClient`. Es lo
+ * que consumen los formularios: el mensaje para mostrar y el campo para poner
+ * `aria-invalid`/`aria-describedby` solo donde corresponde.
+ */
+export function interpretarErrorAuth(error: ErrorAuth): ErrorAuthInterpretado {
+  return {
+    mensaje: mensajeErrorAuth(error),
+    campo: error?.code ? CAMPO_POR_CODIGO[error.code] ?? null : null,
+  };
+}
+
+/**
+ * Igual que `interpretarErrorAuth`, para el camino que LANZA en vez de
+ * devolver `{ error }` (el habitual, ver `mensajeErrorAuthLanzado`). El campo
+ * no se deduce de la sobrescritura: es del código, no del texto.
+ */
+export function interpretarErrorAuthLanzado(
+  excepcion: unknown,
+  sobrescrituras?: Record<string, string>
+): ErrorAuthInterpretado {
+  const codigo = codigoDeErrorLanzado(excepcion);
+  return {
+    // El mensaje sale de UN solo lugar (con su regla de sobrescritura); el
+    // campo, del código. Así los dos no pueden divergir.
+    mensaje: mensajeErrorAuthLanzado(excepcion, sobrescrituras),
+    campo: codigo === null ? null : CAMPO_POR_CODIGO[codigo] ?? null,
+  };
 }
