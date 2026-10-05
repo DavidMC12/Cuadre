@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { toast } from "sonner";
 
 import PaginaAdmin from "./page";
 import * as useAdminModule from "@/hooks/use-admin";
@@ -244,5 +245,39 @@ describe("Admin: suplantar no arranca sin confirmar (octava critique, P2)", () =
     // diálogo ya viven en 44px (ver confirmar-anulacion).
     expect(screen.getByRole("button", { name: "Cancelar" }).className).toContain("min-h-11");
     expect(screen.getByRole("button", { name: "Sí, entrar" }).className).toContain("min-h-11");
+  });
+
+  it("un fallo al entrar deja el diálogo abierto con un Reintentar posible", () => {
+    ajustarPerfil();
+    ajustarPersonas({
+      data: [
+        {
+          id: "u-1",
+          email: "sam@cuadre.co",
+          name: "Sam",
+          role: "user",
+          banned: false,
+          createdAt: "2026-08-01T00:00:00.000Z",
+        },
+      ] as UsuarioDelSistema[],
+    });
+    // El mutate falla en seco: manda el onError y ahí queda.
+    vi.mocked(useAdminModule.useSuplantar).mockImplementation(
+      () =>
+        ({
+          mutate: (_persona: unknown, config: { onError: () => void }) => config.onError(),
+          isPending: false,
+        }) as never
+    );
+
+    render(<PaginaAdmin />);
+    fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sí, entrar" }));
+
+    // La cuenta no cambió: se lo dice el toast y el diálogo queda en pie con
+    // el botón re-armado para volver a intentar.
+    expect(toast.error).toHaveBeenCalledWith("No se pudo entrar a esa cuenta.");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sí, entrar" })).not.toBeDisabled();
   });
 });
