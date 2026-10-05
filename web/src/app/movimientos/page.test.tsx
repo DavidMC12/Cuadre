@@ -428,8 +428,8 @@ describe("Movimientos: piso de toque de 44px", () => {
     } as never);
     render(<PaginaMovimientos />);
 
-    // La variante data-[size=sm]:h-7 del SelectTrigger gana la cascada:
-    // solo una clase que anule la altura sirve; min-h-11 va por otra vía.
+    // La variante data-[size=default]:h-8 del SelectTrigger gana la cascada:
+    // una altura que compita no sirve; min-h-11 va por otra propiedad.
     expect(screen.getByRole("combobox", { name: "Filtrar por cuenta" }).className).toContain(
       "min-h-11"
     );
