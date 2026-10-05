@@ -476,4 +476,84 @@ describe('FormularioItemPresupuesto', () => {
     }
     expect(screen.getByRole('button', { name: 'Guardar' }).className).toContain('min-h-11');
   });
+
+  it('asocia cada etiqueta con su control (Tipo, Categoría, Cuenta de ahorro)', () => {
+    // Antes eran `<Label>` sueltos sin `htmlFor`: el lector no decía a qué
+    // campo pertenecía cada uno al enfocarlo.
+    render(
+      <FormularioItemPresupuesto moneda="COP">
+        <button type="button">Agregar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
+
+    // "Tipo" es un grupo de botones (role="group"): se asocia por
+    // `aria-labelledby`, no por `htmlFor`.
+    expect(screen.getByRole('group', { name: 'Tipo' })).toBeTruthy();
+    // "Categoría" es un combobox: la etiqueta lo referencia con `htmlFor`.
+    expect(screen.getByRole('combobox', { name: 'Categoría' })).toBeTruthy();
+
+    // En modo ahorro el par cambia: ahora manda la cuenta.
+    fireEvent.click(screen.getByRole('button', { name: 'Ahorro' }));
+    expect(screen.getByRole('combobox', { name: 'Cuenta de ahorro' })).toBeTruthy();
+  });
+
+  it('si falta la categoría, el error apunta al selector y no al monto', () => {
+    render(
+      <FormularioItemPresupuesto moneda="COP">
+        <button type="button">Agregar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
+    fireEvent.change(screen.getByLabelText('Monto'), { target: { value: '50000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    const mensaje = screen.getByText('Elige una categoría.');
+    const categoria = screen.getByRole('combobox', { name: 'Categoría' });
+    const monto = screen.getByLabelText('Monto');
+
+    expect(categoria).toHaveAttribute('aria-invalid', 'true');
+    expect(categoria).toHaveAttribute('aria-describedby', mensaje.id);
+    // El monto no es el que falló: no se marca ni se describe con ese error.
+    expect(monto).toHaveAttribute('aria-invalid', 'false');
+    expect(monto).not.toHaveAttribute('aria-describedby');
+  });
+
+  it('si falta la cuenta de ahorro, el error apunta a ese selector', () => {
+    render(
+      <FormularioItemPresupuesto moneda="COP">
+        <button type="button">Agregar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ahorro' }));
+    fireEvent.change(screen.getByLabelText('Monto'), { target: { value: '50000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    const mensaje = screen.getByText('Elige una cuenta de ahorro.');
+    const cuenta = screen.getByRole('combobox', { name: 'Cuenta de ahorro' });
+    expect(cuenta).toHaveAttribute('aria-invalid', 'true');
+    expect(cuenta).toHaveAttribute('aria-describedby', mensaje.id);
+    expect(screen.getByLabelText('Monto')).toHaveAttribute('aria-invalid', 'false');
+  });
+
+  it('un monto vacío marca el monto y no los selectores', () => {
+    render(
+      <FormularioItemPresupuesto moneda="COP">
+        <button type="button">Agregar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    const monto = screen.getByLabelText('Monto');
+    const idError = monto.getAttribute('aria-describedby');
+    expect(monto).toHaveAttribute('aria-invalid', 'true');
+    expect(idError).toBeTruthy();
+    expect(document.getElementById(idError as string)?.textContent).toBe('Escribe el monto.');
+    expect(screen.getByRole('combobox', { name: 'Categoría' })).toHaveAttribute(
+      'aria-invalid',
+      'false'
+    );
+  });
 });
