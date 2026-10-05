@@ -404,4 +404,60 @@ describe("Movimientos: piso de toque de 44px", () => {
     expect(registrar.className).toContain("min-h-11");
     expect(registrar.className).toContain("mt-1");
   });
+
+  it("los selectores de filtro de cuenta y categoría llevan el piso de toque", () => {
+    ajustar({ data: [] }, [
+      {
+        id: "cta-1",
+        name: "Bancolombia",
+        type: "bank",
+        currency: "COP",
+        balance: "1000000",
+        movementCount: 0,
+        lastMovementAt: null,
+        archivedAt: null,
+        isSavings: false,
+        creditLimit: null,
+        linkedAccountId: null,
+      } as unknown as Cuenta,
+    ]);
+    vi.mocked(useCategoriasModule.useCategorias).mockReturnValue({
+      isLoading: false,
+      refetch: vi.fn(),
+      data: [{ id: "c-1", name: "Mercado", kind: "expense", archivedAt: null }],
+    } as never);
+    render(<PaginaMovimientos />);
+
+    // La variante data-[size=default]:h-8 del SelectTrigger gana la cascada:
+    // una altura que compita no sirve; min-h-11 va por otra propiedad.
+    expect(screen.getByRole("combobox", { name: "Filtrar por cuenta" }).className).toContain(
+      "min-h-11"
+    );
+    expect(
+      screen.getByRole("combobox", { name: "Filtrar por categoría" }).className
+    ).toContain("min-h-11");
+  });
+
+  it('el botón "Cargar más" lleva el piso de toque', () => {
+    // El botón solo aparece con el historial ya en pantalla.
+    const comprobante: Movimiento = {
+      id: "m-1",
+      accountId: "a-1",
+      categoryId: null,
+      kind: "standard",
+      amount: "-12500",
+      currency: "COP",
+      occurredAt: "2026-09-10T12:00:00Z",
+      description: null,
+      transferGroupId: null,
+      reversesTransactionId: null,
+      reversedByTransactionId: null,
+    };
+    ajustar({ data: [comprobante], hasNextPage: true, isFetchingNextPage: false });
+    render(<PaginaMovimientos />);
+
+    expect(screen.getByRole("button", { name: "Cargar más" }).className).toContain(
+      "min-h-11"
+    );
+  });
 });

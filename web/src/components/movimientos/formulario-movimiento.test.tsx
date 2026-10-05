@@ -278,4 +278,16 @@ describe("FormularioMovimiento: piso de toque de 44px", () => {
     expect(chip.classList.contains("min-h-11")).toBe(true);
     expect(chip.getAttribute("aria-pressed")).toBe("false");
   });
+
+  it("el botón 'Más detalles' lleva el piso de toque", () => {
+    // Era un botón de texto chico (~16px sin piso): el control más angosto del
+    // formulario. La altura sube, no el ancho, y en 320px sigue cabiendo.
+    vi.mocked(useCategoriasModule.useCategorias).mockReturnValue({ data: [] } as never);
+
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+
+    expect(
+      screen.getByRole("button", { name: /Más detalles/ }).classList.contains("min-h-11")
+    ).toBe(true);
+  });
 });
