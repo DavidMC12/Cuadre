@@ -370,6 +370,7 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
       variante?: string;
       compartePantalla?: boolean;
       anunciaPresupuesto?: boolean;
+      anunciaResumen?: boolean;
     };
     expect(props.mes).toBeDefined();
     expect(props.moneda).toBe("COP");
@@ -377,6 +378,9 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     expect(props.compartePantalla).toBe(false);
     // En xl el panel del presupuesto es el que anuncia: el bloque cede.
     expect(props.anunciaPresupuesto).toBe(false);
+    // ResumenCards consulta el mismo resumen y siempre anuncia: el cuadrito
+    // nunca dispara su propia alerta por esa consulta.
+    expect(props.anunciaResumen).toBe(false);
 
     // Una sola instancia en pantalla, y vive en la columna principal, nunca
     // dentro del aside del presupuesto.

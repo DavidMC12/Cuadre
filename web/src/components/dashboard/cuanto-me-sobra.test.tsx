@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 
 import { CuantoMeSobra } from '@/components/dashboard/cuanto-me-sobra';
+import { ResumenCards } from '@/components/dashboard/resumen-cards';
 import { mesActual, sumarMeses, etiquetaMes } from '@/lib/fecha';
 import type { ItemDelChecklist, ResumenMes } from '@/lib/api/types';
 
@@ -361,6 +362,89 @@ describe('CuantoMeSobra', () => {
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByRole('group')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Reintentar presupuesto' })).toBeTruthy();
+  });
+
+  it('por defecto sí anuncia el fallo del resumen (alert)', () => {
+    ajustar(
+      {
+        data: {
+          month: mesActual(),
+          currency: 'COP',
+          items: [renglonDe('income', '3000000')],
+        },
+      },
+      { isError: true, error: new Error('boom') },
+    );
+
+    render(<CuantoMeSobra mes={mesActual()} moneda="COP" />);
+
+    expect(screen.getByRole('alert')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reintentar resumen' })).toBeTruthy();
+  });
+
+  it('si el resumen ya lo anuncia ResumenCards, el cuadrito cede (group, sin alert)', () => {
+    ajustar(
+      {
+        data: {
+          month: mesActual(),
+          currency: 'COP',
+          items: [renglonDe('income', '3000000')],
+        },
+      },
+      { isError: true, error: new Error('boom') },
+    );
+
+    render(<CuantoMeSobra mes={mesActual()} moneda="COP" anunciaResumen={false} />);
+
+    // Misma consulta que ResumenCards: se ve el bloque, pero no se anuncia dos
+    // veces.
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('group')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reintentar resumen' })).toBeTruthy();
+  });
+
+  it('con ResumenCards y el cuadrito juntos, el resumen se anuncia una sola vez', () => {
+    ajustar(
+      { data: { month: mesActual(), currency: 'COP', items: [] } },
+      { isError: true, error: new Error('boom') },
+    );
+
+    render(
+      <>
+        <ResumenCards
+          resumen={undefined}
+          moneda="COP"
+          cargando={false}
+          fallo={{
+            mensaje: 'No pudimos cargar el resumen del mes. Revisa tu conexión y vuelve a intentarlo.',
+            onReintentar: vi.fn(),
+            etiquetaBoton: 'Reintentar resumen',
+          }}
+        />
+        <CuantoMeSobra mes={mesActual()} moneda="COP" anunciaResumen={false} />
+      </>,
+    );
+
+    // Un solo `role="alert"` en toda la pantalla: el de ResumenCards.
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+  });
+
+  it('si el resumen queda pausado y ya lo anuncia ResumenCards, el cuadrito cede', () => {
+    ajustar(
+      {
+        data: {
+          month: mesActual(),
+          currency: 'COP',
+          items: [renglonDe('income', '3000000')],
+        },
+      },
+      { isPaused: true },
+    );
+
+    render(<CuantoMeSobra mes={mesActual()} moneda="COP" anunciaResumen={false} />);
+
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('group')).toBeTruthy();
   });
 
   it('en pantalla ancha, una pausa del presupuesto cede el anuncio al panel', () => {
