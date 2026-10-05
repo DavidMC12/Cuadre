@@ -90,7 +90,7 @@ export function EditarCategoriaMovimiento({
           </div>
 
           <DrawerFooter>
-            <Button type="submit" disabled={actualizarCategoria.isPending}>
+            <Button type="submit" className="min-h-11" disabled={actualizarCategoria.isPending}>
               {actualizarCategoria.isPending ? "Guardando…" : "Guardar"}
             </Button>
           </DrawerFooter>

@@ -174,6 +174,7 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
               <Label htmlFor="nombre-cuenta">Nombre</Label>
               <Input
                 id="nombre-cuenta"
+                className="min-h-11"
                 placeholder="Ej. Bancolombia"
                 value={nombre}
                 onChange={(evento) => setNombre(evento.target.value)}
@@ -237,6 +238,7 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
                     id={idAhorro}
                     checked={esAhorro}
                     onCheckedChange={(valor) => setEsAhorro(valor)}
+                    className="after:-inset-y-[13px]"
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">{AYUDA_CUENTA_AHORRO}</p>
@@ -249,6 +251,7 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
                   <Label htmlFor="cupo">Cupo (opcional)</Label>
                   <CampoMonto
                     id="cupo"
+                    className="min-h-11"
                     moneda={monedaElegida}
                     value={cupo}
                     onChange={setCupo}
@@ -276,7 +279,7 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
                         setCuentaVinculada(valor === null ? undefined : valor)
                       }
                     >
-                      <SelectTrigger id="cuenta-vinculada" className="w-full">
+                      <SelectTrigger id="cuenta-vinculada" className="min-h-11 w-full">
                         <SelectValue placeholder="Elige una cuenta">
                           {(valor: string) =>
                             cuentasParaVincular.find((cuenta) => cuenta.id === valor)?.name ?? valor
@@ -309,6 +312,7 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
               <Label htmlFor="saldo-inicial">Saldo inicial (opcional)</Label>
               <CampoMonto
                 id="saldo-inicial"
+                className="min-h-11"
                 moneda={monedaElegida}
                 value={saldoInicial}
                 onChange={setSaldoInicial}
@@ -331,7 +335,7 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
           </div>
 
           <DrawerFooter>
-            <Button type="submit" disabled={crearCuenta.isPending}>
+            <Button type="submit" className="min-h-11" disabled={crearCuenta.isPending}>
               {crearCuenta.isPending ? "Creando…" : "Crear cuenta"}
             </Button>
           </DrawerFooter>

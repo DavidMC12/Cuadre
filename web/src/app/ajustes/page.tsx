@@ -86,7 +86,7 @@ export default function PaginaAjustes() {
               <EditarNombre nombreActual={perfil.displayName}>
                 <button
                   type="button"
-                  className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  className="flex min-h-11 min-w-0 items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <span className="truncate">{perfil.displayName}</span>
                   <ChevronRight className="size-4 shrink-0" />

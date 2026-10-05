@@ -67,7 +67,7 @@ export function FormularioEntrar() {
               aria-invalid={Boolean(error)}
               required
               autoFocus
-              className="h-10"
+              className="h-11"
             />
           </div>
 
@@ -97,7 +97,7 @@ export function FormularioEntrar() {
             </p>
           )}
 
-          <Button type="submit" disabled={enviando} className="h-10 w-full">
+          <Button type="submit" disabled={enviando} className="h-11 w-full">
             {enviando ? "Entrando…" : "Entrar"}
           </Button>
         </form>

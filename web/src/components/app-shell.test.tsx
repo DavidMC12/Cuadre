@@ -79,4 +79,23 @@ describe("Navegación: el checklist tiene casa propia en el menú", () => {
       expect(enlace.querySelector("span.truncate")).not.toBeNull();
     }
   });
+
+  it("el menú lateral de escritorio también lleva el piso de toque", () => {
+    // Era py-2 + text-sm (~36px): una entrada de navegación que se toca con el
+    // dedo en tablet/escritorio táctil. min-h-11 la sube a 44px.
+    render(
+      <AppShell>
+        <p>contenido</p>
+      </AppShell>
+    );
+
+    const navEscritorio = screen
+      .getAllByRole("navigation")
+      .find((nav) => !nav.className.includes("fixed"));
+    expect(navEscritorio).toBeDefined();
+
+    for (const enlace of navEscritorio!.querySelectorAll("a")) {
+      expect(enlace.className).toContain("min-h-11");
+    }
+  });
 });

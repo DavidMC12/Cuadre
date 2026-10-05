@@ -73,7 +73,7 @@ export function FormularioRegistro() {
               // espacio en blanco, en cualquier posición.
               pattern=".*\S.*"
               autoFocus
-              className="h-10"
+              className="h-11"
             />
           </div>
 
@@ -87,7 +87,7 @@ export function FormularioRegistro() {
               onChange={(evento) => setCorreo(evento.target.value)}
               aria-invalid={Boolean(error)}
               required
-              className="h-10"
+              className="h-11"
             />
           </div>
 
@@ -108,7 +108,7 @@ export function FormularioRegistro() {
             </p>
           )}
 
-          <Button type="submit" disabled={enviando} className="h-10 w-full">
+          <Button type="submit" disabled={enviando} className="h-11 w-full">
             {enviando ? "Creando cuenta…" : "Crear cuenta"}
           </Button>
         </form>

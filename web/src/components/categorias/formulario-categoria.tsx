@@ -92,6 +92,7 @@ export function FormularioCategoria({ children }: { children: React.ReactNode })
               <Label htmlFor="nombre-categoria">Nombre</Label>
               <Input
                 id="nombre-categoria"
+                className="min-h-11"
                 placeholder="Ej. Mercado"
                 value={nombre}
                 onChange={(evento) => setNombre(evento.target.value)}
@@ -125,7 +126,7 @@ export function FormularioCategoria({ children }: { children: React.ReactNode })
           </div>
 
           <DrawerFooter>
-            <Button type="submit" disabled={crearCategoria.isPending}>
+            <Button type="submit" className="min-h-11" disabled={crearCategoria.isPending}>
               {crearCategoria.isPending ? "Creando…" : "Crear categoría"}
             </Button>
           </DrawerFooter>

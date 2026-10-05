@@ -30,7 +30,7 @@ export function BotonSalir() {
       variant="outline"
       onClick={manejarClic}
       disabled={saliendo}
-      className="w-full text-destructive"
+      className="min-h-11 w-full text-destructive"
     >
       <LogOut data-icon="inline-start" />
       {saliendo ? "Saliendo…" : "Cerrar sesión"}
