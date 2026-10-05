@@ -11,6 +11,7 @@ import {
 } from "./select";
 
 afterEach(cleanup);
+let originalScrollIntoView: PropertyDescriptor | undefined;
 
 /**
  * Abrir el menú en jsdom abre también el popup: se necesitan las APIs de
@@ -18,6 +19,13 @@ afterEach(cleanup);
  * componente no las ejercita aquí.
  */
 beforeEach(() => {
+  // Base UI lee dimensiones y desplazamiento que jsdom no calcula: los
+  // stubs habilitan el montaje del popup. Se guardan y restauran para no
+  // quedárnoslos si un día se sirve aislar menos los archivos de prueba.
+  originalScrollIntoView = Object.getOwnPropertyDescriptor(
+    Element.prototype,
+    "scrollIntoView"
+  );
   Element.prototype.scrollIntoView = vi.fn();
   Object.defineProperty(window.HTMLElement.prototype, "scrollHeight", {
     configurable: true,
@@ -27,6 +35,14 @@ beforeEach(() => {
     configurable: true,
     value: 300,
   });
+});
+
+afterEach(() => {
+  if (originalScrollIntoView) {
+    Object.defineProperty(Element.prototype, "scrollIntoView", originalScrollIntoView);
+  } else {
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  }
 });
 
 describe("SelectItem: piso de toque de 44px", () => {
