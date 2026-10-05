@@ -38,6 +38,7 @@ export function CuantoMeSobra({
   variante = 'tarjeta',
   compartePantalla,
   anunciaPresupuesto = true,
+  anunciaResumen = true,
   onFalloPresupuesto,
 }: {
   mes: string;
@@ -53,6 +54,11 @@ export function CuantoMeSobra({
    * interrupción. Dos `role="alert"` de la MISMA consulta son una tormenta;
    * dos de consultas distintas, no. */
   anunciaPresupuesto?: boolean;
+  /** `false` cuando otro bloque de la misma pantalla ya anuncia el fallo del
+   * resumen (ResumenCards, que consulta el mismo mes): mismo trato que el
+   * presupuesto — el bloque queda visible, pero cede la interrupción para que
+   * una sola consulta no se anuncie dos veces. */
+  anunciaResumen?: boolean;
   /** Avisa a la pantalla si el presupuesto no se pudo leer, para que componga
    * el anuncio único y ningún bloque quede sin voz. */
   onFalloPresupuesto?: (fallo: boolean) => void;
@@ -140,7 +146,11 @@ export function CuantoMeSobra({
             void checklist.refetch();
             void resumen.refetch();
           }}
-          compartePantalla={compartePantalla || (falloChecklist && !anunciaPresupuesto)}
+          compartePantalla={
+            compartePantalla ||
+            (falloChecklist && !anunciaPresupuesto) ||
+            (falloResumen && !anunciaResumen)
+          }
         />
       ) : pausada && !estado ? (
         // Sin red y sin nada en mano, la consulta queda en pausa (no en error):
@@ -156,7 +166,11 @@ export function CuantoMeSobra({
             void checklist.refetch();
             void resumen.refetch();
           }}
-          compartePantalla={compartePantalla || (pausadaChecklist && !anunciaPresupuesto)}
+          compartePantalla={
+            compartePantalla ||
+            (pausadaChecklist && !anunciaPresupuesto) ||
+            (pausadaResumen && !anunciaResumen)
+          }
         />
       ) : vacioTotal ? (
         <EmptyState

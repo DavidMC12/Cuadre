@@ -361,6 +361,10 @@ export default function PaginaResumen() {
             variante="suelta"
             compartePantalla={componenFallosConPresupuesto}
             anunciaPresupuesto={!pantallaAncha}
+            // ResumenCards consulta el MISMO resumen del mes y siempre está
+            // montado: que sea él quien anuncie el fallo, para que una sola
+            // consulta no se anuncie dos veces.
+            anunciaResumen={false}
             onFalloPresupuesto={setPresupuestoNoLeible}
           />
         </section>
