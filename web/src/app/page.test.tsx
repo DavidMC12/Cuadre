@@ -5,6 +5,7 @@ import { render, screen, fireEvent, cleanup, act } from "@testing-library/react"
 import PaginaResumen from "./page";
 import * as reportes from "@/hooks/use-reportes";
 import * as ordenCuentas from "@/hooks/use-cuentas";
+import * as presupuesto from "@/hooks/use-presupuesto";
 import { GraficaTendencia } from "@/components/dashboard/grafica-tendencia";
 import { GraficaPorCategoria } from "@/components/dashboard/grafica-por-categoria";
 import { PanelPresupuesto } from "@/components/presupuesto/panel-presupuesto";
@@ -24,6 +25,10 @@ vi.mock("@/hooks/use-reportes", () => ({
 
 vi.mock("@/hooks/use-cuentas", () => ({
   useCuentas: vi.fn(),
+}));
+
+vi.mock("@/hooks/use-presupuesto", () => ({
+  useChecklistDelMes: vi.fn(),
 }));
 
 vi.mock("@/hooks/use-perfil", () => ({
@@ -103,9 +108,10 @@ function ajustar(
     deResumen?: Stub;
     deTendencia?: Stub;
     deCuentas?: Stub;
+    deChecklist?: Stub;
   } = {}
 ) {
-  const { deMonedas, deResumen, deTendencia, deCuentas } = overrides;
+  const { deMonedas, deResumen, deTendencia, deCuentas, deChecklist } = overrides;
 
   vi.mocked(reportes.useMonedas).mockImplementation(
     () => refetchable({ data: ["COP"], ...deMonedas }) as never
@@ -118,6 +124,11 @@ function ajustar(
   );
   vi.mocked(ordenCuentas.useCuentas).mockImplementation(
     () => refetchable({ data: cuantas, ...deCuentas }) as never
+  );
+  // El checklist del mes vive adentro del cuadrito; la página lo escucha
+  // también (misma consulta) para saber cuándo el resumen es el único caído.
+  vi.mocked(presupuesto.useChecklistDelMes).mockImplementation(
+    () => refetchable({ data: undefined, ...deChecklist }) as never
   );
 }
 
@@ -342,21 +353,39 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     ).not.toBeNull();
   });
 
-  it("un fallo SOLO del resumen del mes deja una única alerta en la pantalla", () => {
+  it("un fallo SOLO del resumen deja UN bloque de error: el cuadrito no lo duplica", () => {
     ajustar({ deResumen: { data: undefined, isError: true, error: new Error("boom") } });
 
     render(<PaginaResumen />);
 
-    // ResumenCards anuncia el fallo (role=alert) y el cuadrito "cuánto me
-    // sobra" —que consulta el MISMO resumen— cede: una sola voz para una
-    // sola consulta.
+    // Una sola consulta caída, un solo bloque: ResumenCards lo muestra con
+    // su Reintentar. El cuadrito "cuánto me sobra" —que además necesita el
+    // checklist— no repite el error de esa misma consulta (octava critique,
+    // P2): la sección entera se esconde, encabezado incluido.
     expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(
+      screen.getAllByText(
+        "No pudimos cargar el resumen del mes. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Reintentar resumen" })).toBeInTheDocument();
-    // El cableado: el cuadrito recibe la orden de no anunciar el resumen.
-    const props = vi.mocked(CuantoMeSobra).mock.calls.at(-1)?.[0] as unknown as {
-      anunciaResumen?: boolean;
-    };
-    expect(props.anunciaResumen).toBe(false);
+    expect(screen.queryByTestId("me-sobra")).not.toBeInTheDocument();
+    expect(screen.queryByText("Cuánto me sobra este mes")).not.toBeInTheDocument();
+  });
+
+  it("si el resumen y el presupuesto caen juntos, la sección del cuadrito vuelve (con su propio error)", () => {
+    ajustar({
+      deResumen: { data: undefined, isError: true, error: new Error("boom") },
+      deChecklist: { data: undefined, isError: true, error: new Error("boom") },
+    });
+
+    render(<PaginaResumen />);
+
+    // Dos consultas caídas son dos bloques con Reintentar distintos; el que
+    // se esconde es solo cuando el resumen cae SOLO.
+    expect(screen.getByRole("button", { name: "Reintentar resumen" })).toBeInTheDocument();
+    expect(screen.getByTestId("me-sobra")).toBeInTheDocument();
+    expect(screen.getByText("Cuánto me sobra este mes")).toBeInTheDocument();
   });
 
   it("el cajón móvil monta el panel sin tope propio (el cajón ya scrollea)", () => {
@@ -432,8 +461,12 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
 
   it("un fallo del presupuesto desde el cuadrito compone el anuncio único con otro fallo", () => {
     ventanaAncha = true;
-    // Otro fallo en la pantalla (el resumen) además del presupuesto.
-    ajustar({ deResumen: { data: undefined, isError: true, error: new Error("boom") } });
+    // Otro fallo en la pantalla (el resumen) además del presupuesto; el
+    // checklist caído mantiene la sección del cuadrito en pantalla.
+    ajustar({
+      deResumen: { data: undefined, isError: true, error: new Error("boom") },
+      deChecklist: { data: undefined, isError: true, error: new Error("boom") },
+    });
     render(<PaginaResumen />);
 
     // El cuadrito reporta que el presupuesto falló: ya son dos fallos.
