@@ -93,6 +93,7 @@ function RenombrarCategoria({
             <Label htmlFor="nombre-categoria-editar">Nombre</Label>
             <Input
               id="nombre-categoria-editar"
+              className="min-h-11"
               value={nombre}
               onChange={(evento) => setNombre(evento.target.value)}
               aria-invalid={Boolean(error)}
@@ -102,7 +103,7 @@ function RenombrarCategoria({
           </div>
 
           <DrawerFooter>
-            <Button type="submit" disabled={renombrarCategoria.isPending}>
+            <Button type="submit" className="min-h-11" disabled={renombrarCategoria.isPending}>
               {renombrarCategoria.isPending ? "Guardando…" : "Guardar"}
             </Button>
           </DrawerFooter>
@@ -150,7 +151,7 @@ export function CategoriaItem({ categoria }: { categoria: Categoria }) {
             solo, sin ningún ícono ni subrayado, no se leía como un control. */}
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-sm text-muted-foreground hover:text-foreground"
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-1.5 text-left text-sm text-muted-foreground hover:text-foreground"
         >
           <span className="truncate text-foreground">{categoria.name}</span>
           <Pencil className="size-3 shrink-0 opacity-60" />

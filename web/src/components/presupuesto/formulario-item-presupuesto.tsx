@@ -382,7 +382,7 @@ export function FormularioItemPresupuesto({
                   }}
                   disabled={todasLasCategorias.length === 0}
                 >
-                  <SelectTrigger className="w-full" aria-invalid={Boolean(errorMonto)}>
+                  <SelectTrigger className="min-h-11 w-full" aria-invalid={Boolean(errorMonto)}>
                     {/* El popup con las opciones vive en un portal que no está
                         montado mientras el selector está cerrado, así que el
                         nombre del elegido se resuelve a mano (ver
@@ -441,7 +441,7 @@ export function FormularioItemPresupuesto({
                   }}
                   disabled={cuentasDeAhorro.length === 0}
                 >
-                  <SelectTrigger className="w-full" aria-invalid={Boolean(errorMonto)}>
+                  <SelectTrigger className="min-h-11 w-full" aria-invalid={Boolean(errorMonto)}>
                     <SelectValue placeholder="Elige una cuenta">
                       {(valor: string) => {
                         const elegida = cuentasDeAhorro.find((cuenta) => cuenta.id === valor);
@@ -469,6 +469,7 @@ export function FormularioItemPresupuesto({
               <Label htmlFor="monto-item">Monto</Label>
               <CampoMonto
                 id="monto-item"
+                className="min-h-11"
                 moneda={monedaDelMonto}
                 value={monto}
                 onChange={(valor) => {
@@ -491,6 +492,7 @@ export function FormularioItemPresupuesto({
               <Label htmlFor="etiqueta-item">Etiqueta (opcional)</Label>
               <Input
                 id="etiqueta-item"
+                className="min-h-11"
                 placeholder={tipo === 'category' ? 'Ej. Mercado del mes' : 'Ej. Apartado viaje'}
                 value={etiqueta}
                 onChange={(evento) => {
@@ -508,6 +510,7 @@ export function FormularioItemPresupuesto({
               <Button
                 type="button"
                 variant="outline"
+                className="min-h-11"
                 onClick={archivarOrestaurar}
                 disabled={archivar.isPending || desarchivar.isPending}
               >
@@ -517,7 +520,7 @@ export function FormularioItemPresupuesto({
           </div>
 
           <DrawerFooter>
-            <Button type="submit" disabled={guardando || sinOpciones}>
+            <Button type="submit" className="min-h-11" disabled={guardando || sinOpciones}>
               {guardando ? 'Guardando…' : 'Guardar'}
             </Button>
           </DrawerFooter>

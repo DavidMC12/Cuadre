@@ -396,6 +396,7 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
               <>
                 <Input
                   id={idNombre}
+                  className="min-h-11"
                   value={nombre}
                   onChange={(evento) => {
                     setNombre(evento.target.value);
@@ -433,6 +434,7 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
                   <Label htmlFor={idCupo}>Cupo</Label>
                   <CampoMonto
                     id={idCupo}
+                    className="min-h-11"
                     moneda={cuenta.currency}
                     value={cupo}
                     onChange={(valor) => {
@@ -479,7 +481,7 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
                     }
                     disabled={actualizar.isPending}
                   >
-                    <SelectTrigger id={idVinculada} className="w-full">
+                    <SelectTrigger id={idVinculada} className="min-h-11 w-full">
                       <SelectValue placeholder="Elige una cuenta">
                         {(valor: string) =>
                           (cuentas ?? []).find((c) => c.id === valor)?.name ??
@@ -519,6 +521,9 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
                   checked={cuenta.isSavings}
                   disabled={soloMirar || marcarAhorro.isPending}
                   onCheckedChange={cambiarAhorro}
+                  // El interruptor dibuja 18.4px; su área táctil (el ::after
+                  // transparente) se estira a ~44px sin agrandar la píldora.
+                  className="min-h-11 after:-inset-y-[13px]"
                 />
               </div>
               <p className="text-xs text-muted-foreground">{AYUDA_CUENTA_AHORRO}</p>
@@ -537,7 +542,7 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
                   destino: cuenta.id,
                 }}
               >
-                <Button>
+                <Button className="min-h-11">
                   <CreditCard />
                   Pagar tarjeta
                 </Button>
