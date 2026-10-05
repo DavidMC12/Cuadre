@@ -298,6 +298,16 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   distingue por color (`grafica-ahorro.tsx`), un fallo SOLO del resumen
   se anuncia dos veces, y quedan candidatos a 44px (ojo de contraseña,
   `SelectTrigger` de filtros, "Cargar más", "Más detalles").
+  **Cerrados después, el mismo día** (dos ramas más, en `main`): el
+  signo del ahorro ya se dice con palabras ("Ahorraste" / "Retiraste" /
+  "Sin movimiento") en el tooltip y en la tabla `sr-only`; un fallo SOLO
+  del resumen ya se anuncia una vez (`anunciaResumen={false}` en el
+  cuadrito "me sobra"); y el ojo de contraseña, los filtros de Movimientos,
+  "Cargar más" y "Más detalles" llegan a 44px. Quedan en 32px, anotados por
+  el revisor: selectores de cuenta, Fecha/Descripción, "Registrar" y
+  "Entendido" del formulario de movimiento, y los renglones de los menús
+  (`ui/select.tsx`); hay un par de botones "Reintentar resumen" en
+  distintos roles, previo.
 
 Pendiente, sin fecha: otra ronda de `impeccable critique` más adelante
 para medir el puntaje tras estos arreglos.
