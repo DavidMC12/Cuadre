@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 
-import { GraficaAhorro } from "./grafica-ahorro";
+import { GraficaAhorro, TooltipAhorro } from "./grafica-ahorro";
 import * as reportes from "@/hooks/use-reportes";
 import { MENOS } from "@/lib/money";
 
@@ -76,6 +76,46 @@ describe("GraficaAhorro: la gráfica también se puede leer sin verla", () => {
     expect(screen.getByText("$100.000")).toBeInTheDocument();
     // Un mes en negativo se lee con su signo, igual que en `Monto`.
     expect(screen.getByText(`${MENOS}$50.000`)).toBeInTheDocument();
+  });
+
+  it("no depende del color: el mismo dato dice si fue aporte o retiro", () => {
+    ajustar(meses);
+
+    render(<GraficaAhorro months={2} currency="COP" />);
+
+    // La palabra es la pista no cromática; sin ella, positivo y negativo solo
+    // se distinguían por el color de la barra.
+    expect(screen.getByText("Ahorraste")).toBeInTheDocument();
+    expect(screen.getByText("Retiraste")).toBeInTheDocument();
+  });
+
+  it("el tooltip visible nombra el movimiento, no solo lo tiñe", () => {
+    const fila = (monto: string) => ({
+      payload: [
+        {
+          payload: {
+            mes: "2026-08",
+            etiqueta: "Ago",
+            monto,
+            montoNumerico: Number(monto),
+            color: "#000",
+          },
+        },
+      ],
+    });
+
+    const { unmount } = render(
+      <TooltipAhorro active label="Agosto de 2026" moneda="COP" {...fila("100000.0000")} />
+    );
+    expect(screen.getByText("Ahorraste: $100.000")).toBeInTheDocument();
+    unmount();
+
+    render(
+      <TooltipAhorro active label="Septiembre de 2026" moneda="COP" {...fila("-50000.0000")} />
+    );
+    // El verbo ya dice que se retiró: el monto no repite el menos.
+    expect(screen.getByText("Retiraste: $50.000")).toBeInTheDocument();
+    expect(screen.queryByText("Retiraste: −$50.000")).not.toBeInTheDocument();
   });
 
   it("sin movimientos de ahorro sigue mostrando su texto, sin role=img", () => {

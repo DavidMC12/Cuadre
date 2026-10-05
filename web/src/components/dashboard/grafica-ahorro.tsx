@@ -18,7 +18,7 @@ import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo,
 import { useAhorroMensual } from "@/hooks/use-reportes";
 import { useSubirNoLeible } from "@/hooks/use-subir-no-leible";
 import { etiquetaMes, etiquetaMesCorta } from "@/lib/fecha";
-import { sumarMontos, textoMonto } from "@/lib/money";
+import { aUnidadesMinimas, negar, sumarMontos, textoMonto } from "@/lib/money";
 import { colorPorSigno, modoDeTema } from "@/lib/chart-colors";
 
 interface FilaAhorro {
@@ -31,7 +31,19 @@ interface FilaAhorro {
   color: string;
 }
 
-function TooltipAhorro({
+/**
+ * La pista no cromática de una barra: el verbo dice si ese mes se apartó plata
+ * o se retiró, sin depender del color — que sobre las barras es la única
+ * señal. Un mes sin movimientos no es ni lo uno ni lo otro.
+ */
+export function verboDeAhorro(monto: string): "Ahorraste" | "Retiraste" | "Sin movimiento" {
+  const valor = aUnidadesMinimas(monto);
+  if (valor > 0n) return "Ahorraste";
+  if (valor < 0n) return "Retiraste";
+  return "Sin movimiento";
+}
+
+export function TooltipAhorro({
   active,
   payload,
   label,
@@ -44,10 +56,18 @@ function TooltipAhorro({
 }) {
   if (!active || !payload || payload.length === 0) return null;
   const fila = payload[0].payload;
+  const verbo = verboDeAhorro(fila.monto);
+  // El retiro ya se nombra en el verbo; el monto se muestra sin el menos para
+  // no decir dos veces que se restó. La pista no cromática es el verbo.
+  const montoVisible = verbo === "Retiraste" ? negar(fila.monto) : fila.monto;
   return (
     <div className="flex flex-col gap-1 rounded-lg bg-popover px-2.5 py-1.5 text-xs text-popover-foreground ring-1 ring-foreground/10">
       <p className="font-medium">{label}</p>
-      <p style={{ color: fila.color }}>Ahorro: {textoMonto(fila.monto, moneda)}</p>
+      <p style={{ color: fila.color }}>
+        {verbo === "Sin movimiento"
+          ? `Sin movimientos: ${textoMonto(fila.monto, moneda)}`
+          : `${verbo}: ${textoMonto(montoVisible, moneda)}`}
+      </p>
     </div>
   );
 }
@@ -210,6 +230,7 @@ export function GraficaAhorro({
         <thead>
           <tr>
             <th scope="col">Mes</th>
+            <th scope="col">Movimiento</th>
             <th scope="col">Ahorro</th>
           </tr>
         </thead>
@@ -217,6 +238,7 @@ export function GraficaAhorro({
           {datos.map((fila) => (
             <tr key={fila.mes}>
               <th scope="row">{etiquetaMes(fila.mes)}</th>
+              <td>{verboDeAhorro(fila.monto)}</td>
               <td>{textoMonto(fila.monto, currency)}</td>
             </tr>
           ))}
