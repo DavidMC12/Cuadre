@@ -320,8 +320,25 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   pendiente mirar a 320px en un navegador real y la corrección del
   interruptor no pasó por segundo revisor.
 
-Pendiente, sin fecha: otra ronda de `impeccable critique` más adelante
-para medir el puntaje tras estos arreglos.
+- **Octava ronda de `impeccable critique`** (2026-10-05, 28/40 → 30/40,
+  "Bueno", **sin P0 ni P1**): la hicieron los workers (A diseño en
+  worker1, B detector y mediciones en worker2). Confirmó que los dos P1 de
+  la séptima y los cierres del día anterior aterrizaron de fondo (44px,
+  "Sin conexión", signo del ahorro, anuncio único); detector con 0
+  hallazgos y `medir:nav/panel/aside` en verde con Chromium real. Sigue
+  sin navegador real (falta `web/.env.local` con `NEON_AUTH_*`, Turbopack
+  rechaza symlinks de `node_modules` en worktrees). Quedan 4 P2, sin
+  atender: (1) en auth el error no pertenece a ningún campo
+  (`aria-invalid`/`aria-describedby`); (2) en el ítem de presupuesto los
+  Label no tienen `htmlFor`/id y `aria-invalid` se cruza con el error de
+  monto; (3) suplantar entra a otra cuenta con un solo toque, sin
+  confirmación (`admin/page.tsx`); (4) un fallo SOLO del resumen pinta dos
+  bloques de error idénticos (el anuncio ya es uno, la pantalla no). Con
+  los P2 de accesibilidad cerrados el estimado es 31–32. Reporte completo
+  en `.impeccable/critique/2026-10-05T11-34-10Z__web-src.md`.
+
+Pendiente, sin fecha: decidir si se atienden los 4 P2 de la octava ronda
+y otra ronda de `impeccable critique` después para medir el puntaje.
 
 ### Pasos adicionales, ya pasado el 100%
 
