@@ -726,7 +726,7 @@ export function FormularioMovimiento({
         <button
           type="button"
           onClick={() => setMasDetalles((valor) => !valor)}
-          className="flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          className="flex min-h-11 items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           aria-expanded={masDetalles}
         >
           {tipoMonto === "transferencia"
