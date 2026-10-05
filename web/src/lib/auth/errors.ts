@@ -115,18 +115,26 @@ export function mensajeErrorAuth(error: ErrorAuth): string {
  * distintas según la pantalla: `bad_jwt` es tanto "tu sesión venció" como
  * "este enlace ya no sirve", y solo quien llama sabe cuál de las dos es.
  */
+/**
+ * El código de auth que trae lo lanzado, o `null` si no se parece a un error
+ * de auth. Un solo lugar extrae el código, para que el mensaje y el campo no
+ * puedan divergir.
+ */
+function codigoDeErrorLanzado(excepcion: unknown): string | null {
+  if (excepcion && typeof excepcion === "object" && "code" in excepcion) {
+    const codigo = (excepcion as { code?: unknown }).code;
+    if (typeof codigo === "string") return codigo;
+  }
+  return null;
+}
+
 export function mensajeErrorAuthLanzado(
   excepcion: unknown,
   sobrescrituras?: Record<string, string>
 ): string {
-  if (excepcion && typeof excepcion === "object" && "code" in excepcion) {
-    const codigo = (excepcion as { code?: unknown }).code;
-    if (typeof codigo === "string") {
-      if (sobrescrituras?.[codigo]) return sobrescrituras[codigo];
-      return mensajeErrorAuth({ code: codigo });
-    }
-  }
-  return mensajeErrorAuth(null);
+  const codigo = codigoDeErrorLanzado(excepcion);
+  if (codigo === null) return mensajeErrorAuth(null);
+  return sobrescrituras?.[codigo] || mensajeErrorAuth({ code: codigo });
 }
 
 /**
@@ -150,14 +158,11 @@ export function interpretarErrorAuthLanzado(
   excepcion: unknown,
   sobrescrituras?: Record<string, string>
 ): ErrorAuthInterpretado {
-  if (excepcion && typeof excepcion === "object" && "code" in excepcion) {
-    const codigo = (excepcion as { code?: unknown }).code;
-    if (typeof codigo === "string") {
-      return {
-        mensaje: sobrescrituras?.[codigo] ?? mensajeErrorAuth({ code: codigo }),
-        campo: CAMPO_POR_CODIGO[codigo] ?? null,
-      };
-    }
-  }
-  return { mensaje: mensajeErrorAuth(null), campo: null };
+  const codigo = codigoDeErrorLanzado(excepcion);
+  return {
+    // El mensaje sale de UN solo lugar (con su regla de sobrescritura); el
+    // campo, del código. Así los dos no pueden divergir.
+    mensaje: mensajeErrorAuthLanzado(excepcion, sobrescrituras),
+    campo: codigo === null ? null : CAMPO_POR_CODIGO[codigo] ?? null,
+  };
 }
