@@ -22,6 +22,7 @@ export function CampoContrasena({
   autoComplete,
   minLength,
   invalido,
+  ariaDescritoPor,
   ayuda,
   autoFocus = false,
 }: {
@@ -32,6 +33,8 @@ export function CampoContrasena({
   autoComplete: "current-password" | "new-password";
   minLength?: number;
   invalido?: boolean;
+  /** El `id` del mensaje de error que describe este campo, cuando lo hay. */
+  ariaDescritoPor?: string;
   /** Una línea corta debajo del campo. Solo cuando de verdad aclara algo. */
   ayuda?: string;
   autoFocus?: boolean;
@@ -50,6 +53,7 @@ export function CampoContrasena({
           value={value}
           onChange={(evento) => onChange(evento.target.value)}
           aria-invalid={invalido}
+          aria-describedby={ariaDescritoPor}
           required
           autoFocus={autoFocus}
           className="h-11 pr-11"

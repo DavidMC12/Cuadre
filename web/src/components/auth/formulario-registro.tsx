@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
@@ -11,15 +11,26 @@ import { Label } from "@/components/ui/label";
 import { CampoContrasena } from "@/components/auth/campo-contrasena";
 import { TituloAuth } from "@/components/auth/titulo-auth";
 import { authClient } from "@/lib/auth/client";
-import { mensajeErrorAuth, mensajeErrorAuthLanzado } from "@/lib/auth/errors";
+import {
+  interpretarErrorAuth,
+  interpretarErrorAuthLanzado,
+  type CampoDeAuth,
+  type ErrorAuthInterpretado,
+} from "@/lib/auth/errors";
 
 export function FormularioRegistro() {
   const router = useRouter();
   const [nombre, setNombre] = useState("");
   const [correo, setCorreo] = useState("");
   const [contrasena, setContrasena] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorAuthInterpretado | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const idError = useId();
+
+  // El error general (credenciales, red) describe a todos los campos; el
+  // específico, solo al que falló. Cuando no hay error, nadie queda descrito.
+  const descritoPor = (campo: CampoDeAuth) =>
+    error && (error.campo === null || error.campo === campo) ? idError : undefined;
 
   async function manejarEnvio(evento: React.FormEvent<HTMLFormElement>) {
     evento.preventDefault();
@@ -34,7 +45,7 @@ export function FormularioRegistro() {
       });
 
       if (errorAuth) {
-        setError(mensajeErrorAuth(errorAuth));
+        setError(interpretarErrorAuth(errorAuth));
         return;
       }
 
@@ -44,7 +55,7 @@ export function FormularioRegistro() {
       // La llamada puede lanzar en vez de devolver `error` (p. ej. si el
       // servicio de autenticación responde con un error que no sabe
       // interpretar). No debe quedar la pantalla congelada en "Creando…".
-      setError(mensajeErrorAuthLanzado(excepcion));
+      setError(interpretarErrorAuthLanzado(excepcion));
     } finally {
       setEnviando(false);
     }
@@ -66,7 +77,8 @@ export function FormularioRegistro() {
               autoComplete="name"
               value={nombre}
               onChange={(evento) => setNombre(evento.target.value)}
-              aria-invalid={Boolean(error)}
+              aria-invalid={error?.campo === "nombre"}
+              aria-describedby={descritoPor("nombre")}
               required
               // `required` por sí solo acepta una cadena de solo espacios (no
               // está vacía). El patrón exige al menos un carácter que no sea
@@ -85,7 +97,8 @@ export function FormularioRegistro() {
               autoComplete="email"
               value={correo}
               onChange={(evento) => setCorreo(evento.target.value)}
-              aria-invalid={Boolean(error)}
+              aria-invalid={error?.campo === "correo"}
+              aria-describedby={descritoPor("correo")}
               required
               className="h-11"
             />
@@ -98,13 +111,14 @@ export function FormularioRegistro() {
             onChange={setContrasena}
             autoComplete="new-password"
             minLength={8}
-            invalido={Boolean(error)}
+            invalido={error?.campo === "contrasena"}
+            ariaDescritoPor={descritoPor("contrasena")}
             ayuda="Al menos 8 caracteres."
           />
 
           {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
+            <p id={idError} role="alert" className="text-sm text-destructive">
+              {error.mensaje}
             </p>
           )}
 
