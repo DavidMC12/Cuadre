@@ -268,12 +268,18 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     expect(screen.getByText("Gastos")).toBeInTheDocument();
     expect(screen.getByText("Balance del mes")).toBeInTheDocument();
 
-    // La página escucha la MISMA consulta del cuadrito, no una segunda la
-    // clave distinta: si los params cambiaron, habría dos pedidos reales y
-    // la decisión de quién está caído se tomaría con la copia equivocada.
+    // La página escucha la MISMA consulta del cuadrito, no una segunda con
+    // otra clave: el mes y la moneda de esta llamada son los mismos que
+    // ahora mismo van al resumen. Si alguno divergió, habría dos pedidos
+    // reales y la decisión de quién está caído se tomaría con la copia
+    // equivocada.
+    const paramsDelResumen = vi.mocked(reportes.useResumenMes).mock.calls.at(-1)?.[0] as unknown as {
+      month: string;
+      currency: string;
+    };
     expect(presupuesto.useChecklistDelMes).toHaveBeenCalledWith({
-      month: expect.any(String),
-      currency: "COP",
+      month: paramsDelResumen.month,
+      currency: paramsDelResumen.currency,
     });
 
     // Sin fallos, los componentes que comparten pantalla reciben la orden
