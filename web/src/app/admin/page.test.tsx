@@ -150,3 +150,99 @@ describe("Admin: la lista de personas se cae con el mismo vocabulario del resto"
     expect(document.querySelector(".animate-pulse")).toBeNull();
   });
 });
+
+describe("Admin: suplantar no arranca sin confirmar (octava critique, P2)", () => {
+  it("'Entrar' solo pide la cuenta; la suplantación corre al confirmar", () => {
+    ajustarPerfil();
+    const suplantarMutate = vi.fn();
+    ajustarPersonas({
+      data: [
+        {
+          id: "u-1",
+          email: "sam@cuadre.co",
+          name: "Sam",
+          role: "user",
+          banned: false,
+          createdAt: "2026-08-01T00:00:00.000Z",
+        },
+      ] as UsuarioDelSistema[],
+    });
+    vi.mocked(useAdminModule.useSuplantar).mockImplementation(
+      () => ({ mutate: suplantarMutate, isPending: false }) as never
+    );
+
+    render(<PaginaAdmin />);
+
+    // Un toque no puede entrar a la cuenta de otra persona: primero pregunta.
+    fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
+    expect(suplantarMutate).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("¿Entrar a la cuenta de Sam?")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Vas a ver lo mismo que su dueño ve: sus movimientos y sus saldos. Desde ahí no se puede cambiar nada, solo se mira. La entrada queda registrada./
+      )
+    ).toBeInTheDocument();
+
+    // Confirmar sí corre la suplantación, y de esa persona.
+    fireEvent.click(screen.getByRole("button", { name: "Sí, entrar" }));
+    expect(suplantarMutate).toHaveBeenCalledTimes(1);
+    expect(suplantarMutate).toHaveBeenCalledWith(
+      { id: "u-1", email: "sam@cuadre.co" },
+      expect.objectContaining({ onSuccess: expect.any(Function), onError: expect.any(Function) })
+    );
+  });
+
+  it("Cancelar cierra el diálogo sin suplantar", () => {
+    ajustarPerfil();
+    const suplantarMutate = vi.fn();
+    ajustarPersonas({
+      data: [
+        {
+          id: "u-2",
+          email: "jordan@cuadre.co",
+          name: null,
+          role: "user",
+          banned: false,
+          createdAt: "2026-08-02T00:00:00.000Z",
+        },
+      ] as UsuarioDelSistema[],
+    });
+    vi.mocked(useAdminModule.useSuplantar).mockImplementation(
+      () => ({ mutate: suplantarMutate, isPending: false }) as never
+    );
+
+    render(<PaginaAdmin />);
+    fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
+    expect(screen.getByText("¿Entrar a la cuenta de jordan@cuadre.co?")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(suplantarMutate).not.toHaveBeenCalled();
+  });
+
+  it("'Cancelar' y 'Sí, entrar' llevan el piso de toque de 44px", () => {
+    ajustarPerfil();
+    ajustarPersonas({
+      data: [
+        {
+          id: "u-1",
+          email: "sam@cuadre.co",
+          name: "Sam",
+          role: "user",
+          banned: false,
+          createdAt: "2026-08-01T00:00:00.000Z",
+        },
+      ] as UsuarioDelSistema[],
+    });
+
+    render(<PaginaAdmin />);
+    fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
+
+    // El patrón de confirmación de la app es una gramática: los pies de
+    // diálogo ya viven en 44px (ver confirmar-anulacion).
+    expect(screen.getByRole("button", { name: "Cancelar" }).className).toContain("min-h-11");
+    expect(screen.getByRole("button", { name: "Sí, entrar" }).className).toContain("min-h-11");
+  });
+});
