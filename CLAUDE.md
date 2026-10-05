@@ -308,6 +308,17 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   "Entendido" del formulario de movimiento, y los renglones de los menús
   (`ui/select.tsx`); hay un par de botones "Reintentar resumen" en
   distintos roles, previo.
+  **Barrido final del piso de 44px** (mismo día, en `main`): formulario de
+  movimiento (selectores, Fecha, Descripción, "Registrar", "Entendido",
+  monto grande), renglones de los menús desplegables (`ui/select.tsx`),
+  "Guardar" de cambiar categoría, cajones de cuenta/categoría/presupuesto,
+  Ajustes, Auth, menú lateral y diálogos. El interruptor de ahorro NO
+  engorda su píldora: solo estira su área táctil (`after:-inset-y-[13px]`).
+  Sin tocar a propósito: los enlaces de fila de `grafica-por-categoria.tsx`
+  (lista densa) y los enlaces de texto en línea; las flechas de scroll del
+  popup de Select. Las pruebas anclan clases, no píxeles (jsdom no mide):
+  pendiente mirar a 320px en un navegador real y la corrección del
+  interruptor no pasó por segundo revisor.
 
 Pendiente, sin fecha: otra ronda de `impeccable critique` más adelante
 para medir el puntaje tras estos arreglos.
