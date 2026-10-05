@@ -142,4 +142,21 @@ describe("Ajustes: mismo bloque de fallo que el resto de la app", () => {
     // El esqueleto no se queda pegado.
     expect(document.querySelector(".animate-pulse")).toBeNull();
   });
+
+  it("el botón del nombre lleva el piso de toque de 44px", () => {
+    // Era un botón de texto plano (~20px) que abre el cajón "Tu nombre".
+    ajustarPerfil({
+      data: {
+        displayName: "Sam",
+        email: "sam@cuadre.co",
+        createdAt: "2026-08-01",
+        startPage: "resumen",
+        isAdmin: false,
+      },
+    });
+
+    render(<PaginaAjustes />);
+
+    expect(screen.getByRole("button", { name: /Sam/ }).className).toContain("min-h-11");
+  });
 });

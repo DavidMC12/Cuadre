@@ -229,6 +229,22 @@ describe("DetalleCuenta: una sola gramática de guardado", () => {
       expect.anything()
     );
   });
+
+  it("el campo Nombre y el interruptor de ahorro llevan el piso de 44px", () => {
+    // El Input era de 32px (h-8) y el Switch dibuja 18.4px (su área táctil
+    // ::after se estira con after:-inset-y-[13px]).
+    renderDetalle(banco);
+
+    expect(screen.getByLabelText("Nombre").className).toContain("min-h-11");
+    const interruptor = screen.getByRole("switch", { name: "Cuenta de ahorro" });
+    expect(interruptor.className).toContain("min-h-11");
+    expect(interruptor.className).toContain("after:-inset-y-[13px]");
+  });
+
+  it("en una tarjeta, el campo Cupo lleva el piso de 44px", () => {
+    renderDetalle(visa);
+    expect(screen.getByLabelText("Cupo").className).toContain("min-h-11");
+  });
 });
 
 describe("DetalleCuenta: un cupo inválido no se pierde en silencio", () => {

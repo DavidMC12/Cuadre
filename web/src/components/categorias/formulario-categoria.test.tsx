@@ -46,4 +46,20 @@ describe("FormularioCategoria: el tipo usa el piso de 44px del pulgar", () => {
       expect(tienePisoDePulgar(segmento)).toBe(true);
     }
   });
+
+  it("el campo Nombre y el botón Crear categoría miden 44px", () => {
+    // Eran Input y Button de 32px (h-8): los dos se tocan con el dedo.
+    render(
+      <FormularioCategoria>
+        <button type="button">Nueva</button>
+      </FormularioCategoria>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Nueva" }));
+
+    expect(screen.getByLabelText("Nombre").className).toContain("min-h-11");
+    expect(screen.getByRole("button", { name: "Crear categoría" }).className).toContain(
+      "min-h-11"
+    );
+  });
 });

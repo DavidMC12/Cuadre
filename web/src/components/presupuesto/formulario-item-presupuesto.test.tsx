@@ -457,4 +457,23 @@ describe('FormularioItemPresupuesto', () => {
     expect((screen.getByLabelText('Etiqueta (opcional)') as HTMLInputElement).value).toBe('');
     expect(screen.getByLabelText('Monto')).toBeTruthy(); // cajón abierto
   });
+
+  it('los campos y el botón Guardar miden 44px de piso', () => {
+    // Eran Input/Button/SelectTrigger de 32px (h-8). El SelectTrigger necesita
+    // min-h-11 porque su variante h-8 gana la cascada.
+    render(
+      <FormularioItemPresupuesto moneda="COP">
+        <button type="button">Agregar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
+
+    expect(screen.getByLabelText('Monto').className).toContain('min-h-11');
+    expect(screen.getByLabelText('Etiqueta (opcional)').className).toContain('min-h-11');
+    // El selector de categoría (grupo "Categoría") es el combobox del cajón.
+    for (const combo of screen.getAllByRole('combobox')) {
+      expect(combo.className).toContain('min-h-11');
+    }
+    expect(screen.getByRole('button', { name: 'Guardar' }).className).toContain('min-h-11');
+  });
 });
