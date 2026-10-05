@@ -108,10 +108,12 @@ export default function PaginaResumen() {
   });
 
   // La página escucha también al checklist del presupuesto —la misma consulta
-  // que el cuadrito "me sobra" (misma caché, un solo pedido real)— para
-  // decidir, al primer render y sin esperas, quién es el único caído.
+  // que el cuadrito "me sobra" (misma caché, un solo pedido real) y la misma
+  // en cada render, sin estados guardados— para saber si el resumen es el
+  // único caído. Mientras el checklist resuelve (caché frío: primera visita,
+  // mes recién cambiado), el cuadrito tampoco suma su bloque repetido.
   const checklist = useChecklistDelMes({ month: mes, currency: moneda ?? "" });
-  const checklistLeido = estadoDeConsulta(checklist) === "ok";
+  const estadoChecklist = estadoDeConsulta(checklist);
   const {
     data: tendencia,
     isLoading: cargandoTendencia,
@@ -162,15 +164,19 @@ export default function PaginaResumen() {
   const pausadaTendencia = estadoTendencia === "pausada";
 
   // El cuadrito "me sobra" necesita el checklist Y el resumen: si el resumen
-  // del mes es el ÚNICO que no se leyó (el checklist está en la mano), el
-  // cuadrito no tiene cifra que dar y solo sumaría —bajo el bloque de error
-  // que ResumenCards ya muestra— un segundo bloque idéntico con el mismo
-  // Reintentar (octava critique, P2). La sección se esconde entera,
-  // encabezado incluido: queda un solo bloque, con un Reintentar que
-  // refresca lo que hace falta — el resumen. El anuncio único no cambia:
+  // del mes no se leyó (o quedó pausado sin red) y el checklist VIVE en
+  // pantalla con su propio error, el cuadrito sí tiene qué decir; en los
+  // demás estados del checklist (leído, cargando, pausado) solo sumaría —bajo
+  // el bloque de error que ResumenCards ya muestra— un segundo bloque
+  // idéntico con el mismo Reintentar (octava critique, P2). La sección se
+  // esconde entera, encabezado incluido: queda un solo bloque, con un
+  // Reintentar que refresca lo que hace falta y que la página conoce al
+  // primer render — el resumen. El anuncio único no cambia:
   // `falloResumen`/`pausadaResumen` ya entran en la cuenta de arriba.
   const elResumenEsElUnicoCaido =
-    checklistLeido && (falloResumen || pausadaResumen);
+    estadoChecklist !== "fallo" &&
+    estadoChecklist !== "pausada" &&
+    (falloResumen || pausadaResumen);
 
   // Los fallos que esta pantalla conoce: las cuatro consultas propias
   // (incluidas las que quedaron pausadas sin red) y las que viven adentro de

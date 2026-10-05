@@ -268,6 +268,14 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     expect(screen.getByText("Gastos")).toBeInTheDocument();
     expect(screen.getByText("Balance del mes")).toBeInTheDocument();
 
+    // La página escucha la MISMA consulta del cuadrito, no una segunda la
+    // clave distinta: si los params cambiaron, habría dos pedidos reales y
+    // la decisión de quién está caído se tomaría con la copia equivocada.
+    expect(presupuesto.useChecklistDelMes).toHaveBeenCalledWith({
+      month: expect.any(String),
+      currency: "COP",
+    });
+
     // Sin fallos, los componentes que comparten pantalla reciben la orden
     // contraria: si alguno falla, anuncia él solo.
     const propsTendencia = vi.mocked(GraficaTendencia).mock.calls.at(-1)?.[0] as unknown as {
@@ -386,6 +394,26 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     expect(screen.getByRole("button", { name: "Reintentar resumen" })).toBeInTheDocument();
     expect(screen.getByTestId("me-sobra")).toBeInTheDocument();
     expect(screen.getByText("Cuánto me sobra este mes")).toBeInTheDocument();
+  });
+
+  it("el checklist a medio cargar tampoco duplica el error del resumen", () => {
+    // Cache frío: primera visita de la pantalla o mes recién cambiado. El
+    // checklist sigue en su esqueleto y el resumen ya falló: solo cae una
+    // consulta y solo debe verse un bloque.
+    ajustar({
+      deResumen: { data: undefined, isError: true, error: new Error("boom") },
+      deChecklist: { data: undefined, isLoading: true },
+    });
+
+    render(<PaginaResumen />);
+
+    expect(
+      screen.getAllByText(
+        "No pudimos cargar el resumen del mes. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Reintentar resumen" })).toHaveLength(1);
+    expect(screen.queryByTestId("me-sobra")).not.toBeInTheDocument();
   });
 
   it("el cajón móvil monta el panel sin tope propio (el cajón ya scrollea)", () => {
