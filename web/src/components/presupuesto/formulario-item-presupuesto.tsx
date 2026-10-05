@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -84,6 +84,11 @@ export function FormularioItemPresupuesto({
   children: React.ReactNode;
 }) {
   const soloMirar = useSoloMirar();
+  const idBase = useId();
+  const idTipo = `${idBase}-tipo`;
+  const idCategoria = `${idBase}-categoria`;
+  const idCuenta = `${idBase}-cuenta`;
+  const idError = `${idBase}-error`;
   const { data: categorias } = useCategorias();
   const { data: cuentas } = useCuentas();
 
@@ -134,7 +139,13 @@ export function FormularioItemPresupuesto({
     montoDeReferencia ? textoEditable(montoDeReferencia, monedaDelMonto) : '',
   );
   const [etiqueta, setEtiqueta] = useState(item?.label ?? '');
-  const [errorMonto, setErrorMonto] = useState<string | null>(null);
+  // Un error por campo editable, para que `aria-invalid`/`aria-describedby`
+  // apunten al control que de verdad falló y no se cruce el del monto.
+  const [errores, setErrores] = useState<{
+    monto?: string;
+    categoria?: string;
+    cuenta?: string;
+  }>({});
 
   const crear = useCrearItemPresupuesto();
   const fijarMonto = useFijarMontoDelMes();
@@ -216,7 +227,7 @@ export function FormularioItemPresupuesto({
     setCuentaId(item?.accountId ?? undefined);
     setMonto(montoDeReferencia ? textoEditable(montoDeReferencia, monedaDelMonto) : '');
     setEtiqueta(item?.label ?? '');
-    setErrorMonto(null);
+    setErrores({});
     camposTocados.current = new Set();
   }
 
@@ -234,10 +245,10 @@ export function FormularioItemPresupuesto({
 
     const lectura = normalizarMontoIngresado(monto, monedaDelMonto);
     if ('error' in lectura) {
-      setErrorMonto(lectura.error);
+      setErrores({ monto: lectura.error });
       return;
     }
-    setErrorMonto(null);
+    setErrores({});
 
     try {
       if (item) {
@@ -266,7 +277,7 @@ export function FormularioItemPresupuesto({
         const etiquetaFinal = etiquetaNueva() ?? undefined;
         if (tipo === 'category') {
           if (!categoriaId) {
-            setErrorMonto('Elige una categoría.');
+            setErrores({ categoria: 'Elige una categoría.' });
             return;
           }
           await crear.mutateAsync({
@@ -279,7 +290,7 @@ export function FormularioItemPresupuesto({
           });
         } else {
           if (!cuentaId) {
-            setErrorMonto('Elige una cuenta de ahorro.');
+            setErrores({ cuenta: 'Elige una cuenta de ahorro.' });
             return;
           }
           await crear.mutateAsync({
@@ -323,6 +334,11 @@ export function FormularioItemPresupuesto({
   const sinOpciones =
     !item && (tipo === 'category' ? todasLasCategorias.length === 0 : cuentasDeAhorro.length === 0);
 
+  // El mismo renglón visible de antes (debajo del monto), con el primero de
+  // los errores; cada control se enlaza a este mensaje con `aria-describedby`
+  // solo cuando su error es el que se está mostrando.
+  const mensajeDeError = errores.monto ?? errores.categoria ?? errores.cuenta;
+
   return (
     <Drawer
       open={abierto}
@@ -348,8 +364,9 @@ export function FormularioItemPresupuesto({
           <div className="flex flex-col gap-4 overflow-y-auto px-4 py-4">
             {!item && (
               <div className="flex flex-col gap-1.5">
-                <Label>Tipo</Label>
+                <Label id={idTipo}>Tipo</Label>
                 <ToggleGroup
+                  aria-labelledby={idTipo}
                   value={[tipo]}
                   onValueChange={(valores) => {
                     if (valores.length > 0) {
@@ -373,7 +390,7 @@ export function FormularioItemPresupuesto({
 
             {!item && tipo === 'category' && (
               <div className="flex flex-col gap-1.5">
-                <Label>Categoría</Label>
+                <Label htmlFor={idCategoria}>Categoría</Label>
                 <Select
                   value={categoriaId ?? NINGUNO}
                   onValueChange={(valor) => {
@@ -382,7 +399,12 @@ export function FormularioItemPresupuesto({
                   }}
                   disabled={todasLasCategorias.length === 0}
                 >
-                  <SelectTrigger className="min-h-11 w-full" aria-invalid={Boolean(errorMonto)}>
+                  <SelectTrigger
+                    id={idCategoria}
+                    className="min-h-11 w-full"
+                    aria-invalid={Boolean(errores.categoria)}
+                    aria-describedby={errores.categoria ? idError : undefined}
+                  >
                     {/* El popup con las opciones vive en un portal que no está
                         montado mientras el selector está cerrado, así que el
                         nombre del elegido se resuelve a mano (ver
@@ -432,7 +454,7 @@ export function FormularioItemPresupuesto({
 
             {!item && tipo === 'savings' && (
               <div className="flex flex-col gap-1.5">
-                <Label>Cuenta de ahorro</Label>
+                <Label htmlFor={idCuenta}>Cuenta de ahorro</Label>
                 <Select
                   value={cuentaId ?? NINGUNO}
                   onValueChange={(valor) => {
@@ -441,7 +463,12 @@ export function FormularioItemPresupuesto({
                   }}
                   disabled={cuentasDeAhorro.length === 0}
                 >
-                  <SelectTrigger className="min-h-11 w-full" aria-invalid={Boolean(errorMonto)}>
+                  <SelectTrigger
+                    id={idCuenta}
+                    className="min-h-11 w-full"
+                    aria-invalid={Boolean(errores.cuenta)}
+                    aria-describedby={errores.cuenta ? idError : undefined}
+                  >
                     <SelectValue placeholder="Elige una cuenta">
                       {(valor: string) => {
                         const elegida = cuentasDeAhorro.find((cuenta) => cuenta.id === valor);
@@ -479,12 +506,17 @@ export function FormularioItemPresupuesto({
                 // El checklist espera montos siempre positivos.
                 permiteSigno={false}
                 placeholder="0"
-                aria-invalid={Boolean(errorMonto)}
+                aria-invalid={Boolean(errores.monto)}
+                aria-describedby={errores.monto ? idError : undefined}
               />
-              {errorMonto && <p className="text-xs text-destructive">{errorMonto}</p>}
+              {mensajeDeError && (
+                <p id={idError} className="text-xs text-destructive">
+                  {mensajeDeError}
+                </p>
+              )}
               {/* El verbo manda: lo que se espera gastar (categoría de gasto),
                   recibir (categoría de ingreso) o aportar (ahorro). */}
-              {!errorMonto && (
+              {!mensajeDeError && (
                 <p className="text-xs text-muted-foreground">Cuánto esperas {verboDelMonto}.</p>
               )}
             </div>
