@@ -460,7 +460,7 @@ export function FormularioMovimiento({
         <Descripcion>Primero crea una cuenta: un movimiento siempre pertenece a una.</Descripcion>
       </DrawerHeader>
       <DrawerFooter>
-        <Button variant="outline" onClick={() => manejarCambioAbierto(false)}>
+        <Button variant="outline" className="min-h-11" onClick={() => manejarCambioAbierto(false)}>
           Entendido
         </Button>
       </DrawerFooter>
@@ -519,7 +519,7 @@ export function FormularioMovimiento({
               onChange={setMonto}
               aria-invalid={Boolean(errores.monto)}
               autoFocus
-              className="h-auto w-40 border-none bg-transparent p-0 text-center font-mono text-4xl tabular-nums text-inherit shadow-none focus-visible:ring-0 dark:bg-transparent"
+              className="min-h-11 h-auto w-40 border-none bg-transparent p-0 text-center font-mono text-4xl tabular-nums text-inherit shadow-none focus-visible:ring-0 dark:bg-transparent"
             />
           </div>
           {errores.monto && <p className="text-xs text-destructive">{errores.monto}</p>}
@@ -609,7 +609,7 @@ export function FormularioMovimiento({
               >
                 <SelectTrigger
                   id="origen-transferencia"
-                  className="w-full"
+                  className="min-h-11 w-full"
                   aria-invalid={Boolean(errores.origen)}
                 >
                   {/* El popup de opciones vive en un portal que no está
@@ -641,7 +641,7 @@ export function FormularioMovimiento({
                 >
                   <SelectTrigger
                     id="destino-transferencia"
-                    className="w-full"
+                    className="min-h-11 w-full"
                     aria-invalid={Boolean(errores.destino)}
                   >
                     {/* El popup de opciones vive en un portal que no está
@@ -686,7 +686,7 @@ export function FormularioMovimiento({
             >
               <SelectTrigger
                 id="cuenta-movimiento"
-                className="w-full"
+                className="min-h-11 w-full"
                 aria-invalid={Boolean(errores.cuenta)}
                 aria-describedby={cuentaElegida?.archivedAt ? "cuenta-archivada-aviso" : undefined}
               >
@@ -747,6 +747,7 @@ export function FormularioMovimiento({
                 value={fecha}
                 max={hoyInput()}
                 onChange={(evento) => setFecha(evento.target.value)}
+                className="min-h-11"
               />
             </div>
 
@@ -757,6 +758,7 @@ export function FormularioMovimiento({
                 placeholder="Ej. Mercado de la semana"
                 value={descripcion}
                 onChange={(evento) => setDescripcion(evento.target.value)}
+                className="min-h-11"
               />
             </div>
 
@@ -784,6 +786,7 @@ export function FormularioMovimiento({
             tal cual recrearía lo recién anulado. */}
         <Button
           type="submit"
+          className="min-h-11"
           disabled={
             registrando || !cambioAlgo || (tipoMonto === "transferencia" && !hayDestinoPosible)
           }

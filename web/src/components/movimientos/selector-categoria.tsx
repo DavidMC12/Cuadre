@@ -40,7 +40,7 @@ export function SelectorCategoria({
       value={value ?? SIN_CATEGORIA}
       onValueChange={(valor) => onChange(valor === SIN_CATEGORIA || !valor ? undefined : valor)}
     >
-      <SelectTrigger id={id} className="w-full">
+      <SelectTrigger id={id} className="min-h-11 w-full">
         {/* El popup con las opciones vive en un portal que no está montado
             mientras el selector está cerrado, así que no hay de dónde sacar
             el nombre: hay que resolverlo a mano en vez de confiar en que el
