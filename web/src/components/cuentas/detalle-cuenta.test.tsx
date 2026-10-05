@@ -231,14 +231,15 @@ describe("DetalleCuenta: una sola gramática de guardado", () => {
   });
 
   it("el campo Nombre y el interruptor de ahorro llevan el piso de 44px", () => {
-    // El Input era de 32px (h-8) y el Switch dibuja 18.4px (su área táctil
-    // ::after se estira con after:-inset-y-[13px]).
+    // El Input era de 32px (h-8). El Switch conserva su píldora de 18.4px:
+    // su área táctil ::after es la que se estira (no min-h-11, que inflaría
+    // la píldora visible).
     renderDetalle(banco);
 
     expect(screen.getByLabelText("Nombre").className).toContain("min-h-11");
     const interruptor = screen.getByRole("switch", { name: "Cuenta de ahorro" });
-    expect(interruptor.className).toContain("min-h-11");
     expect(interruptor.className).toContain("after:-inset-y-[13px]");
+    expect(interruptor.className).not.toContain("min-h-11");
   });
 
   it("en una tarjeta, el campo Cupo lleva el piso de 44px", () => {

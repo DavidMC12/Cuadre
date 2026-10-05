@@ -238,7 +238,7 @@ export function FormularioCuenta({ children }: { children: React.ReactNode }) {
                     id={idAhorro}
                     checked={esAhorro}
                     onCheckedChange={(valor) => setEsAhorro(valor)}
-                    className="min-h-11 after:-inset-y-[13px]"
+                    className="after:-inset-y-[13px]"
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">{AYUDA_CUENTA_AHORRO}</p>

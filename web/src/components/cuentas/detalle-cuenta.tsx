@@ -523,7 +523,7 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
                   onCheckedChange={cambiarAhorro}
                   // El interruptor dibuja 18.4px; su área táctil (el ::after
                   // transparente) se estira a ~44px sin agrandar la píldora.
-                  className="min-h-11 after:-inset-y-[13px]"
+                  className="after:-inset-y-[13px]"
                 />
               </div>
               <p className="text-xs text-muted-foreground">{AYUDA_CUENTA_AHORRO}</p>
