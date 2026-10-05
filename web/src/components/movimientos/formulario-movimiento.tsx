@@ -519,7 +519,7 @@ export function FormularioMovimiento({
               onChange={setMonto}
               aria-invalid={Boolean(errores.monto)}
               autoFocus
-              className="h-auto w-40 border-none bg-transparent p-0 text-center font-mono text-4xl tabular-nums text-inherit shadow-none focus-visible:ring-0 dark:bg-transparent"
+              className="min-h-11 h-auto w-40 border-none bg-transparent p-0 text-center font-mono text-4xl tabular-nums text-inherit shadow-none focus-visible:ring-0 dark:bg-transparent"
             />
           </div>
           {errores.monto && <p className="text-xs text-destructive">{errores.monto}</p>}

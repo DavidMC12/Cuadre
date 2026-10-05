@@ -327,4 +327,12 @@ describe("FormularioMovimiento: piso de toque de 44px", () => {
       true
     );
   });
+
+  it("el campo de monto héroe también llega al piso de toque", () => {
+    // Con h-auto y text-4xl medía ~40px, cuatro por debajo del piso. min-h-11
+    // lo sube sin tocar su apariencia de campo sin caja.
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+
+    expect(screen.getByLabelText("Monto").className).toContain("min-h-11");
+  });
 });
