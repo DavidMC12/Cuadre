@@ -56,7 +56,10 @@ describe("Drawer: el cierre visible", () => {
     renderCajon();
 
     const encabezado = document.querySelector('[data-slot="drawer-header"]');
+    // A la derecha siempre; a la izquierda solo en los cajones centrados en
+    // móvil, para no correr el título del centro.
     expect(encabezado?.className).toContain("pr-14");
+    expect(encabezado?.className).toContain("pl-14");
   });
 
   it("un cajón puede pedir que no le pongan la X", () => {
