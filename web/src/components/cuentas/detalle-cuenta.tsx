@@ -25,9 +25,11 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { CampoMonto } from "@/components/campo-monto";
+import { ConfirmarArchivar } from "@/components/cuentas/confirmar-archivar";
 import { FormularioMovimiento } from "@/components/movimientos/formulario-movimiento";
 import {
   useActualizarCuenta,
+  useArchivarCuenta,
   useCuentas,
   useMarcarAhorro,
 } from "@/hooks/use-cuentas";
@@ -75,6 +77,7 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
   const soloMirar = useSoloMirar();
   const marcarAhorro = useMarcarAhorro();
   const actualizar = useActualizarCuenta();
+  const archivar = useArchivarCuenta();
   // Con los archivados también: así el detalle puede mostrar el nombre de una
   // cuenta vinculada que ya se archivó (las opciones del selector solo
   // ofrecen las activas, pero la elegida tiene que seguir mostrándose).
@@ -89,6 +92,8 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
   const [errorNombre, setErrorNombre] = useState<string | null>(null);
   const [recienGuardado, setRecienGuardado] = useState(false);
   const [avisoCierre, setAvisoCierre] = useState(false);
+  const [confirmandoArchivar, setConfirmandoArchivar] = useState(false);
+  const [errorArchivar, setErrorArchivar] = useState<string | null>(null);
 
   // Cada tarjeta monta su propio detalle, así que los ids de los controles no
   // pueden ser fijos: varios a la vez harían que la etiqueta apunte al de
@@ -285,6 +290,23 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
         },
       }
     );
+  }
+
+  function confirmarArchivar() {
+    setErrorArchivar(null);
+    archivar.mutate(cuenta.id, {
+      onSuccess: () => {
+        toast.success("Cuenta archivada.");
+        setConfirmandoArchivar(false);
+        cerrar();
+      },
+      // Un rechazo del servidor se muestra tal cual y no cierra nada: quien lo
+      // ve tiene que poder leer por qué no se pudo (por ejemplo, si ya estaba
+      // archivada). El cajón no se cierra y la confirmación sigue abierta.
+      onError: (error) => {
+        setErrorArchivar(errorDeApi(error, "No se pudo archivar la cuenta. Intenta de nuevo."));
+      },
+    });
   }
 
   return (
@@ -549,7 +571,34 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
               </FormularioMovimiento>
             </>
           )}
+
+          {/* Archivar es el "eliminar" seguro: al final y discreto, nunca
+              rojo. Desde la cuenta de otra persona el botón se ve apagado. */}
+          <Separator />
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            disabled={soloMirar}
+            onClick={() => {
+              setErrorArchivar(null);
+              setConfirmandoArchivar(true);
+            }}
+          >
+            Archivar cuenta
+          </Button>
         </div>
+
+        <ConfirmarArchivar
+          cuenta={confirmandoArchivar ? cuenta : null}
+          procesando={archivar.isPending}
+          error={errorArchivar}
+          onConfirmar={confirmarArchivar}
+          onCancelar={() => {
+            setConfirmandoArchivar(false);
+            setErrorArchivar(null);
+          }}
+        />
       </DrawerContent>
     </Drawer>
   );
