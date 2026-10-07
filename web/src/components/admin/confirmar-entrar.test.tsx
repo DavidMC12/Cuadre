@@ -47,15 +47,11 @@ describe("ConfirmarEntrar: la confirmación en reposo y entrando", () => {
 });
 
 describe("ConfirmarEntrar: sin cierres mientras corre la suplantación (novena critique, P3)", () => {
-  function vistaEntra(onCancelar: () => void) {
-    return render(
-      <ConfirmarEntrar persona={persona} procesando={true} onConfirmar={vi.fn()} onCancelar={onCancelar} />
-    );
-  }
-
   function renderEntrando() {
     const onCancelar = vi.fn();
-    vistaEntra(onCancelar);
+    render(
+      <ConfirmarEntrar persona={persona} procesando={true} onConfirmar={vi.fn()} onCancelar={onCancelar} />
+    );
     return onCancelar;
   }
 
@@ -89,15 +85,27 @@ describe("ConfirmarEntrar: sin cierres mientras corre la suplantación (novena c
     // `open` viene del prop `persona`, así que el desmontaje real de verdad
     // lo prueba la pantalla (page.test.tsx, "Cancelar cierra el diálogo").
     // Lo que ancla este componente es hacia dónde va el gesto de cierre:
-    // con `procesando` el guard lo traga, sin él llega al padre.
+    // con `procesando` el guard lo traga, sin él llega al padre. La misma
+    // instancia re-renderiza, como la página: primero abre el diálogo y
+    // después arranca la suplantación.
     const onCancelar = vi.fn();
-    render(<ConfirmarEntrar persona={persona} procesando={false} onConfirmar={vi.fn()} onCancelar={onCancelar} />);
+    const vista = render(
+      <ConfirmarEntrar persona={persona} procesando={false} onConfirmar={vi.fn()} onCancelar={onCancelar} />
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
     expect(onCancelar).toHaveBeenCalledTimes(1);
 
-    vistaEntra(onCancelar);
+    vista.rerender(
+      <ConfirmarEntrar persona={persona} procesando={true} onConfirmar={vi.fn()} onCancelar={onCancelar} />
+    );
     fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
     expect(onCancelar).toHaveBeenCalledTimes(1);
+
+    vista.rerender(
+      <ConfirmarEntrar persona={persona} procesando={false} onConfirmar={vi.fn()} onCancelar={onCancelar} />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    expect(onCancelar).toHaveBeenCalledTimes(2);
   });
 });

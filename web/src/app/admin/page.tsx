@@ -158,6 +158,9 @@ export default function PaginaAdmin() {
         <FalloConsulta
           mensaje={mensajeDeFallo(error, mensajeDeCargaFallida("la lista de personas"))}
           reintento={isFetching}
+          // Dos fallos pueden convivir en esta pantalla (el registro también
+          // avisa): botones idénticos no se distinguen de oído ni de mano.
+          etiquetaBoton="Reintentar personas"
           onReintentar={() => recargarPersonas()}
         />
       )}
@@ -165,6 +168,7 @@ export default function PaginaAdmin() {
       {pausadaPersonas && (
         <FalloConsulta
           mensaje={mensajeSinConexion("la lista de personas")}
+          etiquetaBoton="Reintentar personas"
           onReintentar={() => recargarPersonas()}
         />
       )}
@@ -227,6 +231,10 @@ export default function PaginaAdmin() {
         </Seccion>
       )}
 
+      {estadoRegistro === "cargando" && (
+        <Skeleton className="h-16 w-full rounded-lg" />
+      )}
+
       {/* El registro no sirve de nada si hay que abrir la base para leerlo:
           existe justamente para poder responderle a alguien que pregunte
           quién entró a sus cuentas. Con datos viejos en la memoria el
@@ -249,6 +257,7 @@ export default function PaginaAdmin() {
       {estadoRegistro === "pausada" && (
         <FalloConsulta
           mensaje={mensajeSinConexion("el registro de entradas")}
+          etiquetaBoton="Reintentar el registro de entradas"
           onReintentar={() => recargarRegistro()}
         />
       )}
@@ -257,6 +266,7 @@ export default function PaginaAdmin() {
         <FalloConsulta
           mensaje={mensajeDeFallo(registroError, mensajeDeCargaFallida("el registro de entradas"))}
           reintento={registroRefrescando}
+          etiquetaBoton="Reintentar el registro de entradas"
           onReintentar={() => recargarRegistro()}
         />
       )}

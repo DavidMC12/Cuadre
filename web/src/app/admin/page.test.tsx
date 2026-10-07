@@ -92,7 +92,7 @@ describe("Admin: la lista de personas se cae con el mismo vocabulario del resto"
     // Un error de red no es lo mismo que "no hay nadie registrado".
     expect(screen.queryByText("No hay nadie registrado")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar personas" }));
     expect(recargar).toHaveBeenCalledTimes(1);
   });
 
@@ -134,7 +134,7 @@ describe("Admin: la lista de personas se cae con el mismo vocabulario del resto"
       )
     ).toBeInTheDocument();
     expect(screen.queryByText("No hay nadie registrado")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar personas" })).toBeInTheDocument();
   });
 
   it("sin red mientras busca el perfil, dice 'tu perfil' en vez de dejar el esqueleto eterno", () => {
@@ -188,7 +188,7 @@ describe("Admin: el registro de suplantaciones no se cae en silencio (novena cri
       )
     ).toBeInTheDocument();
     // El fallo del registro es un anuncio propio, no un vacío que miente.
-    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar el registro de entradas" }));
     expect(recargar).toHaveBeenCalledTimes(1);
   });
 
@@ -204,7 +204,7 @@ describe("Admin: el registro de suplantaciones no se cae en silencio (novena cri
         "Sin conexión: no pudimos cargar el registro de entradas. Revisa tu conexión y vuelve a intentarlo."
       )
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar el registro de entradas" })).toBeInTheDocument();
   });
 
   it("un refetch fallido con entradas ya en pantalla no las borra ni muestra el fallo por encima", () => {
