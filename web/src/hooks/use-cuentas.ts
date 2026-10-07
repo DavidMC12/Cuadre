@@ -2,8 +2,16 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { createAccount, fetchAccounts, updateAccount, updateAccountSavings } from "@/lib/api/accounts";
+import {
+  archiveAccount,
+  createAccount,
+  fetchAccounts,
+  unarchiveAccount,
+  updateAccount,
+  updateAccountSavings,
+} from "@/lib/api/accounts";
 import type { CambiosDeCuenta, NuevaCuenta } from "@/lib/api/types";
+import { clavesPresupuesto } from "@/hooks/use-presupuesto";
 import { clavesReportes } from "@/hooks/use-reportes";
 
 export const clavesCuentas = {
@@ -55,5 +63,33 @@ export function useActualizarCuenta() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: clavesCuentas.todas() });
     },
+  });
+}
+
+/**
+ * Archivar es el "eliminar" seguro: la cuenta se esconde, deja de recibir
+ * movimientos nuevos y su historia sigue contando en los reportes del pasado.
+ * Nunca se borra. Cambia qué cuentas están activas, así que se releen los
+ * catálogos que las usan (cuentas, reportes y presupuesto).
+ */
+function invalidarTrasArchivar(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: clavesCuentas.todas() });
+  queryClient.invalidateQueries({ queryKey: clavesReportes.todas() });
+  queryClient.invalidateQueries({ queryKey: clavesPresupuesto.todas() });
+}
+
+export function useArchivarCuenta() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => archiveAccount(id),
+    onSuccess: () => invalidarTrasArchivar(queryClient),
+  });
+}
+
+export function useDesarchivarCuenta() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => unarchiveAccount(id),
+    onSuccess: () => invalidarTrasArchivar(queryClient),
   });
 }
