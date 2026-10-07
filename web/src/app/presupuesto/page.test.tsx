@@ -126,7 +126,7 @@ describe("Página Presupuesto: planear meses futuros", () => {
   it("en el mes actual y en el pasado no aparece el aviso de planeación", () => {
     prepararPantalla();
 
-    const aviso = "Aún no empieza: aquí planeas lo que esperas gastar o recibir.";
+    const aviso = "Aún no empieza: aquí planeas lo que esperas gastar, recibir o ahorrar.";
 
     // El mes de arranque es el actual: nada por planear todavía.
     expect(screen.queryByText(aviso)).not.toBeInTheDocument();
@@ -139,7 +139,7 @@ describe("Página Presupuesto: planear meses futuros", () => {
   it("al avanzar a un mes futuro aparece el aviso, discreto y con el tope de 12 meses", async () => {
     prepararPantalla();
 
-    const aviso = "Aún no empieza: aquí planeas lo que esperas gastar o recibir.";
+    const aviso = "Aún no empieza: aquí planeas lo que esperas gastar, recibir o ahorrar.";
 
     // El primero ya es futuro: el aviso sale desde el primer avance y
     // acompaña los siguientes.
