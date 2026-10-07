@@ -43,7 +43,18 @@ export default function PaginaAdmin() {
     isFetching,
     refetch: recargarPersonas,
   } = useUsuariosDelSistema(puedeAdministrar);
-  const { data: registro } = useRegistroDeSuplantaciones(puedeAdministrar);
+  // El registro de suplantaciones es el libro de auditoría: si falla o queda
+  // pausado sin red, NO desaparece en silencio como si no hubiera entradas —
+  // se dice con el mismo bloque de fallo del resto de la pantalla.
+  const {
+    data: registro,
+    isError: registroIsError,
+    error: registroError,
+    isPending: registroCargando,
+    isPaused: registroPausado,
+    isFetching: registroRefrescando,
+    refetch: recargarRegistro,
+  } = useRegistroDeSuplantaciones(puedeAdministrar);
   const suplantar = useSuplantar();
 
   // Perder la red mientras se busca el perfil no puede dejar el esqueleto
@@ -57,6 +68,12 @@ export default function PaginaAdmin() {
     isLoading: isPending,
   });
   const pausadaPersonas = estadoPersonas === "pausada";
+  const estadoRegistro = estadoDeConsulta({
+    data: registro,
+    isError: registroIsError,
+    isPaused: registroPausado,
+    isLoading: registroCargando,
+  });
 
   // La suplantación SOLO corre desde la confirmación: el botón "Entrar" de la
   // lista apenas la pide.
@@ -135,8 +152,9 @@ export default function PaginaAdmin() {
       {/* La consulta no se pudo leer y no hay nada que mostrar: se dice y se
           ofrece reintentar, con el mismo bloque de fallo que el resto de la
           app. Con datos viejos en la memoria el listado se sigue mostrando:
-          el error no borra lo que ya está en el libro. */}
-      {isError && !personas && (
+          el error no borra lo que ya está en el libro. La regla la decide
+          `estadoPersonas`; no se repite a mano con `isError && !personas`. */}
+      {estadoPersonas === "fallo" && (
         <FalloConsulta
           mensaje={mensajeDeFallo(error, mensajeDeCargaFallida("la lista de personas"))}
           reintento={isFetching}
@@ -211,7 +229,10 @@ export default function PaginaAdmin() {
 
       {/* El registro no sirve de nada si hay que abrir la base para leerlo:
           existe justamente para poder responderle a alguien que pregunte
-          quién entró a sus cuentas. */}
+          quién entró a sus cuentas. Con datos viejos en la memoria el
+          registro se sigue mostrando; el error no borra lo que ya está en el
+          libro — y sin datos, un fallo no se disfraza de "no has entrado a
+          ninguna". */}
       {registro && registro.length > 0 && (
         <Seccion titulo="Cuentas a las que has entrado">
           {registro.map((entrada) => (
@@ -223,6 +244,21 @@ export default function PaginaAdmin() {
             </div>
           ))}
         </Seccion>
+      )}
+
+      {estadoRegistro === "pausada" && (
+        <FalloConsulta
+          mensaje={mensajeSinConexion("el registro de entradas")}
+          onReintentar={() => recargarRegistro()}
+        />
+      )}
+
+      {estadoRegistro === "fallo" && (
+        <FalloConsulta
+          mensaje={mensajeDeFallo(registroError, mensajeDeCargaFallida("el registro de entradas"))}
+          reintento={registroRefrescando}
+          onReintentar={() => recargarRegistro()}
+        />
       )}
 
       {/* El diálogo de confirmación vive al pie: abierto solo cuando hay
