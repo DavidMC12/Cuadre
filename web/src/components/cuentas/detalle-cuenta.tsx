@@ -25,10 +25,12 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { CampoMonto } from "@/components/campo-monto";
+import { AjustarSaldo } from "@/components/cuentas/ajustar-saldo";
 import { ConfirmarArchivar } from "@/components/cuentas/confirmar-archivar";
 import { FormularioMovimiento } from "@/components/movimientos/formulario-movimiento";
 import {
   useActualizarCuenta,
+  useAjustarSaldo,
   useArchivarCuenta,
   useCuentas,
   useMarcarAhorro,
@@ -46,6 +48,7 @@ import {
   hayCambiosSinGuardar,
   tonoBarraCupo,
 } from "@/lib/detalle-de-cuenta";
+import { leerAjuste } from "@/lib/ajuste-de-saldo";
 import { aUnidadesMinimas, textoEditable, textoMonto } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -78,6 +81,7 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
   const marcarAhorro = useMarcarAhorro();
   const actualizar = useActualizarCuenta();
   const archivar = useArchivarCuenta();
+  const ajustar = useAjustarSaldo();
   // Con los archivados también: así el detalle puede mostrar el nombre de una
   // cuenta vinculada que ya se archivó (las opciones del selector solo
   // ofrecen las activas, pero la elegida tiene que seguir mostrándose).
@@ -94,6 +98,9 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
   const [avisoCierre, setAvisoCierre] = useState(false);
   const [confirmandoArchivar, setConfirmandoArchivar] = useState(false);
   const [errorArchivar, setErrorArchivar] = useState<string | null>(null);
+  const [confirmandoAjuste, setConfirmandoAjuste] = useState(false);
+  const [saldoEscrito, setSaldoEscrito] = useState("");
+  const [errorAjuste, setErrorAjuste] = useState<string | null>(null);
 
   // Cada tarjeta monta su propio detalle, así que los ids de los controles no
   // pueden ser fijos: varios a la vez harían que la etiqueta apunte al de
@@ -147,6 +154,11 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
     setErrorNombre(null);
     setRecienGuardado(false);
     setAvisoCierre(false);
+    // El diálogo de ajuste vuelve a abrirse limpio: sin cifra vieja que
+    // parezca ya elegida.
+    setConfirmandoAjuste(false);
+    setSaldoEscrito("");
+    setErrorAjuste(null);
     nombreGuardado.current = cuenta.name;
     cupoGuardado.current = cupoBase;
   }
@@ -307,6 +319,40 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
         setErrorArchivar(errorDeApi(error, "No se pudo archivar la cuenta. Intenta de nuevo."));
       },
     });
+  }
+
+  /**
+   * El ajuste que se registraría ya viene leído y revisado en la vista
+   * previa; aquí solo se manda. Si el servidor rechaza —cuenta archivada,
+   * diferencia cero que se le coló, sesión de solo mirar vencida—, el error
+   * queda dentro del diálogo y no se cierra nada.
+   */
+  function confirmarAjuste() {
+    const lectura = leerAjuste(saldoEscrito, cuenta);
+    if (lectura === null) {
+      setErrorAjuste("Escribe el monto.");
+      return;
+    }
+    if ("error" in lectura) {
+      setErrorAjuste(lectura.error);
+      return;
+    }
+    if (lectura.coincide) return; // el botón principal está apagado; por si acaso.
+
+    setErrorAjuste(null);
+    ajustar.mutate(
+      { id: cuenta.id, balance: lectura.balance },
+      {
+        onSuccess: () => {
+          // El saldo ya es el que el banco dice; el nombre quedará como el
+          // resto de la app lo dice, con su signo y cifra exacta.
+          toast.success(`Listo. Quedó en ${textoMonto(lectura.balance, cuenta.currency)}.`);
+          setConfirmandoAjuste(false);
+          setSaldoEscrito("");
+        },
+        onError: (error) => setErrorAjuste(errorDeApi(error, "No se pudo ajustar. Intenta de nuevo.")),
+      }
+    );
   }
 
   return (
@@ -572,6 +618,29 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
             </>
           )}
 
+          {/* Ajustar el saldo (o la deuda, en una tarjeta) es registrar un
+              movimiento kind "adjustment" por la diferencia: discreto, outline,
+              apagado en solo mirar y sin existir en una archivada — el
+              servidor también lo rechazaría. */}
+          {!cuenta.archivedAt && (
+            <>
+              <Separator />
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11"
+                disabled={soloMirar}
+                onClick={() => {
+                  setErrorAjuste(null);
+                  setSaldoEscrito("");
+                  setConfirmandoAjuste(true);
+                }}
+              >
+                {esTarjeta ? "Ajustar deuda" : "Ajustar saldo"}
+              </Button>
+            </>
+          )}
+
           {/* Archivar es el "eliminar" seguro: al final y discreto, nunca
               rojo. Desde la cuenta de otra persona el botón se ve apagado. */}
           <Separator />
@@ -597,6 +666,19 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
           onCancelar={() => {
             setConfirmandoArchivar(false);
             setErrorArchivar(null);
+          }}
+        />
+
+        <AjustarSaldo
+          cuenta={confirmandoAjuste ? cuenta : null}
+          saldoEscrito={saldoEscrito}
+          procesando={ajustar.isPending}
+          error={errorAjuste}
+          onCambiarSaldo={setSaldoEscrito}
+          onConfirmar={confirmarAjuste}
+          onCancelar={() => {
+            setConfirmandoAjuste(false);
+            setErrorAjuste(null);
           }}
         />
       </DrawerContent>

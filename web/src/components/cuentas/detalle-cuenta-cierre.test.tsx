@@ -14,6 +14,7 @@ const holders = vi.hoisted(() => ({
   actualizar: vi.fn(),
   marcarAhorro: vi.fn(),
   archivar: vi.fn(),
+  ajustar: vi.fn(),
 }));
 
 vi.mock("@/hooks/use-cuentas", () => ({
@@ -21,6 +22,7 @@ vi.mock("@/hooks/use-cuentas", () => ({
   useActualizarCuenta: () => ({ mutate: holders.actualizar, isPending: false }),
   useMarcarAhorro: () => ({ mutate: holders.marcarAhorro, isPending: false }),
   useArchivarCuenta: () => ({ mutate: holders.archivar, isPending: false }),
+  useAjustarSaldo: () => ({ mutate: holders.ajustar, isPending: false }),
 }));
 
 vi.mock("@/hooks/use-perfil", () => ({

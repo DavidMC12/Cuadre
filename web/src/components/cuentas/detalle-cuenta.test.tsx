@@ -20,6 +20,7 @@ const holders = vi.hoisted(() => ({
   actualizar: vi.fn(),
   marcarAhorro: vi.fn(),
   archivar: vi.fn(),
+  ajustar: vi.fn(),
   soloMirar: false,
 }));
 
@@ -59,6 +60,7 @@ vi.mock("@/hooks/use-cuentas", () => ({
   useActualizarCuenta: () => ({ mutate: holders.actualizar, isPending: false }),
   useMarcarAhorro: () => ({ mutate: holders.marcarAhorro, isPending: false }),
   useArchivarCuenta: () => ({ mutate: holders.archivar, isPending: false }),
+  useAjustarSaldo: () => ({ mutate: holders.ajustar, isPending: false }),
 }));
 
 vi.mock("@/hooks/use-perfil", () => ({
@@ -72,6 +74,7 @@ afterEach(() => {
   holders.actualizar.mockReset();
   holders.marcarAhorro.mockReset();
   holders.archivar.mockReset();
+  holders.ajustar.mockReset();
   holders.soloMirar = false;
   holders.drawerAbierto = false;
   holders.drawerOnOpenChange = undefined;
@@ -98,6 +101,11 @@ const visa: Cuenta = {
   type: "card",
   balance: "-500000.0000",
   creditLimit: "2000000.0000",
+};
+
+const visaAjustada: Cuenta = {
+  ...visa,
+  balance: "-350000.0000",
 };
 
 function renderDetalle(cuenta: Cuenta) {
@@ -386,6 +394,151 @@ describe("DetalleCuenta: archivar la cuenta", () => {
     renderDetalle(banco);
 
     expect(screen.getByRole("button", { name: "Archivar cuenta" })).toBeDisabled();
+  });
+});
+
+describe("DetalleCuenta: ajustar el saldo (o la deuda)", () => {
+  it("en una tarjeta el botón dice 'Ajustar deuda'", () => {
+    renderDetalle(visa);
+    expect(screen.getByRole("button", { name: "Ajustar deuda" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ajustar saldo" })).not.toBeInTheDocument();
+  });
+
+  it("en las demás cuentas el botón dice 'Ajustar saldo'", () => {
+    renderDetalle(banco);
+    expect(screen.getByRole("button", { name: "Ajustar saldo" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ajustar deuda" })).not.toBeInTheDocument();
+  });
+
+  it("el botón es outline de 44px y va discreto", () => {
+    renderDetalle(visa);
+    const boton = screen.getByRole("button", { name: "Ajustar deuda" });
+    expect(boton.className).toContain("min-h-11");
+    expect(boton.className).toContain("outline");
+  });
+
+  it("en modo solo-mirar el botón queda deshabilitado", () => {
+    holders.soloMirar = true;
+    renderDetalle(visa);
+    expect(screen.getByRole("button", { name: "Ajustar deuda" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Archivar cuenta" })).toBeDisabled();
+  });
+
+  it("en una cuenta archivada el botón no existe", () => {
+    renderDetalle({
+      ...banco,
+      archivedAt: "2026-10-01T00:00:00.000Z",
+    });
+    expect(screen.queryByRole("button", { name: "Ajustar saldo" })).not.toBeInTheDocument();
+    // Archivar sí se conserva: es donde se desarchiva... (este cajón lo ofrece).
+    expect(screen.getByRole("button", { name: "Archivar cuenta" })).toBeInTheDocument();
+  });
+
+  it("la pregunta del campo depende del tipo y el título nombra la cuenta", () => {
+    renderDetalle(visa);
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar deuda" }));
+    expect(screen.getByText(/¿Cuánto debes hoy según tu banco\?/)).toBeInTheDocument();
+
+    // En las demás cuentas se pregunta por el saldo.
+    cleanup();
+    renderDetalle(banco);
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar saldo" }));
+    expect(screen.getByText(/¿Cuánto hay hoy en esta cuenta\?/)).toBeInTheDocument();
+  });
+
+  it("la vista previa es exacta: la deuda se escribe en positivo y va con signo al servidor", () => {
+    renderDetalle(visa);
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar deuda" }));
+
+    const campo = screen.getByLabelText("¿Cuánto debes hoy según tu banco?");
+    fireEvent.change(campo, { target: { value: "400.000" } });
+
+    expect(
+      screen.getByText(
+        "Hoy la app dice que debes $500.000. Se registrará un ajuste de +$100.000 para que coincida."
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Esto no cuenta como gasto ni ingreso/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Sí, ajustar" }));
+
+    expect(holders.ajustar).toHaveBeenCalledTimes(1);
+    expect(holders.ajustar.mock.calls[0][0]).toEqual({
+      id: "c2",
+      balance: "-400000",
+    });
+  });
+
+  it("una tarjeta sobrepagada se dice bien: queda a tu favor", () => {
+    renderDetalle({ ...visa, balance: "50000.0000" });
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar deuda" }));
+
+    fireEvent.change(screen.getByLabelText("¿Cuánto debes hoy según tu banco?"), {
+      target: { value: "0" },
+    });
+
+    expect(
+      screen.getByText(
+        "Hoy la app dice que queda $50.000 a tu favor. Se registrará un ajuste de −$50.000 para que coincida."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("sin diferencia dice 'Ya coincide' y el botón principal queda apagado, sin viaje al servidor", () => {
+    renderDetalle(visa);
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar deuda" }));
+
+    fireEvent.change(screen.getByLabelText("¿Cuánto debes hoy según tu banco?"), {
+      target: { value: "500.000" },
+    });
+
+    expect(screen.getByText("Ya coincide.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sí, ajustar" })).toBeDisabled();
+  });
+
+  it("con el campo vacío no hay botón que pulsar", () => {
+    renderDetalle(banco);
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar saldo" }));
+    expect(screen.getByRole("button", { name: "Sí, ajustar" })).toBeDisabled();
+    expect(holders.ajustar).not.toHaveBeenCalled();
+  });
+
+  it("si el servidor rechaza, el motivo se lee dentro del diálogo y el diálogo no se cierra", () => {
+    renderDetalle(visa);
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar deuda" }));
+    fireEvent.change(screen.getByLabelText("¿Cuánto debes hoy según tu banco?"), {
+      target: { value: "350.000" },
+    });
+    holders.ajustar.mockImplementationOnce(
+      (_variables: unknown, opciones: OpcionesMutacion) => {
+        opciones.onError?.(
+          new ApiError({ code: "RULE_VIOLATION", message: "Esa cuenta ya tiene ese saldo." })
+        );
+      }
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Sí, ajustar" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Esa cuenta ya tiene ese saldo.");
+    expect(screen.getByText(/¿Cuánto debes hoy según tu banco\?/)).toBeInTheDocument();
+  });
+
+  it("al ajustar bien, el diálogo se cierra y el cajón queda", () => {
+    renderDetalle(visa);
+    abrirCajon();
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar deuda" }));
+    fireEvent.change(screen.getByLabelText("¿Cuánto debes hoy según tu banco?"), {
+      target: { value: "350.000" },
+    });
+    holders.ajustar.mockImplementationOnce((_variables: unknown, opciones: OpcionesMutacion) => {
+      opciones.onSuccess?.({ data: visaAjustada });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sí, ajustar" }));
+
+    expect(screen.queryByText(/¿Cuánto debes hoy según tu banco\?/)).not.toBeInTheDocument();
+    expect(holders.drawerAbierto).toBe(true);
+    expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
   });
 });
 
