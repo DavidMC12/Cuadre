@@ -52,11 +52,38 @@ export interface CuantoSobra {
   hayMovimientos: boolean;
 }
 
-export function cuantoSobraEnElMes({
-  renglones,
-  income,
-  expense,
-}: RenglonesParaCuantoSobra): CuantoSobra {
+/** Los dos totales del mes previsto, cada uno con su aritmética exacta. */
+export interface TotalesPrevistos {
+  /** Suma exacta de los montos del mes de los renglones de ingreso. */
+  ingresos: string;
+  /** Suma exacta de los montos del mes de los renglones de gasto. */
+  gastos: string;
+  /** ¿Hay al menos un renglón de ingreso con monto en el mes? */
+  hayIngresos: boolean;
+  /** ¿Hay al menos un renglón de gasto con monto en el mes? */
+  hayGastos: boolean;
+}
+
+/**
+ * Los dos totales del mes previsto —ingresos y gastos— en UNA sola cuenta.
+ *
+ * Es la única fuente: `cuantoSobraEnElMes` resta estos mismos totales y el
+ * panel del presupuesto los muestra en los encabezados de sección, así que el
+ * previsto del cuadrito y la resta a simple vista del panel NUNCA pueden
+ * diferir. Las reglas del cálculo viven aquí una vez: solo cuentan los
+ * renglones de categoría (`kind === "category"`) con monto fijado para el mes
+ * visto (`target` no nulo); el ahorro queda fuera (decisión del dueño) y un
+ * `"0.0000"` (`Este mes no aplica`) suma cero. `hayIngresos`/`hayGastos`
+ * distinguen "el lado existe con monto" de "no hay renglones": es lo que deja
+ * mostrar el total solo cuando la sección de verdad tiene algo que sumar.
+ *
+ * Una moneda a la vez: quien llama ya filtró los renglones a LA moneda de la
+ * pantalla; aquí solo se suma, con la misma aritmética exacta (BigInt, sin
+ * coma flotante) de todo el dinero.
+ */
+export function totalesPrevistos(
+  renglones: RenglonesParaCuantoSobra["renglones"]
+): TotalesPrevistos {
   const ingresosPrevistos: string[] = [];
   const gastosPrevistos: string[] = [];
 
@@ -73,11 +100,23 @@ export function cuantoSobraEnElMes({
     }
   }
 
+  return {
+    ingresos: sumarMontos(ingresosPrevistos),
+    gastos: sumarMontos(gastosPrevistos),
+    hayIngresos: ingresosPrevistos.length > 0,
+    hayGastos: gastosPrevistos.length > 0,
+  };
+}
+
+export function cuantoSobraEnElMes({
+  renglones,
+  income,
+  expense,
+}: RenglonesParaCuantoSobra): CuantoSobra {
   // Se arma con la misma aritmética exacta del resto del dinero (BigInt, sin
   // coma flotante): el previsto es ingresos − gastos. `restar` y no un
   // `-${gastos}` a mano: un total negativo futuro daría "--…" y se leería mal.
-  const ingresos = sumarMontos(ingresosPrevistos);
-  const gastos = sumarMontos(gastosPrevistos);
+  const { ingresos, gastos, hayIngresos, hayGastos } = totalesPrevistos(renglones);
   const previsto = restar(ingresos, gastos);
   const real = restar(income, expense);
   // La red puede dar cero con movimiento de sobra (entró tanto como salió):
@@ -87,8 +126,8 @@ export function cuantoSobraEnElMes({
   return {
     previsto,
     previstoUnidades: aUnidadesMinimas(previsto),
-    hayIngresos: ingresosPrevistos.length > 0,
-    hayGastos: gastosPrevistos.length > 0,
+    hayIngresos,
+    hayGastos,
     real,
     realUnidades: aUnidadesMinimas(real),
     hayMovimientos,
