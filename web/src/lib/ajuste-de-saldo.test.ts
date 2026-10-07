@@ -83,7 +83,7 @@ describe("leerAjuste: la deuda escrita se convierte a saldo con signo", () => {
     const negativo = lecturaValida("-0", banco);
 
     expect(negativo.balance).toBe("0");
-    // En la vista previa el signo ya no aparece: cero es cero.
+    // En la vista previa el signo ya no aparece.
     expect(negativo.vistaPrevia).toContain("ajuste de −$1.200.000 para que coincida");
 
     // Con saldo cero ya coincide: cero es cero, no "−$0". (En pesos el
