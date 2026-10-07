@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 
 import { ConfirmarEntrar } from "./confirmar-entrar";
 import type { UsuarioDelSistema } from "@/hooks/use-admin";
@@ -43,5 +43,61 @@ describe("ConfirmarEntrar: la confirmación en reposo y entrando", () => {
 
     expect(screen.getByRole("button", { name: "Cancelar" }).className).toContain("min-h-11");
     expect(screen.getByRole("button", { name: "Entrando…" }).className).toContain("min-h-11");
+  });
+});
+
+describe("ConfirmarEntrar: sin cierres mientras corre la suplantación (novena critique, P3)", () => {
+  function vistaEntra(onCancelar: () => void) {
+    return render(
+      <ConfirmarEntrar persona={persona} procesando={true} onConfirmar={vi.fn()} onCancelar={onCancelar} />
+    );
+  }
+
+  function renderEntrando() {
+    const onCancelar = vi.fn();
+    vistaEntra(onCancelar);
+    return onCancelar;
+  }
+
+  it("mientras entra, ni la X ni Escape cierran el diálogo", () => {
+    const onCancelar = renderEntrando();
+
+    const antes = screen.getByRole("dialog");
+    // La X de la ventana y Escape pasan los dos por onOpenChange: ahí vive
+    // el bloqueo, porque un cierre a mitad de camino no cancela la
+    // suplantación — la entrada igual ocurriría.
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.getByRole("dialog")).toBe(antes);
+    expect(onCancelar).not.toHaveBeenCalled();
+  });
+
+  it("mientras entra, el clic sobre el fondo tampoco cierra", () => {
+    const onCancelar = renderEntrando();
+
+    const fondo = document.querySelector('[data-slot="dialog-overlay"]');
+    expect(fondo).not.toBeNull();
+    fireEvent.pointerDown(fondo as Element);
+    fireEvent.click(fondo as Element);
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(onCancelar).not.toHaveBeenCalled();
+  });
+
+  it("en reposo la X pasa el cierre hacia el padre: el bloqueo es solo mientras entra", () => {
+    // `open` viene del prop `persona`, así que el desmontaje real de verdad
+    // lo prueba la pantalla (page.test.tsx, "Cancelar cierra el diálogo").
+    // Lo que ancla este componente es hacia dónde va el gesto de cierre:
+    // con `procesando` el guard lo traga, sin él llega al padre.
+    const onCancelar = vi.fn();
+    render(<ConfirmarEntrar persona={persona} procesando={false} onConfirmar={vi.fn()} onCancelar={onCancelar} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    expect(onCancelar).toHaveBeenCalledTimes(1);
+
+    vistaEntra(onCancelar);
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    expect(onCancelar).toHaveBeenCalledTimes(1);
   });
 });

@@ -35,6 +35,12 @@ export function ConfirmarEntrar({
     <Dialog
       open={persona !== null}
       onOpenChange={(abierto) => {
+        // Mientras la suplantación corre no hay vuelta atrás desde la
+        // ventana: ni la X, ni Escape, ni el fondo cierran el diálogo. Un
+        // cierre a mitad de camino no cancela la mutación — la entrada
+        // igual ocurriría y navegaría — así que hasta terminar, el diálogo
+        // se queda.
+        if (procesando) return;
         if (!abierto) onCancelar();
       }}
     >
