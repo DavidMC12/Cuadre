@@ -34,7 +34,7 @@ import {
 } from "@/lib/aside-resumen";
 import { COLOR_NEUTRO, mapaColoresCategoriasDelCatalogo, modoDeTema } from "@/lib/chart-colors";
 import { nombreDelMes } from "@/lib/fecha";
-import { aUnidadesMinimas, restar, textoMonto } from "@/lib/money";
+import { aUnidadesMinimas, esCero, restar, textoMonto } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 /**
@@ -622,6 +622,14 @@ function ContenidoRenglon({
   const verbo =
     renglon.kind === "savings" ? "ahorrado" : renglon.categoryKind === "income" ? "recibido" : "gastado";
 
+  // "Este mes no aplica": el mes visto tiene un monto fijado y es 0
+  // ("0.0000" es truthy — el cero se lee con `esCero`, nunca con la
+  // verdad/falsedad del string; `target` null es otra cosa: "no existía
+  // ese mes", no "sin presupuesto"). El servidor manda `checked` false y
+  // `exceeded` true si se gastó sobre ese 0; en un ingreso una meta no
+  // se puede pasar nunca, y en ahorro tampoco.
+  const noAplica = renglon.target !== null && esCero(renglon.target);
+
   // El rojo de "te pasaste" es solo para un tope de gasto. En un ingreso,
   // recibir de más es bueno: aunque el estado llegara con `exceeded`, el panel
   // no lo tiñe de alarma. El estado verde (`checked`) sí se respeta.
@@ -630,7 +638,17 @@ function ContenidoRenglon({
   return (
     <>
       <div className="flex items-center justify-between gap-3">
-        <span className="truncate text-sm font-medium">{renglon.label}</span>
+        <span
+          className={cn(
+            "truncate text-sm font-medium",
+            // Atenuado con palabras, no solo de color: el propio renglón
+            // dice "sin presupuesto/sin meta este mes" más abajo, y el
+            // gris solo refuerza que este mes va aparte.
+            noAplica && "text-muted-foreground font-normal"
+          )}
+        >
+          {renglon.label}
+        </span>
         {/* Los estados no se pisan: `checked` (logro verde) se enciende al
             alcanzar una meta de ahorro o un ingreso esperado; `exceeded` (aviso
             rojo) SOLO al pasarse de un tope de gasto. Recibir más de lo
@@ -661,6 +679,36 @@ function ContenidoRenglon({
             // El control es el renglón entero (abre el formulario); esto es su
             // aspecto de botón, no un segundo control. Por eso `aria-hidden`:
             // que el lector de pantalla no anuncie un botón que no existe.
+            <span
+              aria-hidden
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-border px-3 text-sm font-medium"
+            >
+              Poner monto
+            </span>
+          )}
+        </div>
+      ) : noAplica ? (
+        // Sin barra, sin porcentaje y sin cifras: con objetivo cero una
+        // barra no mide nada (la división daría sin sentido) y un "0 gastado
+        // de 0" sería ruido. En palabras, y mismo remedio que en "sin
+        // monto": el renglón entero sigue tocable para reponer.
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-muted-foreground">
+            {renglon.categoryKind === "income" ? "Sin meta este mes" : "Sin presupuesto este mes"}
+          </p>
+          {excedeGasto && (
+            // Un tope de cero está excedido con lo mínimo: el aviso en rojo
+            // es el mismo bloque del resto de excedidos y manda sobre la
+            // calma del renglón atenuado. restar(progress, "0.0000") es
+            // el propio gasto; nada divide entre cero.
+            <p className="text-xs font-medium text-destructive">
+              Te pasaste por{" "}
+              <span className="font-mono tabular-nums">
+                {textoMonto(restar(renglon.progress, renglon.target), renglon.currency)}
+              </span>
+            </p>
+          )}
+          {puedeEditar && (
             <span
               aria-hidden
               className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-border px-3 text-sm font-medium"
