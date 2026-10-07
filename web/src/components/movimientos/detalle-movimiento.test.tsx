@@ -4,6 +4,7 @@ import { render, screen, cleanup } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 
 import { DetalleMovimiento } from "./detalle-movimiento";
+import { MENOS } from "@/lib/money";
 import type { Movimiento } from "@/lib/api/types";
 
 type ConHijos = { children?: ReactNode };
@@ -59,5 +60,67 @@ describe("DetalleMovimiento: los botones del pie llevan el piso de toque", () =>
       screen.getByRole("button", { name: /Cambiar categoría/ }).className
     ).toContain("min-h-11");
     expect(screen.getByRole("button", { name: "Anular" }).className).toContain("min-h-11");
+  });
+});
+
+describe("DetalleMovimiento: un ajuste de saldo", () => {
+  const ajuste: Movimiento = {
+    id: "m-2",
+    accountId: "a-1",
+    categoryId: null,
+    kind: "adjustment",
+    amount: "100000.0000",
+    currency: "COP",
+    occurredAt: "2026-10-06T18:30:00Z",
+    description: "Ajuste de saldo",
+    transferGroupId: null,
+    reversesTransactionId: null,
+    reversedByTransactionId: null,
+  };
+
+  function renderDetalleAjuste(monto: string = ajuste.amount) {
+    render(
+      <DetalleMovimiento
+        movimiento={{ ...ajuste, amount: monto }}
+        cuenta={undefined}
+        categoria={undefined}
+        abierto
+        onOpenChange={vi.fn()}
+        onSolicitarAnular={vi.fn()}
+      />
+    );
+  }
+
+  it("se llama 'Ajuste de saldo' y explica en palabras qué es", () => {
+    renderDetalleAjuste();
+
+    expect(screen.getByText("Ajuste de saldo")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Es un ajuste para que el saldo coincida con tu banco. No cuenta como gasto ni ingreso. Si quedó mal, haz otro ajuste."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("no ofrece anular ni cambiar categoría", () => {
+    renderDetalleAjuste();
+
+    expect(screen.queryByRole("button", { name: "Anular" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Cambiar categoría/ })).not.toBeInTheDocument();
+  });
+
+  it("no muestra renglón de categoría", () => {
+    renderDetalleAjuste();
+
+    expect(screen.queryByText("Categoría")).not.toBeInTheDocument();
+  });
+
+  it("el signo del ajuste se dice, no solo el color", () => {
+    renderDetalleAjuste("100000.0000");
+    expect(screen.getByText("+$100.000")).toBeInTheDocument();
+
+    cleanup();
+    renderDetalleAjuste("-250000.0000");
+    expect(screen.getByText(`${MENOS}$250.000`)).toBeInTheDocument();
   });
 });

@@ -68,7 +68,9 @@ export function MovimientoItem({
             {esAnulacion && <Badge variant="secondary">Anulación</Badge>}
             {/* Sin insignia para "opening": el texto de la fila ya dice "Saldo
                 inicial" (es su descripción de siempre), repetirlo en una
-                insignia al lado no agrega información, solo ruido. */}
+                insignia al lado no agrega información, solo ruido. Lo mismo
+                para "adjustment": la fila ya dice "Ajuste de saldo", lo que
+                explica la pantalla es el detalle. */}
           </div>
 
           <span className="text-xs text-muted-foreground">{detalle}</span>

@@ -54,7 +54,12 @@ export interface CambiosDeCuenta {
   linkedAccountId?: string | null;
 }
 
-export type TipoMovimiento = "opening" | "standard" | "transfer";
+/**
+ * `adjustment` es el movimiento del ajuste de saldo: no es un gasto ni un
+ * ingreso, solo la fila que empareja el saldo con la realidad del banco. No
+ * se anula ni se recategoriza; si quedó mal, se registra otro ajuste.
+ */
+export type TipoMovimiento = "opening" | "standard" | "transfer" | "adjustment";
 
 export interface Movimiento {
   id: string;

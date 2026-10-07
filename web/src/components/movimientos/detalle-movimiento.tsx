@@ -54,13 +54,15 @@ export function DetalleMovimiento({
   // mejor no ofrecerlo que ofrecer uno que siempre falla. Solo llega a verse
   // esta pantalla cuando la lista no encontró su pareja (por ejemplo, está
   // filtrada a una sola cuenta): con las dos patas juntas, la fila combinada
-  // no abre ningún detalle.
+  // no abre ningún detalle. Un ajuste de saldo tampoco se anula: si quedó
+  // mal, se hace otro ajuste.
   const puedeAnularse =
     !soloMirar &&
     !anulado &&
     !esAnulacion &&
     movimiento.kind !== "opening" &&
-    movimiento.kind !== "transfer";
+    movimiento.kind !== "transfer" &&
+    movimiento.kind !== "adjustment";
   // La categoría tampoco se toca en la cuenta de otra persona: el detalle es
   // solo lectura ahí, como el resto de la app.
   const puedeCategorizarse = !soloMirar && movimiento.kind === "standard";
@@ -107,6 +109,14 @@ export function DetalleMovimiento({
                 </span>
               </div>
             </>
+          )}
+
+          {movimiento.kind === "adjustment" && (
+            /* La explicación en palabras: un ajuste es la fila que empareja el saldo con la realidad del banco. */
+            <p className="text-center text-xs text-muted-foreground">
+              Es un ajuste para que el saldo coincida con tu banco. No cuenta como gasto ni
+              ingreso. Si quedó mal, haz otro ajuste.
+            </p>
           )}
         </div>
 
