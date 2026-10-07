@@ -368,8 +368,47 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   contempla; `Drawer` sin cierre visible. Reporte en
   `.impeccable/critique/2026-10-05T13-03-31Z__web-src.md`.
 
-Pendiente, sin fecha: decidir si se atienden los 2 P2 de la novena ronda
-y otra ronda de `impeccable critique` después para medir el puntaje.
+
+- **Cuentas archivables, novena ronda cerrada y "Este mes no aplica"**
+  (2026-10-06). (1) **Archivar cuentas desde la pantalla** (el "eliminar"
+  seguro; el servidor ya lo tenía): botón en el cajón de la cuenta con
+  confirmación que dice la cifra si todavía hay saldo o deuda, y sección
+  "Archivadas (n)" con "Desarchivar" en Cuentas; se pensó igual que YNAB y
+  Actual Budget (cerrar, nunca borrar; sección de cerradas; reabrir; aviso
+  si queda saldo). Efecto conocido: archivar una cuenta de ahorro la saca de
+  "Ahorrado" pero sus movimientos pasados siguen sumando en la gráfica de
+  ahorro y su moneda sigue en el selector; los reportes cuentan la historia
+  de archivadas, los totales de "Tienes"/"Ahorrado" no. "Editar la deuda"
+  de una tarjeta NO se hizo: la deuda se calcula del libro, y lo correcto
+  sería un movimiento de ajuste con tipo propio (migración y reportes);
+  queda pendiente si el dueño lo pide. (2) **Los P2/P3 de la novena
+  ronda** (registro de suplantaciones con política de fallo, error de
+  Categoría/Cuenta bajo su campo, confirmar de suplantar no cerrable en
+  vuelo, sin `aria-invalid="false"`) están en `main`. Quedan: `Drawer` sin
+  cierre visible, mes futuro inalcanzable aunque el código lo contempla (el
+  dueño debe decidir: permitir navegar a meses futuros o quitar ese código)
+  y el texto "Al menos 8 caracteres." sin ligar al campo. (3) **"Este mes no
+  aplica"**: fijar el monto de UN mes en 0 (no pagaré agua este mes) rige
+  solo ese mes — el mes siguiente se ancla al monto anterior aunque sea
+  futuro, así no apaga el renglón para siempre; archivar sigue siendo "ya no
+  más". Migración `0010` (el check de `budget_item_targets` pasa de
+  `amount > 0` a `amount >= 0`): **aplicada a producción el 2026-10-06**
+  (verificado: 11 migraciones, regla nueva). Un ítem nuevo sigue naciendo
+  positivo. La revisión independiente atrapó un fallo real: `esCero` solo
+  reconocía un cero inicial, así que `"00"` se colaba como positivo al crear
+  y no anclaba el mes siguiente; ahora `esCero` es la única definición
+  (también la usan `MontoPositivoSchema`, `MontoSchema` y el saldo inicial de
+  cuentas). En pantalla: botón "Este mes no aplica" en el cajón (reversible,
+  sin confirmación, "Poner monto" lo repone), renglón atenuado "Sin
+  presupuesto este mes" / "Sin meta este mes" sin barra, y si se gasta sobre
+  ese cero avisa en rojo "Te pasaste por X". Deuda anotada: fijar en cero un
+  mes anterior a la creación del ítem convierte los meses intermedios de "no
+  existía" a "sin presupuesto" (extiende la deuda ya anotada del presupuesto
+  por mes); `MontoConCeroSchema` (acepta negativos) y `MontoNoNegativoSchema`
+  se solapan.
+
+Pendiente, sin fecha: otra ronda de `impeccable critique` para medir el
+puntaje tras estos cierres.
 
 ### Pasos adicionales, ya pasado el 100%
 
