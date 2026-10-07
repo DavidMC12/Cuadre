@@ -77,19 +77,20 @@ function grupo(titulo, conMargenNegativo) {
 }
 
 /** El encabezado de una sección con su total a la derecha, como el componente
- * real (mismas clases compartidas): el total va largo a propósito para que un
- * desborde a 320px se vea si el reparto rótulo/total se rompe. */
+ * real (mismas clases compartidas). El rótulo y la cifra van largos a
+ * propósito: así la medición sí distingue el reparto rótulo/total (el rótulo
+ * recorta, el total no) de un desborde real a 320px. */
 function seccion(titulo, total) {
   return `
   <div data-seccion class="${CLASES_ENCABEZADO_SECCION}">
     <h3 class="${CLASES_TITULO_SECCION}">${titulo}</h3>
-    <span data-total class="shrink-0" aria-label="Total de ${titulo.toLowerCase()} previstos: ${total}"><span class="font-mono tabular-nums text-xs font-medium text-muted-foreground">${total}</span></span>
+    <span data-total class="shrink-0 whitespace-nowrap" role="img" aria-label="Total de ${titulo.toLowerCase()} previstos: ${total}"><span class="font-mono tabular-nums text-xs font-medium text-muted-foreground">${total}</span></span>
   </div>`;
 }
 
 function panel(conMargenNegativo, conTope = true) {
   return `<div data-region role="region" aria-label="Ítems del presupuesto" tabindex="0" class="${CLASES_REGION}${conTope ? " max-h-[70vh]" : ""}">
-    ${seccion("Gastos", "$8.320.500")}
+    ${seccion("Gastos operativos del hogar", "$1.234.567.890.123")}
     ${grupo("Comida", conMargenNegativo)}
     ${grupo("Transporte", conMargenNegativo)}
     ${grupo("Ocio", conMargenNegativo)}
@@ -275,6 +276,10 @@ const MEDICION = `(() => [...document.querySelectorAll("[data-caso]")].map((caso
     // la cifra: el rótulo cede, el total no.
     seccionOverflowX: seccion.scrollWidth - seccion.clientWidth,
     totalOverflowX: total.scrollWidth - total.clientWidth,
+    // El encabezado debe quedar en UNA línea: si el rótulo envolviera en vez de
+    // recortar, el alto se dispara.
+    seccionAlto: seccion.offsetHeight,
+    seccionTituloAlto: seccion.querySelector("h3").offsetHeight,
     scrollables,
     headerAlto: header.offsetHeight,
     // Cuánto se corre la caja del renglón respecto de la del encabezado: es lo
@@ -300,7 +305,7 @@ function revisar(mediciones) {
       const resumen =
         `desborde-x ${m.desbordeX}px; caja del renglón vs encabezado ${m.desalineacion}px; ` +
         `sangría del título ${m.sangriaTitulo}px; alto de encabezado ${m.headerAlto}px; ` +
-        `sección ${m.seccionOverflowX}px, total ${m.totalOverflowX}px; ` +
+        `sección ${m.seccionOverflowX}px, total ${m.totalOverflowX}px, alto ${m.seccionAlto}px (título ${m.seccionTituloAlto}px); ` +
         `scroll ${m.scrollables}; desborde-y ${m.desbordeY}px`;
       if (m.variante === "antes") {
         console.log(`  · antes:   ${resumen}`);
@@ -322,6 +327,8 @@ function revisar(mediciones) {
         problemas.push(`el encabezado de sección desborda (${m.seccionOverflowX}px)`);
       if (m.totalOverflowX > 0)
         problemas.push(`el total de la sección se recorta (${m.totalOverflowX}px)`);
+      if (m.seccionTituloAlto > 24)
+        problemas.push(`el rótulo de sección ocupa ${m.seccionTituloAlto}px (debe ser una línea)`);
       if (Math.abs(m.desalineacion) > 0.5)
         problemas.push(`renglón descuadrado con el encabezado (${m.desalineacion}px)`);
       if (m.headerAlto < 44) problemas.push(`encabezado de ${m.headerAlto}px (piso 44px)`);

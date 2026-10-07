@@ -93,14 +93,15 @@ function grupo(titulo, cantidad, clasesHeader, ultimoGrupo) {
 
 function lista(clasesHeader) {
   // Encabezado de sección con su total a la derecha, como el componente real
-  // (panel-presupuesto.tsx): las mismas clases compartidas y un total largo a
-  // propósito, para que un desborde a 320px o en el aside se vea.
+  // (panel-presupuesto.tsx): las mismas clases compartidas. El rótulo y la
+  // cifra van largos a propósito, para que la medición distinga el reparto
+  // (rótulo que recorta, total que no) de un desborde real.
   const totalSeccion = `
-      <span data-total class="shrink-0" aria-label="Total de gastos previstos: $8.320.500"><span class="font-mono tabular-nums text-xs font-medium text-muted-foreground">$8.320.500</span></span>`;
+      <span data-total class="shrink-0 whitespace-nowrap" role="img" aria-label="Total de gastos operativos del hogar previstos: $1.234.567.890.123"><span class="font-mono tabular-nums text-xs font-medium text-muted-foreground">$1.234.567.890.123</span></span>`;
   return `
     <section class="flex flex-col">
       <div data-seccion class="${CLASES_ENCABEZADO_SECCION}">
-        <h3 class="${CLASES_TITULO_SECCION}">Gastos</h3>${totalSeccion}
+        <h3 class="${CLASES_TITULO_SECCION}">Gastos operativos del hogar</h3>${totalSeccion}
       </div>
       ${grupo("Hogar", ITEMS_POR_GRUPO, clasesHeader, false)}
       ${grupo("Transporte", ITEMS_POR_GRUPO, clasesHeader, true)}
@@ -295,6 +296,9 @@ const MEDICION_BASE = `(() => [...document.querySelectorAll("[data-caso]")].map(
     // desbordar y el rótulo cede ante la cifra, que nunca se recorta.
     seccionOverflowX: seccion.scrollWidth - seccion.clientWidth,
     totalOverflowX: total.scrollWidth - total.clientWidth,
+    // Una sola línea: si el rótulo envolviera en vez de recortar, el alto sube.
+    seccionAlto: seccion.offsetHeight,
+    seccionTituloAlto: seccion.querySelector("h3").offsetHeight,
     regionConScroll: region.scrollHeight - region.clientHeight > 1,
     carril: region.offsetWidth - region.clientWidth,
     scrollables,
@@ -347,7 +351,7 @@ function revisar(base, pie, sticky) {
       `aside overflow-y ${m.asideOverflowY}, scroll propio ${m.asideConScroll}; ` +
       `tarjeta ${m.cardTop}–${m.cardBottom} en ventana ${m.altoVentana} (cabe ${m.cardCabe}); ` +
       `desborde-x tarjeta ${m.cardOverflowX}, encabezado ${m.headerOverflowX}, lista ${m.regionOverflowX}; ` +
-      `sección ${m.seccionOverflowX}, total ${m.totalOverflowX}; ` +
+      `sección ${m.seccionOverflowX}, total ${m.totalOverflowX}, título ${m.seccionTituloAlto}px; ` +
       `lista con scroll ${m.regionConScroll}; contenedores con scroll ${m.scrollables}; ` +
       `Agregar ${m.agregarAlto}px, alternar ${m.alternarAlto}px; carril ${m.carril}px; gutter ${m.gutter}`;
     const delPie = pie.find((p) => p.id === m.id);
@@ -379,6 +383,8 @@ function revisar(base, pie, sticky) {
       problemas.push(`el encabezado de sección desborda en horizontal (${m.seccionOverflowX}px)`);
     if (m.totalOverflowX > 0)
       problemas.push(`el total de la sección se recorta (${m.totalOverflowX}px)`);
+    if (m.seccionTituloAlto > 24)
+      problemas.push(`el rótulo de sección ocupa ${m.seccionTituloAlto}px (debe ser una línea)`);
     if (m.agregarAlto < 44) problemas.push(`Agregar de ${m.agregarAlto}px (piso 44px)`);
     if (m.alternarAlto < 44) problemas.push(`alternar de ${m.alternarAlto}px (piso 44px)`);
     if (!/\bstable\b/.test(m.gutter)) problemas.push(`la lista no reserva el carril (gutter ${m.gutter})`);
