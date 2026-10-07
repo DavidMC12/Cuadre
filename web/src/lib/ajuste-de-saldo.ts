@@ -52,6 +52,18 @@ function balanceDeDeuda(deuda: string): string {
 }
 
 /**
+ * Lo que cabe en NUMERIC(19,4): quince dígitos enteros. Es el mismo tope que
+ * impone la regex del servidor (`FORMA_DE_MONTO`); rechazarlo aquí evita el
+ * viaje de ida y vuelta para leer un 400 genérico.
+ */
+const TOPE_DIGITOS_ENTEROS = 15;
+
+/** Cuántos dígitos tiene la parte entera del monto, sin signo ni decimales. */
+function digitosEnteros(monto: string): number {
+  return monto.replace("-", "").split(".")[0]!.length;
+}
+
+/**
  * "007" → "7", "-007" → "-7", "0" → "0": el texto viaja al servidor y se
  * muestra en la vista previa tal cual, así que no le deja ceros de adorno
  * ("−$007" se leería como setecientos). Cosa de texto: la aritmética ya era
@@ -110,8 +122,9 @@ export const TEXTO_YA_COINCIDE = "Ya coincide.";
  * exactos, el ajuste que se registraría.
  *
  * - campo vacío: `null` — todavía no hay nada que calcular, no es error.
- * - texto inválido (letras, decimales imposibles, signo donde no va): un
- *   error en español para mostrar debajo del campo.
+ * - texto inválido (letras, decimales imposibles, signo donde no va, más
+ *   dígitos enteros de los que acepta el servidor): un error en español para
+ *   mostrar debajo del campo.
  * - válido: `balance` (el saldo deseado), `diferencia`, `coincide` y la vista
  *   previa.
  *
@@ -136,6 +149,13 @@ export function leerAjuste(
     cuenta.type === "card"
       ? balanceDeDeuda(sinCerosALaIzquierda(escrita.monto))
       : sinCerosALaIzquierda(escrita.monto);
+
+  // El tope es sobre lo que de verdad viajaría: sin ceros de adorno, una
+  // fila de ceros con un "9" al final es un monto de un dígito.
+  if (digitosEnteros(balance) > TOPE_DIGITOS_ENTEROS) {
+    return { error: "Ese monto es demasiado grande." };
+  }
+
   const diferencia = restar(balance, cuenta.balance);
   const coincide = esCero(diferencia);
 

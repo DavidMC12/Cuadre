@@ -153,6 +153,25 @@ describe("leerAjuste: la cifra exacta manda", () => {
   });
 });
 
+describe("leerAjuste: el tope de dígitos enteros se dice en el cliente", () => {
+  it("más de 15 dígitos enteros se rechaza aquí, sin viaje al servidor", () => {
+    expect(errorDe("9".repeat(16), banco)).toBe("Ese monto es demasiado grande.");
+    expect(errorDe("9.999.999.999.999.999", visa)).toBe("Ese monto es demasiado grande.");
+  });
+
+  it("15 dígitos enteros caben", () => {
+    const lectura = lecturaValida("9".repeat(15), banco);
+
+    expect(lectura.balance).toBe("999999999999999");
+  });
+
+  it("los ceros de adorno no cuentan: una fila de ceros con un 9 al final es un dígito", () => {
+    const lectura = lecturaValida(`${"0".repeat(20)}9`, banco);
+
+    expect(lectura.balance).toBe("9");
+  });
+});
+
 describe("leerAjuste: casos de borde", () => {
   it("el campo vacío no es error todavía: no hay nada que calcular", () => {
     expect(leerAjuste("", banco)).toBeNull();
