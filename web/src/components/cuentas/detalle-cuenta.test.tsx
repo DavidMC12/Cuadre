@@ -546,6 +546,34 @@ describe("DetalleCuenta: ajustar el saldo (o la deuda)", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("aria-invalid del campo marca solo el error del campo, no el rechazo del servidor", () => {
+    renderDetalle(visa);
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar deuda" }));
+    const campo = screen.getByLabelText("¿Cuánto debes hoy según tu banco?");
+
+    // Sin escribir nada no hay error de campo.
+    expect(campo).toHaveAttribute("aria-invalid", "false");
+
+    // El rechazo del servidor NO marca el campo: la cifra estaba bien escrita.
+    fireEvent.change(campo, { target: { value: "350.000" } });
+    holders.ajustar.mockImplementationOnce(
+      (_variables: unknown, opciones: OpcionesMutacion) => {
+        opciones.onError?.(
+          new ApiError({ code: "RULE_VIOLATION", message: "Esa cuenta ya tiene ese saldo." })
+        );
+      }
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Sí, ajustar" }));
+
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(campo).toHaveAttribute("aria-invalid", "false");
+
+    // Un monto mal escrito sí es cosa del campo.
+    fireEvent.change(campo, { target: { value: "0,5" } });
+    expect(screen.getByText(/los pesos no llevan decimales/i)).toBeInTheDocument();
+    expect(campo).toHaveAttribute("aria-invalid", "true");
+  });
+
   it("al ajustar bien, el diálogo se cierra y el cajón queda", () => {
     renderDetalle(visa);
     abrirCajon();
