@@ -172,7 +172,7 @@ function DrawerContent({
               render={
                 <Button
                   variant="ghost"
-                  className="absolute top-2 right-2 min-h-11 min-w-11"
+                  className="absolute top-2 right-2 min-h-11 min-w-11 transition-opacity duration-300 group-data-nested-drawer-open/drawer-popup:opacity-0 group-data-nested-drawer-swiping/drawer-popup:opacity-100"
                   size="icon-sm"
                 />
               }
@@ -191,14 +191,14 @@ function DrawerHeader({ className, ...props }: React.ComponentProps<"div">) {
   // `pr-14` reserva el ancho del cierre visible de la esquina (44px + el
   // margen de 8px, igual que el `pr-10` del DialogHeader sumado a su `p-4`):
   // sin él, el título largo quedaría por debajo de la X. En los cajones de
-  // abajo, que centran el título en móvil, se reserva lo mismo a la izquierda
-  // para no correrlo del centro; desde `md` el título va a la izquierda y el
-  // `pl-14` no aplica.
+  // abajo el título va centrado (el `text-center` del grupo gana al
+  // `md:text-left`), así que se reserva lo mismo a la izquierda y no se corre
+  // del centro. En los de lado el texto va a la izquierda y no hace falta.
   return (
     <div
       data-slot="drawer-header"
       className={cn(
-        "flex shrink-0 flex-col gap-0.5 p-4 pr-14 pb-0 group-data-[swipe-axis=y]/drawer-popup:text-center max-md:group-data-[swipe-axis=y]/drawer-popup:pl-14 md:gap-0.5 md:text-left",
+        "flex shrink-0 flex-col gap-0.5 p-4 pr-14 pb-0 group-data-[swipe-axis=y]/drawer-popup:text-center group-data-[swipe-axis=y]/drawer-popup:pl-14 md:gap-0.5 md:text-left",
         className
       )}
       {...props}
