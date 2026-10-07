@@ -67,6 +67,9 @@ describe("DetalleCuenta: la X visible del cajón", () => {
 
   it("con texto sin guardar, la X respeta la confirmación y no cierra", () => {
     abrirCajon();
+    // `fireEvent.click` no dispara el blur que en un navegador real guardaría
+    // el nombre al salir del campo; a propósito, para que quede pendiente. Lo
+    // que se prueba es que la X llega a `onOpenChange` y no se lo salta.
     fireEvent.change(screen.getByLabelText("Nombre"), {
       target: { value: "Banco Nuevo" },
     });

@@ -188,12 +188,15 @@ function DrawerContent({
 }
 
 function DrawerHeader({ className, ...props }: React.ComponentProps<"div">) {
-  // `pr-14` reserva el ancho del cierre visible de la esquina (44px + el
-  // margen de 8px, igual que el `pr-10` del DialogHeader sumado a su `p-4`):
-  // sin él, el título largo quedaría por debajo de la X. En los cajones de
-  // abajo el título va centrado (el `text-center` del grupo gana al
-  // `md:text-left`), así que se reserva lo mismo a la izquierda y no se corre
-  // del centro. En los de lado el texto va a la izquierda y no hace falta.
+  // La X ocupa 44px con 8px de margen (52px desde el borde). `pr-14` (56px)
+  // la cubre y calca el hueco del DialogHeader (`p-4` + `pr-10` = 56px): sin
+  // él, el título largo quedaría por debajo. En los cajones de abajo el título
+  // va centrado a cualquier ancho (el `text-center` del grupo tiene más
+  // especificidad que `md:text-left`), así que se reserva lo mismo a la
+  // izquierda y no se corre del centro. En los de lado el texto va a la
+  // izquierda y solo hace falta la reserva derecha. La reserva se aplica
+  // aunque un cajón pida `showCloseButton={false}` (igual que el `pr-10` del
+  // DialogHeader); hoy ninguno lo hace.
   return (
     <div
       data-slot="drawer-header"
