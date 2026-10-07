@@ -153,6 +153,10 @@ describe("saldoAbsoluto y esCuentaDeTienes", () => {
     expect(saldoAbsoluto({ balance: "+50000.0000" })).toBe("50000.0000");
   });
 
+  it("normaliza a cuatro decimales un monto fuera de contrato", () => {
+    expect(saldoAbsoluto({ balance: "-1.234567" })).toBe("1.2345");
+  });
+
   it("una tarjeta nunca es cuenta de 'Tienes'", () => {
     expect(esCuentaDeTienes(banco)).toBe(true);
     expect(esCuentaDeTienes(efectivo)).toBe(true);
