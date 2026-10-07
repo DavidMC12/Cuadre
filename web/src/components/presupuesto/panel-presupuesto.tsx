@@ -10,6 +10,7 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/componen
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
+import { Monto } from "@/components/monto";
 import { FormularioItemPresupuesto } from "@/components/presupuesto/formulario-item-presupuesto";
 import { useCategorias } from "@/hooks/use-categorias";
 import { useGruposColapsados } from "@/hooks/use-grupos-colapsados";
@@ -28,11 +29,14 @@ import {
   CLASES_CARD_PANEL_VENTANA,
   CLASES_ENCABEZADO_GRUPO,
   CLASES_ENCABEZADO_GRUPO_FIJO,
+  CLASES_ENCABEZADO_SECCION,
   CLASES_REGION_PANEL,
   CLASES_REGION_PANEL_CON_TOPE,
   CLASES_REGION_PANEL_VENTANA,
+  CLASES_TITULO_SECCION,
 } from "@/lib/aside-resumen";
 import { COLOR_NEUTRO, mapaColoresCategoriasDelCatalogo, modoDeTema } from "@/lib/chart-colors";
+import { totalesPrevistos } from "@/lib/cuanto-sobra";
 import { nombreDelMes } from "@/lib/fecha";
 import { aUnidadesMinimas, esCero, restar, textoMonto } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -183,6 +187,13 @@ export function PanelPresupuesto({
     [tieneMetadatos, checklist?.items, itemPorId, nombrePorCategoria]
   );
 
+  // Los totales de sección salen de la MISMA cuenta que arma el previsto del
+  // cuadrito "Cuánto me sobra": una sola fuente, para que la resta a la vista
+  // (ingresos − gastos) y el previsto no puedan diferir jamás. El total de un
+  // lado solo se pinta si ese lado tiene al menos un renglón con monto
+  // (`hayIngresos`/`hayGastos`): nunca un cero inventado.
+  const totales = useMemo(() => totalesPrevistos(checklist?.items ?? []), [checklist?.items]);
+
   // Claves que pueden tener preferencia guardada: las del catálogo completo
   // (archivadas incluidas) más las propias del panel, más las de los grupos de
   // este mes por si un ítem apunta a una categoría que no está en el catálogo.
@@ -209,6 +220,10 @@ export function PanelPresupuesto({
   // Dos secciones, como el dinero: lo que se espera recibir y lo que se espera
   // gastar. El ahorro es del segundo tipo (apartar, no recibir) y cierra
   // "Gastos". Un renglón sin tipo de categoría (defensivo) cuenta como gasto.
+  // Ojo: el TOTAL de la sección sale de `totalesPrevistos`, que solo suma
+  // ingresos y gastos con tipo; un renglón defensivo sin tipo no entraría en
+  // ninguna suma. Es un estado que los datos no producen (un ítem de categoría
+  // siempre trae su tipo), y el cuadrito "Cuánto me sobra" usa la misma cuenta.
   const gruposIngreso = grupos.filter(
     (grupo) => grupo.items[0]?.categoryKind === "income"
   );
@@ -463,12 +478,13 @@ export function PanelPresupuesto({
                     aria-labelledby={`${idBase}-seccion-ingresos`}
                     className="flex flex-col"
                   >
-                    <h3
+                    <EncabezadoSeccion
                       id={`${idBase}-seccion-ingresos`}
-                      className="px-2 pt-3 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                    >
-                      Ingresos
-                    </h3>
+                      rotulo="Ingresos"
+                      moneda={moneda}
+                      total={totales.hayIngresos ? totales.ingresos : null}
+                      etiquetaTotal="Total de ingresos previstos"
+                    />
                     {gruposIngreso.map((grupo) => renderGrupo(grupo, colorPorCategoriaIngreso))}
                   </section>
                 )}
@@ -477,12 +493,13 @@ export function PanelPresupuesto({
                     aria-labelledby={`${idBase}-seccion-gastos`}
                     className="flex flex-col"
                   >
-                    <h3
+                    <EncabezadoSeccion
                       id={`${idBase}-seccion-gastos`}
-                      className="px-2 pt-3 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                    >
-                      Gastos
-                    </h3>
+                      rotulo="Gastos"
+                      moneda={moneda}
+                      total={totales.hayGastos ? totales.gastos : null}
+                      etiquetaTotal="Total de gastos previstos"
+                    />
                     {gruposGasto.map((grupo) => renderGrupo(grupo, colorPorCategoriaGasto))}
                   </section>
                 )}
@@ -601,6 +618,57 @@ export function PanelPresupuesto({
         {cuerpo}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * El encabezado de una sección del panel (Ingresos / Gastos): el rótulo a la
+ * izquierda y, en la misma fila, el total del mes a la derecha. Es discreto
+ * (tinta apagada, `tabular-nums`) para no competir con el título del panel, y
+ * el reparto lo fija `CLASES_ENCABEZADO_SECCION`: si rótulo y total no caben,
+ * el rótulo recorta —el total nunca se pierde—.
+ *
+ * `total` vale `null` cuando la sección no tiene ningún renglón con monto: no
+ * se inventa un cero. Cuando lo hay, el total lleva su texto en palabras
+ * ("Total de ingresos previstos: $…") para quien usa lector de pantalla; el
+ * monto exacto sale del componente `Monto`, con signo neutro.
+ */
+function EncabezadoSeccion({
+  id,
+  rotulo,
+  moneda,
+  total,
+  etiquetaTotal,
+}: {
+  id: string;
+  rotulo: string;
+  moneda: string;
+  total: string | null;
+  /** La frase con la que se nombra el total; el monto se le pega detrás. */
+  etiquetaTotal: string;
+}) {
+  return (
+    <div className={CLASES_ENCABEZADO_SECCION}>
+      <h3 id={id} className={CLASES_TITULO_SECCION}>
+        {rotulo}
+      </h3>
+      {total !== null && (
+        // `role="img"` + `aria-label`: el mismo patrón accesible de las gráficas
+        // del Resumen. Un `span` genérico con `aria-label` no es un nombre
+        // fiable (el rol genérico no admite nombre por autor) y el lector podía
+        // ignorar las palabras o leerlas dos veces junto a la cifra visible; con
+        // `role="img"` el texto de adentro queda presentacional y solo se
+        // anuncia el nombre en palabras. `whitespace-nowrap`: el total nunca se
+        // parte en dos líneas; cede el rótulo, no la cifra.
+        <span
+          className="shrink-0 whitespace-nowrap"
+          role="img"
+          aria-label={`${etiquetaTotal}: ${textoMonto(total, moneda)}`}
+        >
+          <Monto valor={total} moneda={moneda} signo="neutro" className="text-xs font-medium" />
+        </span>
+      )}
+    </div>
   );
 }
 

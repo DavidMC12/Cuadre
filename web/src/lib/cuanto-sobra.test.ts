@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 
 import { aUnidadesMinimas } from "@/lib/money";
-import { cuantoSobraEnElMes } from "@/lib/cuanto-sobra";
+import { cuantoSobraEnElMes, totalesPrevistos } from "@/lib/cuanto-sobra";
 
 type Renglon = {
   kind: "category" | "savings";
@@ -187,5 +187,97 @@ describe("cuantoSobraEnElMes", () => {
     // dice "Ni te sobra ni te falta según lo previsto", no "Presupuesta…".
     expect(estado.hayIngresos).toBe(true);
     expect(estado.hayGastos).toBe(true);
+  });
+});
+
+/**
+ * Los totales por sección que el panel muestra en sus encabezados son la MISMA
+ * cuenta que el previsto: estas pruebas fijan que `cuantoSobraEnElMes` no
+ * vuelva a duplicar la lógica y que los casos de dinero exacto (0.1 + 0.2,
+ * todo en cero) se comporten igual en los totales sueltos.
+ */
+describe("totalesPrevistos", () => {
+  it("suma ingresos y gastos por separado con varios renglones de cada lado", () => {
+    const totales = totalesPrevistos([
+      ingreso("3000000"),
+      ingreso("500000"),
+      gasto("2000000"),
+      gasto("250000"),
+    ]);
+
+    expect(totales.ingresos).toBe("3500000.0000");
+    expect(totales.gastos).toBe("2250000.0000");
+    expect(totales.hayIngresos).toBe(true);
+    expect(totales.hayGastos).toBe(true);
+  });
+
+  it("el ahorro no entra en ninguno de los dos totales (decisión del dueño)", () => {
+    const totales = totalesPrevistos([ingreso("1000000"), gasto("300000"), ahorro("999999")]);
+
+    expect(totales.ingresos).toBe("1000000.0000");
+    expect(totales.gastos).toBe("300000.0000");
+  });
+
+  it("un renglón sin monto en el mes (target null) no suma y no inventa el lado", () => {
+    const totales = totalesPrevistos([
+      { kind: "category", categoryKind: "income", target: null },
+      { kind: "category", categoryKind: "expense", target: null },
+    ]);
+
+    expect(totales.ingresos).toBe("0.0000");
+    expect(totales.gastos).toBe("0.0000");
+    // Sin renglón con monto, el panel no debe mostrar un total inventado.
+    expect(totales.hayIngresos).toBe(false);
+    expect(totales.hayGastos).toBe(false);
+  });
+
+  it("un target de cero ('0.0000', este mes no aplica) suma 0, pero el lado existe", () => {
+    const totales = totalesPrevistos([ingreso("0.0000"), gasto("0.0000")]);
+
+    expect(totales.ingresos).toBe("0.0000");
+    expect(totales.gastos).toBe("0.0000");
+    // El lado existe con monto fijado (aunque sume 0): el panel muestra "$0".
+    expect(totales.hayIngresos).toBe(true);
+    expect(totales.hayGastos).toBe(true);
+  });
+
+  it("0.1 + 0.2 da exactamente 0.3, no la aproximación del flotante", () => {
+    const totales = totalesPrevistos([gasto("0.1"), gasto("0.2"), ingreso("0.3")]);
+
+    expect(totales.gastos).toBe("0.3000");
+    expect(totales.ingresos).toBe("0.3000");
+    // La resta de los totales queda en CERO exacto, sin polvo de flotante.
+    expect(aUnidadesMinimas(totales.ingresos) - aUnidadesMinimas(totales.gastos)).toBe(0n);
+  });
+
+  it("todo en cero no produce NaN en ninguno de los totales", () => {
+    const totales = totalesPrevistos([ingreso("0.0000"), gasto("0.0000"), ahorro("0.0000")]);
+
+    expect(totales.ingresos).toBe("0.0000");
+    expect(totales.gastos).toBe("0.0000");
+    expect(totales.ingresos).not.toContain("NaN");
+    expect(totales.gastos).not.toContain("NaN");
+  });
+
+  it("un renglón sin tipo de categoría (defensivo) queda fuera de los dos totales", () => {
+    const totales = totalesPrevistos([
+      { kind: "category", categoryKind: null, target: "5000" },
+      gasto("1000"),
+    ]);
+
+    expect(totales.gastos).toBe("1000.0000");
+    expect(totales.ingresos).toBe("0.0000");
+  });
+
+  it("coincide con el previsto de cuantoSobraEnElMes: ingresos − gastos", () => {
+    const renglones = [ingreso("3000000"), ingreso("500000"), gasto("1200000"), gasto("300000")];
+    const totales = totalesPrevistos(renglones);
+    const estado = cuantoSobraEnElMes({ renglones, income: "0", expense: "0" });
+
+    // La resta de los dos totales del panel es, exactamente, el previsto del
+    // cuadrito: una sola fuente, no pueden diferir.
+    expect(aUnidadesMinimas(totales.ingresos) - aUnidadesMinimas(totales.gastos)).toBe(
+      estado.previstoUnidades
+    );
   });
 });
