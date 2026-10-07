@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import type { ReactElement, ReactNode } from "react";
 
 import { MENOS } from "@/lib/money";
+import { ApiError } from "@/lib/api/client";
 import type { Cuenta } from "@/lib/api/types";
 
 type ConHijos = { children?: ReactNode };
@@ -17,6 +18,8 @@ const holders = vi.hoisted(() => ({
   drawerOnOpenChange: undefined as undefined | ((valor: boolean) => void),
   actualizar: vi.fn(),
   marcarAhorro: vi.fn(),
+  archivar: vi.fn(),
+  soloMirar: false,
 }));
 
 // El Drawer de Base UI no hace falta para probar la lógica del cajón: con
@@ -49,10 +52,11 @@ vi.mock("@/hooks/use-cuentas", () => ({
   useCuentas: () => ({ data: [] }),
   useActualizarCuenta: () => ({ mutate: holders.actualizar, isPending: false }),
   useMarcarAhorro: () => ({ mutate: holders.marcarAhorro, isPending: false }),
+  useArchivarCuenta: () => ({ mutate: holders.archivar, isPending: false }),
 }));
 
 vi.mock("@/hooks/use-perfil", () => ({
-  useSoloMirar: () => false,
+  useSoloMirar: () => holders.soloMirar,
 }));
 
 import { DetalleCuenta, MontoSaldo } from "./detalle-cuenta";
@@ -61,6 +65,8 @@ afterEach(() => {
   cleanup();
   holders.actualizar.mockReset();
   holders.marcarAhorro.mockReset();
+  holders.archivar.mockReset();
+  holders.soloMirar = false;
   holders.drawerOnOpenChange = undefined;
 });
 
@@ -306,6 +312,65 @@ describe("DetalleCuenta: el saldo real de una tarjeta", () => {
     renderDetalle({ ...visa, balance: "-2000000.0000" });
     const relleno = screen.getByRole("progressbar").querySelector("div");
     expect(relleno).toHaveClass("bg-destructive");
+  });
+});
+
+describe("DetalleCuenta: archivar la cuenta", () => {
+  it("abrir la confirmación y cancelar no llama al servidor", () => {
+    renderDetalle(banco);
+    fireEvent.click(screen.getByRole("button", { name: "Archivar cuenta" }));
+
+    expect(screen.getByText("¿Archivar Bancolombia?")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(holders.archivar).not.toHaveBeenCalled();
+    expect(screen.queryByText("¿Archivar Bancolombia?")).not.toBeInTheDocument();
+  });
+
+  it("confirmar llama a archivar con el id de la cuenta", () => {
+    renderDetalle(banco);
+    fireEvent.click(screen.getByRole("button", { name: "Archivar cuenta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sí, archivar" }));
+
+    expect(holders.archivar).toHaveBeenCalledTimes(1);
+    expect(holders.archivar.mock.calls[0][0]).toBe("c1");
+  });
+
+  it("al archivar bien, la confirmación se cierra", () => {
+    renderDetalle(banco);
+    holders.archivar.mockImplementationOnce((_id: unknown, opciones: OpcionesMutacion) => {
+      opciones.onSuccess?.({ data: { ...banco, archivedAt: "2026-10-06T00:00:00.000Z" } });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Archivar cuenta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sí, archivar" }));
+
+    expect(screen.queryByText("¿Archivar Bancolombia?")).not.toBeInTheDocument();
+  });
+
+  it("si el servidor rechaza, muestra el motivo y no cierra el cajón", () => {
+    renderDetalle(banco);
+    holders.archivar.mockImplementationOnce((_id: unknown, opciones: OpcionesMutacion) => {
+      opciones.onError?.(
+        new ApiError({ code: "CONFLICT", message: "Otra tarjeta usa esta cuenta." })
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Archivar cuenta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sí, archivar" }));
+
+    // El cajón sigue montado y la confirmación sigue abierta con el motivo.
+    expect(screen.getByText("¿Archivar Bancolombia?")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Otra tarjeta usa esta cuenta.");
+    expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
+  });
+
+  it("en modo solo-mirar el botón queda deshabilitado", () => {
+    holders.soloMirar = true;
+    renderDetalle(banco);
+
+    expect(screen.getByRole("button", { name: "Archivar cuenta" })).toBeDisabled();
   });
 });
 
