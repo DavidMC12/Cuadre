@@ -1,6 +1,6 @@
 /** El cero escrito de cualquier forma: lo decide un solo lugar. */
 import { describe, expect, it } from 'vitest';
-import { esCero, MontoNoNegativoSchema, MontoPositivoSchema } from './schemas.js';
+import { esCero, MontoNoNegativoSchema, MontoPositivoSchema, MontoSchema } from './schemas.js';
 
 describe('esCero', () => {
   it('reconoce el cero escrito de cualquier manera', () => {
@@ -37,6 +37,20 @@ describe('MontoNoNegativoSchema', () => {
     }
     for (const monto of ['-1', '-0', 'abc', '', '1.00001']) {
       expect(MontoNoNegativoSchema.safeParse(monto).success, monto).toBe(false);
+    }
+  });
+});
+
+describe('MontoSchema (un movimiento nunca es de cero)', () => {
+  it('rechaza el cero escrito de cualquier forma, con o sin signo', () => {
+    for (const cero of ['0', '-0', '00', '000.0000', '-00.00']) {
+      expect(MontoSchema.safeParse(cero).success, cero).toBe(false);
+    }
+  });
+
+  it('acepta montos con signo', () => {
+    for (const monto of ['1250', '-1250.75', '0.0001', '-0.5']) {
+      expect(MontoSchema.safeParse(monto).success, monto).toBe(true);
     }
   });
 });

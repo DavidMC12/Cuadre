@@ -14,7 +14,7 @@ const FORMA_DE_MONTO = /^-?\d{1,15}(\.\d{1,4})?$/;
 export const MontoSchema = z
   .string()
   .regex(FORMA_DE_MONTO, 'debe ser un monto como "1250" o "-1250.75", con máximo 4 decimales')
-  .refine((valor) => !/^-?0(\.0{1,4})?$/.test(valor), { message: 'no puede ser cero' });
+  .refine((valor) => !esCero(valor), { message: 'no puede ser cero' });
 
 /** Igual, pero acepta cero. Sirve para el saldo inicial de una cuenta. */
 export const MontoConCeroSchema = z

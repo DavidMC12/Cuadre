@@ -215,6 +215,27 @@ describe('un mes sin monto: cero = "este mes no aplica" (service)', () => {
     expect(siguiente!.currentAmount).toBe('100000.0000');
   });
 
+  it('un cero en un mes futuro, escrito como "00", no apaga los meses de después', async () => {
+    const categoriaId = await crearCategoriaDeGasto();
+    const item = await servicio.crearItem(usuarioId, {
+      kind: 'category',
+      categoryId: categoriaId,
+      currency: 'COP',
+      amount: '100000',
+    });
+
+    await servicio.fijarObjetivoDelMes(usuarioId, item.id, MES_SIGUIENTE, '00');
+
+    expect((await repositorio.obtener(usuarioId, item.id, MES))!.currentAmount).toBe('100000.0000');
+    expect((await repositorio.obtener(usuarioId, item.id, MES_SIGUIENTE))!.currentAmount).toBe(
+      '0.0000',
+    );
+    // El mes de después del futuro hereda el monto de antes del cero, no el cero.
+    expect((await repositorio.obtener(usuarioId, item.id, mesRelativo(2)))!.currentAmount).toBe(
+      '100000.0000',
+    );
+  });
+
   it('un ítem nuevo sigue naciendo con un monto positivo: el cero, escrito como sea, se rechaza', async () => {
     const categoriaId = await crearCategoriaDeGasto();
     // El cero escrito de cualquier forma: antes la base lo frenaba con
