@@ -32,6 +32,8 @@ vi.mock("@/components/presupuesto/formulario-item-presupuesto", () => ({
   FormularioItemPresupuesto: vi.fn(({ children }: { children?: React.ReactNode }) => <>{children}</>),
 }));
 
+import { mesActual, nombreDelMes, sumarMeses } from "@/lib/fecha";
+
 const renglon: ItemDelChecklist = {
   id: "r-1",
   label: "Mercado",
@@ -40,6 +42,17 @@ const renglon: ItemDelChecklist = {
   categoryKind: "expense",
   target: "30000",
   progress: "20500",
+  checked: false,
+  exceeded: false,
+} as ItemDelChecklist;
+
+// Renglón de un mes en planeación: nada se ha movido todavía (el servidor
+// reporta progreso en cero) y el tope está puesto de propina.
+const renglonFuturo: ItemDelChecklist = {
+  ...renglon,
+  id: "r-futuro",
+  target: "50000",
+  progress: "0",
   checked: false,
   exceeded: false,
 } as ItemDelChecklist;
@@ -1341,5 +1354,34 @@ describe("PanelPresupuesto: este mes no aplica (target 0)", () => {
 
     expect(screen.getByText("Sin presupuesto este mes")).toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+});
+
+describe("PanelPresupuesto: un mes futuro se planea, no se confunde con lo real", () => {
+  // Un mes adelante del actual: la pantalla de Presupuesto lo deja ver para
+  // planear (YNAB/Monarch); ahí nada se ha movido todavía.
+  const mesFuturo = sumarMeses(mesActual(), 3);
+
+  it("en el mes futuro el renglón muestra la barra en cero y ningún aviso falso de 'te pasaste'", () => {
+    ajustarConsultas({ data: { items: [renglonFuturo] } }, { data: [] });
+
+    render(<PanelPresupuesto mes={mesFuturo} moneda="COP" />);
+
+    const barra = screen.getByRole("progressbar");
+    expect(barra.getAttribute("aria-valuenow")).toBe("0");
+    expect(screen.queryByText("Te pasaste por")).not.toBeInTheDocument();
+    expect(screen.queryByText("Meta alcanzada")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tope excedido")).not.toBeInTheDocument();
+  });
+
+  it("un renglón sin monto en el mes futuro dice de qué mes falta y no hay estados de otra historia", () => {
+    const sinMonto = { ...renglonFuturo, target: null } as unknown as ItemDelChecklist;
+    ajustarConsultas({ data: { items: [sinMonto] } }, { data: [] });
+
+    render(<PanelPresupuesto mes={mesFuturo} moneda="COP" />);
+
+    expect(screen.getByText(`Sin monto en ${nombreDelMes(mesFuturo)}`)).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(screen.queryByText("Meta alcanzada")).not.toBeInTheDocument();
   });
 });
