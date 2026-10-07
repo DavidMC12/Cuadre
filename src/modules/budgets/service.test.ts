@@ -215,16 +215,38 @@ describe('un mes sin monto: cero = "este mes no aplica" (service)', () => {
     expect(siguiente!.currentAmount).toBe('100000.0000');
   });
 
-  it('un ítem nuevo sigue naciendo con un monto positivo: cero se rechaza', async () => {
+  it('un ítem nuevo sigue naciendo con un monto positivo: el cero, escrito como sea, se rechaza', async () => {
     const categoriaId = await crearCategoriaDeGasto();
-    await expect(
-      servicio.crearItem(usuarioId, {
-        kind: 'category',
-        categoryId: categoriaId,
-        currency: 'COP',
-        amount: '0',
-      }),
-    ).rejects.toMatchObject({ codigo: 'RULE_VIOLATION' });
+    // El cero escrito de cualquier forma: antes la base lo frenaba con
+    // `amount > 0`; ahora la única red es la validación.
+    for (const amount of ['0', '0.0000', '00', '000.0000', '00.00']) {
+      await expect(
+        servicio.crearItem(usuarioId, {
+          kind: 'category',
+          categoryId: categoriaId,
+          currency: 'COP',
+          amount,
+        }),
+        amount,
+      ).rejects.toMatchObject({ codigo: 'RULE_VIOLATION' });
+    }
+  });
+
+  it('un cero con ceros de más ("00") también rige solo ese mes', async () => {
+    const categoriaId = await crearCategoriaDeGasto();
+    const item = await servicio.crearItem(usuarioId, {
+      kind: 'category',
+      categoryId: categoriaId,
+      currency: 'COP',
+      amount: '100000',
+    });
+
+    await servicio.fijarObjetivoDelMes(usuarioId, item.id, MES, '00');
+
+    expect((await repositorio.obtener(usuarioId, item.id, MES))!.currentAmount).toBe('0.0000');
+    expect((await repositorio.obtener(usuarioId, item.id, MES_SIGUIENTE))!.currentAmount).toBe(
+      '100000.0000',
+    );
   });
 
   it('se puede volver a poner monto en un mes que estaba en cero', async () => {

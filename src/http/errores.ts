@@ -234,10 +234,10 @@ const POR_RESTRICCION: Record<string, Traduccion> = {
     codigo: 'RULE_VIOLATION',
     mensaje: 'El checklist de presupuesto es de gastos: elige una categoría de gastos.',
   },
-  budget_item_targets_amount_positive: {
+  budget_item_targets_amount_not_negative: {
     estado: 422,
     codigo: 'RULE_VIOLATION',
-    mensaje: 'El monto del objetivo debe ser mayor que cero.',
+    mensaje: 'El monto del objetivo no puede ser negativo.',
   },
   budget_item_targets_effective_from_is_month_start: {
     estado: 422,

@@ -18,7 +18,8 @@ import { type CrearItem, type ItemDePresupuesto, type ItemDelChecklist } from '.
 
 /**
  * La única puerta por la que un mes y un monto entran a este service: un
- * mes como "YYYY-MM" y un monto positivo en texto, con la MISMA definición
+ * mes como "YYYY-MM" y un monto en texto (positivo; no negativo si se
+ * permite cero), con la MISMA definición
  * de `shared/schemas.ts` que ya aplican las rutas por Zod.
  *
  * El RANGO del mes (año 2000-2100; "0000" rompe a Postgres) vive en

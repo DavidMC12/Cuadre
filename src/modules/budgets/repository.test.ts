@@ -18,6 +18,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { construirApp } from '../../aplicacion.js';
 import { closeDb, db } from '../../db/client.js';
 import { users } from '../../db/schema/index.js';
+import { traducirErrorDePostgres } from '../../http/errores.js';
 import * as reportes from '../reports/service.js';
 import * as repositorio from './repository.js';
 
@@ -286,12 +287,49 @@ describe('fijarObjetivoDelMes', () => {
     const comida = await crearCategoria('Comida');
     const itemId = await itemDeCategoria(comida.id, '300000');
 
-    await expect(
-      db.execute(sql`
+    // Que sea ESA regla la que dispara (no un NOT NULL ni una llave foránea) y
+    // que el borde la traduzca a un mensaje, no al genérico.
+    const error = await db
+      .execute(sql`
         insert into budget_item_targets (budget_item_id, effective_from, amount)
         values (${itemId}::uuid, (${MES}::text || '-01')::date, -1)
-      `),
-    ).rejects.toThrow();
+      `)
+      .then(
+        () => null,
+        (causa: unknown) => causa,
+      );
+    expect(error).not.toBeNull();
+    expect(traducirErrorDePostgres(error)).toMatchObject({
+      estado: 422,
+      mensaje: 'El monto del objetivo no puede ser negativo.',
+    });
+  });
+
+  it('dos ceros seguidos en el mismo mes no agregan filas ni mueven el siguiente', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '300000');
+
+    await repositorio.fijarObjetivoDelMes(usuarioId, itemId, MES, '0');
+    await repositorio.fijarObjetivoDelMes(usuarioId, itemId, MES, '0.0000');
+
+    const filas = (await db.execute(sql`
+      select count(*)::int as n from budget_item_targets where budget_item_id = ${itemId}::uuid
+    `)) as unknown as { n: number }[];
+    // La del ítem al crearse, la del cero y el ancla del mes siguiente.
+    expect(filas[0]!.n).toBe(3);
+
+    const [delSiguiente] = await repositorio.objetivosDelMes(usuarioId, MES_SIGUIENTE, 'COP');
+    expect(delSiguiente!.target).toBe('300000.0000');
+  });
+
+  it('un cero no toca los meses de después del siguiente: heredan del ancla', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '300000');
+
+    await repositorio.fijarObjetivoDelMes(usuarioId, itemId, MES, '0');
+
+    const [dentroDeDos] = await repositorio.objetivosDelMes(usuarioId, mesRelativo(2).etiqueta, 'COP');
+    expect(dentroDeDos!.target).toBe('300000.0000');
   });
 
   it('repetir el mismo monto en el mismo mes no agrega filas', async () => {
