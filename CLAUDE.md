@@ -407,6 +407,27 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   por mes); `MontoConCeroSchema` (acepta negativos) y `MontoNoNegativoSchema`
   se solapan.
 
+
+- **Presupuesto a futuro, cajones con X y cierres de la novena** (2026-10-06):
+  `/presupuesto` deja navegar hasta 12 meses después del actual (`SelectorMes`
+  gana `mesesAdelante`, default 0; el Resumen y Movimientos siguen sin ir al
+  futuro) con un aviso discreto "Aún no empieza: aquí planeas lo que esperas
+  gastar, recibir o ahorrar". Decisión basada en lo que hacen YNAB y Monarch
+  (navegar al mes siguiente y asignar ahí; YNAB incluso recomienda
+  adelantarse un mes). El servidor ya soportaba meses futuros; "Este mes no
+  aplica" funciona en ellos (el servidor ancla el siguiente). Los cajones
+  (`ui/drawer.tsx`) ganan una X de cierre visible de 44px (nombre "Cerrar")
+  que pasa por el mismo `onOpenChange` que el gesto y el fondo, así que el
+  aviso de texto sin guardar del cajón de cuenta se respeta; el encabezado
+  reserva su ancho (`pr-14`, y `pl-14` simétrico en los de abajo para no
+  correr el título centrado). El texto "Al menos 8 caracteres." ya queda
+  ligado a su campo (`aria-describedby` junto al error). Con esto quedan
+  cerrados todos los hallazgos de la novena ronda. Sigue pendiente mirar en
+  un navegador real a 320px: la X del cajón frente a títulos largos, el
+  interruptor de ahorro y los 44px (las pruebas anclan clases, jsdom no
+  mide). Sin hacer: "editar la deuda" de una tarjeta (sería un movimiento
+  de ajuste con tipo propio, no cambiar el número).
+
 Pendiente, sin fecha: otra ronda de `impeccable critique` para medir el
 puntaje tras estos cierres.
 
