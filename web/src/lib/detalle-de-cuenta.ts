@@ -10,6 +10,7 @@ import type { Cuenta } from "@/lib/api/types";
 import {
   aUnidadesMinimas,
   esCero,
+  negar,
   normalizarMontoIngresado,
   restar,
   sumarMontos,
@@ -75,6 +76,63 @@ export function etiquetaSaldo(cuenta: Pick<Cuenta, "type" | "balance">): string 
   if (cuenta.type !== "card") return "Saldo";
   if (esCero(cuenta.balance)) return "Sin deuda";
   return aUnidadesMinimas(cuenta.balance) < 0n ? "Debes" : "A favor";
+}
+
+/**
+ * El saldo de una tarjeta como monto positivo. En una tarjeta el signo se dice
+ * con la etiqueta ("Debes" / "A favor"), así que la cifra se muestra sin el
+ * menos para no leer "Debes −$500.000". Nunca una cuenta: solo se voltea el
+ * signo del texto.
+ */
+export function saldoAbsoluto(cuenta: Pick<Cuenta, "balance">): string {
+  return aUnidadesMinimas(cuenta.balance) < 0n ? negar(cuenta.balance) : cuenta.balance;
+}
+
+/**
+ * Si una cuenta entra en "Tienes". Una tarjeta no: no es plata que tienes,
+ * aunque esté sobrepagada. Lo que debes va en su propio renglón y se calcula
+ * aparte, para no mezclar lo que tienes con lo que debes.
+ */
+export function esCuentaDeTienes(cuenta: Pick<Cuenta, "type">): boolean {
+  return cuenta.type !== "card";
+}
+
+/**
+ * La deuda de una tarjeta: su saldo negativo, en positivo; cero si no debe
+ * nada. Una tarjeta sobrepagada tiene saldo a favor, y eso no puede restar de
+ * la deuda de las demás: aporta cero, nunca un menos.
+ */
+export function deudaDeTarjeta(cuenta: Pick<Cuenta, "type" | "balance">): string {
+  if (cuenta.type !== "card") return "0";
+  return aUnidadesMinimas(cuenta.balance) < 0n ? negar(cuenta.balance) : "0";
+}
+
+/**
+ * El total de "Tienes" de una moneda: solo las cuentas activas que no son
+ * tarjeta. Las tarjetas no entran ni con deuda ni con saldo a favor.
+ */
+export function totalDeTienes(cuentas: readonly Cuenta[], moneda: string): string {
+  return sumarMontos(
+    cuentas
+      .filter(
+        (cuenta) =>
+          cuenta.archivedAt === null && esCuentaDeTienes(cuenta) && cuenta.currency === moneda
+      )
+      .map((cuenta) => cuenta.balance)
+  );
+}
+
+/**
+ * La deuda que suman las tarjetas activas de una moneda. Solo lo que se debe:
+ * una tarjeta sobrepagada aporta cero. Devuelve "0.0000" cuando no hay ninguna
+ * o ninguna debe, y quien lo usa decide no pintar el renglón en ese caso.
+ */
+export function deudaEnTarjetas(cuentas: readonly Cuenta[], moneda: string): string {
+  return sumarMontos(
+    cuentas
+      .filter((cuenta) => cuenta.archivedAt === null && cuenta.type === "card" && cuenta.currency === moneda)
+      .map((cuenta) => deudaDeTarjeta(cuenta))
+  );
 }
 
 /**
