@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,13 @@ export function CampoContrasena({
   autoFocus?: boolean;
 }) {
   const [visible, setVisible] = useState(false);
+  // La ayuda también describe al campo: sin esto era texto suelto que un
+  // lector de pantalla no asociaba a la contraseña. El error (cuando lo hay)
+  // sigue describiéndolo igual; el campo apunta a los dos.
+  const idAyuda = useId();
+  const descritoPor =
+    [ayuda ? idAyuda : undefined, ariaDescritoPor].filter(Boolean).join(" ") ||
+    undefined;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -53,7 +60,7 @@ export function CampoContrasena({
           value={value}
           onChange={(evento) => onChange(evento.target.value)}
           aria-invalid={invalido || undefined}
-          aria-describedby={ariaDescritoPor}
+          aria-describedby={descritoPor}
           required
           autoFocus={autoFocus}
           className="h-11 pr-11"
@@ -67,7 +74,11 @@ export function CampoContrasena({
           {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
         </button>
       </div>
-      {ayuda && <p className="text-xs text-muted-foreground">{ayuda}</p>}
+      {ayuda && (
+        <p id={idAyuda} className="text-xs text-muted-foreground">
+          {ayuda}
+        </p>
+      )}
     </div>
   );
 }

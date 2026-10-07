@@ -4,6 +4,9 @@ import * as React from "react"
 import { Drawer as DrawerPrimitive } from "@base-ui/react/drawer"
 import { cn } from "cn"
 
+import { Button } from "@/components/ui/button"
+import { XIcon } from "lucide-react"
+
 type DrawerContextProps = {
   hasSnapPoints: boolean
   modal: DrawerPrimitive.Root.Props["modal"]
@@ -99,8 +102,11 @@ function DrawerSwipeHandle({
 function DrawerContent({
   className,
   children,
+  showCloseButton = true,
   ...props
-}: DrawerPrimitive.Popup.Props) {
+}: DrawerPrimitive.Popup.Props & {
+  showCloseButton?: boolean
+}) {
   const { hasSnapPoints, modal, showSwipeHandle, swipeDirection } = useDrawer()
   const swipeAxis =
     swipeDirection === "down" || swipeDirection === "up" ? "y" : "x"
@@ -160,6 +166,21 @@ function DrawerContent({
           >
             {children}
           </DrawerPrimitive.Content>
+          {showCloseButton && (
+            <DrawerPrimitive.Close
+              data-slot="drawer-close"
+              render={
+                <Button
+                  variant="ghost"
+                  className="absolute top-2 right-2 min-h-11 min-w-11 transition-opacity duration-300 group-data-nested-drawer-open/drawer-popup:opacity-0 group-data-nested-drawer-swiping/drawer-popup:opacity-100"
+                  size="icon-sm"
+                />
+              }
+            >
+              <XIcon />
+              <span className="sr-only">Cerrar</span>
+            </DrawerPrimitive.Close>
+          )}
         </DrawerPrimitive.Popup>
       </DrawerPrimitive.Viewport>
     </DrawerPortal>
@@ -167,11 +188,20 @@ function DrawerContent({
 }
 
 function DrawerHeader({ className, ...props }: React.ComponentProps<"div">) {
+  // La X ocupa 44px con 8px de margen (52px desde el borde). `pr-14` (56px)
+  // la cubre y calca el hueco del DialogHeader (`p-4` + `pr-10` = 56px): sin
+  // él, el título largo quedaría por debajo. En los cajones de abajo el título
+  // va centrado a cualquier ancho (el `text-center` del grupo tiene más
+  // especificidad que `md:text-left`), así que se reserva lo mismo a la
+  // izquierda y no se corre del centro. En los de lado el texto va a la
+  // izquierda y solo hace falta la reserva derecha. La reserva se aplica
+  // aunque un cajón pida `showCloseButton={false}` (igual que el `pr-10` del
+  // DialogHeader); hoy ninguno lo hace.
   return (
     <div
       data-slot="drawer-header"
       className={cn(
-        "flex shrink-0 flex-col gap-0.5 p-4 pb-0 group-data-[swipe-axis=y]/drawer-popup:text-center md:gap-0.5 md:text-left",
+        "flex shrink-0 flex-col gap-0.5 p-4 pr-14 pb-0 group-data-[swipe-axis=y]/drawer-popup:text-center group-data-[swipe-axis=y]/drawer-popup:pl-14 md:gap-0.5 md:text-left",
         className
       )}
       {...props}

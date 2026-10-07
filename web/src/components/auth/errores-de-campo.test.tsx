@@ -155,7 +155,11 @@ describe("FormularioRegistro", () => {
     expect(screen.getByLabelText("Nombre completo")).not.toHaveAttribute("aria-invalid");
     expect(screen.getByLabelText("Contraseña")).not.toHaveAttribute("aria-invalid");
     expect(screen.getByLabelText("Nombre completo")).not.toHaveAttribute("aria-describedby");
-    expect(screen.getByLabelText("Contraseña")).not.toHaveAttribute("aria-describedby");
+    // La contraseña siempre describe su ayuda ("Al menos 8 caracteres."); lo
+    // que no debe hacer es describir el error de otro campo.
+    expect(
+      screen.getByLabelText("Contraseña").getAttribute("aria-describedby")
+    ).not.toContain(alerta.id);
   });
 
   it("contraseña débil marca solo la contraseña", async () => {
@@ -164,7 +168,9 @@ describe("FormularioRegistro", () => {
 
     const alerta = await esperarAlerta("Esa contraseña no sirve: prueba con un largo distinto.");
     expect(screen.getByLabelText("Contraseña")).toHaveAttribute("aria-invalid", "true");
-    expect(screen.getByLabelText("Contraseña")).toHaveAttribute("aria-describedby", alerta.id);
+    expect(
+      screen.getByLabelText("Contraseña").getAttribute("aria-describedby")
+    ).toContain(alerta.id);
     expect(screen.getByLabelText("Correo")).not.toHaveAttribute("aria-invalid");
     expect(screen.getByLabelText("Nombre completo")).not.toHaveAttribute("aria-invalid");
   });
@@ -177,7 +183,7 @@ describe("FormularioRegistro", () => {
     for (const nombre of ["Nombre completo", "Correo", "Contraseña"]) {
       const campo = screen.getByLabelText(nombre);
       expect(campo).not.toHaveAttribute("aria-invalid");
-      expect(campo).toHaveAttribute("aria-describedby", alerta.id);
+      expect(campo.getAttribute("aria-describedby")).toContain(alerta.id);
     }
   });
 });
@@ -227,7 +233,7 @@ describe("FormularioRestablecer", () => {
     const alerta = await esperarAlerta("Esa contraseña no sirve: prueba con un largo distinto.");
     const campo = screen.getByLabelText("Contraseña nueva");
     expect(campo).toHaveAttribute("aria-invalid", "true");
-    expect(campo).toHaveAttribute("aria-describedby", alerta.id);
+    expect(campo.getAttribute("aria-describedby")).toContain(alerta.id);
   });
 
   it("un enlace vencido es general: sin campo inválido y con la contraseña descrita", async () => {
@@ -237,7 +243,7 @@ describe("FormularioRestablecer", () => {
     const alerta = await esperarAlerta("Ese enlace ya no sirve. Puede que haya vencido o que ya lo hayas usado.");
     const campo = screen.getByLabelText("Contraseña nueva");
     expect(campo).not.toHaveAttribute("aria-invalid");
-    expect(campo).toHaveAttribute("aria-describedby", alerta.id);
+    expect(campo.getAttribute("aria-describedby")).toContain(alerta.id);
   });
 
   it("un token inválido devuelto por el servidor también es general", async () => {
@@ -249,6 +255,42 @@ describe("FormularioRestablecer", () => {
     );
     const campo = screen.getByLabelText("Contraseña nueva");
     expect(campo).not.toHaveAttribute("aria-invalid");
-    expect(campo).toHaveAttribute("aria-describedby", alerta.id);
+    expect(campo.getAttribute("aria-describedby")).toContain(alerta.id);
+  });
+});
+
+describe("La ayuda de la contraseña pertenece a su campo", () => {
+  it("en registro, sin error el campo describe la ayuda", () => {
+    render(<FormularioRegistro />);
+
+    const campo = screen.getByLabelText("Contraseña");
+    const ayuda = screen.getByText("Al menos 8 caracteres.");
+    expect(ayuda).toHaveAttribute("id");
+    expect(campo.getAttribute("aria-describedby")).toBe(ayuda.id);
+  });
+
+  it("en registro, con error el campo describe la ayuda y el error a la vez", async () => {
+    devolverError(auth.registrar, { code: "weak_password" });
+    render(<FormularioRegistro />);
+    fireEvent.change(screen.getByLabelText("Nombre completo"), { target: { value: "Ana" } });
+    fireEvent.change(screen.getByLabelText("Correo"), { target: { value: "a@b.co" } });
+    fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "secreta123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Crear cuenta" }));
+
+    const alerta = await esperarAlerta("Esa contraseña no sirve: prueba con un largo distinto.");
+    const campo = screen.getByLabelText("Contraseña");
+    const ayuda = screen.getByText("Al menos 8 caracteres.");
+    const descrito = (campo.getAttribute("aria-describedby") ?? "").split(" ");
+    expect(descrito).toContain(ayuda.id);
+    expect(descrito).toContain(alerta.id);
+  });
+
+  it("en restablecer, sin error el campo describe la ayuda", () => {
+    render(<FormularioRestablecer token="un-token" enlaceVencido={false} />);
+
+    const campo = screen.getByLabelText("Contraseña nueva");
+    const ayuda = screen.getByText("Al menos 8 caracteres.");
+    expect(ayuda).toHaveAttribute("id");
+    expect(campo.getAttribute("aria-describedby")).toBe(ayuda.id);
   });
 });
