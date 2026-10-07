@@ -52,6 +52,19 @@ function balanceDeDeuda(deuda: string): string {
 }
 
 /**
+ * "007" → "7", "-007" → "-7", "0" → "0": el texto viaja al servidor y se
+ * muestra en la vista previa tal cual, así que no le deja ceros de adorno
+ * ("−$007" se leería como setecientos). Cosa de texto: la aritmética ya era
+ * exacta; esto solo limpia la cifra que se ve y la que se manda.
+ */
+function sinCerosALaIzquierda(monto: string): string {
+  const negativo = monto.startsWith("-");
+  const sinSigno = negativo ? monto.slice(1) : monto;
+  const limpio = sinSigno.replace(/^0+(?=\d)/, "");
+  return `${negativo ? "-" : ""}${limpio || "0"}`;
+}
+
+/**
  * Lo que la pantalla recuerda del saldo actual antes del ajuste.
  *
  * En una tarjeta el signo del saldo es deuda ("−$350.000" es un número que
@@ -116,7 +129,9 @@ export function leerAjuste(
   if ("error" in escrita) return escrita;
 
   const balance =
-    cuenta.type === "card" ? balanceDeDeuda(escrita.monto) : escrita.monto;
+    cuenta.type === "card"
+      ? balanceDeDeuda(sinCerosALaIzquierda(escrita.monto))
+      : sinCerosALaIzquierda(escrita.monto);
   const diferencia = restar(balance, cuenta.balance);
   const coincide = esCero(diferencia);
 
