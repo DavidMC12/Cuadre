@@ -21,6 +21,7 @@ import { mesActual, nombreDelMes } from '@/lib/fecha';
 const mocksDeGuardar = vi.hoisted(() => ({
   fijarMonto: vi.fn(),
   editarEtiqueta: vi.fn(),
+  soloMirar: { activo: false },
 }));
 
 vi.mock('@/hooks/use-presupuesto', () => ({
@@ -35,7 +36,7 @@ vi.mock('@/hooks/use-presupuesto', () => ({
 }));
 
 vi.mock('@/hooks/use-perfil', () => ({
-  useSoloMirar: () => false,
+  useSoloMirar: () => mocksDeGuardar.soloMirar.activo,
 }));
 
 vi.mock('@/hooks/use-categorias', () => ({
@@ -603,5 +604,209 @@ describe('FormularioItemPresupuesto', () => {
       'aria-invalid',
       'false'
     );
+  });
+
+  it('"Este mes no aplica" fija 0 para ESE mes y cierra el cajón (con su ayuda en palabras)', async () => {
+    mocksDeGuardar.fijarMonto.mockResolvedValue(undefined);
+    const item = {
+      id: 'item-1',
+      kind: 'category' as const,
+      currency: monedaCOP,
+      categoryId: 'cat-1',
+      categoryName: 'Mercado',
+      accountId: null,
+      accountName: null,
+      label: null,
+      currentAmount: '30000.0000',
+      archivedAt: null,
+      categoryKind: 'expense' as const,
+    };
+    render(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-09" montoDelMes="30000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+
+    // Acción secundaria, no destructiva, con su reversibilidad en palabras.
+    expect(screen.getByText('Solo este mes. Los demás meses siguen igual.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Este mes no aplica' }));
+
+    await waitFor(() =>
+      expect(mocksDeGuardar.fijarMonto).toHaveBeenCalledWith({
+        id: 'item-1',
+        amount: '0',
+        month: '2026-09',
+      })
+    );
+    // El cajón se cierra: el renglón del panel va a decir el estado nuevo.
+    expect(screen.queryByLabelText('Monto')).toBeNull();
+  });
+
+  it('con el monto del mes ya en cero, el cajón dice "Este mes no aplica" y el botón principal es "Poner monto"', () => {
+    const item = {
+      id: 'item-1',
+      kind: 'category' as const,
+      currency: monedaCOP,
+      categoryId: 'cat-1',
+      categoryName: 'Mercado',
+      accountId: null,
+      accountName: null,
+      label: null,
+      currentAmount: '30000.0000',
+      archivedAt: null,
+      categoryKind: 'expense' as const,
+    };
+    render(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-10" montoDelMes="0.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+
+    expect(screen.getByText('Este mes no aplica')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Poner monto' })).toBeTruthy();
+    // El botón de la acción ya no existe: el mes YA está en cero.
+    expect(screen.queryByRole('button', { name: 'Este mes no aplica' })).toBeNull();
+    // "no aplica" no predice el campo: queda vacío y listo para un monto nuevo.
+    expect((screen.getByLabelText('Monto') as HTMLInputElement).value).toBe('');
+  });
+
+  it('"Poner monto" repone un monto positivo para el mes visto', async () => {
+    mocksDeGuardar.fijarMonto.mockResolvedValue(undefined);
+    const item = {
+      id: 'item-1',
+      kind: 'category' as const,
+      currency: monedaCOP,
+      categoryId: 'cat-1',
+      categoryName: 'Mercado',
+      accountId: null,
+      accountName: null,
+      label: null,
+      currentAmount: '30000.0000',
+      archivedAt: null,
+      categoryKind: 'expense' as const,
+    };
+    render(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-10" montoDelMes="0.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    fireEvent.change(screen.getByLabelText('Monto'), { target: { value: '45000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Poner monto' }));
+
+    await waitFor(() =>
+      expect(mocksDeGuardar.fijarMonto).toHaveBeenCalledWith({
+        id: 'item-1',
+        amount: '45000',
+        month: '2026-10',
+      })
+    );
+  });
+
+  it('en un mes en cero y en uno positivo, el campo normal rechaza el 0 (el cero solo entra por su acción)', () => {
+    mocksDeGuardar.fijarMonto.mockResolvedValue(undefined);
+    const item = {
+      id: 'item-1',
+      kind: 'category' as const,
+      currency: monedaCOP,
+      categoryId: 'cat-1',
+      categoryName: 'Mercado',
+      accountId: null,
+      accountName: null,
+      label: null,
+      currentAmount: '30000.0000',
+      archivedAt: null,
+      categoryKind: 'expense' as const,
+    };
+    const vista = render(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-09" montoDelMes="30000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    fireEvent.change(screen.getByLabelText('Monto'), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(screen.getByText('El monto debe ser mayor que cero.')).toBeTruthy();
+    expect(mocksDeGuardar.fijarMonto).not.toHaveBeenCalled();
+
+    // Y también sobre un mes en cero: teclear 0 y "Poner monto" no guarda.
+    cleanup();
+    render(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-10" montoDelMes="0.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    fireEvent.change(screen.getByLabelText('Monto'), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Poner monto' }));
+
+    expect(screen.getByText('El monto debe ser mayor que cero.')).toBeTruthy();
+    expect(mocksDeGuardar.fijarMonto).not.toHaveBeenCalled();
+  });
+
+  it('"Este mes no aplica" funciona igual en un ítem de ahorro', async () => {
+    mocksDeGuardar.fijarMonto.mockResolvedValue(undefined);
+    const item = {
+      id: 'item-2',
+      kind: 'savings' as const,
+      currency: monedaCOP,
+      categoryId: null,
+      categoryName: null,
+      accountId: 'cta-1',
+      accountName: 'Vacaciones',
+      label: null,
+      currentAmount: '50000.0000',
+      archivedAt: null,
+      categoryKind: null,
+    };
+    render(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-11" montoDelMes="50000.0000">
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Este mes no aplica' }));
+
+    await waitFor(() =>
+      expect(mocksDeGuardar.fijarMonto).toHaveBeenCalledWith({
+        id: 'item-2',
+        amount: '0',
+        month: '2026-11',
+      })
+    );
+  });
+
+  it('en modo solo mirar no hay cajón ni acción: el renglón no ofrece "Este mes no aplica"', () => {
+    mocksDeGuardar.soloMirar.activo = true;
+    try {
+      const item = {
+        id: 'item-1',
+        kind: 'category' as const,
+        currency: monedaCOP,
+        categoryId: 'cat-1',
+        categoryName: 'Mercado',
+        accountId: null,
+        accountName: null,
+        label: null,
+        currentAmount: '30000.0000',
+        archivedAt: null,
+        categoryKind: 'expense' as const,
+      };
+      render(
+        <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-09" montoDelMes="30000.0000">
+          <button type="button">Editar</button>
+        </FormularioItemPresupuesto>,
+      );
+
+      expect(screen.queryByRole('button', { name: 'Este mes no aplica' })).toBeNull();
+      expect(screen.queryByLabelText('Monto')).toBeNull();
+      // Lo que queda montado es solo el disparador tal cual vino.
+      expect(screen.getByRole('button', { name: 'Editar' })).toBeTruthy();
+    } finally {
+      mocksDeGuardar.soloMirar.activo = false;
+    }
   });
 });
