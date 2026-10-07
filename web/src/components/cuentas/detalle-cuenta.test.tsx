@@ -16,6 +16,7 @@ interface OpcionesMutacion {
 
 const holders = vi.hoisted(() => ({
   drawerOnOpenChange: undefined as undefined | ((valor: boolean) => void),
+  drawerAbierto: false,
   actualizar: vi.fn(),
   marcarAhorro: vi.fn(),
   archivar: vi.fn(),
@@ -25,8 +26,13 @@ const holders = vi.hoisted(() => ({
 // El Drawer de Base UI no hace falta para probar la lógica del cajón: con
 // este reemplazo el contenido queda montado y se puede pedir el cierre a mano.
 vi.mock("@/components/ui/drawer", () => ({
-  Drawer: ({ children, onOpenChange }: ConHijos & { onOpenChange?: (valor: boolean) => void }) => {
+  Drawer: ({
+    children,
+    onOpenChange,
+    open,
+  }: ConHijos & { onOpenChange?: (valor: boolean) => void; open?: boolean }) => {
     holders.drawerOnOpenChange = onOpenChange;
+    holders.drawerAbierto = Boolean(open);
     return <div>{children}</div>;
   },
   DrawerTrigger: ({ render }: { render?: ReactElement }) => render,
@@ -67,6 +73,7 @@ afterEach(() => {
   holders.marcarAhorro.mockReset();
   holders.archivar.mockReset();
   holders.soloMirar = false;
+  holders.drawerAbierto = false;
   holders.drawerOnOpenChange = undefined;
 });
 
@@ -103,6 +110,10 @@ function renderDetalle(cuenta: Cuenta) {
 
 function pedirCierre() {
   act(() => holders.drawerOnOpenChange?.(false));
+}
+
+function abrirCajon() {
+  act(() => holders.drawerOnOpenChange?.(true));
 }
 
 describe("DetalleCuenta: una sola gramática de guardado", () => {
@@ -337,8 +348,9 @@ describe("DetalleCuenta: archivar la cuenta", () => {
     expect(holders.archivar.mock.calls[0][0]).toBe("c1");
   });
 
-  it("al archivar bien, la confirmación se cierra", () => {
+  it("al archivar bien, cierra la confirmación y el cajón", () => {
     renderDetalle(banco);
+    abrirCajon();
     holders.archivar.mockImplementationOnce((_id: unknown, opciones: OpcionesMutacion) => {
       opciones.onSuccess?.({ data: { ...banco, archivedAt: "2026-10-06T00:00:00.000Z" } });
     });
@@ -347,22 +359,25 @@ describe("DetalleCuenta: archivar la cuenta", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sí, archivar" }));
 
     expect(screen.queryByText("¿Archivar Bancolombia?")).not.toBeInTheDocument();
+    expect(holders.drawerAbierto).toBe(false);
   });
 
   it("si el servidor rechaza, muestra el motivo y no cierra el cajón", () => {
     renderDetalle(banco);
+    abrirCajon();
     holders.archivar.mockImplementationOnce((_id: unknown, opciones: OpcionesMutacion) => {
       opciones.onError?.(
-        new ApiError({ code: "CONFLICT", message: "Otra tarjeta usa esta cuenta." })
+        new ApiError({ code: "CONFLICT", message: "Esa cuenta ya está archivada." })
       );
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Archivar cuenta" }));
     fireEvent.click(screen.getByRole("button", { name: "Sí, archivar" }));
 
-    // El cajón sigue montado y la confirmación sigue abierta con el motivo.
+    // El cajón sigue abierto y la confirmación sigue mostrando el motivo.
+    expect(holders.drawerAbierto).toBe(true);
     expect(screen.getByText("¿Archivar Bancolombia?")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("Otra tarjeta usa esta cuenta.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Esa cuenta ya está archivada.");
     expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
   });
 

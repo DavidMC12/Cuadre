@@ -43,7 +43,10 @@ export function ConfirmarArchivar({
     <Dialog
       open={cuenta !== null}
       onOpenChange={(abierto) => {
-        if (!abierto) onCancelar();
+        // Mientras la petición viaja, la confirmación no se puede descartar:
+        // si el servidor rechaza justo entonces, el motivo tiene que poder
+        // leerse — no perderse en un diálogo que ya se cerró.
+        if (!abierto && !procesando) onCancelar();
       }}
     >
       <DialogContent>

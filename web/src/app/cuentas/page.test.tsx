@@ -11,7 +11,8 @@ vi.mock("@/hooks/use-cuentas", () => ({
   useDesarchivarCuenta: vi.fn(),
 }));
 
-vi.mock("@/hooks/use-perfil", () => ({ useSoloMirar: () => false }));
+const perfil = vi.hoisted(() => ({ soloMirar: false }));
+vi.mock("@/hooks/use-perfil", () => ({ useSoloMirar: () => perfil.soloMirar }));
 
 // Los cajones y las tarjetas no son lo que se prueba aquí: importa que un
 // fallo de consulta no se disfrace de "no tienes cuentas".
@@ -52,6 +53,7 @@ const desarchivar = vi.fn();
 
 beforeEach(() => {
   vi.clearAllMocks();
+  perfil.soloMirar = false;
   vi.mocked(useCuentasModule.useDesarchivarCuenta).mockReturnValue({
     mutate: desarchivar,
     isPending: false,
@@ -188,6 +190,16 @@ describe("Cuentas: las archivadas viven al final, plegadas y sin saldos", () => 
 
     expect(desarchivar).toHaveBeenCalledTimes(1);
     expect(desarchivar.mock.calls[0][0]).toBe("a-2");
+  });
+
+  it("en modo solo-mirar, 'Desarchivar' queda deshabilitado", () => {
+    perfil.soloMirar = true;
+    ajustar({ data: [bancolombia] }, { data: [bancolombia, visaVieja] });
+
+    render(<PaginaCuentas />);
+    fireEvent.click(screen.getByRole("button", { name: /Archivadas \(1\)/ }));
+
+    expect(screen.getByRole("button", { name: "Desarchivar" })).toBeDisabled();
   });
 
   it("si falla la consulta de archivadas, se dice y se ofrece reintentar", () => {

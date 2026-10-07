@@ -76,9 +76,9 @@ describe("ConfirmarArchivar: la pregunta y las consecuencias en palabras", () =>
   });
 
   it("un rechazo del servidor se muestra tal cual", () => {
-    renderConfirmacion(banco, "Otra tarjeta usa esta cuenta.");
+    renderConfirmacion(banco, "Esa cuenta ya está archivada.");
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Otra tarjeta usa esta cuenta.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Esa cuenta ya está archivada.");
   });
 
   it("'Cancelar' y 'Sí, archivar' llevan el piso de toque de 44px", () => {

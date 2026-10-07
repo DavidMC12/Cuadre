@@ -52,7 +52,7 @@ export default function PaginaCuentas() {
 
   function desarchivarCuenta(id: string) {
     desarchivar.mutate(id, {
-      onSuccess: () => toast.success("Cuenta desarchivada"),
+      onSuccess: () => toast.success("Cuenta desarchivada."),
       onError: (error) =>
         toast.error(
           error instanceof ApiError ? error.message : "No se pudo desarchivar. Intenta de nuevo."
@@ -165,6 +165,7 @@ export default function PaginaCuentas() {
             type="button"
             className="flex min-h-11 items-center gap-1.5 self-start text-sm font-medium text-muted-foreground"
             aria-expanded={mostrarArchivadas}
+            aria-controls="cuentas-archivadas"
             onClick={() => setMostrarArchivadas((valor) => !valor)}
           >
             {mostrarArchivadas ? (
@@ -176,7 +177,10 @@ export default function PaginaCuentas() {
           </button>
 
           {mostrarArchivadas && (
-            <div className="flex flex-col divide-y divide-border rounded-xl border border-border">
+            <div
+              id="cuentas-archivadas"
+              className="flex flex-col divide-y divide-border rounded-xl border border-border"
+            >
               {archivadas.map((cuenta) => (
                 <div key={cuenta.id} className="flex items-center gap-3 px-3 py-2.5">
                   <div className="flex min-w-0 flex-1 flex-col">

@@ -296,13 +296,13 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
     setErrorArchivar(null);
     archivar.mutate(cuenta.id, {
       onSuccess: () => {
-        toast.success("Cuenta archivada");
+        toast.success("Cuenta archivada.");
         setConfirmandoArchivar(false);
         cerrar();
       },
-      // Un rechazo del servidor —por ejemplo, si otra tarjeta la usa como
-      // cuenta vinculada— se muestra tal cual y no cierra nada: quien lo ve
-      // tiene que poder leer por qué no se pudo.
+      // Un rechazo del servidor se muestra tal cual y no cierra nada: quien lo
+      // ve tiene que poder leer por qué no se pudo (por ejemplo, si ya estaba
+      // archivada). El cajón no se cierra y la confirmación sigue abierta.
       onError: (error) => {
         setErrorArchivar(errorDeApi(error, "No se pudo archivar la cuenta. Intenta de nuevo."));
       },
