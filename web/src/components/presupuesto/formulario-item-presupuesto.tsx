@@ -113,13 +113,17 @@ export function FormularioItemPresupuesto({
   // que sale el prellenado y la comparación de "¿cambió de verdad?".
   const montoDeReferencia = montoDelMes === undefined ? (item?.currentAmount ?? null) : montoDelMes;
 
-  // "Este mes no aplica": SOLO cuando el mes visto tiene un monto fijado y
-  // ese monto es cero. Que el ítem no existiera ese mes (`montoDelMes`
-  // null) es otra cosa — "sin monto", no "sin presupuesto" — y `undefined`
-  // (usar el monto de hoy) no habla del mes visto. `'0.0000'` es truthy:
-  // por eso el cero se lee con `esCero`, nunca con la verdad/falsedad del
-  // string.
-  const mesNoAplica = Boolean(item && montoDelMes && esCero(montoDelMes));
+  // "Este mes no aplica": el monto de referencia del mes visto existe y es
+  // cero. Cuando `montoDelMes` no llega, la referencia ES el
+  // `currentAmount` del ítem (el contrato del modo antiguo: vale solo
+  // sobre el mes actual), así que se lee del MISMO sitio que el prellenado
+  // y `reiniciar()` — que el estado, el campo y el botón vean la misma
+  // realidad. Distinto de `montoDelMes` null (el ítem no existía ese mes:
+  // "sin monto", no "sin presupuesto"). Y `'0.0000'` es truthy: el cero se
+  // lee con `esCero`, nunca con la verdad/falsedad del string.
+  const mesNoAplica = Boolean(
+    item && montoDeReferencia && esCero(montoDeReferencia),
+  );
 
   const todasLasCategorias = (categorias ?? []).filter((categoria) => !categoria.archivedAt);
   const categoriasDeGasto = todasLasCategorias.filter((categoria) => categoria.kind === 'expense');
@@ -373,15 +377,20 @@ export function FormularioItemPresupuesto({
    * cero solo existe para fijar UN mes); crear un ítem sigue exigiendo
    * positivo, y eso no lo cambia nada de acá.
    */
+  // Doble toque rápido: el `disabled` de `isPending` salta una render
+  // después, y dos PATCH idénticos colarían por esa ventana. El ref cierra.
+  const marcandoNoAplica = useRef(false);
   async function marcarNoAplica() {
-    if (!item) return;
-
+    if (!item || marcandoNoAplica.current) return;
+    marcandoNoAplica.current = true;
     try {
       await fijarMonto.mutateAsync({ id: item.id, amount: '0', month: mesVisto });
       toast.success('Este mes no aplica. Los demás meses siguen igual.');
       cerrarYReiniciar();
     } catch (error) {
       toast.error(errorDeApi(error, 'No se pudo guardar. Intenta de nuevo.'));
+    } finally {
+      marcandoNoAplica.current = false;
     }
   }
 
@@ -411,7 +420,9 @@ export function FormularioItemPresupuesto({
             <DrawerTitle>{item ? 'Editar ítem' : 'Agregar al presupuesto'}</DrawerTitle>
             <DrawerDescription>
               {item
-                ? `Este es el monto de ${nombreDelMes(mesVisto)}. Los meses que ya pasaron no cambian; los que aún no llegan lo heredan hasta que les pongas el suyo.`
+                ? mesNoAplica
+                  ? `${nombreDelMes(mesVisto)} quedó sin monto: este mes no aplica. Si vuelve a aplicar, escribe el nuevo abajo y toca "Poner monto".`
+                  : `Este es el monto de ${nombreDelMes(mesVisto)}. Los meses que ya pasaron no cambian; los que aún no llegan lo heredan hasta que les pongas el suyo.`
                 : `El ítem rige desde ${nombreDelMes(mesVisto)}. Cuánto esperas ${
                     tipo === 'savings' ? 'aportar a la cuenta' : `${verboDelMonto} en la categoría`
                   }.`}

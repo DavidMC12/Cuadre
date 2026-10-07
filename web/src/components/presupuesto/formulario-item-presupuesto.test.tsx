@@ -21,11 +21,12 @@ import { mesActual, nombreDelMes } from '@/lib/fecha';
 const mocksDeGuardar = vi.hoisted(() => ({
   fijarMonto: vi.fn(),
   editarEtiqueta: vi.fn(),
+  crear: vi.fn(),
   soloMirar: { activo: false },
 }));
 
 vi.mock('@/hooks/use-presupuesto', () => ({
-  useCrearItemPresupuesto: vi.fn(() => ({ isPending: false, mutateAsync: vi.fn() })),
+  useCrearItemPresupuesto: vi.fn(() => ({ isPending: false, mutateAsync: mocksDeGuardar.crear })),
   useFijarMontoDelMes: vi.fn(() => ({ isPending: false, mutateAsync: mocksDeGuardar.fijarMonto })),
   useEditarEtiquetaItem: vi.fn(() => ({
     isPending: false,
@@ -59,6 +60,7 @@ describe('FormularioItemPresupuesto', () => {
   beforeEach(() => {
     mocksDeGuardar.fijarMonto.mockReset();
     mocksDeGuardar.editarEtiqueta.mockReset();
+    mocksDeGuardar.crear.mockReset();
   });
 
   const monedaCOP = 'COP';
@@ -808,5 +810,55 @@ describe('FormularioItemPresupuesto', () => {
     } finally {
       mocksDeGuardar.soloMirar.activo = false;
     }
+  });
+
+  it('crear también rechaza el 0: el monto positivo sigue siendo exigencia de crear un ítem', () => {
+    render(
+      <FormularioItemPresupuesto moneda="COP">
+        <button type="button">Agregar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
+    fireEvent.change(screen.getByLabelText('Monto'), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(screen.getByText('El monto debe ser mayor que cero.')).toBeTruthy();
+    expect(mocksDeGuardar.crear).not.toHaveBeenCalled();
+  });
+
+  it('el estado "no aplica" se deriva de la MISMA referencia que el campo: con precarga tardía en 0, cajón en cero', () => {
+    // Si `montoDelMes` no llega, la referencia es el currentAmount del
+    // ítem (contrato antiguo). Si esa referencia ya está en cero, el cajón
+    // tiene que decir lo mismo que deciría el panel: estado "no aplica",
+    // campo vacío y "Poner monto" — no un "Guardar" con un campo preñado
+    // de nada y una acción redundante de cero sobre cero.
+    const item = {
+      id: 'item-1',
+      kind: 'category' as const,
+      currency: monedaCOP,
+      categoryId: 'cat-1',
+      categoryName: 'Mercado',
+      accountId: null,
+      accountName: null,
+      label: null,
+      currentAmount: '0.0000',
+      archivedAt: null,
+      categoryKind: 'expense' as const,
+    };
+    const vista = render(
+      <FormularioItemPresupuesto item={item} moneda={monedaCOP}>
+        <button type="button">Editar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+
+    expect(screen.getByText('Este mes no aplica')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Poner monto' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Este mes no aplica' })).toBeNull();
+    expect((screen.getByLabelText('Monto') as HTMLInputElement).value).toBe('');
+    // La descripción acompaña el estado real: no habla de un monto que el
+    // mes no tiene.
+    expect(screen.getByText(/Si vuelve a aplicar/)).toBeTruthy();
+    vista.unmount();
   });
 });
