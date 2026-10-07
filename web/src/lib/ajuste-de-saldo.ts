@@ -58,6 +58,10 @@ function balanceDeDeuda(deuda: string): string {
  * exacta; esto solo limpia la cifra que se ve y la que se manda.
  */
 function sinCerosALaIzquierda(monto: string): string {
+  // "−0" (y "−0.00") es cero de verdad: llega como se escribe en el campo
+  // ("-" seguido de "0" sigue en el texto) y ni el body ni la vista previa
+  // deben ver el signo.
+  if (esCero(monto)) return "0";
   const negativo = monto.startsWith("-");
   const sinSigno = negativo ? monto.slice(1) : monto;
   const limpio = sinSigno.replace(/^0+(?=\d)/, "");

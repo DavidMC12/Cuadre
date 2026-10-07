@@ -78,6 +78,36 @@ describe("leerAjuste: la deuda escrita se convierte a saldo con signo", () => {
     expect(sobregiro.balance).toBe("-7");
     expect(sobregiro.vistaPrevia).toContain("ajuste de −$1.200.007 para que coincida");
   });
+
+  it("el cero de un sobregiro ('-0', '-0.00') no lleva signo, ni en el body ni en el texto", () => {
+    const negativo = leerAjuste("-0", banco)!;
+    if ("error" in negativo || negativo === null) throw new Error("se esperaba lectura");
+    expect(negativo.balance).toBe("0");
+
+    // Con saldo cero ya coincide: cero es cero, no "−$0".
+    // Con saldo cero ya coincide: cero es cero, no "−$0". (En pesos el
+    // lector rechaza "-0,00" — no llevan decimales —, así que el caso
+    // decimal es en dólares.)
+    const conCero = lecturaValida("-0,00", {
+      type: "bank",
+      balance: "0.0000",
+      currency: "USD",
+    });
+    expect(conCero.balance).toBe("0");
+    expect(conCero.coincide).toBe(true);
+    expect(conCero.vistaPrevia).toBe(TEXTO_YA_COINCIDE);
+  });
+
+  it("en monedas con centavos los ceros de miles se van sin comerse el decimal", () => {
+    const lectura = lecturaValida("007,50", {
+      type: "cash",
+      balance: "1.0000",
+      currency: "USD",
+    });
+
+    expect(lectura.balance).toBe("7.50");
+    expect(lectura.vistaPrevia).toContain("ajuste de +US$6,50 para que coincida");
+  });
 });
 
 describe("leerAjuste: la cifra exacta manda", () => {
