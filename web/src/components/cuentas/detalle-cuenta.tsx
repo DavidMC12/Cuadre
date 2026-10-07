@@ -48,7 +48,7 @@ import {
   hayCambiosSinGuardar,
   tonoBarraCupo,
 } from "@/lib/detalle-de-cuenta";
-import { leerAjuste } from "@/lib/ajuste-de-saldo";
+import { leerAjuste, textoDeExito } from "@/lib/ajuste-de-saldo";
 import { aUnidadesMinimas, textoEditable, textoMonto } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -344,9 +344,9 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
       { id: cuenta.id, balance: lectura.balance },
       {
         onSuccess: () => {
-          // El saldo ya es el que el banco dice; el nombre quedará como el
-          // resto de la app lo dice, con su signo y cifra exacta.
-          toast.success(`Listo. Quedó en ${textoMonto(lectura.balance, cuenta.currency)}.`);
+          // El saldo ya es el que el banco dice. El toast habla como la
+          // pantalla: en una tarjeta, de deuda en positivo.
+          toast.success(textoDeExito(lectura.balance, cuenta));
           setConfirmandoAjuste(false);
           setSaldoEscrito("");
         },

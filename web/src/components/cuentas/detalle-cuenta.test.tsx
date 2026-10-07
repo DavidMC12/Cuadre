@@ -2,10 +2,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
+import { toast } from "sonner";
 
 import { MENOS } from "@/lib/money";
 import { ApiError } from "@/lib/api/client";
 import type { Cuenta } from "@/lib/api/types";
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
 
 type ConHijos = { children?: ReactNode };
 
@@ -78,6 +83,8 @@ afterEach(() => {
   holders.soloMirar = false;
   holders.drawerAbierto = false;
   holders.drawerOnOpenChange = undefined;
+  vi.mocked(toast.success).mockClear();
+  vi.mocked(toast.error).mockClear();
 });
 
 const banco: Cuenta = {
@@ -590,6 +597,36 @@ describe("DetalleCuenta: ajustar el saldo (o la deuda)", () => {
     expect(screen.queryByText(/¿Cuánto debes hoy según tu banco\?/)).not.toBeInTheDocument();
     expect(holders.drawerAbierto).toBe(true);
     expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
+  });
+
+  it("al ajustar una tarjeta, el toast habla de deuda en positivo, como la pantalla", () => {
+    renderDetalle(visa);
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar deuda" }));
+    fireEvent.change(screen.getByLabelText("¿Cuánto debes hoy según tu banco?"), {
+      target: { value: "350.000" },
+    });
+    holders.ajustar.mockImplementationOnce((_variables: unknown, opciones: OpcionesMutacion) => {
+      opciones.onSuccess?.({ data: visaAjustada });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sí, ajustar" }));
+
+    expect(toast.success).toHaveBeenCalledWith("Listo. Ahora debes $350.000.");
+  });
+
+  it("al ajustar una cuenta que no es tarjeta, el toast dice en qué quedó", () => {
+    renderDetalle(banco);
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar saldo" }));
+    fireEvent.change(screen.getByLabelText("¿Cuánto hay hoy en esta cuenta?"), {
+      target: { value: "80.000" },
+    });
+    holders.ajustar.mockImplementationOnce((_variables: unknown, opciones: OpcionesMutacion) => {
+      opciones.onSuccess?.({ data: { ...banco, balance: "80000.0000" } });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sí, ajustar" }));
+
+    expect(toast.success).toHaveBeenCalledWith("Listo. Quedó en $80.000.");
   });
 });
 

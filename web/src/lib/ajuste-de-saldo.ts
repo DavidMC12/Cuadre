@@ -118,6 +118,28 @@ function textoDiferencia(diferencia: string, moneda: string): string {
 export const TEXTO_YA_COINCIDE = "Ya coincide.";
 
 /**
+ * El toast cuando el ajuste se registró bien.
+ *
+ * En una tarjeta el saldo es deuda y la pantalla lo dice en positivo — igual
+ * que el campo y la vista previa—: "Quedo en −$350.000" obliga a traducir
+ * signos; "Ahora debes $350.000" no. En las demás cuentas el saldo es el
+ * saldo y se dice con su cifra.
+ */
+export function textoDeExito(
+  balance: string,
+  cuenta: Pick<Cuenta, "type" | "currency">
+): string {
+  if (cuenta.type !== "card") {
+    return `Listo. Quedó en ${textoMonto(balance, cuenta.currency)}.`;
+  }
+  if (esCero(balance)) return "Listo. Ya no debes nada.";
+  if (balance.startsWith("-")) {
+    return `Listo. Ahora debes ${textoMonto(negar(balance), cuenta.currency)}.`;
+  }
+  return `Listo. Te quedaron ${textoMonto(balance, cuenta.currency)} a favor.`;
+}
+
+/**
  * Lee lo que la persona escribió en el campo del diálogo y arma, con enteros
  * exactos, el ajuste que se registraría.
  *

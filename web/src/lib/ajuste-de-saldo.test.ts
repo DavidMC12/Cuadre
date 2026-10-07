@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { leerAjuste, TEXTO_YA_COINCIDE } from "./ajuste-de-saldo";
+import { leerAjuste, TEXTO_YA_COINCIDE, textoDeExito } from "./ajuste-de-saldo";
 import type { LecturaDeAjuste } from "./ajuste-de-saldo";
 import { MENOS } from "./money";
 import type { Cuenta } from "./api/types";
@@ -169,6 +169,25 @@ describe("leerAjuste: el tope de dígitos enteros se dice en el cliente", () => 
     const lectura = lecturaValida(`${"0".repeat(20)}9`, banco);
 
     expect(lectura.balance).toBe("9");
+  });
+});
+
+describe("textoDeExito: el toast habla como la pantalla", () => {
+  it("en una tarjeta con deuda, la deuda se dice en positivo", () => {
+    expect(textoDeExito("-350000", visa)).toBe("Listo. Ahora debes $350.000.");
+  });
+
+  it("en una tarjeta sin deuda, ya no se debe nada", () => {
+    expect(textoDeExito("0", visa)).toBe("Listo. Ya no debes nada.");
+  });
+
+  it("en una tarjeta sobrepagada, queda a favor", () => {
+    expect(textoDeExito("50000.0000", visa)).toBe("Listo. Te quedaron $50.000 a favor.");
+  });
+
+  it("en las demás cuentas el saldo se dice con su cifra, como siempre", () => {
+    expect(textoDeExito("1200000.0000", banco)).toBe("Listo. Quedó en $1.200.000.");
+    expect(textoDeExito("-50000", banco)).toBe("Listo. Quedó en −$50.000.");
   });
 });
 
