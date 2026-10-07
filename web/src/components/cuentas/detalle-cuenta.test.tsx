@@ -523,6 +523,29 @@ describe("DetalleCuenta: ajustar el saldo (o la deuda)", () => {
     expect(screen.getByText(/¿Cuánto debes hoy según tu banco\?/)).toBeInTheDocument();
   });
 
+  it("el rechazo del servidor se borra al volver a editar el monto", () => {
+    renderDetalle(visa);
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar deuda" }));
+    const campo = screen.getByLabelText("¿Cuánto debes hoy según tu banco?");
+    fireEvent.change(campo, { target: { value: "350.000" } });
+    holders.ajustar.mockImplementationOnce(
+      (_variables: unknown, opciones: OpcionesMutacion) => {
+        opciones.onError?.(
+          new ApiError({ code: "RULE_VIOLATION", message: "Esa cuenta ya tiene ese saldo." })
+        );
+      }
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Sí, ajustar" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Esa cuenta ya tiene ese saldo.");
+
+    // Un dígito de más y el aviso viejo ya no dice nada útil: la vista previa
+    // cambió, el error del servidor no puede seguir contradiciéndola.
+    fireEvent.change(campo, { target: { value: "360.000" } });
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("al ajustar bien, el diálogo se cierra y el cajón queda", () => {
     renderDetalle(visa);
     abrirCajon();

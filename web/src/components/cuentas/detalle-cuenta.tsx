@@ -674,7 +674,13 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
           saldoEscrito={saldoEscrito}
           procesando={ajustar.isPending}
           error={errorAjuste}
-          onCambiarSaldo={setSaldoEscrito}
+          onCambiarSaldo={(texto) => {
+            setSaldoEscrito(texto);
+            // El rechazo del servidor habla de la cifra anterior; en cuanto
+            // se edita de nuevo ya no dice nada útil — y queda contradiciendo
+            // la vista previa que sí reacciona. Se va al primer toque.
+            setErrorAjuste(null);
+          }}
           onConfirmar={confirmarAjuste}
           onCancelar={() => {
             setConfirmandoAjuste(false);
