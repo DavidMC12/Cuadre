@@ -259,6 +259,41 @@ describe('fijarObjetivoDelMes', () => {
     expect(item!.target).toBe('350000.0000');
   });
 
+  it('un monto de cero rige solo ese mes: el siguiente, aunque sea futuro, se ancla al anterior', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '300000');
+
+    await repositorio.fijarObjetivoDelMes(usuarioId, itemId, MES, '0');
+
+    const [deEsteMes] = await repositorio.objetivosDelMes(usuarioId, MES, 'COP');
+    const [delSiguiente] = await repositorio.objetivosDelMes(usuarioId, MES_SIGUIENTE, 'COP');
+    expect(deEsteMes!.target).toBe('0.0000');
+    expect(delSiguiente!.target).toBe('300000.0000');
+  });
+
+  it('cero en un mes cuyo siguiente ya tiene su propio monto no lo pisa', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '300000');
+    await repositorio.fijarObjetivoDelMes(usuarioId, itemId, MES_SIGUIENTE, '500000');
+
+    await repositorio.fijarObjetivoDelMes(usuarioId, itemId, MES, '0');
+
+    const [delSiguiente] = await repositorio.objetivosDelMes(usuarioId, MES_SIGUIENTE, 'COP');
+    expect(delSiguiente!.target).toBe('500000.0000');
+  });
+
+  it('la base de datos no deja un monto negativo en un mes', async () => {
+    const comida = await crearCategoria('Comida');
+    const itemId = await itemDeCategoria(comida.id, '300000');
+
+    await expect(
+      db.execute(sql`
+        insert into budget_item_targets (budget_item_id, effective_from, amount)
+        values (${itemId}::uuid, (${MES}::text || '-01')::date, -1)
+      `),
+    ).rejects.toThrow();
+  });
+
   it('repetir el mismo monto en el mismo mes no agrega filas', async () => {
     const comida = await crearCategoria('Comida');
     const itemId = await itemDeCategoria(comida.id, '300000');

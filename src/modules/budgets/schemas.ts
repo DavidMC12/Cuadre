@@ -4,7 +4,12 @@
  * Los montos, igual que en cuentas y movimientos, siempre viajan como texto.
  */
 import { z } from 'zod';
-import { MesSchema, MonedaSchema, MontoPositivoSchema } from '../../shared/schemas.js';
+import {
+  MesSchema,
+  MonedaSchema,
+  MontoNoNegativoSchema,
+  MontoPositivoSchema,
+} from '../../shared/schemas.js';
 
 export const TIPOS_DE_ITEM = ['category', 'savings'] as const;
 export const TipoDeItemSchema = z.enum(TIPOS_DE_ITEM);
@@ -56,7 +61,8 @@ export const CrearItemSchema = z.discriminatedUnion('kind', [
  * `fijarObjetivoDelMes` en el repository).
  */
 export const FijarObjetivoDelMesSchema = z.object({
-  amount: MontoPositivoSchema,
+  /** Cero = "este mes no aplica": rige solo ese mes, el siguiente no lo hereda. */
+  amount: MontoNoNegativoSchema,
   month: MesSchema,
 });
 

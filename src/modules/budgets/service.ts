@@ -9,7 +9,7 @@
  */
 import { conflicto, noEncontrado, reglaViolada } from '../../http/errores.js';
 import { compare } from '../../shared/money.js';
-import { MesSchema, MontoPositivoSchema } from '../../shared/schemas.js';
+import { MesSchema, MontoNoNegativoSchema, MontoPositivoSchema } from '../../shared/schemas.js';
 import * as cuentasService from '../accounts/service.js';
 import * as categoriasService from '../categories/service.js';
 import * as reportsService from '../reports/service.js';
@@ -33,7 +33,11 @@ import { type CrearItem, type ItemDePresupuesto, type ItemDelChecklist } from '.
  *
  * Devuelve el mes a usar: el que llegó, o el actual si no llegó ninguno.
  */
-async function validarMesYMonto(month: string | undefined, amount: string): Promise<string> {
+async function validarMesYMonto(
+  month: string | undefined,
+  amount: string,
+  permitirCero = false,
+): Promise<string> {
   let mes: string;
   if (month === undefined) {
     mes = await repositorio.mesActual();
@@ -45,9 +49,14 @@ async function validarMesYMonto(month: string | undefined, amount: string): Prom
     mes = month;
   }
 
-  const leidoMonto = MontoPositivoSchema.safeParse(amount);
+  // Cero solo vale al fijar el monto de un mes ("este mes no aplica"); un
+  // ítem nuevo siempre nace con un monto positivo.
+  const leidoMonto = (permitirCero ? MontoNoNegativoSchema : MontoPositivoSchema).safeParse(amount);
   if (!leidoMonto.success) {
-    throw reglaViolada(leidoMonto.error.issues[0]?.message ?? 'El monto no es un monto positivo.');
+    throw reglaViolada(
+      leidoMonto.error.issues[0]?.message ??
+        (permitirCero ? 'El monto no es válido.' : 'El monto no es un monto positivo.'),
+    );
   }
 
   return mes;
@@ -126,6 +135,10 @@ export async function crearItem(usuarioId: string, datos: CrearItem): Promise<It
  * mes tiene el suyo (ver `budget_item_targets` y `fijarObjetivoDelMes` en el
  * repository, que ancla el mes siguiente ya empezado para que la herencia no
  * lo arrastre).
+ *
+ * Un monto de cero significa "este mes no aplica" (no pagaré agua este mes):
+ * rige solo ese mes, y el repository ancla siempre el siguiente aunque sea
+ * futuro, para que un mes sin agua no apague el renglón para siempre.
  */
 export async function fijarObjetivoDelMes(
   usuarioId: string,
@@ -133,7 +146,7 @@ export async function fijarObjetivoDelMes(
   month: string,
   amount: string,
 ): Promise<ItemDePresupuesto> {
-  const mes = await validarMesYMonto(month, amount);
+  const mes = await validarMesYMonto(month, amount, true);
 
   const fijado = await repositorio.fijarObjetivoDelMes(usuarioId, itemId, mes, amount);
   if (!fijado) throw noEncontrado('Ese ítem del presupuesto no existe.');
@@ -248,7 +261,14 @@ export async function checklistDelMes(
       // La comparación es exacta y en enteros: comparar los strings con
       // `<`/`>` de JavaScript ordenaría como texto, y "100000" < "20000" sería
       // verdad leído así — de ahí el `compare` de `shared/money.ts`.
-      const llegoAlObjetivo = objetivo.target !== null && compare(progress, objetivo.target) >= 0;
+      //
+      // Un objetivo de cero es "este mes no aplica": no hay meta que llegar,
+      // así que nunca marca logro. Si aun así se gasta en un tope de cero, sí
+      // es un exceso (superó lo que se dijo que gastaría: nada).
+      const llegoAlObjetivo =
+        objetivo.target !== null &&
+        compare(objetivo.target, '0') > 0 &&
+        compare(progress, objetivo.target) >= 0;
       const pasoElTope = objetivo.target !== null && compare(progress, objetivo.target) > 0;
 
       const checked =
