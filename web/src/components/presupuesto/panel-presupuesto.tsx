@@ -220,6 +220,10 @@ export function PanelPresupuesto({
   // Dos secciones, como el dinero: lo que se espera recibir y lo que se espera
   // gastar. El ahorro es del segundo tipo (apartar, no recibir) y cierra
   // "Gastos". Un renglón sin tipo de categoría (defensivo) cuenta como gasto.
+  // Ojo: el TOTAL de la sección sale de `totalesPrevistos`, que solo suma
+  // ingresos y gastos con tipo; un renglón defensivo sin tipo no entraría en
+  // ninguna suma. Es un estado que los datos no producen (un ítem de categoría
+  // siempre trae su tipo), y el cuadrito "Cuánto me sobra" usa la misma cuenta.
   const gruposIngreso = grupos.filter(
     (grupo) => grupo.items[0]?.categoryKind === "income"
   );
@@ -649,7 +653,18 @@ function EncabezadoSeccion({
         {rotulo}
       </h3>
       {total !== null && (
-        <span className="shrink-0" aria-label={`${etiquetaTotal}: ${textoMonto(total, moneda)}`}>
+        // `role="img"` + `aria-label`: el mismo patrón accesible de las gráficas
+        // del Resumen. Un `span` genérico con `aria-label` no es un nombre
+        // fiable (el rol genérico no admite nombre por autor) y el lector podía
+        // ignorar las palabras o leerlas dos veces junto a la cifra visible; con
+        // `role="img"` el texto de adentro queda presentacional y solo se
+        // anuncia el nombre en palabras. `whitespace-nowrap`: el total nunca se
+        // parte en dos líneas; cede el rótulo, no la cifra.
+        <span
+          className="shrink-0 whitespace-nowrap"
+          role="img"
+          aria-label={`${etiquetaTotal}: ${textoMonto(total, moneda)}`}
+        >
           <Monto valor={total} moneda={moneda} signo="neutro" className="text-xs font-medium" />
         </span>
       )}
