@@ -1274,3 +1274,72 @@ describe("PanelPresupuesto: el monto del mes visto", () => {
     expect(screen.queryByText("Poner monto")).not.toBeInTheDocument();
   });
 });
+
+describe("PanelPresupuesto: este mes no aplica (target 0)", () => {
+  it("un renglón con target 0 se atenuado como 'Sin presupuesto este mes', sin barra ni porcentaje", () => {
+    const items = [deCategoria("c1", "comida", "Agua")];
+    // "0.0000" es truthy: ni falsedad ni comparaciones de string cuentan
+    // aquí; el estado se lee con esCero en el componente.
+    const checklist = [
+      { ...renglonDe(items[0]), target: "0.0000", progress: "0", exceeded: false },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-01" moneda="COP" />);
+
+    // En palabras, no solo de color.
+    expect(screen.getByText("Sin presupuesto este mes")).toBeInTheDocument();
+    expect(screen.getByText("Agua").className).toContain("text-muted-foreground");
+    // Sin barra: con objetivo cero un porcentaje no mide nada.
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    // Sigue tocable: el renglón nace dentro del formulario de edición.
+    const llamada = vi
+      .mocked(FormularioItemPresupuesto)
+      .mock.calls.map(([props]) => props)
+      .find((props) => props.item);
+    expect(llamada?.item?.id).toBe("c1");
+    expect(llamada?.montoDelMes).toBe("0.0000");
+    // El camino de vuelta está a la vista, con piso de 44px.
+    expect(screen.getByText("Poner monto").classList.contains("min-h-11")).toBe(true);
+  });
+
+  it("gastando sobre un tope de cero, el aviso rojo dice la cantidad y manda sobre la calma atenuada", () => {
+    const items = [deCategoria("c1", "comida", "Agua")];
+    const checklist = [
+      { ...renglonDe(items[0]), target: "0.0000", progress: "12.5", exceeded: true },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-01" moneda="COP" />);
+
+    const aviso = screen.getByText(/Te pasaste por/);
+    expect(aviso.className).toContain("text-destructive");
+    // Sin barra: con objetivo cero un porcentaje no mide nada.
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("un ingreso con meta en cero dice 'Sin meta este mes', no 'Sin presupuesto'", () => {
+    const items = [deIngreso("c5", "Sueldo")];
+    const checklist = [
+      { ...renglonDe(items[0]), target: "0.0000", progress: "0", exceeded: false },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-01" moneda="COP" />);
+
+    expect(screen.getByText("Sin meta este mes")).toBeInTheDocument();
+    expect(screen.queryByText("Sin presupuesto este mes")).not.toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("un ítem de ahorro en cero (nunca exceeded) dice 'Sin presupuesto este mes'", () => {
+    const items = [deAhorro("c6", "Vacaciones")];
+    const checklist = [{ ...renglonDe(items[0]), target: "0.0000", progress: "0" }];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-01" moneda="COP" />);
+
+    expect(screen.getByText("Sin presupuesto este mes")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+});

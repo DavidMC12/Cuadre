@@ -93,6 +93,32 @@ describe('CuantoMeSobra', () => {
     expect(screen.getByText(/Te sobran según lo previsto/)).toBeTruthy();
   });
 
+  it('un tope en 0 ("este mes no aplica") suma 0: el previsto y sus palabras no cambian', () => {
+    // El dueño no paga agua este mes: el renglón queda en 0 y el previsto es
+    // el mismo que sin él — ni NaN, ni división, ni texto inventado.
+    ajustar(
+      {
+        data: {
+          month: mesActual(),
+          currency: 'COP',
+          items: [
+            renglonDe('income', '3000000'),
+            renglonDe('expense', '2000000'),
+            renglonDe('expense', '0.0000'),
+            renglonDe(null, '0.0000'),
+          ],
+        },
+      },
+      { data: resumenDe('1000000', '500000') },
+    );
+
+    render(<CuantoMeSobra mes={mesActual()} moneda="COP" />);
+
+    expect(montoConTexto('$1.000.000')).toBeTruthy();
+    expect(montoConTexto('$500.000')).toBeTruthy();
+    expect(screen.getByText(/Te sobran según lo previsto/)).toBeTruthy();
+  });
+
   it('el texto del real cambia con el mes: actual, pasado y futuro', () => {
     const actual = mesActual();
     const pasado = sumarMeses(actual, -2);

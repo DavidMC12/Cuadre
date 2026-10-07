@@ -39,7 +39,7 @@ import { useSoloMirar } from '@/hooks/use-perfil';
 import { ApiError } from '@/lib/api/client';
 import type { ItemPresupuesto } from '@/lib/api/types';
 import { nombreDelMes, mesActual } from '@/lib/fecha';
-import { aUnidadesMinimas, normalizarMontoIngresado, textoEditable } from '@/lib/money';
+import { aUnidadesMinimas, esCero, normalizarMontoIngresado, textoEditable } from '@/lib/money';
 
 /** El componente Select no acepta un value vacío; este valor marca "ninguna". */
 const NINGUNO = '__sin_elegir__';
@@ -55,7 +55,12 @@ const NINGUNO = '__sin_elegir__';
  * Con `item` edita: fija el monto del MES QUE SE ESTÁ VIENDO (`mes`), la
  * etiqueta, y archivar o restaurar. Cada mes lleva su propio monto, así que
  * editar un mes pasado ya es cosa normal, sin historial de versiones a la
- * vista. Desde la cuenta de otra persona no se abre nada: el servidor
+ * vista. Ese mes también puede quedar "este mes no aplica": la acción
+ * secundaria lo fija en 0 (reversible, sin confirmación), el cajón muestra
+ * el estado y "Poner monto" repone un monto positivo. El campo de monto
+ * normal SIEMPRE rechaza el cero — el 0 solo entra por esa acción.
+ *
+ * Desde la cuenta de otra persona no se abre nada: el servidor
  * rechazaría la escritura de todos modos.
  *
  * `montoDelMes` es el monto que el ítem tenía en ese mes visto (el `target`
@@ -108,6 +113,18 @@ export function FormularioItemPresupuesto({
   // que sale el prellenado y la comparación de "¿cambió de verdad?".
   const montoDeReferencia = montoDelMes === undefined ? (item?.currentAmount ?? null) : montoDelMes;
 
+  // "Este mes no aplica": el monto de referencia del mes visto existe y es
+  // cero. Cuando `montoDelMes` no llega, la referencia ES el
+  // `currentAmount` del ítem (el contrato del modo antiguo: vale solo
+  // sobre el mes actual), así que se lee del MISMO sitio que el prellenado
+  // y `reiniciar()` — que el estado, el campo y el botón vean la misma
+  // realidad. Distinto de `montoDelMes` null (el ítem no existía ese mes:
+  // "sin monto", no "sin presupuesto"). Y `'0.0000'` es truthy: el cero se
+  // lee con `esCero`, nunca con la verdad/falsedad del string.
+  const mesNoAplica = Boolean(
+    item && montoDeReferencia && esCero(montoDeReferencia),
+  );
+
   const todasLasCategorias = (categorias ?? []).filter((categoria) => !categoria.archivedAt);
   const categoriasDeGasto = todasLasCategorias.filter((categoria) => categoria.kind === 'expense');
   const categoriasDeIngreso = todasLasCategorias.filter((categoria) => categoria.kind === 'income');
@@ -144,7 +161,12 @@ export function FormularioItemPresupuesto({
         : 'gastar';
 
   const [monto, setMonto] = useState(() =>
-    montoDeReferencia ? textoEditable(montoDeReferencia, monedaDelMonto) : '',
+    // El cero del mes no prede el campo: "no aplica" es ausencia de monto,
+    // no un monto por guardar. Con el cajón abierto sobre un mes en cero el
+    // campo queda vacío, listo para un monto nuevo.
+    montoDeReferencia && !esCero(montoDeReferencia)
+      ? textoEditable(montoDeReferencia, monedaDelMonto)
+      : '',
   );
   const [etiqueta, setEtiqueta] = useState(item?.label ?? '');
   // Un error por campo editable, para que `aria-invalid`/`aria-describedby`
@@ -233,7 +255,9 @@ export function FormularioItemPresupuesto({
     setTipo(item ? item.kind : 'category');
     setCategoriaId(item?.categoryId ?? undefined);
     setCuentaId(item?.accountId ?? undefined);
-    setMonto(montoDeReferencia ? textoEditable(montoDeReferencia, monedaDelMonto) : '');
+    // El mismo criterio del prellenado: el cero del mes es ausencia, no un
+    // texto por escribir de vuelta.
+    setMonto(montoDeReferencia && !esCero(montoDeReferencia) ? textoEditable(montoDeReferencia, monedaDelMonto) : '');
     setEtiqueta(item?.label ?? '');
     setErrores({});
     camposTocados.current = new Set();
@@ -254,6 +278,15 @@ export function FormularioItemPresupuesto({
     const lectura = normalizarMontoIngresado(monto, monedaDelMonto);
     if ('error' in lectura) {
       setErrores({ monto: lectura.error });
+      return;
+    }
+    // El campo normal SIEMPRE pide un monto positivo — al guardar un monto
+    // nuevo y también al reponerlo sobre un "no aplica". El cero solo entra
+    // por su propio camino: el botón "Este mes no aplica". Si no, decir
+    // "no paga este mes" exigiría teclear un 0 en un campo que todo el
+    // resto del formulario llama cantidad esperada.
+    if (esCero(lectura.monto)) {
+      setErrores({ monto: 'El monto debe ser mayor que cero.' });
       return;
     }
     setErrores({});
@@ -335,6 +368,32 @@ export function FormularioItemPresupuesto({
     }
   }
 
+  /**
+   * Fija el monto del mes que se está viendo en cero — y solo ESE mes.
+   *
+   * No hay confirmación a propósito: es reversible con un toque (el panel
+   * mismo abre el cajón para volver a poner monto), no como archivar. El
+   * servidor recibe el 0 en el mismo endpoint de siempre (el monto mínimo
+   * cero solo existe para fijar UN mes); crear un ítem sigue exigiendo
+   * positivo, y eso no lo cambia nada de acá.
+   */
+  // Doble toque rápido: el `disabled` de `isPending` salta una render
+  // después, y dos PATCH idénticos colarían por esa ventana. El ref cierra.
+  const marcandoNoAplica = useRef(false);
+  async function marcarNoAplica() {
+    if (!item || marcandoNoAplica.current) return;
+    marcandoNoAplica.current = true;
+    try {
+      await fijarMonto.mutateAsync({ id: item.id, amount: '0', month: mesVisto });
+      toast.success('Este mes no aplica. Los demás meses siguen igual.');
+      cerrarYReiniciar();
+    } catch (error) {
+      toast.error(errorDeApi(error, 'No se pudo guardar. Intenta de nuevo.'));
+    } finally {
+      marcandoNoAplica.current = false;
+    }
+  }
+
   if (soloMirar) return <>{children}</>;
 
   const guardando = crear.isPending || fijarMonto.isPending || editarEtiqueta.isPending;
@@ -361,7 +420,9 @@ export function FormularioItemPresupuesto({
             <DrawerTitle>{item ? 'Editar ítem' : 'Agregar al presupuesto'}</DrawerTitle>
             <DrawerDescription>
               {item
-                ? `Este es el monto de ${nombreDelMes(mesVisto)}. Los meses que ya pasaron no cambian; los que aún no llegan lo heredan hasta que les pongas el suyo.`
+                ? mesNoAplica
+                  ? `${nombreDelMes(mesVisto)} quedó sin monto: este mes no aplica. Si vuelve a aplicar, escribe el nuevo abajo y toca "Poner monto".`
+                  : `Este es el monto de ${nombreDelMes(mesVisto)}. Los meses que ya pasaron no cambian; los que aún no llegan lo heredan hasta que les pongas el suyo.`
                 : `El ítem rige desde ${nombreDelMes(mesVisto)}. Cuánto esperas ${
                     tipo === 'savings' ? 'aportar a la cuenta' : `${verboDelMonto} en la categoría`
                   }.`}
@@ -369,6 +430,19 @@ export function FormularioItemPresupuesto({
           </DrawerHeader>
 
           <div className="flex flex-col gap-4 overflow-y-auto px-4 py-4">
+            {/* El estado en palabras: el mes que se mira no tiene monto y
+                nadie lo metió de rincón — está dicho arriba, con la misma
+                frase de la acción que lo causa. Lo reversible ni se esconde:
+                el campo de abajo y "Poner monto" son el camino de vuelta. */}
+            {item && mesNoAplica && (
+              <div className="flex flex-col gap-1 rounded-lg bg-muted px-3 py-2.5">
+                <p className="text-sm font-medium">Este mes no aplica</p>
+                <p className="text-xs text-muted-foreground">
+                  Solo este mes. Los demás meses siguen igual.
+                </p>
+              </div>
+            )}
+
             {!item && (
               <div className="flex flex-col gap-1.5">
                 <Label id={idTipo}>Tipo</Label>
@@ -554,6 +628,30 @@ export function FormularioItemPresupuesto({
               </p>
             </div>
 
+            {item && !mesNoAplica && (
+              <div className="flex flex-col gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  // El monto individual es dinero: mientras el cajón existe,
+                  // solo el dueño lo toca. Bajo suplantación el cajón ni se
+                  // monta (el panel lo corta), pero la política se dice en
+                  // el propio control.
+                  disabled={soloMirar || fijarMonto.isPending}
+                  onClick={marcarNoAplica}
+                >
+                  Este mes no aplica
+                </Button>
+                {/* La consecuencia en palabras, del lado de la acción que
+                    la verdad: sin esto, "no aplica" podría leerse como
+                    archivar el ítem o ponerlo a cero para siempre. */}
+                <p className="text-xs text-muted-foreground">
+                  Solo este mes. Los demás meses siguen igual.
+                </p>
+              </div>
+            )}
+
             {item && (
               <Button
                 type="button"
@@ -568,8 +666,11 @@ export function FormularioItemPresupuesto({
           </div>
 
           <DrawerFooter>
+            {/* En un mes "no aplica" el botón dice lo que va a hacer de
+                verdad: reponer el monto positivo que le falta. Nunca "Poner
+                monto" puede mandar un 0: el campo validador lo rechaza. */}
             <Button type="submit" className="min-h-11" disabled={guardando || sinOpciones}>
-              {guardando ? 'Guardando…' : 'Guardar'}
+              {guardando ? 'Guardando…' : item && mesNoAplica ? 'Poner monto' : 'Guardar'}
             </Button>
           </DrawerFooter>
         </form>
