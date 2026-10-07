@@ -201,6 +201,24 @@ describe('ajustar el saldo de una cuenta', () => {
     expect((await ajustar(cuenta.id, '1000')).estado).toBe(404);
   });
 
+  it('el cruce de un extremo al otro de lo que cabe responde 422, no 500', async () => {
+    const cuenta = await crearCuenta({ openingBalance: '999999999999999.9999' });
+
+    // De +999999999999999.9999 a -999999999999999.9999 la diferencia no cabe en
+    // NUMERIC(19,4): es una entrada válida para el borde que la base no puede
+    // guardar. Lo que importa es que sea un error claro y que no se escriba nada.
+    const { estado, cuerpo } = await ajustar(cuenta.id, '-999999999999999.9999');
+
+    expect(estado, JSON.stringify(cuerpo)).toBe(422);
+    expect(cuerpo.error.message).toBe('Ese monto es demasiado grande para guardarlo.');
+    expect(await saldoDe(cuenta.id)).toBe('999999999999999.9999');
+    expect(await contarAjustes(cuenta.id)).toBe(0);
+
+    // En una sola dirección sí cabe, y el saldo queda exacto.
+    expect((await ajustar(cuenta.id, '0')).estado).toBe(201);
+    expect(await saldoDe(cuenta.id)).toBe('0.0000');
+  });
+
   it('rechaza un saldo mal escrito con 400', async () => {
     const cuenta = await crearCuenta();
 
@@ -215,6 +233,10 @@ describe('ajustar el saldo de una cuenta', () => {
 // -----------------------------------------------------------------------------
 
 describe('dos ajustes a la vez', () => {
+  // La garantía tiene dos capas: el `for update` de la fila de la cuenta y el
+  // lock de fila que toma, por la llave foránea compuesta, cualquier INSERT en
+  // `transactions` de esa misma cuenta. Esta prueba comprueba el resultado, que
+  // es lo que importa; no distingue cuál de las dos capas lo aseguró.
   it('se hacen en fila: uno escribe y los demás ven que ya coincide', async () => {
     const tarjeta = await crearCuenta({ type: 'card', openingBalance: '-100000' });
 

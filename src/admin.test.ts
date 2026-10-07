@@ -334,6 +334,18 @@ describe('desde una cuenta ajena solo se mira', () => {
     expect(estado).toBe(403);
   });
 
+  it('tampoco deja ajustar el saldo de una cuenta ajena', async () => {
+    const { estado, cuerpo } = await pedir(
+      appSuplantando,
+      'POST',
+      `/api/v1/accounts/${randomUUID()}/adjust-balance`,
+      { balance: '1000' },
+    );
+
+    expect(estado).toBe(403);
+    expect(cuerpo.error.code).toBe('FORBIDDEN');
+  });
+
   it('tampoco deja anular, crear categorías ni transferir', async () => {
     const anular = await pedir(
       appSuplantando,
