@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  adjustAccountBalance,
   archiveAccount,
   createAccount,
   fetchAccounts,
@@ -11,6 +12,7 @@ import {
   updateAccountSavings,
 } from "@/lib/api/accounts";
 import type { CambiosDeCuenta, NuevaCuenta } from "@/lib/api/types";
+import { clavesMovimientos } from "@/hooks/use-movimientos";
 import { clavesPresupuesto } from "@/hooks/use-presupuesto";
 import { clavesReportes } from "@/hooks/use-reportes";
 
@@ -91,5 +93,25 @@ export function useDesarchivarCuenta() {
   return useMutation({
     mutationFn: (id: string) => unarchiveAccount(id),
     onSuccess: () => invalidarTrasArchivar(queryClient),
+  });
+}
+
+/**
+ * Ajustar el saldo (o la deuda, en una tarjeta) no "edita" el saldo — que no
+ * se guarda, se calcula —: registra el movimiento kind "adjustment" que lo
+ * empareja con la realidad del banco. Un ajuste no cuenta como gasto ni
+ * ingreso (lo garantiza el servidor), así que el presupuesto queda intacto;
+ * sí cambian el saldo de la cuenta, el historial y el Resumen.
+ */
+export function useAjustarSaldo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, balance }: { id: string; balance: string }) =>
+      adjustAccountBalance(id, balance),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clavesCuentas.todas() });
+      queryClient.invalidateQueries({ queryKey: clavesMovimientos.todas() });
+      queryClient.invalidateQueries({ queryKey: clavesReportes.todas() });
+    },
   });
 }

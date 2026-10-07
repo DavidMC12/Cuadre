@@ -10,6 +10,7 @@ export const ETIQUETA_TIPO_MOVIMIENTO: Record<TipoMovimiento, string> = {
   opening: "Saldo inicial",
   standard: "Movimiento",
   transfer: "Transferencia",
+  adjustment: "Ajuste de saldo",
 };
 
 export const ETIQUETA_TIPO_CATEGORIA: Record<TipoCategoria, string> = {
