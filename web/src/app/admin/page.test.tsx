@@ -92,7 +92,7 @@ describe("Admin: la lista de personas se cae con el mismo vocabulario del resto"
     // Un error de red no es lo mismo que "no hay nadie registrado".
     expect(screen.queryByText("No hay nadie registrado")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar personas" }));
     expect(recargar).toHaveBeenCalledTimes(1);
   });
 
@@ -134,7 +134,7 @@ describe("Admin: la lista de personas se cae con el mismo vocabulario del resto"
       )
     ).toBeInTheDocument();
     expect(screen.queryByText("No hay nadie registrado")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar personas" })).toBeInTheDocument();
   });
 
   it("sin red mientras busca el perfil, dice 'tu perfil' en vez de dejar el esqueleto eterno", () => {
@@ -149,6 +149,83 @@ describe("Admin: la lista de personas se cae con el mismo vocabulario del resto"
       )
     ).toBeInTheDocument();
     expect(document.querySelector(".animate-pulse")).toBeNull();
+  });
+});
+
+describe("Admin: el registro de suplantaciones no se cae en silencio (novena critique, P2)", () => {
+  function ajustarRegistro(stub: Record<string, unknown>) {
+    vi.mocked(useAdminModule.useRegistroDeSuplantaciones).mockImplementation(
+      () =>
+        ({
+          data: undefined,
+          isError: false,
+          error: null,
+          isPending: false,
+          isPaused: false,
+          isFetching: false,
+          refetch: vi.fn(),
+          ...stub,
+        }) as never
+    );
+  }
+
+  it("si la consulta falla, dice el fallo con Reintentar — 'Cuentas a las que has entrado' no desaparece sin una palabra", () => {
+    ajustarPerfil();
+    ajustarPersonas({});
+    const recargar = vi.fn();
+    ajustarRegistro({
+      data: undefined,
+      isError: true,
+      error: new Error("boom"),
+      refetch: recargar,
+    });
+
+    render(<PaginaAdmin />);
+
+    expect(
+      screen.getByText(
+        "No pudimos cargar el registro de entradas. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toBeInTheDocument();
+    // El fallo del registro es un anuncio propio, no un vacío que miente.
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar el registro de entradas" }));
+    expect(recargar).toHaveBeenCalledTimes(1);
+  });
+
+  it("pausada sin red, el registro dice 'Sin conexión'", () => {
+    ajustarPerfil();
+    ajustarPersonas({});
+    ajustarRegistro({ data: undefined, isPaused: true });
+
+    render(<PaginaAdmin />);
+
+    expect(
+      screen.getByText(
+        "Sin conexión: no pudimos cargar el registro de entradas. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar el registro de entradas" })).toBeInTheDocument();
+  });
+
+  it("un refetch fallido con entradas ya en pantalla no las borra ni muestra el fallo por encima", () => {
+    ajustarPerfil();
+    ajustarPersonas({});
+    ajustarRegistro({
+      data: [
+        {
+          id: "e-1",
+          targetEmail: "sam@cuadre.co",
+          startedAt: "2026-10-05T10:00:00.000Z",
+        },
+      ],
+      isError: true,
+      error: new Error("boom"),
+    });
+
+    render(<PaginaAdmin />);
+
+    expect(screen.getByText("Cuentas a las que has entrado")).toBeInTheDocument();
+    expect(screen.getByText("sam@cuadre.co")).toBeInTheDocument();
   });
 });
 
