@@ -73,7 +73,7 @@ export interface DatosParaRegistrar {
   ocurrioEn: string;
   descripcion?: string | null;
   categoriaId?: string | null;
-  tipo?: 'opening' | 'standard' | 'transfer';
+  tipo?: 'opening' | 'standard' | 'transfer' | 'adjustment';
   grupoDeTransferencia?: string | null;
   anula?: string | null;
 }
@@ -110,6 +110,54 @@ export async function registrar(
     where cuenta.id = ${datos.cuentaId}::uuid
       and cuenta.user_id = ${usuarioId}::uuid
       and cuenta.archived_at is null
+    returning ${COLUMNAS}
+  `)) as unknown as FilaCruda[];
+
+  const fila = filas[0];
+  return fila ? aMovimiento(fila) : null;
+}
+
+/**
+ * Registra un ajuste que deja la cuenta EXACTAMENTE en `saldoDeseado`.
+ *
+ * La diferencia (deseado − saldo de ahora) se calcula dentro de la misma
+ * sentencia que inserta, con la suma de los movimientos de ese instante: no
+ * hay ventana entre "leí el saldo" y "escribí el ajuste". Quien la llama
+ * bloquea antes la fila de la cuenta para que dos ajustes simultáneos se
+ * hagan en fila y no se pisen.
+ *
+ * Devuelve null si la cuenta no existe, no es de esta persona, está
+ * archivada, o si ya tiene ese saldo (una diferencia de cero no es un
+ * movimiento: la base lo prohíbe y aquí ni se intenta). Quien llama distingue
+ * el caso mirando la cuenta.
+ */
+export async function registrarAjusteASaldo(
+  ejecutor: Ejecutor,
+  usuarioId: string,
+  datos: { cuentaId: string; saldoDeseado: string; descripcion: string },
+): Promise<Movimiento | null> {
+  const filas = (await ejecutor.execute(sql`
+    insert into transactions
+      (user_id, account_id, category_id, kind, amount, currency, occurred_at, description)
+    select ${usuarioId}::uuid,
+           cuenta.id,
+           null,
+           'adjustment',
+           ${datos.saldoDeseado}::numeric - saldo.total,
+           cuenta.currency,
+           clock_timestamp(),
+           ${datos.descripcion}::text
+    from accounts cuenta
+    cross join lateral (
+      select coalesce(sum(t.amount), 0) as total
+      from transactions t
+      where t.account_id = cuenta.id
+        and t.user_id = cuenta.user_id
+    ) saldo
+    where cuenta.id = ${datos.cuentaId}::uuid
+      and cuenta.user_id = ${usuarioId}::uuid
+      and cuenta.archived_at is null
+      and ${datos.saldoDeseado}::numeric <> saldo.total
     returning ${COLUMNAS}
   `)) as unknown as FilaCruda[];
 

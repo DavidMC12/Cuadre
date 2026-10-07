@@ -9,8 +9,9 @@
  * sería una cuenta que miente.
  */
 import { db } from '../../db/client.js';
-import { conflicto, noEncontrado } from '../../http/errores.js';
+import { conflicto, noEncontrado, reglaViolada } from '../../http/errores.js';
 import { esCero } from '../../shared/schemas.js';
+import type { Movimiento } from '../transactions/schemas.js';
 import * as movimientos from '../transactions/service.js';
 import * as repositorio from './repository.js';
 import type { ActualizarCuenta, CrearCuenta, Cuenta } from './schemas.js';
@@ -74,6 +75,37 @@ export async function desarchivarCuenta(usuarioId: string, cuentaId: string): Pr
   const existe = await repositorio.desarchivar(usuarioId, cuentaId);
   if (!existe) throw noEncontrado('Esa cuenta no existe.');
   return obtenerCuenta(usuarioId, cuentaId);
+}
+
+/**
+ * "Editar" un saldo o una deuda: no se cambia ningún número (el saldo se
+ * calcula sumando movimientos y los movimientos no se tocan), se escribe un
+ * movimiento de ajuste por la diferencia hasta llegar al saldo deseado.
+ *
+ * Se bloquea la fila de la cuenta para que dos ajustes simultáneos se hagan en
+ * fila: el segundo ve el saldo que dejó el primero, y si ya coincide, no
+ * escribe nada.
+ */
+export async function ajustarSaldo(
+  usuarioId: string,
+  cuentaId: string,
+  saldoDeseado: string,
+): Promise<Movimiento> {
+  return db.transaction(async (tx) => {
+    if (!(await repositorio.bloquear(tx, usuarioId, cuentaId))) {
+      throw noEncontrado('Esa cuenta no existe.');
+    }
+
+    const ajuste = await movimientos.ajustarASaldo(tx, usuarioId, { cuentaId, saldoDeseado });
+    if (ajuste) return ajuste;
+
+    // Sin ajuste hay dos razones, y la persona merece saber cuál.
+    const cuenta = await repositorio.obtener(tx, usuarioId, cuentaId);
+    if (cuenta?.archivedAt) {
+      throw reglaViolada('Esa cuenta está archivada. Desarchívala para ajustar su saldo.');
+    }
+    throw reglaViolada('Esa cuenta ya tiene ese saldo.');
+  });
 }
 
 /**

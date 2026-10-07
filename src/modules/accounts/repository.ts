@@ -145,6 +145,25 @@ export async function actualizar(
 }
 
 /**
+ * Bloquea la fila de la cuenta hasta que termine la transacción de quien llama,
+ * para que dos ajustes de saldo simultáneos se hagan en fila. Devuelve false si
+ * la cuenta no existe o no es de esta persona.
+ */
+export async function bloquear(
+  ejecutor: Ejecutor,
+  usuarioId: string,
+  cuentaId: string,
+): Promise<boolean> {
+  const filas = (await ejecutor.execute(sql`
+    select id from accounts
+    where id = ${cuentaId}::uuid and user_id = ${usuarioId}::uuid
+    for update
+  `)) as unknown as { id: string }[];
+
+  return filas.length > 0;
+}
+
+/**
  * Archivar, no borrar: la cuenta tiene historia colgando y esa historia no se
  * toca. Devuelve false si la cuenta no existe o no es de esta persona.
  */

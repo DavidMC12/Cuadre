@@ -115,6 +115,11 @@ const POR_RESTRICCION: Record<string, Traduccion> = {
     codigo: 'RULE_VIOLATION',
     mensaje: 'El saldo inicial no lleva categoría y no anula nada.',
   },
+  transactions_adjustment_is_bare: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'Un ajuste de saldo no lleva categoría y no anula nada.',
+  },
   transactions_description_not_blank: {
     estado: 422,
     codigo: 'RULE_VIOLATION',

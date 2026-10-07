@@ -54,6 +54,13 @@ export const ListarCuentasSchema = z.object({
 
 export const IdEnRutaSchema = z.object({ id: z.uuid() });
 
+/**
+ * Deja la cuenta en el saldo que de verdad tiene. `balance` es el saldo
+ * DESEADO, con signo: una tarjeta con 350000 de deuda tiene saldo "-350000".
+ * El servidor escribe un movimiento de ajuste por la diferencia.
+ */
+export const AjustarSaldoSchema = z.object({ balance: MontoConCeroSchema });
+
 /** Marca o desmarca una cuenta como cuenta de ahorro. Nada más cambia aquí. */
 export const MarcarAhorroSchema = z.object({ isSavings: z.boolean() });
 
