@@ -88,7 +88,15 @@ export function FormularioItemPresupuesto({
   const idTipo = `${idBase}-tipo`;
   const idCategoria = `${idBase}-categoria`;
   const idCuenta = `${idBase}-cuenta`;
-  const idError = `${idBase}-error`;
+  const idMonto = `${idBase}-monto`;
+  const idEtiqueta = `${idBase}-etiqueta`;
+  // Cada campo describe su propio error: el mensaje vive en el contenedor
+  // del campo que lo dice, y el control enlaza a ESE mensaje con
+  // `aria-describedby` (antes un solo `idError` compartido hacía que el
+  // error de Categoría/Cuenta se pintara bajo el Monto).
+  const idErrorMonto = `${idBase}-error-monto`;
+  const idErrorCategoria = `${idBase}-error-categoria`;
+  const idErrorCuenta = `${idBase}-error-cuenta`;
   const { data: categorias } = useCategorias();
   const { data: cuentas } = useCuentas();
 
@@ -334,10 +342,9 @@ export function FormularioItemPresupuesto({
   const sinOpciones =
     !item && (tipo === 'category' ? todasLasCategorias.length === 0 : cuentasDeAhorro.length === 0);
 
-  // El mismo renglón visible de antes (debajo del monto), con el primero de
-  // los errores; cada control se enlaza a este mensaje con `aria-describedby`
-  // solo cuando su error es el que se está mostrando.
-  const mensajeDeError = errores.monto ?? errores.categoria ?? errores.cuenta;
+  // Cada error se pinta dentro del contenedor de su campo (ver los ids de
+  // arriba), para que "Elige una categoría." aparezca bajo Categoría y no
+  // bajo el Monto.
 
   return (
     <Drawer
@@ -403,7 +410,7 @@ export function FormularioItemPresupuesto({
                     id={idCategoria}
                     className="min-h-11 w-full"
                     aria-invalid={Boolean(errores.categoria)}
-                    aria-describedby={errores.categoria ? idError : undefined}
+                    aria-describedby={errores.categoria ? idErrorCategoria : undefined}
                   >
                     {/* El popup con las opciones vive en un portal que no está
                         montado mientras el selector está cerrado, así que el
@@ -449,6 +456,11 @@ export function FormularioItemPresupuesto({
                     )}
                   </SelectContent>
                 </Select>
+                {errores.categoria && (
+                  <p id={idErrorCategoria} className="text-xs text-destructive">
+                    {errores.categoria}
+                  </p>
+                )}
               </div>
             )}
 
@@ -467,7 +479,7 @@ export function FormularioItemPresupuesto({
                     id={idCuenta}
                     className="min-h-11 w-full"
                     aria-invalid={Boolean(errores.cuenta)}
-                    aria-describedby={errores.cuenta ? idError : undefined}
+                    aria-describedby={errores.cuenta ? idErrorCuenta : undefined}
                   >
                     <SelectValue placeholder="Elige una cuenta">
                       {(valor: string) => {
@@ -489,13 +501,18 @@ export function FormularioItemPresupuesto({
                     ))}
                   </SelectContent>
                 </Select>
+                {errores.cuenta && (
+                  <p id={idErrorCuenta} className="text-xs text-destructive">
+                    {errores.cuenta}
+                  </p>
+                )}
               </div>
             )}
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="monto-item">Monto</Label>
+              <Label htmlFor={idMonto}>Monto</Label>
               <CampoMonto
-                id="monto-item"
+                id={idMonto}
                 className="min-h-11"
                 moneda={monedaDelMonto}
                 value={monto}
@@ -507,23 +524,22 @@ export function FormularioItemPresupuesto({
                 permiteSigno={false}
                 placeholder="0"
                 aria-invalid={Boolean(errores.monto)}
-                aria-describedby={errores.monto ? idError : undefined}
+                aria-describedby={errores.monto ? idErrorMonto : undefined}
               />
-              {mensajeDeError && (
-                <p id={idError} className="text-xs text-destructive">
-                  {mensajeDeError}
+              {errores.monto ? (
+                <p id={idErrorMonto} className="text-xs text-destructive">
+                  {errores.monto}
                 </p>
-              )}
-              {/* El verbo manda: lo que se espera gastar (categoría de gasto),
-                  recibir (categoría de ingreso) o aportar (ahorro). */}
-              {!mensajeDeError && (
+              ) : (
+                // El verbo manda: lo que se espera gastar (categoría de gasto),
+                // recibir (categoría de ingreso) o aportar (ahorro).
                 <p className="text-xs text-muted-foreground">Cuánto esperas {verboDelMonto}.</p>
               )}
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="etiqueta-item">Etiqueta (opcional)</Label>
+              <Label htmlFor={idEtiqueta}>Etiqueta (opcional)</Label>
               <Input
-                id="etiqueta-item"
+                id={idEtiqueta}
                 className="min-h-11"
                 placeholder={tipo === 'category' ? 'Ej. Mercado del mes' : 'Ej. Apartado viaje'}
                 value={etiqueta}

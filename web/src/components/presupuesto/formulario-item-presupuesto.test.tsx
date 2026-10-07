@@ -498,6 +498,54 @@ describe('FormularioItemPresupuesto', () => {
     expect(screen.getByRole('combobox', { name: 'Cuenta de ahorro' })).toBeTruthy();
   });
 
+  it('cada error se pinta dentro del contenedor de su propio campo (novena critique, P2)', () => {
+    // Antes "Elige una categoría." se pintaba en el bloque del Monto: el
+    // mensaje señalaba el campo equivocado aunque `aria-describedby` fuera
+    // correcto. Ahora el mensaje vive con el campo que falla.
+    render(
+      <FormularioItemPresupuesto moneda="COP">
+        <button type="button">Agregar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
+    fireEvent.change(screen.getByLabelText('Monto'), { target: { value: '50000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    const contenedorCategoria = screen
+      .getByText('Categoría', { selector: 'label' })
+      .closest('div') as HTMLElement;
+    const mensajeCategoria = screen.getByText('Elige una categoría.');
+    expect(contenedorCategoria).toContainElement(mensajeCategoria);
+
+    // El contenedor del Monto solo tiene su mensaje cuando lo que falla es
+    // el monto: aquí sigue su ayuda de siempre, no el error ajeno.
+    const contenedorMonto = screen.getByText('Monto', { selector: 'label' }).closest(
+      'div'
+    ) as HTMLElement;
+    expect(contenedorMonto).toHaveTextContent('Cuánto esperas gastar.');
+    expect(contenedorMonto).not.toHaveTextContent('Elige una categoría.');
+  });
+
+  it('los ids de monto y etiqueta nacen de useId, no de cadenas fijas', () => {
+    // Eran "monto-item" y "etiqueta-item" fijos: hoy no colisiona porque solo
+    // hay un cajón abierto, pero dos instancias montadas compartirían id.
+    render(
+      <FormularioItemPresupuesto moneda="COP">
+        <button type="button">Agregar</button>
+      </FormularioItemPresupuesto>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
+
+    const monto = screen.getByLabelText('Monto');
+    const etiqueta = screen.getByLabelText('Etiqueta (opcional)');
+    expect(monto.id).not.toBe('monto-item');
+    expect(etiqueta.id).not.toBe('etiqueta-item');
+    expect(screen.getByText('Monto', { selector: 'label' }).getAttribute('for')).toBe(monto.id);
+    expect(
+      screen.getByText('Etiqueta (opcional)', { selector: 'label' }).getAttribute('for')
+    ).toBe(etiqueta.id);
+  });
+
   it('si falta la categoría, el error apunta al selector y no al monto', () => {
     render(
       <FormularioItemPresupuesto moneda="COP">
