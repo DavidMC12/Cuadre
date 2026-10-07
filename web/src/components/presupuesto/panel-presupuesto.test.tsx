@@ -9,6 +9,8 @@ import * as usePresupuestoModule from "@/hooks/use-presupuesto";
 import type { Categoria, ItemDelChecklist, ItemPresupuesto } from "@/lib/api/types";
 import { CLASES_ASIDE } from "@/lib/aside-resumen";
 import { mapaColoresCategoriasDelCatalogo } from "@/lib/chart-colors";
+import { cuantoSobraEnElMes, totalesPrevistos } from "@/lib/cuanto-sobra";
+import { restar } from "@/lib/money";
 
 vi.mock("@/hooks/use-presupuesto", () => ({
   useChecklistDelMes: vi.fn(),
@@ -1383,5 +1385,134 @@ describe("PanelPresupuesto: un mes futuro se planea, no se confunde con lo real"
     expect(screen.getByText(`Sin monto en ${nombreDelMes(mesFuturo)}`)).toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     expect(screen.queryByText("Meta alcanzada")).not.toBeInTheDocument();
+  });
+});
+
+// -------------------------------------------------------------------------
+// Total de cada sección (Ingresos y Gastos)
+// -------------------------------------------------------------------------
+
+describe("PanelPresupuesto: total de cada sección", () => {
+  it("muestra el total de ingresos y de gastos, y su resta es el previsto de cuantoSobraEnElMes", () => {
+    const items = [
+      deIngreso("i1", "Salario"),
+      deIngreso("i2", "Bonos"),
+      deCategoria("c1", "comida", "Mercado"),
+      deCategoria("c2", "transporte", "Bus"),
+    ];
+    const checklist = [
+      { ...renglonDe(items[0]), target: "3000000" },
+      { ...renglonDe(items[1]), target: "500000" },
+      { ...renglonDe(items[2]), target: "1200000" },
+      { ...renglonDe(items[3]), target: "300000" },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // Cifras exactas y accesibles en palabras, una por sección.
+    expect(screen.getByLabelText("Total de ingresos previstos: $3.500.000")).toBeInTheDocument();
+    expect(screen.getByLabelText("Total de gastos previstos: $1.500.000")).toBeInTheDocument();
+
+    // La resta a la vista es EXACTAMENTE el previsto del cuadrito: misma
+    // función, no pueden diferir jamás.
+    const totales = totalesPrevistos(checklist);
+    const estado = cuantoSobraEnElMes({ renglones: checklist, income: "0", expense: "0" });
+    expect(restar(totales.ingresos, totales.gastos)).toBe(estado.previsto);
+    expect(estado.previsto).toBe("2000000.0000");
+  });
+
+  it("el total lleva texto accesible, no solo la cifra", () => {
+    const items = [deIngreso("i1", "Salario"), deCategoria("c1", "comida", "Mercado")];
+    const checklist = [
+      { ...renglonDe(items[0]), target: "3000000" },
+      { ...renglonDe(items[1]), target: "200000" },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.getByLabelText(/Total de ingresos previstos:/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Total de gastos previstos:/)).toBeInTheDocument();
+  });
+
+  it("una sección con renglones pero sin monto en el mes no muestra total (ni un cero inventado)", () => {
+    const items = [deIngreso("i1", "Salario"), deCategoria("c1", "comida", "Mercado")];
+    const checklist = [
+      { ...renglonDe(items[0]), target: null },
+      { ...renglonDe(items[1]), target: "300000" },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // La sección existe (hay un grupo de ingreso), pero su total no se inventa.
+    expect(screen.getByRole("heading", { name: "Ingresos" })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Total de ingresos previstos/)).not.toBeInTheDocument();
+    // El lado que sí tiene monto muestra su total.
+    expect(screen.getByLabelText("Total de gastos previstos: $300.000")).toBeInTheDocument();
+  });
+
+  it("sin renglones de gasto no hay total de gastos, aunque la sección Gastos exista por el ahorro", () => {
+    // El ahorro cierra "Gastos" pero NO entra en el total (ahorrar no es
+    // gastar): con solo un ahorro y un ingreso, el total de gastos no existe.
+    const items = [deIngreso("i1", "Salario"), deAhorro("a1", "Viaje")];
+    const checklist = [
+      { ...renglonDe(items[0]), target: "3000000" },
+      { ...renglonDe(items[1]), target: "500000" },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.getByRole("heading", { name: "Gastos" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Total de ingresos previstos: $3.000.000")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Total de gastos previstos/)).not.toBeInTheDocument();
+  });
+
+  it("un mes sin renglones de ingreso no muestra la sección Ingresos ni su total", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.queryByRole("heading", { name: "Ingresos" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Total de ingresos previstos/)).not.toBeInTheDocument();
+  });
+
+  it("los mismos totales aparecen en las tres vistas del panel (aside, cajón y /presupuesto)", () => {
+    const items = [deIngreso("i1", "Salario"), deCategoria("c1", "comida", "Mercado")];
+    const checklist = [
+      { ...renglonDe(items[0]), target: "3000000" },
+      { ...renglonDe(items[1]), target: "200000" },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(
+      <>
+        {/* aside xl: tarjeta en la columna derecha */}
+        <PanelPresupuesto mes="2026-09" moneda="COP" />
+        {/* /presupuesto: suelta, con su propio tope */}
+        <PanelPresupuesto mes="2026-09" moneda="COP" variante="suelta" />
+        {/* cajón móvil: suelta, sin tope propio (el cajón ya scrollea) */}
+        <PanelPresupuesto mes="2026-09" moneda="COP" variante="suelta" topePropio={false} />
+      </>
+    );
+
+    expect(screen.getAllByLabelText("Total de ingresos previstos: $3.000.000")).toHaveLength(3);
+    expect(screen.getAllByLabelText("Total de gastos previstos: $200.000")).toHaveLength(3);
+  });
+
+  it("el rótulo cede ante la cifra: recorta el título, nunca el total", () => {
+    const items = [deIngreso("i1", "Salario")];
+    ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const titulo = screen.getByRole("heading", { name: "Ingresos" });
+    expect(titulo.classList.contains("truncate")).toBe(true);
+    expect(titulo.classList.contains("min-w-0")).toBe(true);
+    const total = screen.getByLabelText(/Total de ingresos previstos/);
+    expect(total.classList.contains("shrink-0")).toBe(true);
   });
 });
