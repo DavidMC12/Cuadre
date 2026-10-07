@@ -464,6 +464,22 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   a ojo en el celular: la lista de Cuentas con tarjetas, el diálogo de ajuste
   dentro del cajón (Escape/foco, que jsdom no simula) y la X de los cajones.
 
+
+- **Total por sección en el panel de presupuesto** (2026-10-07, a prueba): los
+  encabezados INGRESOS y GASTOS del panel muestran su total (suma de los
+  montos del mes visto; solo si la sección tiene al menos un renglón con
+  monto), para que su resta se vea igual a "Te sobran/Te faltan según lo
+  previsto" del cuadrito. `totalesPrevistos` en `web/src/lib/cuanto-sobra.ts`
+  es la única fuente de la cuenta: el panel y `cuantoSobraEnElMes` la usan, así
+  no pueden diferir. El ahorro no entra y un "Este mes no aplica" suma 0. Lo
+  pidió el dueño como cambio temporal: si se ve bien y no recarga el panel (a
+  320px sobre todo) se queda; si no, se quita con un revert. Duda que originó
+  esto: el "previsto" sale de los ítems del presupuesto, no de lo gastado, y el
+  "real" no cuenta transferencias (pagar la tarjeta, pasar a ahorro) ni
+  ajustes. Aprendizaje de proceso: un worker con la pantalla fija y un revisor
+  en segundo plano puede estar esperando un permiso que solo el dueño ve
+  (ver memoria "permisos pendientes en subagentes").
+
 Pendiente, sin fecha: otra ronda de `impeccable critique` para medir el
 puntaje tras estos cierres.
 
