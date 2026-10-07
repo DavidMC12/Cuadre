@@ -127,7 +127,7 @@ export default function PaginaPresupuesto() {
           intenciones, no movimientos. Sin color de alarma: no hay nada malo. */}
       {tramoDelMes(mes) === "futuro" && (
         <p className="text-sm text-muted-foreground">
-          Aún no empieza: aquí planeas lo que esperas gastar o recibir.
+          Aún no empieza: aquí planeas lo que esperas gastar, recibir o ahorrar.
         </p>
       )}
 
