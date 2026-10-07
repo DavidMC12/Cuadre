@@ -16,7 +16,7 @@ import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo,
 import { SelectorMes } from "@/components/dashboard/selector-mes";
 import { PanelPresupuesto } from "@/components/presupuesto/panel-presupuesto";
 import { useMonedas } from "@/hooks/use-reportes";
-import { mesActual } from "@/lib/fecha";
+import { mesActual, tramoDelMes } from "@/lib/fecha";
 
 /**
  * Casa propia del checklist.
@@ -117,7 +117,19 @@ export default function PaginaPresupuesto() {
         </div>
       )}
 
-      <SelectorMes mes={mes} onCambiar={setMes} />
+      {/* Doce meses hacia adelante es el tope de la planeación: aquí el mes
+          se VE, no se vive. El Resumen y Movimientos siguen su tope de
+          siempre (default 0). */}
+      <SelectorMes mes={mes} onCambiar={setMes} mesesAdelante={12} />
+
+      {/* En un mes futuro nada ha pasado todavía: la línea lo dice con
+          palabras, discreta, para que quien planea sepa que está viendo
+          intenciones, no movimientos. Sin color de alarma: no hay nada malo. */}
+      {tramoDelMes(mes) === "futuro" && (
+        <p className="text-sm text-muted-foreground">
+          Aún no empieza: aquí planeas lo que esperas gastar o recibir.
+        </p>
+      )}
 
       {/* Variante "suelta": la pantalla ya trae su encabezado; una Card con
           otro título dentro sería un contenedor adentro de otro. */}
