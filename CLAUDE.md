@@ -428,6 +428,42 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   mide). Sin hacer: "editar la deuda" de una tarjeta (sería un movimiento
   de ajuste con tipo propio, no cambiar el número).
 
+
+- **Editar la deuda (ajuste de saldo) y tarjetas fuera de "Tienes"**
+  (2026-10-07). (1) **Ajuste de saldo**: el saldo de una cuenta y la deuda
+  de una tarjeta NO se editan (se calculan sumando movimientos inmutables);
+  se escribe un movimiento de tipo propio `adjustment` por la diferencia
+  hasta llegar al saldo deseado. Migración `0011` (`transactions_kind_valid`
+  admite `adjustment` + check `transactions_adjustment_is_bare`: sin
+  categoría y sin anular nada): **aplicada a producción el 2026-10-07**
+  (verificado: 12 migraciones). Endpoint `POST /api/v1/accounts/:id/adjust-balance`
+  `{balance}` = saldo deseado con signo (una tarjeta con deuda 350000 es
+  `"-350000"`); bloquea la fila de la cuenta y calcula la diferencia en la
+  misma sentencia que inserta; 422 si ya coincide, si está archivada o si la
+  cifra no cabe en NUMERIC(19,4) (`22003`, antes 500: lo atrapó la revisión);
+  403 bajo suplantación. Un ajuste NO cuenta como gasto, ingreso ni ahorro
+  (`SOLO_INGRESOS_Y_GASTOS` y `SIN_CAPITAL_NI_AJUSTES` en
+  `reports/repository.ts`), no se anula ni se categoriza (se corrige con
+  otro ajuste) y el respaldo CSV lo llama "Ajuste de saldo". En pantalla:
+  "Ajustar deuda" (tarjeta) / "Ajustar saldo" en el cajón de la cuenta, con
+  vista previa en palabras y aritmética exacta; el toast de una tarjeta habla
+  de deuda en positivo. También lo atrapó la revisión: `esCero` solo
+  reconocía un cero inicial (`"00"` se colaba) y un `"-0"` tecleado viajaba al
+  servidor; hoy `esCero` es la única definición y se colapsa en cliente y
+  servidor. Sin hacer: ningún ajuste automático ni conciliación contra el
+  banco. (2) **Las tarjetas ya no restan en "Tienes"** (lo que tienes y lo
+  que debes van en renglones distintos, como Monarch y YNAB): "Tienes" suma
+  solo cuentas bancarias y efectivo; debajo, "Debes en tarjetas: $X" (solo si
+  hay deuda; una tarjeta sobrepagada aporta 0); en la lista de Cuentas cada
+  tarjeta con cupo muestra "Disponible $X de $cupo" con su barra (ámbar 80 %,
+  rojo 100 %) y las que no tienen cupo dicen "Debes $X". Pagar una tarjeta
+  baja "Tienes" (la plata salió del banco) y sube su disponible. (3) Aprendizaje
+  de proceso: la revisión independiente atrapó un fallo real en cada una de
+  las cuatro ramas de dinero; una ronda "final" de revisión sin informe (revisor
+  colgado en segundo plano) no se da por buena: se pide a otro worker. Pendiente
+  a ojo en el celular: la lista de Cuentas con tarjetas, el diálogo de ajuste
+  dentro del cajón (Escape/foco, que jsdom no simula) y la X de los cajones.
+
 Pendiente, sin fecha: otra ronda de `impeccable critique` para medir el
 puntaje tras estos cierres.
 
