@@ -27,6 +27,14 @@ export const MontoPositivoSchema = z
   .regex(/^\d{1,15}(\.\d{1,4})?$/, 'debe ser un monto positivo, como "300" o "300.50"')
   .refine((valor) => !/^0(\.0{1,4})?$/.test(valor), { message: 'no puede ser cero' });
 
+/**
+ * Un monto que puede ser cero pero nunca negativo. Para un tope de presupuesto
+ * de UN mes: cero significa "este mes no aplica" (no pagaré agua este mes).
+ */
+export const MontoNoNegativoSchema = z
+  .string()
+  .regex(/^\d{1,15}(\.\d{1,4})?$/, 'debe ser un monto como "300", "300.50" o "0"');
+
 export const MonedaSchema = z
   .string()
   .regex(/^[A-Z]{3}$/, 'debe ser un código de tres letras en mayúsculas, como COP o USD');

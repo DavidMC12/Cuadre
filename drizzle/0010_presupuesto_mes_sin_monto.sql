@@ -1,0 +1,2 @@
+ALTER TABLE "budget_item_targets" DROP CONSTRAINT "budget_item_targets_amount_positive";--> statement-breakpoint
+ALTER TABLE "budget_item_targets" ADD CONSTRAINT "budget_item_targets_amount_not_negative" CHECK ("budget_item_targets"."amount" >= 0);
