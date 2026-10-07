@@ -12,12 +12,15 @@
  */
 import type { Cuenta } from "./api/types";
 import {
+  agruparMiles,
+  decimalesDe,
   esCero,
   MENOS,
   negar,
   normalizarMontoConSigno,
   normalizarMontoIngresado,
   restar,
+  simboloMoneda,
   textoMonto,
 } from "./money";
 import type { MontoLeido } from "./money";
@@ -32,6 +35,31 @@ export interface LecturaDeAjuste {
   coincide: boolean;
   /** La vista previa completa, en palabras. */
   vistaPrevia: string;
+}
+
+/**
+ * Como `textoMonto`, pero para la vista previa de este diálogo: en monedas
+ * con centavos no corta los decimales que el saldo de verdad trae (hasta
+ * cuatro, lo que guarda NUMERIC(19,4) — un saldo puede arrastrarlos de
+ * intereses o de un ajuste anterior). Pintar una diferencia de US$0,005 como
+ * "US$0,00" esconde plata. Con decimales que caben en los de la moneda se ve
+ * igual que siempre ("US$1.500,00"), y el peso —que ya se mostraba con solo
+ * sus decimales significativos— no cambia.
+ */
+function textoMontoVista(monto: string, moneda: string): string {
+  const texto = monto.trim();
+  const negativo = texto.startsWith("-");
+  const sinSigno = texto.replace(/^[-+]/, "");
+  const [entera = "0", decimal = ""] = sinSigno.split(".");
+  const deseados = decimalesDe(moneda);
+  const significativos = decimal.replace(/0+$/, "");
+  const decimales =
+    significativos.length > deseados
+      ? significativos
+      : (decimal + "0".repeat(deseados)).slice(0, deseados);
+  return `${negativo ? MENOS : ""}${simboloMoneda(moneda)}${agruparMiles(entera || "0")}${
+    decimales ? `,${decimales}` : ""
+  }`;
 }
 
 /**
@@ -93,21 +121,21 @@ function dichoDelSaldo(
 ): string {
   const { balance, currency, type } = cuenta;
   if (type !== "card") {
-    return `Hoy la app dice ${textoMonto(balance, currency)}.`;
+    return `Hoy la app dice ${textoMontoVista(balance, currency)}.`;
   }
   if (esCero(balance)) return "Hoy la app dice que no debes nada.";
   if (balance.startsWith("-")) {
-    return `Hoy la app dice que debes ${textoMonto(negar(balance), currency)}.`;
+    return `Hoy la app dice que debes ${textoMontoVista(negar(balance), currency)}.`;
   }
-  return `Hoy la app dice que queda ${textoMonto(balance, currency)} a tu favor.`;
+  return `Hoy la app dice que queda ${textoMontoVista(balance, currency)} a tu favor.`;
 }
 
 /** "+$50.000" o "−$50.000": el signo del ajuste se dice, no se tiñe. */
 function textoDiferencia(diferencia: string, moneda: string): string {
   if (diferencia.startsWith("-")) {
-    return `${MENOS}${textoMonto(negar(diferencia), moneda)}`;
+    return `${MENOS}${textoMontoVista(negar(diferencia), moneda)}`;
   }
-  return `+${textoMonto(diferencia, moneda)}`;
+  return `+${textoMontoVista(diferencia, moneda)}`;
 }
 
 /**

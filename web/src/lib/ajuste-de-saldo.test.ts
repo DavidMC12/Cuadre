@@ -172,6 +172,33 @@ describe("leerAjuste: el tope de dígitos enteros se dice en el cliente", () => 
   });
 });
 
+describe("leerAjuste: la vista previa no esconde decimales del saldo", () => {
+  it("un saldo de dólares con más de dos decimales se muestra completo, y la diferencia también", () => {
+    const lectura = lecturaValida("10,12", {
+      type: "bank",
+      balance: "10.1234",
+      currency: "USD",
+    });
+
+    expect(lectura.coincide).toBe(false);
+    expect(lectura.vistaPrevia).toBe(
+      "Hoy la app dice US$10,1234. Se registrará un ajuste de −US$0,0034 para que coincida."
+    );
+  });
+
+  it("con decimales que caben en la moneda, la vista se ve como siempre", () => {
+    const lectura = lecturaValida("1500,50", {
+      type: "cash",
+      balance: "1500.0000",
+      currency: "USD",
+    });
+
+    expect(lectura.vistaPrevia).toBe(
+      "Hoy la app dice US$1.500,00. Se registrará un ajuste de +US$0,50 para que coincida."
+    );
+  });
+});
+
 describe("textoDeExito: el toast habla como la pantalla", () => {
   it("en una tarjeta con deuda, la deuda se dice en positivo", () => {
     expect(textoDeExito("-350000", visa)).toBe("Listo. Ahora debes $350.000.");
