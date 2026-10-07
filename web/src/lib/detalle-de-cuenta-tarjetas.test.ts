@@ -149,6 +149,10 @@ describe("saldoAbsoluto y esCuentaDeTienes", () => {
     expect(saldoAbsoluto({ balance: "-0.0000" })).toBe("0.0000");
   });
 
+  it("acepta un monto con signo más y lo deja positivo", () => {
+    expect(saldoAbsoluto({ balance: "+50000.0000" })).toBe("50000.0000");
+  });
+
   it("una tarjeta nunca es cuenta de 'Tienes'", () => {
     expect(esCuentaDeTienes(banco)).toBe(true);
     expect(esCuentaDeTienes(efectivo)).toBe(true);

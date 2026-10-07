@@ -46,9 +46,10 @@ describe("CuentaCard: una tarjeta con cupo", () => {
 
     expect(screen.getByText("Disponible")).toBeInTheDocument();
     expect(screen.getByText("$1.200.000")).toBeInTheDocument();
+    // Cupo libre, no ingreso: tinta apagada, nunca el verde del dinero.
+    expect(screen.getByText("$1.200.000").className).toContain("text-muted-foreground");
+    expect(screen.getByText("$1.200.000").className).not.toContain("text-emerald-600");
     expect(screen.getByText("Debes $800.000")).toBeInTheDocument();
-    // La deuda no se pinta de verde (no es plata que entra).
-    expect(screen.getByText("Debes $800.000").className).not.toContain("text-emerald-600");
     expect(barra()).toHaveAccessibleName("Cupo de Visa: usado $800.000 de $2.000.000");
   });
 

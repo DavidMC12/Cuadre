@@ -61,12 +61,15 @@ export function CuentaCard({ cuenta }: { cuenta: Cuenta }) {
               </div>
 
               {estado && cuenta.creditLimit ? (
+                /* El disponible es cupo libre, no plata que tengas: en tinta
+                   apagada, como en el cajón, para no confundirlo con un saldo
+                   verde de una cuenta. Sigue mostrando el menos si se pasó. */
                 <div className="flex shrink-0 flex-col items-end">
                   <span className="text-xs text-muted-foreground">Disponible</span>
                   <Monto
                     valor={estado.disponible}
                     moneda={cuenta.currency}
-                    signo="negativo"
+                    signo="neutro"
                     className="text-base"
                   />
                 </div>

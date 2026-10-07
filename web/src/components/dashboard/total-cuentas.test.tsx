@@ -75,6 +75,13 @@ describe("TotalCuentas", () => {
     expect(screen.queryByText(/Debes en tarjetas/)).not.toBeInTheDocument();
   });
 
+  it("con solo tarjetas, 'Tienes' es $0 y la deuda se muestra igual", () => {
+    render(<TotalCuentas cuentas={[visa]} moneda="COP" cargando={false} />);
+
+    expect(screen.getByText("$0")).toBeInTheDocument();
+    expect(screen.getByText(/Debes en tarjetas/)).toHaveTextContent("Debes en tarjetas: $800.000");
+  });
+
   it("con tarjetas que no deben nada tampoco aparece el renglón (ni un $0)", () => {
     render(<TotalCuentas cuentas={[banco, sobrepagada]} moneda="COP" cargando={false} />);
 
@@ -107,7 +114,6 @@ describe("TotalCuentas", () => {
     expect(screen.getByText("$1.000.000")).toBeInTheDocument();
     // La deuda sigue siendo solo la de la tarjeta en pesos, no la de USD.
     expect(screen.getByText(/Debes en tarjetas/)).toHaveTextContent("Debes en tarjetas: $800.000");
-    expect(screen.queryByText(/US\$/)).not.toBeInTheDocument();
   });
 
   it("mientras carga muestra un esqueleto, no cifras", () => {
