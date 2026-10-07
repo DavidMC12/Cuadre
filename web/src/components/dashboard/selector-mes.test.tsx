@@ -6,11 +6,19 @@
  * clases `min-h-11`/`min-w-11` que devuelven el objetivo real al piso — si
  * alguien las quita (o vuelve a un `size="icon-sm"` sin override), esta
  * prueba cae.
+ *
+ * Y el tope de meses futuros: el default `0` conserva el comportamiento de
+ * siempre (Resumen y Movimientos no van al futuro), y `mesesAdelante` aparta
+ * mesetas de planeación (`/presupuesto` pasa 12). El límite es EXACTO: el
+ * mes actual + N se deshabilita, el anterior a él se deja avanzar. La
+ * comparación va por texto ("YYYY-MM" ordena bien) y `sumarMeses` cruza el
+ * año sin ayuda.
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 
 import { SelectorMes } from "./selector-mes";
+import { mesActual, sumarMeses } from "@/lib/fecha";
 
 describe("SelectorMes: piso de toque de 44px", () => {
   afterEach(cleanup);
@@ -22,6 +30,70 @@ describe("SelectorMes: piso de toque de 44px", () => {
       const flecha = screen.getByRole("button", { name: nombre });
       expect(flecha.classList.contains("min-h-11")).toBe(true);
       expect(flecha.classList.contains("min-w-11")).toBe(true);
+    }
+  });
+});
+
+describe("SelectorMes: tope de meses futuros", () => {
+  afterEach(cleanup);
+
+  function flechaSiguiente() {
+    return screen.getByRole("button", { name: "Mes siguiente" });
+  }
+
+  it("default 0: el Resumen y Movimientos no avanzan al futuro — tope exacto en el mes actual", () => {
+    const hoy = mesActual();
+
+    render(<SelectorMes mes={hoy} onCambiar={() => {}} />);
+    expect(flechaSiguiente()).toBeDisabled();
+    cleanup();
+
+    // Un mes antes del tope sí se deja avanzar (el comportamiento de siempre
+    // con los meses pasados).
+    render(<SelectorMes mes={sumarMeses(hoy, -1)} onCambiar={() => {}} />);
+    expect(flechaSiguiente()).toBeEnabled();
+  });
+
+  it("con mesesAdelante=12 se avanza hasta 11 meses después del actual, no 12", () => {
+    const hoy = mesActual();
+
+    render(
+      <SelectorMes mes={sumarMeses(hoy, 11)} onCambiar={() => {}} mesesAdelante={12} />
+    );
+    expect(flechaSiguiente()).toBeEnabled();
+    cleanup();
+
+    render(
+      <SelectorMes mes={sumarMeses(hoy, 12)} onCambiar={() => {}} mesesAdelante={12} />
+    );
+    expect(flechaSiguiente()).toBeDisabled();
+  });
+
+  it("el cruce de diciembre a enero: con el reloj en diciembre, enero del año siguiente queda dentro del tope y el último mes apaga la flecha", () => {
+    // Clavamos el mes actual en diciembre: así la prueba prueba el cruce de
+    // diciembre a enero de verdad, sin importar en qué mes corra. La hora
+    // (12:00 -05:00) deja la fecha local del aparato en diciembre para
+    // cualquier desfase horario razonable.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-12-15T12:00:00-05:00"));
+    try {
+      expect(mesActual()).toBe("2026-12");
+
+      // Ahora mismo: el mes actual es diciembre y se deja avanzar.
+      render(<SelectorMes mes="2026-12" onCambiar={() => {}} mesesAdelante={12} />);
+      expect(flechaSiguiente()).toBeEnabled();
+      cleanup();
+
+      // El cruce: enero de 2027 sigue dentro del tope de diciembre.
+      render(<SelectorMes mes="2027-01" onCambiar={() => {}} mesesAdelante={12} />);
+      expect(flechaSiguiente()).toBeEnabled();
+      cleanup();
+
+      // Y el tope cae en diciembre de 2027, doce meses exactos después.
+      render(<SelectorMes mes="2027-12" onCambiar={() => {}} mesesAdelante={12} />);
+      expect(flechaSiguiente()).toBeDisabled();
+    } finally {
+      vi.useRealTimers();
     }
   });
 });

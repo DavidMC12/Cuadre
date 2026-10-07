@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 
 import PaginaPresupuesto from "./page";
 import * as useReportesModule from "@/hooks/use-reportes";
@@ -21,9 +21,9 @@ vi.mock("@/components/presupuesto/panel-presupuesto", () => ({
   PanelPresupuesto: () => <div>panel-de-presupuesto</div>,
 }));
 
-vi.mock("@/components/dashboard/selector-mes", () => ({
-  SelectorMes: () => null,
-}));
+// El selector de mes REAL: la pantalla pasa su tope de 12 meses adelante y
+// el aviso de planeación depende del mes visto, que aquí se recorre con las
+// flechas de verdad.
 
 afterEach(cleanup);
 
@@ -110,5 +110,51 @@ describe("Página Presupuesto: casa propia del checklist", () => {
     expect(screen.queryByText("Aún no hay nada por revisar")).not.toBeInTheDocument();
     // Sin moneda no se monta el panel.
     expect(screen.queryByText("panel-de-presupuesto")).not.toBeInTheDocument();
+  });
+});
+
+describe("Página Presupuesto: planear meses futuros", () => {
+  function prepararPantalla() {
+    ajustarMonedas({ data: ["COP"] });
+    render(<PaginaPresupuesto />);
+  }
+
+  function flechaSiguiente() {
+    return screen.getByRole("button", { name: "Mes siguiente" });
+  }
+
+  it("en el mes actual y en el pasado no aparece el aviso de planeación", () => {
+    prepararPantalla();
+
+    const aviso = "Aún no empieza: aquí planeas lo que esperas gastar o recibir.";
+
+    // El mes de arranque es el actual: nada por planear todavía.
+    expect(screen.queryByText(aviso)).not.toBeInTheDocument();
+
+    // Un mes hacia atrás es pasado: el mes YA vivió, no se planea.
+    fireEvent.click(screen.getByRole("button", { name: "Mes anterior" }));
+    expect(screen.queryByText(aviso)).not.toBeInTheDocument();
+  });
+
+  it("al avanzar a un mes futuro aparece el aviso, discreto y con el tope de 12 meses", async () => {
+    prepararPantalla();
+
+    const aviso = "Aún no empieza: aquí planeas lo que esperas gastar o recibir.";
+
+    // El primero ya es futuro: el aviso sale desde el primer avance y
+    // acompaña los siguientes.
+    fireEvent.click(flechaSiguiente());
+    expect(screen.getByText(aviso)).toBeInTheDocument();
+
+    // Doce meses adelante es el tope de la planeación: once clics más y la
+    // flecha se apaga exactamente ahí — no antes. Cada clic exige que la
+    // flecha SIGA habilitada: si la pantalla pasara 11 en vez de 12, el
+    // último clic caería en un botón ya apagado y este bucle lo notaría.
+    for (let i = 0; i < 11; i += 1) {
+      expect(flechaSiguiente()).toBeEnabled();
+      fireEvent.click(flechaSiguiente());
+      expect(screen.getByText(aviso)).toBeInTheDocument();
+    }
+    await waitFor(() => expect(flechaSiguiente()).toBeDisabled());
   });
 });

@@ -8,12 +8,22 @@ import { etiquetaMes, mesActual, sumarMeses } from "@/lib/fecha";
 export function SelectorMes({
   mes,
   onCambiar,
+  mesesAdelante = 0,
 }: {
   mes: string;
   onCambiar: (mes: string) => void;
+  /**
+   * Cuántos meses DESPUÉS del actual se puede avanzar. Por defecto `0`:
+   * el comportamiento de siempre — la Casa del mes no tiene datos que
+   * mostrar cuando el mes de fondo no ha empezado. `/presupuesto` pasa
+   * `12`: ahí el mes de fondo se VE, no se vive, y planear lo que se
+   * espera gastar o recibir es justo lo que hace la pantalla.
+   */
+  mesesAdelante?: number;
 }) {
-  const esMesActual = mes === mesActual();
-
+  // El tope se compara por texto ("YYYY-MM" ordena bien): deshabilitado
+  // cuando el mes visto ya alcanzó el último mes permitido. Con el default
+  // `0` eso es exactamente "el mes actual" — el comportamiento de siempre.
   return (
     <div className="flex items-center justify-between">
       <Button
@@ -35,7 +45,7 @@ export function SelectorMes({
         size="icon-sm"
         className="min-h-11 min-w-11"
         onClick={() => onCambiar(sumarMeses(mes, 1))}
-        disabled={esMesActual}
+        disabled={mes >= sumarMeses(mesActual(), mesesAdelante)}
         aria-label="Mes siguiente"
       >
         <ChevronRight />
