@@ -6,7 +6,7 @@
  * se monta el Drawer real (sin reemplazarlo) para probar justo eso.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import type { Cuenta } from "@/lib/api/types";
 
@@ -79,11 +79,16 @@ describe("DetalleCuenta: la X visible del cajón", () => {
     expect(holders.actualizar).not.toHaveBeenCalled();
   });
 
-  it("sin cambios pendientes, la X no avisa", () => {
+  it("sin cambios pendientes, la X cierra y no avisa", async () => {
     abrirCajon();
+    expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
 
     expect(screen.queryByText(/cambios sin guardar/i)).not.toBeInTheDocument();
+    // Cierra de verdad: el contenido del cajón deja de estar montado.
+    await waitFor(() =>
+      expect(screen.queryByLabelText("Nombre")).not.toBeInTheDocument()
+    );
   });
 });
