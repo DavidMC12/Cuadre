@@ -4,6 +4,9 @@ import * as React from "react"
 import { Drawer as DrawerPrimitive } from "@base-ui/react/drawer"
 import { cn } from "cn"
 
+import { Button } from "@/components/ui/button"
+import { XIcon } from "lucide-react"
+
 type DrawerContextProps = {
   hasSnapPoints: boolean
   modal: DrawerPrimitive.Root.Props["modal"]
@@ -99,8 +102,11 @@ function DrawerSwipeHandle({
 function DrawerContent({
   className,
   children,
+  showCloseButton = true,
   ...props
-}: DrawerPrimitive.Popup.Props) {
+}: DrawerPrimitive.Popup.Props & {
+  showCloseButton?: boolean
+}) {
   const { hasSnapPoints, modal, showSwipeHandle, swipeDirection } = useDrawer()
   const swipeAxis =
     swipeDirection === "down" || swipeDirection === "up" ? "y" : "x"
@@ -160,6 +166,21 @@ function DrawerContent({
           >
             {children}
           </DrawerPrimitive.Content>
+          {showCloseButton && (
+            <DrawerPrimitive.Close
+              data-slot="drawer-close"
+              render={
+                <Button
+                  variant="ghost"
+                  className="absolute top-2 right-2 min-h-11 min-w-11"
+                  size="icon-sm"
+                />
+              }
+            >
+              <XIcon />
+              <span className="sr-only">Cerrar</span>
+            </DrawerPrimitive.Close>
+          )}
         </DrawerPrimitive.Popup>
       </DrawerPrimitive.Viewport>
     </DrawerPortal>
@@ -167,11 +188,14 @@ function DrawerContent({
 }
 
 function DrawerHeader({ className, ...props }: React.ComponentProps<"div">) {
+  // `pr-14` reserva el ancho del cierre visible de la esquina (44px + el
+  // margen de 8px, igual que el `pr-10` del DialogHeader sumado a su `p-4`):
+  // sin él, el título largo quedaría por debajo de la X.
   return (
     <div
       data-slot="drawer-header"
       className={cn(
-        "flex shrink-0 flex-col gap-0.5 p-4 pb-0 group-data-[swipe-axis=y]/drawer-popup:text-center md:gap-0.5 md:text-left",
+        "flex shrink-0 flex-col gap-0.5 p-4 pr-14 pb-0 group-data-[swipe-axis=y]/drawer-popup:text-center md:gap-0.5 md:text-left",
         className
       )}
       {...props}
