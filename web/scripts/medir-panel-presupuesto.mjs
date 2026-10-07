@@ -35,6 +35,8 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import http from "node:http";
 
+import { CLASES_ENCABEZADO_SECCION, CLASES_TITULO_SECCION } from "../src/lib/aside-resumen.ts";
+
 const raizWeb = join(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(join(raizWeb, "package.json"));
 const postcss = require("postcss");
@@ -74,8 +76,20 @@ function grupo(titulo, conMargenNegativo) {
   </section>`;
 }
 
+/** El encabezado de una sección con su total a la derecha, como el componente
+ * real (mismas clases compartidas): el total va largo a propósito para que un
+ * desborde a 320px se vea si el reparto rótulo/total se rompe. */
+function seccion(titulo, total) {
+  return `
+  <div data-seccion class="${CLASES_ENCABEZADO_SECCION}">
+    <h3 class="${CLASES_TITULO_SECCION}">${titulo}</h3>
+    <span data-total class="shrink-0" aria-label="Total de ${titulo.toLowerCase()} previstos: ${total}"><span class="font-mono tabular-nums text-xs font-medium text-muted-foreground">${total}</span></span>
+  </div>`;
+}
+
 function panel(conMargenNegativo, conTope = true) {
   return `<div data-region role="region" aria-label="Ítems del presupuesto" tabindex="0" class="${CLASES_REGION}${conTope ? " max-h-[70vh]" : ""}">
+    ${seccion("Gastos", "$8.320.500")}
     ${grupo("Comida", conMargenNegativo)}
     ${grupo("Transporte", conMargenNegativo)}
     ${grupo("Ocio", conMargenNegativo)}
@@ -243,6 +257,8 @@ const MEDICION = `(() => [...document.querySelectorAll("[data-caso]")].map((caso
   const titulo = caso.querySelector("[data-titulo]");
   const filaTexto = caso.querySelector("[data-fila-texto]");
   const filaLi = caso.querySelector("[data-fila]");
+  const seccion = caso.querySelector("[data-seccion]");
+  const total = caso.querySelector("[data-total]");
   // Cuántos contenedores dentro del caso tienen scroll vertical propio: con
   // dos o más hay scroll anidado.
   const scrollables = [caso, ...caso.querySelectorAll("*")].filter(
@@ -255,6 +271,10 @@ const MEDICION = `(() => [...document.querySelectorAll("[data-caso]")].map((caso
     ancho: Number(caso.dataset.ancho),
     desbordeX: region.scrollWidth - region.clientWidth,
     desbordeY: region.scrollHeight - region.clientHeight,
+    // El encabezado de sección (con su total) no debe desbordar ni recortar
+    // la cifra: el rótulo cede, el total no.
+    seccionOverflowX: seccion.scrollWidth - seccion.clientWidth,
+    totalOverflowX: total.scrollWidth - total.clientWidth,
     scrollables,
     headerAlto: header.offsetHeight,
     // Cuánto se corre la caja del renglón respecto de la del encabezado: es lo
@@ -280,6 +300,7 @@ function revisar(mediciones) {
       const resumen =
         `desborde-x ${m.desbordeX}px; caja del renglón vs encabezado ${m.desalineacion}px; ` +
         `sangría del título ${m.sangriaTitulo}px; alto de encabezado ${m.headerAlto}px; ` +
+        `sección ${m.seccionOverflowX}px, total ${m.totalOverflowX}px; ` +
         `scroll ${m.scrollables}; desborde-y ${m.desbordeY}px`;
       if (m.variante === "antes") {
         console.log(`  · antes:   ${resumen}`);
@@ -297,6 +318,10 @@ function revisar(mediciones) {
       }
       const problemas = [];
       if (m.desbordeX > 0) problemas.push(`desborda en horizontal (${m.desbordeX}px)`);
+      if (m.seccionOverflowX > 0)
+        problemas.push(`el encabezado de sección desborda (${m.seccionOverflowX}px)`);
+      if (m.totalOverflowX > 0)
+        problemas.push(`el total de la sección se recorta (${m.totalOverflowX}px)`);
       if (Math.abs(m.desalineacion) > 0.5)
         problemas.push(`renglón descuadrado con el encabezado (${m.desalineacion}px)`);
       if (m.headerAlto < 44) problemas.push(`encabezado de ${m.headerAlto}px (piso 44px)`);
