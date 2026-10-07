@@ -97,7 +97,11 @@ export function AjustarSaldo({
               permiteSigno={!esTarjeta}
               placeholder="0"
               autoFocus
-              aria-invalid={errorEscrito || Boolean(error)}
+              // Solo un error DEL CAMPO (el monto mal escrito) marca el campo
+              // como inválido: un rechazo del servidor no lo es — la cifra
+              // está bien escrita, lo que falló fue registrarla — y ese se
+              // anuncia aparte, con el role="alert" de abajo.
+              aria-invalid={errorEscrito}
               disabled={procesando}
             />
             {lectura !== null && "error" in lectura && (

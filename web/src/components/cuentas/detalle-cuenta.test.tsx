@@ -2,10 +2,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
+import { toast } from "sonner";
 
 import { MENOS } from "@/lib/money";
 import { ApiError } from "@/lib/api/client";
 import type { Cuenta } from "@/lib/api/types";
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
 
 type ConHijos = { children?: ReactNode };
 
@@ -78,6 +83,8 @@ afterEach(() => {
   holders.soloMirar = false;
   holders.drawerAbierto = false;
   holders.drawerOnOpenChange = undefined;
+  vi.mocked(toast.success).mockClear();
+  vi.mocked(toast.error).mockClear();
 });
 
 const banco: Cuenta = {
@@ -523,6 +530,57 @@ describe("DetalleCuenta: ajustar el saldo (o la deuda)", () => {
     expect(screen.getByText(/¿Cuánto debes hoy según tu banco\?/)).toBeInTheDocument();
   });
 
+  it("el rechazo del servidor se borra al volver a editar el monto", () => {
+    renderDetalle(visa);
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar deuda" }));
+    const campo = screen.getByLabelText("¿Cuánto debes hoy según tu banco?");
+    fireEvent.change(campo, { target: { value: "350.000" } });
+    holders.ajustar.mockImplementationOnce(
+      (_variables: unknown, opciones: OpcionesMutacion) => {
+        opciones.onError?.(
+          new ApiError({ code: "RULE_VIOLATION", message: "Esa cuenta ya tiene ese saldo." })
+        );
+      }
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Sí, ajustar" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Esa cuenta ya tiene ese saldo.");
+
+    // Un dígito de más y el aviso viejo ya no dice nada útil: la vista previa
+    // cambió, el error del servidor no puede seguir contradiciéndola.
+    fireEvent.change(campo, { target: { value: "360.000" } });
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("aria-invalid del campo marca solo el error del campo, no el rechazo del servidor", () => {
+    renderDetalle(visa);
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar deuda" }));
+    const campo = screen.getByLabelText("¿Cuánto debes hoy según tu banco?");
+
+    // Sin escribir nada no hay error de campo.
+    expect(campo).toHaveAttribute("aria-invalid", "false");
+
+    // El rechazo del servidor NO marca el campo: la cifra estaba bien escrita.
+    fireEvent.change(campo, { target: { value: "350.000" } });
+    holders.ajustar.mockImplementationOnce(
+      (_variables: unknown, opciones: OpcionesMutacion) => {
+        opciones.onError?.(
+          new ApiError({ code: "RULE_VIOLATION", message: "Esa cuenta ya tiene ese saldo." })
+        );
+      }
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Sí, ajustar" }));
+
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(campo).toHaveAttribute("aria-invalid", "false");
+
+    // Un monto mal escrito sí es cosa del campo.
+    fireEvent.change(campo, { target: { value: "0,5" } });
+    expect(screen.getByText(/los pesos no llevan decimales/i)).toBeInTheDocument();
+    expect(campo).toHaveAttribute("aria-invalid", "true");
+  });
+
   it("al ajustar bien, el diálogo se cierra y el cajón queda", () => {
     renderDetalle(visa);
     abrirCajon();
@@ -539,6 +597,36 @@ describe("DetalleCuenta: ajustar el saldo (o la deuda)", () => {
     expect(screen.queryByText(/¿Cuánto debes hoy según tu banco\?/)).not.toBeInTheDocument();
     expect(holders.drawerAbierto).toBe(true);
     expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
+  });
+
+  it("al ajustar una tarjeta, el toast habla de deuda en positivo, como la pantalla", () => {
+    renderDetalle(visa);
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar deuda" }));
+    fireEvent.change(screen.getByLabelText("¿Cuánto debes hoy según tu banco?"), {
+      target: { value: "350.000" },
+    });
+    holders.ajustar.mockImplementationOnce((_variables: unknown, opciones: OpcionesMutacion) => {
+      opciones.onSuccess?.({ data: visaAjustada });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sí, ajustar" }));
+
+    expect(toast.success).toHaveBeenCalledWith("Listo. Ahora debes $350.000.");
+  });
+
+  it("al ajustar una cuenta que no es tarjeta, el toast dice en qué quedó", () => {
+    renderDetalle(banco);
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar saldo" }));
+    fireEvent.change(screen.getByLabelText("¿Cuánto hay hoy en esta cuenta?"), {
+      target: { value: "80.000" },
+    });
+    holders.ajustar.mockImplementationOnce((_variables: unknown, opciones: OpcionesMutacion) => {
+      opciones.onSuccess?.({ data: { ...banco, balance: "80000.0000" } });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sí, ajustar" }));
+
+    expect(toast.success).toHaveBeenCalledWith("Listo. Quedó en $80.000.");
   });
 });
 

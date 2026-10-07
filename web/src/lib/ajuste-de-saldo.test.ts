@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { leerAjuste, TEXTO_YA_COINCIDE } from "./ajuste-de-saldo";
+import { leerAjuste, TEXTO_YA_COINCIDE, textoDeExito } from "./ajuste-de-saldo";
 import type { LecturaDeAjuste } from "./ajuste-de-saldo";
 import { MENOS } from "./money";
 import type { Cuenta } from "./api/types";
@@ -83,7 +83,7 @@ describe("leerAjuste: la deuda escrita se convierte a saldo con signo", () => {
     const negativo = lecturaValida("-0", banco);
 
     expect(negativo.balance).toBe("0");
-    // En la vista previa el signo ya no aparece: cero es cero.
+    // En la vista previa el signo ya no aparece.
     expect(negativo.vistaPrevia).toContain("ajuste de −$1.200.000 para que coincida");
 
     // Con saldo cero ya coincide: cero es cero, no "−$0". (En pesos el
@@ -150,6 +150,71 @@ describe("leerAjuste: la cifra exacta manda", () => {
     });
 
     expect(lectura.coincide).toBe(true);
+  });
+});
+
+describe("leerAjuste: el tope de dígitos enteros se dice en el cliente", () => {
+  it("más de 15 dígitos enteros se rechaza aquí, sin viaje al servidor", () => {
+    expect(errorDe("9".repeat(16), banco)).toBe("Ese monto es demasiado grande.");
+    expect(errorDe("9.999.999.999.999.999", visa)).toBe("Ese monto es demasiado grande.");
+  });
+
+  it("15 dígitos enteros caben", () => {
+    const lectura = lecturaValida("9".repeat(15), banco);
+
+    expect(lectura.balance).toBe("999999999999999");
+  });
+
+  it("los ceros de adorno no cuentan: una fila de ceros con un 9 al final es un dígito", () => {
+    const lectura = lecturaValida(`${"0".repeat(20)}9`, banco);
+
+    expect(lectura.balance).toBe("9");
+  });
+});
+
+describe("leerAjuste: la vista previa no esconde decimales del saldo", () => {
+  it("un saldo de dólares con más de dos decimales se muestra completo, y la diferencia también", () => {
+    const lectura = lecturaValida("10,12", {
+      type: "bank",
+      balance: "10.1234",
+      currency: "USD",
+    });
+
+    expect(lectura.coincide).toBe(false);
+    expect(lectura.vistaPrevia).toBe(
+      "Hoy la app dice US$10,1234. Se registrará un ajuste de −US$0,0034 para que coincida."
+    );
+  });
+
+  it("con decimales que caben en la moneda, la vista se ve como siempre", () => {
+    const lectura = lecturaValida("1500,50", {
+      type: "cash",
+      balance: "1500.0000",
+      currency: "USD",
+    });
+
+    expect(lectura.vistaPrevia).toBe(
+      "Hoy la app dice US$1.500,00. Se registrará un ajuste de +US$0,50 para que coincida."
+    );
+  });
+});
+
+describe("textoDeExito: el toast habla como la pantalla", () => {
+  it("en una tarjeta con deuda, la deuda se dice en positivo", () => {
+    expect(textoDeExito("-350000", visa)).toBe("Listo. Ahora debes $350.000.");
+  });
+
+  it("en una tarjeta sin deuda, ya no se debe nada", () => {
+    expect(textoDeExito("0", visa)).toBe("Listo. Ya no debes nada.");
+  });
+
+  it("en una tarjeta sobrepagada, queda a favor", () => {
+    expect(textoDeExito("50000.0000", visa)).toBe("Listo. Te quedaron $50.000 a favor.");
+  });
+
+  it("en las demás cuentas el saldo se dice con su cifra, como siempre", () => {
+    expect(textoDeExito("1200000.0000", banco)).toBe("Listo. Quedó en $1.200.000.");
+    expect(textoDeExito("-50000", banco)).toBe("Listo. Quedó en −$50.000.");
   });
 });
 

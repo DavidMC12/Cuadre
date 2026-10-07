@@ -12,12 +12,15 @@
  */
 import type { Cuenta } from "./api/types";
 import {
+  agruparMiles,
+  decimalesDe,
   esCero,
   MENOS,
   negar,
   normalizarMontoConSigno,
   normalizarMontoIngresado,
   restar,
+  simboloMoneda,
   textoMonto,
 } from "./money";
 import type { MontoLeido } from "./money";
@@ -35,6 +38,31 @@ export interface LecturaDeAjuste {
 }
 
 /**
+ * Como `textoMonto`, pero para la vista previa de este diálogo: en monedas
+ * con centavos no corta los decimales que el saldo de verdad trae (hasta
+ * cuatro, lo que guarda NUMERIC(19,4) — un saldo puede arrastrarlos de
+ * intereses o de un ajuste anterior). Pintar una diferencia de US$0,005 como
+ * "US$0,00" esconde plata. Con decimales que caben en los de la moneda se ve
+ * igual que siempre ("US$1.500,00"), y el peso —que ya se mostraba con solo
+ * sus decimales significativos— no cambia.
+ */
+function textoMontoVista(monto: string, moneda: string): string {
+  const texto = monto.trim();
+  const negativo = texto.startsWith("-");
+  const sinSigno = texto.replace(/^[-+]/, "");
+  const [entera = "0", decimal = ""] = sinSigno.split(".");
+  const deseados = decimalesDe(moneda);
+  const significativos = decimal.replace(/0+$/, "");
+  const decimales =
+    significativos.length > deseados
+      ? significativos
+      : (decimal + "0".repeat(deseados)).slice(0, deseados);
+  return `${negativo ? MENOS : ""}${simboloMoneda(moneda)}${agruparMiles(entera || "0")}${
+    decimales ? `,${decimales}` : ""
+  }`;
+}
+
+/**
  * La deuda de una tarjeta se escribe en positivo — "¿cuánto debes?" es un
  * número que la persona dice sin pensar el signo — y la pantalla lo convierte
  * a saldo: deuda 350000 es balance "-350000". Cero significa sin deuda.
@@ -49,6 +77,18 @@ function leerDeudaEscrita(texto: string, moneda: string): MontoLeido {
 /** Deuda escrita → saldo deseado de la tarjeta. El cero va limpio, sin "-0". */
 function balanceDeDeuda(deuda: string): string {
   return esCero(deuda) ? "0" : negar(deuda);
+}
+
+/**
+ * Lo que cabe en NUMERIC(19,4): quince dígitos enteros. Es el mismo tope que
+ * impone la regex del servidor (`FORMA_DE_MONTO`); rechazarlo aquí evita el
+ * viaje de ida y vuelta para leer un 400 genérico.
+ */
+const TOPE_DIGITOS_ENTEROS = 15;
+
+/** Cuántos dígitos tiene la parte entera del monto, sin signo ni decimales. */
+function digitosEnteros(monto: string): number {
+  return monto.replace("-", "").split(".")[0]!.length;
 }
 
 /**
@@ -81,21 +121,21 @@ function dichoDelSaldo(
 ): string {
   const { balance, currency, type } = cuenta;
   if (type !== "card") {
-    return `Hoy la app dice ${textoMonto(balance, currency)}.`;
+    return `Hoy la app dice ${textoMontoVista(balance, currency)}.`;
   }
   if (esCero(balance)) return "Hoy la app dice que no debes nada.";
   if (balance.startsWith("-")) {
-    return `Hoy la app dice que debes ${textoMonto(negar(balance), currency)}.`;
+    return `Hoy la app dice que debes ${textoMontoVista(negar(balance), currency)}.`;
   }
-  return `Hoy la app dice que queda ${textoMonto(balance, currency)} a tu favor.`;
+  return `Hoy la app dice que queda ${textoMontoVista(balance, currency)} a tu favor.`;
 }
 
 /** "+$50.000" o "−$50.000": el signo del ajuste se dice, no se tiñe. */
 function textoDiferencia(diferencia: string, moneda: string): string {
   if (diferencia.startsWith("-")) {
-    return `${MENOS}${textoMonto(negar(diferencia), moneda)}`;
+    return `${MENOS}${textoMontoVista(negar(diferencia), moneda)}`;
   }
-  return `+${textoMonto(diferencia, moneda)}`;
+  return `+${textoMontoVista(diferencia, moneda)}`;
 }
 
 /**
@@ -106,12 +146,35 @@ function textoDiferencia(diferencia: string, moneda: string): string {
 export const TEXTO_YA_COINCIDE = "Ya coincide.";
 
 /**
+ * El toast cuando el ajuste se registró bien.
+ *
+ * En una tarjeta el saldo es deuda y la pantalla lo dice en positivo — igual
+ * que el campo y la vista previa—: "Quedo en −$350.000" obliga a traducir
+ * signos; "Ahora debes $350.000" no. En las demás cuentas el saldo es el
+ * saldo y se dice con su cifra.
+ */
+export function textoDeExito(
+  balance: string,
+  cuenta: Pick<Cuenta, "type" | "currency">
+): string {
+  if (cuenta.type !== "card") {
+    return `Listo. Quedó en ${textoMonto(balance, cuenta.currency)}.`;
+  }
+  if (esCero(balance)) return "Listo. Ya no debes nada.";
+  if (balance.startsWith("-")) {
+    return `Listo. Ahora debes ${textoMonto(negar(balance), cuenta.currency)}.`;
+  }
+  return `Listo. Te quedaron ${textoMonto(balance, cuenta.currency)} a favor.`;
+}
+
+/**
  * Lee lo que la persona escribió en el campo del diálogo y arma, con enteros
  * exactos, el ajuste que se registraría.
  *
  * - campo vacío: `null` — todavía no hay nada que calcular, no es error.
- * - texto inválido (letras, decimales imposibles, signo donde no va): un
- *   error en español para mostrar debajo del campo.
+ * - texto inválido (letras, decimales imposibles, signo donde no va, más
+ *   dígitos enteros de los que acepta el servidor): un error en español para
+ *   mostrar debajo del campo.
  * - válido: `balance` (el saldo deseado), `diferencia`, `coincide` y la vista
  *   previa.
  *
@@ -136,6 +199,13 @@ export function leerAjuste(
     cuenta.type === "card"
       ? balanceDeDeuda(sinCerosALaIzquierda(escrita.monto))
       : sinCerosALaIzquierda(escrita.monto);
+
+  // El tope es sobre lo que de verdad viajaría: sin ceros de adorno, una
+  // fila de ceros con un "9" al final es un monto de un dígito.
+  if (digitosEnteros(balance) > TOPE_DIGITOS_ENTEROS) {
+    return { error: "Ese monto es demasiado grande." };
+  }
+
   const diferencia = restar(balance, cuenta.balance);
   const coincide = esCero(diferencia);
 
