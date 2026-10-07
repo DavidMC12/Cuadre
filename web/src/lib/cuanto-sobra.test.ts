@@ -150,4 +150,42 @@ describe("cuantoSobraEnElMes", () => {
     const estado = cuantoSobraEnElMes({ renglones: [], income: "0", expense: "0" });
     expect(estado.hayMovimientos).toBe(false);
   });
+
+  it("un target de 0 ('0.0000', 'este mes no aplica') suma 0: deja de contarse en el previsto", () => {
+    // El dueño no paga agua este mes: el tope queda en 0 y aporta 0 a la
+    // suma — igual que un renglón sin fila. Y NO es target null: el mes
+    // sigue presupuestado (hayGastos cuenta el tope en cero).
+    const conAgua = cuantoSobraEnElMes({
+      renglones: [ingreso("3000000"), gasto("800000"), gasto("2000000")],
+      income: "3000000",
+      expense: "800000",
+    });
+    expect(conAgua.previsto).toBe("200000.0000");
+
+    const conAguaEnCero = cuantoSobraEnElMes({
+      renglones: [ingreso("3000000"), gasto("0.0000"), gasto("2000000")],
+      income: "3000000",
+      expense: "800000",
+    });
+
+    expect(conAguaEnCero.previsto).toBe("1000000.0000");
+    expect(conAguaEnCero.previstoUnidades).toBe(aUnidadesMinimas("1000000"));
+    expect(conAguaEnCero.hayIngresos).toBe(true);
+    expect(conAguaEnCero.hayGastos).toBe(true);
+  });
+
+  it("todos los renglones en cero: previsto 0 sin NaN, y las palabras del sentido no cambian", () => {
+    const estado = cuantoSobraEnElMes({
+      renglones: [ingreso("0.0000"), gasto("0.0000"), ahorro("0.0000")],
+      income: "0",
+      expense: "0",
+    });
+
+    expect(estado.previsto).toBe("0.0000");
+    expect(estado.previstoUnidades).toBe(0n);
+    // Ambos lados existen (con montos fijados, aunque sean 0): el cuadrito
+    // dice "Ni te sobra ni te falta según lo previsto", no "Presupuesta…".
+    expect(estado.hayIngresos).toBe(true);
+    expect(estado.hayGastos).toBe(true);
+  });
 });
