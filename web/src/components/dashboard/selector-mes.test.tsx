@@ -14,7 +14,7 @@
  * comparación va por texto ("YYYY-MM" ordena bien) y `sumarMeses` cruza el
  * año sin ayuda.
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 
 import { SelectorMes } from "./selector-mes";
@@ -69,21 +69,31 @@ describe("SelectorMes: tope de meses futuros", () => {
     expect(flechaSiguiente()).toBeDisabled();
   });
 
-  it("el cruce de diciembre a enero cae dentro del tope: sumarMeses cruza el año y la comparación por texto no miente", () => {
-    // Independiente del mes de fondo: la comparación del tope funciona igual
-    // cuando el mes actual+12 cae en otro año, porque `sumarMeses` cruza el
-    // año y el texto "YYYY-MM" ordena bien.
-    render(
-      <SelectorMes mes={sumarMeses(mesActual(), 12)} onCambiar={() => {}} mesesAdelante={12} />
-    );
-    expect(flechaSiguiente()).toBeDisabled();
-    cleanup();
+  it("el cruce de diciembre a enero: con el reloj en diciembre, enero del año siguiente queda dentro del tope y el último mes apaga la flecha", () => {
+    // Clavamos el mes actual en diciembre: así la prueba prueba el cruce de
+    // diciembre a enero de verdad, sin importar en qué mes corra. La hora
+    // (12:00 -05:00) deja la fecha local del aparato en diciembre para
+    // cualquier desfase horario razonable.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-12-15T12:00:00-05:00"));
+    try {
+      expect(mesActual()).toBe("2026-12");
 
-    // Y un mes antes del cruce del año (el diciembre del tope) está habilitado
-    // avanzar hacia él.
-    render(
-      <SelectorMes mes={sumarMeses(mesActual(), 11)} onCambiar={() => {}} mesesAdelante={12} />
-    );
-    expect(flechaSiguiente()).toBeEnabled();
+      // Ahora mismo: el mes actual es diciembre y se deja avanzar.
+      render(<SelectorMes mes="2026-12" onCambiar={() => {}} mesesAdelante={12} />);
+      expect(flechaSiguiente()).toBeEnabled();
+      cleanup();
+
+      // El cruce: enero de 2027 sigue dentro del tope de diciembre.
+      render(<SelectorMes mes="2027-01" onCambiar={() => {}} mesesAdelante={12} />);
+      expect(flechaSiguiente()).toBeEnabled();
+      cleanup();
+
+      // Y el tope cae en diciembre de 2027, doce meses exactos después.
+      render(<SelectorMes mes="2027-12" onCambiar={() => {}} mesesAdelante={12} />);
+      expect(flechaSiguiente()).toBeDisabled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -24,7 +24,6 @@ vi.mock("@/components/presupuesto/panel-presupuesto", () => ({
 // El selector de mes REAL: la pantalla pasa su tope de 12 meses adelante y
 // el aviso de planeación depende del mes visto, que aquí se recorre con las
 // flechas de verdad.
-import { SelectorMes } from "@/components/dashboard/selector-mes";
 
 afterEach(cleanup);
 
@@ -148,8 +147,11 @@ describe("Página Presupuesto: planear meses futuros", () => {
     expect(screen.getByText(aviso)).toBeInTheDocument();
 
     // Doce meses adelante es el tope de la planeación: once clics más y la
-    // flecha se apaga exactamente ahí — no antes.
+    // flecha se apaga exactamente ahí — no antes. Cada clic exige que la
+    // flecha SIGA habilitada: si la pantalla pasara 11 en vez de 12, el
+    // último clic caería en un botón ya apagado y este bucle lo notaría.
     for (let i = 0; i < 11; i += 1) {
+      expect(flechaSiguiente()).toBeEnabled();
       fireEvent.click(flechaSiguiente());
       expect(screen.getByText(aviso)).toBeInTheDocument();
     }
