@@ -8,7 +8,7 @@
 import { z } from 'zod';
 import { FechaSchema, MontoPositivoSchema, MontoSchema } from '../../shared/schemas.js';
 
-export const TIPOS_DE_MOVIMIENTO = ['opening', 'standard', 'transfer'] as const;
+export const TIPOS_DE_MOVIMIENTO = ['opening', 'standard', 'transfer', 'adjustment'] as const;
 
 // -----------------------------------------------------------------------------
 // Peticiones

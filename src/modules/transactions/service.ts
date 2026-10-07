@@ -115,6 +115,12 @@ export async function anularMovimiento(
       );
     }
 
+    if (original.kind === 'adjustment') {
+      throw reglaViolada(
+        'Un ajuste de saldo no se anula. Si quedó mal, haz otro ajuste con el saldo correcto.',
+      );
+    }
+
     if (original.reversesTransactionId) {
       throw reglaViolada(
         'Ese movimiento ya es una anulación, y una anulación no se anula. Registra un movimiento nuevo.',
@@ -267,6 +273,7 @@ const ENCABEZADOS = [
 function tipoEnPalabras(fila: FilaParaExportar): string {
   if (fila.tipo === 'opening') return 'Saldo inicial';
   if (fila.tipo === 'transfer') return 'Transferencia';
+  if (fila.tipo === 'adjustment') return 'Ajuste de saldo';
   return isNegative(fila.monto) ? 'Gasto' : 'Ingreso';
 }
 
@@ -339,6 +346,28 @@ export async function registrarApertura(
 // -----------------------------------------------------------------------------
 
 /**
+ * Deja una cuenta en el saldo que de verdad tiene (el del banco), escribiendo
+ * un movimiento de ajuste por la diferencia. Es la forma de "editar" un saldo
+ * o una deuda sin reescribir la historia: el saldo se calcula sumando
+ * movimientos y los movimientos no se tocan.
+ *
+ * Lo llama el modulo de cuentas pasandole SU transaccion (donde ya bloqueo la
+ * fila de la cuenta), igual que `registrarApertura`. Devuelve null si no hay
+ * nada que ajustar: cuenta inexistente, archivada, o que ya tiene ese saldo.
+ */
+export async function ajustarASaldo(
+  ejecutor: Ejecutor,
+  usuarioId: string,
+  datos: { cuentaId: string; saldoDeseado: string },
+): Promise<Movimiento | null> {
+  return repositorio.registrarAjusteASaldo(ejecutor, usuarioId, {
+    cuentaId: datos.cuentaId,
+    saldoDeseado: datos.saldoDeseado,
+    descripcion: 'Ajuste de saldo',
+  });
+}
+
+/**
  * Cambiar la categoria es la unica correccion que admite un movimiento.
  *
  * El monto, la fecha y la cuenta son historia y no se reescriben. La categoria
@@ -368,6 +397,12 @@ export async function recategorizarMovimiento(
     if (original.kind === 'transfer') {
       throw reglaViolada(
         'Una transferencia no lleva categoria: mover plata entre tus cuentas no es gastar ni recibir.',
+      );
+    }
+
+    if (original.kind === 'adjustment') {
+      throw reglaViolada(
+        'Un ajuste de saldo no lleva categoria: no es un gasto ni un ingreso, solo corrige el saldo.',
       );
     }
 

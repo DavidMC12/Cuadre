@@ -14,11 +14,18 @@ import { ZONA_HORARIA } from '../../shared/zona-horaria.js';
 import type { TipoDeCategoria } from './schemas.js';
 
 /**
- * Regla 1 y 2: ni las transferencias ni los saldos iniciales son movimiento de
- * plata propia. Pasar dinero de Bancolombia a Efectivo no es gastar, y el saldo
- * con el que arranca una cuenta no es plata que entró este mes.
+ * Regla 1 y 2: ni las transferencias, ni los saldos iniciales, ni los ajustes
+ * son movimiento de plata propia. Pasar dinero de Bancolombia a Efectivo no es
+ * gastar, el saldo con el que arranca una cuenta no es plata que entró este
+ * mes, y un ajuste solo corrige un saldo para que coincida con el banco.
  */
-const SOLO_INGRESOS_Y_GASTOS = sql`m.kind not in ('transfer', 'opening')`;
+const SOLO_INGRESOS_Y_GASTOS = sql`m.kind not in ('transfer', 'opening', 'adjustment')`;
+
+/**
+ * Para el ahorro: el saldo inicial es capital de partida y un ajuste es una
+ * corrección del saldo; ninguno es "plata que se apartó este mes".
+ */
+const SIN_CAPITAL_NI_AJUSTES = sql`m.kind not in ('opening', 'adjustment')`;
 
 /**
  * Regla 3: una anulación no es un evento propio, es el borrado de otro. Por eso
@@ -152,7 +159,7 @@ export async function ahorroDeUnaCuentaEnElMes(
     from transactions m
     where m.user_id = ${usuarioId}::uuid
       and m.account_id = ${cuentaId}::uuid
-      and m.kind <> 'opening'
+      and ${SIN_CAPITAL_NI_AJUSTES}
       and ${rangoDelMes(mes)}
   `)) as unknown as { amount: string }[];
 
@@ -272,8 +279,9 @@ export async function tendencia(
  *
  * Cuenta TODO lo que mueve esas cuentas —ingresos y gastos registrados
  * directo ahí, y las dos patas de cualquier transferencia hacia o desde
- * ellas— excepto el saldo inicial (`kind = 'opening'`), que es capital de
- * partida y no "ahorro de este mes". No hace falta el patrón de
+ * ellas— excepto el saldo inicial (`kind = 'opening'`) y los ajustes de saldo
+ * (`kind = 'adjustment'`): uno es capital de partida y el otro una corrección,
+ * y ninguno es "ahorro de este mes". No hace falta el patrón de
  * `UNION_CON_EL_ANULADO`/`MONTO_QUE_CLASIFICA` de arriba: ahí existe para
  * reclasificar una anulación bajo la categoría del movimiento que anula, y
  * aquí no hay categoría que reclasificar — el signo del monto ya es la
@@ -318,7 +326,7 @@ export async function ahorroMensual(
       cross join ventana
       where m.user_id = ${usuarioId}::uuid
         and ${deLaMoneda(moneda)}
-        and m.kind <> 'opening'
+        and ${SIN_CAPITAL_NI_AJUSTES}
         and a.is_savings = true
         and m.occurred_at >= (ventana.desde at time zone ${ZONA_HORARIA}::text)
         and m.occurred_at <  (ventana.hasta at time zone ${ZONA_HORARIA}::text)

@@ -1,7 +1,10 @@
 /** Capa HTTP de las cuentas: recibe, valida con Zod, responde. */
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
+import { z } from 'zod';
+import { MovimientoSchema } from '../transactions/schemas.js';
 import {
   ActualizarCuentaSchema,
+  AjustarSaldoSchema,
   CrearCuentaSchema,
   IdEnRutaSchema,
   ListaDeCuentasSchema,
@@ -50,6 +53,30 @@ export const rutasDeCuentas: FastifyPluginAsyncZod = async (app) => {
     async (peticion) => ({
       data: await servicio.desarchivarCuenta(peticion.usuarioId, peticion.params.id),
     }),
+  );
+
+  /**
+   * "Editar" un saldo o una deuda: escribe un movimiento de ajuste por la
+   * diferencia (el saldo se calcula, nunca se edita). `balance` es el saldo
+   * deseado con signo; una tarjeta con deuda de 350000 es "-350000".
+   */
+  app.post(
+    '/accounts/:id/adjust-balance',
+    {
+      schema: {
+        params: IdEnRutaSchema,
+        body: AjustarSaldoSchema,
+        response: { 201: z.object({ data: MovimientoSchema }) },
+      },
+    },
+    async (peticion, respuesta) => {
+      const ajuste = await servicio.ajustarSaldo(
+        peticion.usuarioId,
+        peticion.params.id,
+        peticion.body.balance,
+      );
+      return respuesta.code(201).send({ data: ajuste });
+    },
   );
 
   /**

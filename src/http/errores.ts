@@ -115,6 +115,11 @@ const POR_RESTRICCION: Record<string, Traduccion> = {
     codigo: 'RULE_VIOLATION',
     mensaje: 'El saldo inicial no lleva categoría y no anula nada.',
   },
+  transactions_adjustment_is_bare: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'Un ajuste de saldo no lleva categoría y no anula nada.',
+  },
   transactions_description_not_blank: {
     estado: 422,
     codigo: 'RULE_VIOLATION',
@@ -259,6 +264,8 @@ const POR_RESTRICCION: Record<string, Traduccion> = {
 /** Códigos SQLSTATE que nos interesan. */
 const VIOLACION_DE_RESTRICCION = new Set(['23502', '23503', '23505', '23514']);
 const EXCEPCION_DE_DISPARADOR = 'P0001';
+/** numeric_value_out_of_range: una cifra que no cabe en NUMERIC(19,4). */
+const CIFRA_FUERA_DE_RANGO = '22003';
 
 interface ErrorDePostgres {
   code?: string;
@@ -315,6 +322,17 @@ export function traducirErrorDePostgres(errorOriginal: unknown): Traduccion | nu
   // los lea una persona y sin cifras adentro. Se pasan tal cual.
   if (error.code === EXCEPCION_DE_DISPARADOR && error.message) {
     return { estado: 422, codigo: 'RULE_VIOLATION', mensaje: error.message };
+  }
+
+  // Un monto válido para el borde (hasta 15 enteros) puede dar una cifra que no
+  // cabe al operarlo, por ejemplo un ajuste de un extremo al otro. Es culpa del
+  // monto pedido, no un fallo del servidor.
+  if (error.code === CIFRA_FUERA_DE_RANGO) {
+    return {
+      estado: 422,
+      codigo: 'RULE_VIOLATION',
+      mensaje: 'Ese monto es demasiado grande para guardarlo.',
+    };
   }
 
   if (!VIOLACION_DE_RESTRICCION.has(error.code)) return null;

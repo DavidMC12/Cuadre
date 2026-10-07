@@ -20,8 +20,11 @@ import { users } from './users.js';
  * - `opening`  : saldo inicial de una cuenta. Uno solo por cuenta.
  * - `standard` : un ingreso o un gasto normal.
  * - `transfer` : una pata de un traslado entre dos cuentas propias.
+ * - `adjustment`: corrige el saldo de una cuenta para que coincida con la
+ *                 realidad (el banco). No es ingreso ni gasto, no lleva
+ *                 categoría y no se anula: si quedó mal, se hace otro.
  */
-export const TRANSACTION_KINDS = ['opening', 'standard', 'transfer'] as const;
+export const TRANSACTION_KINDS = ['opening', 'standard', 'transfer', 'adjustment'] as const;
 export type TransactionKind = (typeof TRANSACTION_KINDS)[number];
 
 /**
@@ -119,7 +122,10 @@ export const transactions = pgTable(
 
     check('transactions_amount_not_zero', sql`${t.amount} <> 0`),
     check('transactions_currency_format', sql`${t.currency} ~ '^[A-Z]{3}$'`),
-    check('transactions_kind_valid', sql`${t.kind} in ('opening', 'standard', 'transfer')`),
+    check(
+      'transactions_kind_valid',
+      sql`${t.kind} in ('opening', 'standard', 'transfer', 'adjustment')`,
+    ),
     check(
       'transactions_description_not_blank',
       sql`${t.description} is null or length(btrim(${t.description})) > 0`,
@@ -139,6 +145,12 @@ export const transactions = pgTable(
     check(
       'transactions_opening_is_bare',
       sql`${t.kind} <> 'opening' or (${t.categoryId} is null and ${t.reversesTransactionId} is null)`,
+    ),
+    // El ajuste corrige un saldo: sin categoria (no es gasto ni ingreso) y sin
+    // anular nada. Se corrige con otro ajuste.
+    check(
+      'transactions_adjustment_is_bare',
+      sql`${t.kind} <> 'adjustment' or (${t.categoryId} is null and ${t.reversesTransactionId} is null)`,
     ),
   ],
 );

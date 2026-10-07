@@ -78,6 +78,13 @@
       "when": 1791332886691,
       "tag": "0010_presupuesto_mes_sin_monto",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791377300020,
+      "tag": "0011_ajuste_de_saldo",
+      "breakpoints": true
     }
   ]
 }
