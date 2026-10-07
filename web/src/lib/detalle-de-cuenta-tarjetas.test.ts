@@ -94,6 +94,11 @@ describe("Tienes: solo las cuentas que no son tarjeta", () => {
     });
     expect(totalDeTienes([banco, bancoArchivado], "COP")).toBe("1000000.0000");
   });
+
+  it("sin cuentas, o con solo tarjetas, 'Tienes' es cero", () => {
+    expect(totalDeTienes([], "COP")).toBe("0.0000");
+    expect(totalDeTienes([visa, master, sobrepagada], "COP")).toBe("0.0000");
+  });
 });
 
 describe("Debes en tarjetas: solo deuda, nunca un saldo a favor que reste", () => {
@@ -138,6 +143,10 @@ describe("saldoAbsoluto y esCuentaDeTienes", () => {
   it("deja igual un saldo a favor o en cero", () => {
     expect(saldoAbsoluto(sobrepagada)).toBe("50000.0000");
     expect(saldoAbsoluto(cuenta({ id: "c", name: "C", currency: "COP" }))).toBe("0.0000");
+  });
+
+  it("normaliza un cero negativo: '-0.0000' no es un monto negativo", () => {
+    expect(saldoAbsoluto({ balance: "-0.0000" })).toBe("0.0000");
   });
 
   it("una tarjeta nunca es cuenta de 'Tienes'", () => {

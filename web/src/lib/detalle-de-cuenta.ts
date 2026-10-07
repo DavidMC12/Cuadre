@@ -85,7 +85,9 @@ export function etiquetaSaldo(cuenta: Pick<Cuenta, "type" | "balance">): string 
  * signo del texto.
  */
 export function saldoAbsoluto(cuenta: Pick<Cuenta, "balance">): string {
-  return aUnidadesMinimas(cuenta.balance) < 0n ? negar(cuenta.balance) : cuenta.balance;
+  if (aUnidadesMinimas(cuenta.balance) < 0n) return negar(cuenta.balance);
+  // Normalizado: un "-0.0000" es cero, y esta función promete un monto positivo.
+  return sumarMontos([cuenta.balance]);
 }
 
 /**

@@ -51,6 +51,13 @@ const sobrepagada = cuenta({
   balance: "50000.0000",
 });
 const usd = cuenta({ id: "usd", name: "Dólares", currency: "USD", balance: "300.0000" });
+const visaUsd = cuenta({
+  id: "visa-usd",
+  name: "Visa USD",
+  currency: "USD",
+  type: "card",
+  balance: "-400.0000",
+});
 
 describe("TotalCuentas", () => {
   it("'Tienes' suma solo las cuentas que no son tarjeta, aunque haya deuda", () => {
@@ -88,18 +95,19 @@ describe("TotalCuentas", () => {
     expect(screen.getByText(/Debes en tarjetas/)).toHaveTextContent("Debes en tarjetas: $1.000.000");
   });
 
-  it("no mezcla monedas: la deuda de otra moneda no entra", () => {
+  it("no mezcla monedas: ni el saldo ni la deuda de otra moneda entran", () => {
     render(
       <TotalCuentas
-        cuentas={[banco, visa, usd]}
+        cuentas={[banco, visa, usd, visaUsd]}
         moneda="COP"
         cargando={false}
       />
     );
 
     expect(screen.getByText("$1.000.000")).toBeInTheDocument();
-    expect(screen.getByText("$800.000")).toBeInTheDocument();
-    expect(screen.queryByText("$300")).not.toBeInTheDocument();
+    // La deuda sigue siendo solo la de la tarjeta en pesos, no la de USD.
+    expect(screen.getByText(/Debes en tarjetas/)).toHaveTextContent("Debes en tarjetas: $800.000");
+    expect(screen.queryByText(/US\$/)).not.toBeInTheDocument();
   });
 
   it("mientras carga muestra un esqueleto, no cifras", () => {
