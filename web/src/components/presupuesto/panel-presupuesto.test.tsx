@@ -1422,7 +1422,7 @@ describe("PanelPresupuesto: total de cada sección", () => {
     expect(estado.previsto).toBe("2000000.0000");
   });
 
-  it("el total lleva texto accesible, no solo la cifra", () => {
+  it("el total lleva texto accesible, no solo la cifra, como una unidad con nombre", () => {
     const items = [deIngreso("i1", "Salario"), deCategoria("c1", "comida", "Mercado")];
     const checklist = [
       { ...renglonDe(items[0]), target: "3000000" },
@@ -1432,8 +1432,30 @@ describe("PanelPresupuesto: total de cada sección", () => {
 
     render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
 
-    expect(screen.getByLabelText(/Total de ingresos previstos:/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Total de gastos previstos:/)).toBeInTheDocument();
+    // El total es una unidad con nombre accesible (`role="img"` + `aria-label`,
+    // el patrón de las gráficas): el lector anuncia las palabras, no solo el
+    // número, y no lo lee dos veces.
+    expect(
+      screen.getByRole("img", { name: "Total de ingresos previstos: $3.000.000" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Total de gastos previstos: $200.000" })
+    ).toBeInTheDocument();
+  });
+
+  it("una sección con 'Este mes no aplica' (target 0.0000) muestra $0, no lo esconde", () => {
+    const items = [deIngreso("i1", "Salario"), deCategoria("c1", "comida", "Mercado")];
+    const checklist = [
+      { ...renglonDe(items[0]), target: "0.0000" },
+      { ...renglonDe(items[1]), target: "300000" },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // El lado existe con monto fijado (aunque sume 0): el total es "$0", no un
+    // rótulo sin cifra.
+    expect(screen.getByLabelText("Total de ingresos previstos: $0")).toBeInTheDocument();
   });
 
   it("una sección con renglones pero sin monto en el mes no muestra total (ni un cero inventado)", () => {
