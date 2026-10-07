@@ -1,0 +1,3 @@
+ALTER TABLE "transactions" DROP CONSTRAINT "transactions_kind_valid";--> statement-breakpoint
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_adjustment_is_bare" CHECK ("transactions"."kind" <> 'adjustment' or ("transactions"."category_id" is null and "transactions"."reverses_transaction_id" is null));--> statement-breakpoint
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_kind_valid" CHECK ("transactions"."kind" in ('opening', 'standard', 'transfer', 'adjustment'));
