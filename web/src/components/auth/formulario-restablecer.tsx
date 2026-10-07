@@ -132,7 +132,7 @@ export function FormularioRestablecer({
             onChange={setContrasena}
             autoComplete="new-password"
             minLength={8}
-            invalido={error?.campo === "contrasena"}
+            invalido={error?.campo === "contrasena" || undefined}
             ariaDescritoPor={descritoPor("contrasena")}
             ayuda="Al menos 8 caracteres."
             autoFocus

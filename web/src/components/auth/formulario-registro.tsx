@@ -77,7 +77,7 @@ export function FormularioRegistro() {
               autoComplete="name"
               value={nombre}
               onChange={(evento) => setNombre(evento.target.value)}
-              aria-invalid={error?.campo === "nombre"}
+              aria-invalid={error?.campo === "nombre" || undefined}
               aria-describedby={descritoPor("nombre")}
               required
               // `required` por sí solo acepta una cadena de solo espacios (no
@@ -97,7 +97,7 @@ export function FormularioRegistro() {
               autoComplete="email"
               value={correo}
               onChange={(evento) => setCorreo(evento.target.value)}
-              aria-invalid={error?.campo === "correo"}
+              aria-invalid={error?.campo === "correo" || undefined}
               aria-describedby={descritoPor("correo")}
               required
               className="h-11"

@@ -75,7 +75,7 @@ export function FormularioEntrar() {
               autoComplete="email"
               value={correo}
               onChange={(evento) => setCorreo(evento.target.value)}
-              aria-invalid={error?.campo === "correo"}
+              aria-invalid={error?.campo === "correo" || undefined}
               aria-describedby={descritoPor("correo")}
               required
               autoFocus

@@ -52,7 +52,7 @@ export function CampoContrasena({
           minLength={minLength}
           value={value}
           onChange={(evento) => onChange(evento.target.value)}
-          aria-invalid={invalido}
+          aria-invalid={invalido || undefined}
           aria-describedby={ariaDescritoPor}
           required
           autoFocus={autoFocus}

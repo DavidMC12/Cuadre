@@ -6,6 +6,8 @@
  *
  * Estas pruebas anclan eso en los cuatro formularios: sin ellas, volver a
  * poner `aria-invalid={Boolean(error)}` en cada campo no rompería nada más.
+ * También anclan que sin error el atributo NO se emite: un
+ * `aria-invalid="false"` fijo era ruido en el árbol accesible.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
@@ -75,8 +77,8 @@ describe("FormularioEntrar", () => {
     const correo = screen.getByLabelText("Correo");
     const contrasena = screen.getByLabelText("Contraseña");
 
-    expect(correo).toHaveAttribute("aria-invalid", "false");
-    expect(contrasena).toHaveAttribute("aria-invalid", "false");
+    expect(correo).not.toHaveAttribute("aria-invalid");
+    expect(contrasena).not.toHaveAttribute("aria-invalid");
     expect(correo).toHaveAttribute("aria-describedby", alerta.id);
     expect(contrasena).toHaveAttribute("aria-describedby", alerta.id);
   });
@@ -91,7 +93,7 @@ describe("FormularioEntrar", () => {
 
     expect(correo).toHaveAttribute("aria-invalid", "true");
     expect(correo).toHaveAttribute("aria-describedby", alerta.id);
-    expect(contrasena).toHaveAttribute("aria-invalid", "false");
+    expect(contrasena).not.toHaveAttribute("aria-invalid");
     expect(contrasena).not.toHaveAttribute("aria-describedby");
   });
 
@@ -105,7 +107,7 @@ describe("FormularioEntrar", () => {
 
     expect(contrasena).toHaveAttribute("aria-invalid", "true");
     expect(contrasena).toHaveAttribute("aria-describedby", alerta.id);
-    expect(correo).toHaveAttribute("aria-invalid", "false");
+    expect(correo).not.toHaveAttribute("aria-invalid");
     expect(correo).not.toHaveAttribute("aria-describedby");
   });
 
@@ -118,7 +120,7 @@ describe("FormularioEntrar", () => {
     const alerta = await esperarAlerta("Esa contraseña no es válida.");
     expect(screen.getByLabelText("Contraseña")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByLabelText("Contraseña")).toHaveAttribute("aria-describedby", alerta.id);
-    expect(screen.getByLabelText("Correo")).toHaveAttribute("aria-invalid", "false");
+    expect(screen.getByLabelText("Correo")).not.toHaveAttribute("aria-invalid");
   });
 
   it("el camino que lanza también decide el campo", async () => {
@@ -130,7 +132,7 @@ describe("FormularioEntrar", () => {
     const alerta = await esperarAlerta("Ese correo no es válido.");
     expect(screen.getByLabelText("Correo")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByLabelText("Correo")).toHaveAttribute("aria-describedby", alerta.id);
-    expect(screen.getByLabelText("Contraseña")).toHaveAttribute("aria-invalid", "false");
+    expect(screen.getByLabelText("Contraseña")).not.toHaveAttribute("aria-invalid");
   });
 });
 
@@ -150,8 +152,8 @@ describe("FormularioRegistro", () => {
     const alerta = await esperarAlerta("Ya existe una cuenta con ese correo.");
     expect(screen.getByLabelText("Correo")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByLabelText("Correo")).toHaveAttribute("aria-describedby", alerta.id);
-    expect(screen.getByLabelText("Nombre completo")).toHaveAttribute("aria-invalid", "false");
-    expect(screen.getByLabelText("Contraseña")).toHaveAttribute("aria-invalid", "false");
+    expect(screen.getByLabelText("Nombre completo")).not.toHaveAttribute("aria-invalid");
+    expect(screen.getByLabelText("Contraseña")).not.toHaveAttribute("aria-invalid");
     expect(screen.getByLabelText("Nombre completo")).not.toHaveAttribute("aria-describedby");
     expect(screen.getByLabelText("Contraseña")).not.toHaveAttribute("aria-describedby");
   });
@@ -163,8 +165,8 @@ describe("FormularioRegistro", () => {
     const alerta = await esperarAlerta("Esa contraseña no sirve: prueba con un largo distinto.");
     expect(screen.getByLabelText("Contraseña")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByLabelText("Contraseña")).toHaveAttribute("aria-describedby", alerta.id);
-    expect(screen.getByLabelText("Correo")).toHaveAttribute("aria-invalid", "false");
-    expect(screen.getByLabelText("Nombre completo")).toHaveAttribute("aria-invalid", "false");
+    expect(screen.getByLabelText("Correo")).not.toHaveAttribute("aria-invalid");
+    expect(screen.getByLabelText("Nombre completo")).not.toHaveAttribute("aria-invalid");
   });
 
   it("error general: ningún campo inválido y los tres descritos", async () => {
@@ -174,7 +176,7 @@ describe("FormularioRegistro", () => {
     const alerta = await esperarAlerta("Demasiadas peticiones. Espera un momento.");
     for (const nombre of ["Nombre completo", "Correo", "Contraseña"]) {
       const campo = screen.getByLabelText(nombre);
-      expect(campo).toHaveAttribute("aria-invalid", "false");
+      expect(campo).not.toHaveAttribute("aria-invalid");
       expect(campo).toHaveAttribute("aria-describedby", alerta.id);
     }
   });
@@ -204,7 +206,7 @@ describe("FormularioRecuperar", () => {
 
     const alerta = await esperarAlerta("Demasiadas peticiones. Espera un momento.");
     const correo = screen.getByLabelText("Correo");
-    expect(correo).toHaveAttribute("aria-invalid", "false");
+    expect(correo).not.toHaveAttribute("aria-invalid");
     expect(correo).toHaveAttribute("aria-describedby", alerta.id);
   });
 });
@@ -234,7 +236,7 @@ describe("FormularioRestablecer", () => {
 
     const alerta = await esperarAlerta("Ese enlace ya no sirve. Puede que haya vencido o que ya lo hayas usado.");
     const campo = screen.getByLabelText("Contraseña nueva");
-    expect(campo).toHaveAttribute("aria-invalid", "false");
+    expect(campo).not.toHaveAttribute("aria-invalid");
     expect(campo).toHaveAttribute("aria-describedby", alerta.id);
   });
 
@@ -246,7 +248,7 @@ describe("FormularioRestablecer", () => {
       "Ese enlace ya no sirve. Puede que haya vencido o que ya lo hayas usado."
     );
     const campo = screen.getByLabelText("Contraseña nueva");
-    expect(campo).toHaveAttribute("aria-invalid", "false");
+    expect(campo).not.toHaveAttribute("aria-invalid");
     expect(campo).toHaveAttribute("aria-describedby", alerta.id);
   });
 });
