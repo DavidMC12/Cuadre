@@ -80,11 +80,12 @@ describe("leerAjuste: la deuda escrita se convierte a saldo con signo", () => {
   });
 
   it("el cero de un sobregiro ('-0', '-0.00') no lleva signo, ni en el body ni en el texto", () => {
-    const negativo = leerAjuste("-0", banco)!;
-    if ("error" in negativo || negativo === null) throw new Error("se esperaba lectura");
-    expect(negativo.balance).toBe("0");
+    const negativo = lecturaValida("-0", banco);
 
-    // Con saldo cero ya coincide: cero es cero, no "−$0".
+    expect(negativo.balance).toBe("0");
+    // En la vista previa el signo ya no aparece: cero es cero.
+    expect(negativo.vistaPrevia).toContain("ajuste de −$1.200.000 para que coincida");
+
     // Con saldo cero ya coincide: cero es cero, no "−$0". (En pesos el
     // lector rechaza "-0,00" — no llevan decimales —, así que el caso
     // decimal es en dólares.)
