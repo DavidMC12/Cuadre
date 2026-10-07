@@ -150,7 +150,8 @@ export const budgetItemTargets = pgTable(
   (t) => [
     index('budget_item_targets_item_idx').on(t.budgetItemId, t.effectiveFrom.desc()),
 
-    check('budget_item_targets_amount_positive', sql`${t.amount} > 0`),
+    // Cero es válido: "este mes no aplica". Un monto negativo nunca.
+    check('budget_item_targets_amount_not_negative', sql`${t.amount} >= 0`),
     check(
       'budget_item_targets_effective_from_is_month_start',
       sql`extract(day from ${t.effectiveFrom}) = 1`,

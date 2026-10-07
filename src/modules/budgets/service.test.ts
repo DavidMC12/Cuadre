@@ -161,7 +161,7 @@ describe('fijarObjetivoDelMes (service)', () => {
     ).rejects.toMatchObject({ codigo: 'RULE_VIOLATION' });
   });
 
-  it('rechaza un monto no positivo con 422, todo en texto exacto', async () => {
+  it('rechaza un monto negativo o mal escrito con 422, todo en texto exacto', async () => {
     const categoriaId = await crearCategoriaDeGasto();
     const item = await servicio.crearItem(usuarioId, {
       kind: 'category',
@@ -170,7 +170,7 @@ describe('fijarObjetivoDelMes (service)', () => {
       amount: '100000',
     });
 
-    for (const amount of ['0', '-50', '0.0000', 'abc', '']) {
+    for (const amount of ['-50', '-0', 'abc', '']) {
       await expect(
         servicio.fijarObjetivoDelMes(usuarioId, item.id, MES, amount),
       ).rejects.toMatchObject({ codigo: 'RULE_VIOLATION' });
@@ -181,6 +181,175 @@ describe('fijarObjetivoDelMes (service)', () => {
     await expect(
       servicio.fijarObjetivoDelMes(usuarioId, randomUUID(), MES, '200000'),
     ).rejects.toMatchObject({ codigo: 'NOT_FOUND' });
+  });
+});
+
+describe('un mes sin monto: cero = "este mes no aplica" (service)', () => {
+  async function cuentaNueva(): Promise<string> {
+    const respuesta = await app.inject({
+      method: 'POST',
+      url: '/api/v1/accounts',
+      payload: { name: `Cuenta ${(contador += 1)}`, type: 'bank', currency: 'COP' },
+    });
+    expect(respuesta.statusCode).toBe(201);
+    return respuesta.json().data.id;
+  }
+
+  it('acepta cero al fijar un mes, y solo ese mes: el siguiente no lo hereda', async () => {
+    const categoriaId = await crearCategoriaDeGasto();
+    const item = await servicio.crearItem(usuarioId, {
+      kind: 'category',
+      categoryId: categoriaId,
+      currency: 'COP',
+      amount: '100000',
+    });
+
+    for (const cero of ['0', '0.0000']) {
+      await servicio.fijarObjetivoDelMes(usuarioId, item.id, MES, cero);
+    }
+
+    const esteMes = await repositorio.obtener(usuarioId, item.id, MES);
+    const siguiente = await repositorio.obtener(usuarioId, item.id, MES_SIGUIENTE);
+    expect(esteMes!.currentAmount).toBe('0.0000');
+    // El agua de este mes no apaga el renglón para siempre.
+    expect(siguiente!.currentAmount).toBe('100000.0000');
+  });
+
+  it('un cero en un mes futuro, escrito como "00", no apaga los meses de después', async () => {
+    const categoriaId = await crearCategoriaDeGasto();
+    const item = await servicio.crearItem(usuarioId, {
+      kind: 'category',
+      categoryId: categoriaId,
+      currency: 'COP',
+      amount: '100000',
+    });
+
+    await servicio.fijarObjetivoDelMes(usuarioId, item.id, MES_SIGUIENTE, '00');
+
+    expect((await repositorio.obtener(usuarioId, item.id, MES))!.currentAmount).toBe('100000.0000');
+    expect((await repositorio.obtener(usuarioId, item.id, MES_SIGUIENTE))!.currentAmount).toBe(
+      '0.0000',
+    );
+    // El mes de después del futuro hereda el monto de antes del cero, no el cero.
+    expect((await repositorio.obtener(usuarioId, item.id, mesRelativo(2)))!.currentAmount).toBe(
+      '100000.0000',
+    );
+  });
+
+  it('un ítem nuevo sigue naciendo con un monto positivo: el cero, escrito como sea, se rechaza', async () => {
+    const categoriaId = await crearCategoriaDeGasto();
+    // El cero escrito de cualquier forma: antes la base lo frenaba con
+    // `amount > 0`; ahora la única red es la validación.
+    for (const amount of ['0', '0.0000', '00', '000.0000', '00.00']) {
+      await expect(
+        servicio.crearItem(usuarioId, {
+          kind: 'category',
+          categoryId: categoriaId,
+          currency: 'COP',
+          amount,
+        }),
+        amount,
+      ).rejects.toMatchObject({ codigo: 'RULE_VIOLATION' });
+    }
+  });
+
+  it('un cero con ceros de más ("00") también rige solo ese mes', async () => {
+    const categoriaId = await crearCategoriaDeGasto();
+    const item = await servicio.crearItem(usuarioId, {
+      kind: 'category',
+      categoryId: categoriaId,
+      currency: 'COP',
+      amount: '100000',
+    });
+
+    await servicio.fijarObjetivoDelMes(usuarioId, item.id, MES, '00');
+
+    expect((await repositorio.obtener(usuarioId, item.id, MES))!.currentAmount).toBe('0.0000');
+    expect((await repositorio.obtener(usuarioId, item.id, MES_SIGUIENTE))!.currentAmount).toBe(
+      '100000.0000',
+    );
+  });
+
+  it('se puede volver a poner monto en un mes que estaba en cero', async () => {
+    const categoriaId = await crearCategoriaDeGasto();
+    const item = await servicio.crearItem(usuarioId, {
+      kind: 'category',
+      categoryId: categoriaId,
+      currency: 'COP',
+      amount: '100000',
+    });
+
+    await servicio.fijarObjetivoDelMes(usuarioId, item.id, MES, '0');
+    await servicio.fijarObjetivoDelMes(usuarioId, item.id, MES, '80000');
+
+    expect((await repositorio.obtener(usuarioId, item.id, MES))!.currentAmount).toBe('80000.0000');
+    expect((await repositorio.obtener(usuarioId, item.id, MES_SIGUIENTE))!.currentAmount).toBe(
+      '100000.0000',
+    );
+  });
+
+  it('en el checklist, un objetivo de cero nunca es logro (ingreso)', async () => {
+    const categoriaId = await crearCategoriaDeIngreso();
+    const item = await servicio.crearItem(usuarioId, {
+      kind: 'category',
+      categoryId: categoriaId,
+      currency: 'COP',
+      amount: '400000',
+    });
+    await servicio.fijarObjetivoDelMes(usuarioId, item.id, MES, '0');
+
+    const { data } = await servicio.checklistDelMes(usuarioId, { month: MES, currency: 'COP' });
+    expect(data.items.find((i) => i.id === item.id)).toMatchObject({
+      target: '0.0000',
+      progress: '0.0000',
+      checked: false,
+      exceeded: false,
+    });
+
+    // Aunque llegue plata de esa categoría, un cero no es una meta que cumplir.
+    await registrarIngreso(await cuentaNueva(), '100000', categoriaId);
+    const despues = await servicio.checklistDelMes(usuarioId, { month: MES, currency: 'COP' });
+    expect(despues.data.items.find((i) => i.id === item.id)).toMatchObject({
+      checked: false,
+      exceeded: false,
+    });
+  });
+
+  it('en el checklist, gastar sobre un tope de cero sí es pasarse; no gastar no avisa nada', async () => {
+    const categoriaId = await crearCategoriaDeGasto();
+    const item = await servicio.crearItem(usuarioId, {
+      kind: 'category',
+      categoryId: categoriaId,
+      currency: 'COP',
+      amount: '100000',
+    });
+    await servicio.fijarObjetivoDelMes(usuarioId, item.id, MES, '0');
+
+    const sinGasto = await servicio.checklistDelMes(usuarioId, { month: MES, currency: 'COP' });
+    expect(sinGasto.data.items.find((i) => i.id === item.id)).toMatchObject({
+      target: '0.0000',
+      checked: false,
+      exceeded: false,
+    });
+
+    const respuesta = await app.inject({
+      method: 'POST',
+      url: '/api/v1/transactions',
+      payload: {
+        accountId: await cuentaNueva(),
+        amount: '-30000',
+        categoryId: categoriaId,
+        occurredAt: DIA_15,
+      },
+    });
+    expect(respuesta.statusCode, respuesta.body ?? '').toBe(201);
+
+    const conGasto = await servicio.checklistDelMes(usuarioId, { month: MES, currency: 'COP' });
+    expect(conGasto.data.items.find((i) => i.id === item.id)).toMatchObject({
+      progress: '30000.0000',
+      checked: false,
+      exceeded: true,
+    });
   });
 });
 

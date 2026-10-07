@@ -610,15 +610,57 @@ describe('fijar el objetivo de un mes', () => {
     expect(cuerpo.data.currentAmount).toBe('100000.0000'); // hoy no cambió
   });
 
-  it('rechaza un monto en cero o negativo', async () => {
+  it('rechaza un monto negativo o mal escrito al fijar un mes', async () => {
     const mercado = await crearCategoria('Mercado');
     const item = await crearItemDeCategoria(mercado.id, '100000');
 
-    const { estado } = await pedir('PATCH', `/api/v1/budgets/items/${item.id}/target`, {
-      amount: '-5',
-      month: mesRelativo(0).etiqueta,
-    });
-    expect(estado).toBe(400);
+    for (const amount of ['-5', '-0', 'abc', '']) {
+      const { estado } = await pedir('PATCH', `/api/v1/budgets/items/${item.id}/target`, {
+        amount,
+        month: mesRelativo(0).etiqueta,
+      });
+      expect(estado, amount).toBe(400);
+    }
+  });
+
+  it('acepta cero al fijar un mes ("este mes no aplica") y solo rige ese mes', async () => {
+    const mercado = await crearCategoria('Mercado');
+    const item = await crearItemDeCategoria(mercado.id, '100000');
+
+    // "0" y "00" son el mismo cero: ninguno debe apagar los meses de después.
+    for (const amount of ['0', '00']) {
+      const { estado, cuerpo } = await pedir('PATCH', `/api/v1/budgets/items/${item.id}/target`, {
+        amount,
+        month: mesRelativo(0).etiqueta,
+      });
+      expect(estado, amount).toBe(200);
+      expect(cuerpo.data.currentAmount).toBe('0.0000');
+    }
+
+    const esteMes = await pedir(
+      'GET',
+      `/api/v1/budgets/checklist?month=${mesRelativo(0).etiqueta}&currency=COP`,
+    );
+    const siguiente = await pedir(
+      'GET',
+      `/api/v1/budgets/checklist?month=${mesRelativo(1).etiqueta}&currency=COP`,
+    );
+    expect(esteMes.cuerpo.data.items[0]).toMatchObject({ target: '0.0000', checked: false });
+    expect(siguiente.cuerpo.data.items[0]).toMatchObject({ target: '100000.0000' });
+  });
+
+  it('crear un ítem con monto cero, escrito como sea, sigue siendo un error', async () => {
+    const mercado = await crearCategoria('Mercado');
+
+    for (const amount of ['0', '00', '000.0000']) {
+      const { estado } = await pedir('POST', '/api/v1/budgets/items', {
+        kind: 'category',
+        categoryId: mercado.id,
+        currency: 'COP',
+        amount,
+      });
+      expect(estado, amount).toBe(400);
+    }
   });
 
   it('rechaza un mes mal escrito', async () => {

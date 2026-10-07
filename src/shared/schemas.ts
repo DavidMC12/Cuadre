@@ -14,18 +14,30 @@ const FORMA_DE_MONTO = /^-?\d{1,15}(\.\d{1,4})?$/;
 export const MontoSchema = z
   .string()
   .regex(FORMA_DE_MONTO, 'debe ser un monto como "1250" o "-1250.75", con máximo 4 decimales')
-  .refine((valor) => !/^-?0(\.0{1,4})?$/.test(valor), { message: 'no puede ser cero' });
+  .refine((valor) => !esCero(valor), { message: 'no puede ser cero' });
 
 /** Igual, pero acepta cero. Sirve para el saldo inicial de una cuenta. */
 export const MontoConCeroSchema = z
   .string()
   .regex(FORMA_DE_MONTO, 'debe ser un monto como "1250" o "-1250.75", con máximo 4 decimales');
 
+/** true si el monto es cero, escrito como sea: "0", "0.00", "00", "000.0000". */
+export const esCero = (monto: string): boolean => /^-?0+(\.0{1,4})?$/.test(monto);
+
 /** Un monto positivo. La dirección la da otra cosa, no el signo. */
 export const MontoPositivoSchema = z
   .string()
   .regex(/^\d{1,15}(\.\d{1,4})?$/, 'debe ser un monto positivo, como "300" o "300.50"')
-  .refine((valor) => !/^0(\.0{1,4})?$/.test(valor), { message: 'no puede ser cero' });
+  // `esCero` y no un regex propio: "00" y "000.0000" también son cero.
+  .refine((valor) => !esCero(valor), { message: 'no puede ser cero' });
+
+/**
+ * Un monto que puede ser cero pero nunca negativo. Para un tope de presupuesto
+ * de UN mes: cero significa "este mes no aplica" (no pagaré agua este mes).
+ */
+export const MontoNoNegativoSchema = z
+  .string()
+  .regex(/^\d{1,15}(\.\d{1,4})?$/, 'debe ser un monto como "300", "300.50" o "0"');
 
 export const MonedaSchema = z
   .string()
@@ -63,6 +75,3 @@ export const MesSchema = z
 export const FechaSchema = z.union([z.iso.datetime({ offset: true }), z.iso.date()], {
   error: 'no es una fecha válida. Usa "2026-01-31" o "2026-01-31T14:30:00Z"',
 });
-
-/** true si el monto es cero, escrito como sea. */
-export const esCero = (monto: string): boolean => /^-?0(\.0{1,4})?$/.test(monto);

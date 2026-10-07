@@ -11,6 +11,7 @@
 import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { budgetItems } from '../../db/schema/index.js';
+import { esCero } from '../../shared/schemas.js';
 import { ZONA_HORARIA } from '../../shared/zona-horaria.js';
 import type { BudgetItemKind } from './schemas.js';
 
@@ -164,7 +165,9 @@ export async function crear(
  * eso, antes de insertar, se "ancla" el mes siguiente con el monto que ya
  * tenía vigente (solo si existía, es distinto del nuevo y ese mes ya empezó:
  * un mes futuro sigue heredando, así subir el tope hoy rige "de aquí en
- * adelante"). Repetir el mismo monto en el mismo mes no agrega filas. El
+ * adelante"). La excepción es el monto cero ("este mes no aplica"): ese rige
+ * SOLO ese mes, así que el mes siguiente se ancla siempre, aunque sea futuro.
+ * Repetir el mismo monto en el mismo mes no agrega filas. El
  * bloqueo de la fila del ítem serializa dos ediciones simultáneas.
  * Devuelve `false` si el ítem no existe o no es de este usuario.
  */
@@ -174,6 +177,8 @@ export async function fijarObjetivoDelMes(
   mes: string,
   monto: string,
 ): Promise<boolean> {
+  const soloEsteMes = esCero(monto);
+
   return db.transaction(async (tx) => {
     const [item] = (await tx.execute(sql`
       select id from budget_items
@@ -203,7 +208,10 @@ export async function fijarObjetivoDelMes(
         limit 1
       ) vigente
       where vigente.amount <> ${monto}::numeric
-        and siguiente.mes <= date_trunc('month', clock_timestamp() at time zone ${ZONA_HORARIA}::text)::date
+        and (
+          ${soloEsteMes}::boolean
+          or siguiente.mes <= date_trunc('month', clock_timestamp() at time zone ${ZONA_HORARIA}::text)::date
+        )
         and not exists (
           select 1 from budget_item_targets p
           where p.budget_item_id = ${itemId}::uuid and p.effective_from = siguiente.mes
