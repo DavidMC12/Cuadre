@@ -283,6 +283,25 @@ export async function obtenerMonedasDeCuentas(
 }
 
 /**
+ * El tipo (banco, tarjeta, efectivo) de cada cuenta, por su id. Igual que
+ * `obtenerMonedasDeCuentas`: una cuenta que no existe o no es de esta persona
+ * no aparece en el mapa. Sirve para saber si una transferencia es el pago de
+ * una tarjeta antes de dejarle un ítem del presupuesto.
+ */
+export async function obtenerTiposDeCuentas(
+  ejecutor: Ejecutor,
+  usuarioId: string,
+  cuentaIds: readonly string[],
+): Promise<Map<string, string>> {
+  const filas = await ejecutor
+    .select({ id: accounts.id, type: accounts.type })
+    .from(accounts)
+    .where(and(eq(accounts.userId, usuarioId), inArray(accounts.id, [...cuentaIds])));
+
+  return new Map(filas.map((fila) => [fila.id, fila.type]));
+}
+
+/**
  * Señal interna para deshacer la transacción cuando alguna cuenta no existe.
  *
  * `db.transaction` solo hace ROLLBACK si el callback lanza: un simple
