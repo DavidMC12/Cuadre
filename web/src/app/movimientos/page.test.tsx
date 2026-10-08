@@ -175,7 +175,8 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       occurredAt: "2026-09-10T12:00:00Z",
       description: null,
       transferGroupId: null,
-      reversesTransactionId: null,
+      budgetItemId: null,
+    reversesTransactionId: null,
       reversedByTransactionId: null,
     };
     ajustar({
@@ -236,7 +237,8 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       occurredAt: "2026-09-10T12:00:00Z",
       description: "Mercado",
       transferGroupId: null,
-      reversesTransactionId: null,
+      budgetItemId: null,
+    reversesTransactionId: null,
       reversedByTransactionId: null,
     };
     // La mutación no pega contra un servidor: aquí se simula el éxito para ver
@@ -308,7 +310,8 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       occurredAt: "2026-09-10T12:00:00Z",
       description: null,
       transferGroupId: null,
-      reversesTransactionId: null,
+      budgetItemId: null,
+    reversesTransactionId: null,
       reversedByTransactionId: null,
     };
   }
@@ -450,7 +453,8 @@ describe("Movimientos: piso de toque de 44px", () => {
       occurredAt: "2026-09-10T12:00:00Z",
       description: null,
       transferGroupId: null,
-      reversesTransactionId: null,
+      budgetItemId: null,
+    reversesTransactionId: null,
       reversedByTransactionId: null,
     };
     ajustar({ data: [comprobante], hasNextPage: true, isFetchingNextPage: false });

@@ -7,6 +7,7 @@ import {
   createTransfer,
   fetchTransactions,
   reverseTransaction,
+  updateTransactionBudgetItem,
   updateTransactionCategory,
 } from "@/lib/api/transactions";
 import type { FiltrosMovimientos, NuevaTransferencia, NuevoMovimiento } from "@/lib/api/types";
@@ -81,6 +82,20 @@ export function useActualizarCategoriaMovimiento() {
       // el progreso de un ítem del checklist que apunte a esa categoría.
       queryClient.invalidateQueries({ queryKey: clavesMovimientos.todas() });
       queryClient.invalidateQueries({ queryKey: clavesReportes.todas() });
+      queryClient.invalidateQueries({ queryKey: clavesPresupuesto.todas() });
+    },
+  });
+}
+
+export function useActualizarItemMovimiento() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, budgetItemId }: { id: string; budgetItemId: string | null }) =>
+      updateTransactionBudgetItem(id, budgetItemId),
+    onSuccess: () => {
+      // No cambia saldos ni categorías: solo a qué item del checklist cuenta
+      // el movimiento. Se refrescan la lista y las consultas de presupuesto.
+      queryClient.invalidateQueries({ queryKey: clavesMovimientos.todas() });
       queryClient.invalidateQueries({ queryKey: clavesPresupuesto.todas() });
     },
   });

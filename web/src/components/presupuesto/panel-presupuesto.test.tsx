@@ -42,10 +42,13 @@ const renglon: ItemDelChecklist = {
   kind: "category",
   currency: "COP",
   categoryKind: "expense",
+  categoryId: null,
+  categoryName: null,
   target: "30000",
   progress: "20500",
   checked: false,
   exceeded: false,
+  status: "pending",
 } as ItemDelChecklist;
 
 // Renglón de un mes en planeación: nada se ha movido todavía (el servidor
@@ -287,10 +290,13 @@ function renglonDe(item: ItemPresupuesto): ItemDelChecklist {
     currency: item.currency,
     label: item.label ?? item.categoryName ?? item.accountName ?? "Ítem",
     categoryKind: item.categoryKind,
+    categoryId: item.categoryId,
+    categoryName: item.categoryName,
     target: "100",
     progress: "50",
     checked: false,
     exceeded: false,
+    status: "pending",
   };
 }
 

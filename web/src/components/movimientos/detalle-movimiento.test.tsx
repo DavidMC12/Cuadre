@@ -32,6 +32,7 @@ const movimiento: Movimiento = {
   id: "m-1",
   accountId: "a-1",
   categoryId: null,
+  budgetItemId: null,
   kind: "standard",
   amount: "-12500",
   currency: "COP",
@@ -74,6 +75,7 @@ describe("DetalleMovimiento: un ajuste de saldo", () => {
     occurredAt: "2026-10-06T18:30:00Z",
     description: "Ajuste de saldo",
     transferGroupId: null,
+    budgetItemId: null,
     reversesTransactionId: null,
     reversedByTransactionId: null,
   };

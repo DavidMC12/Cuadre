@@ -10,10 +10,13 @@ function renglon(id: string, kind: ItemDelChecklist["kind"] = "category"): ItemD
     currency: "COP",
     label: id,
     categoryKind: kind === "savings" ? null : "expense",
+    categoryId: kind === "savings" ? null : `cat-${id}`,
+    categoryName: kind === "savings" ? null : null,
     target: "100",
     progress: "50",
     checked: false,
     exceeded: false,
+    status: "pending",
   };
 }
 
