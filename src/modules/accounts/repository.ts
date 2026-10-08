@@ -18,6 +18,26 @@ const CAMPOS = {
   creditLimit: accounts.creditLimit,
   linkedAccountId: accounts.linkedAccountId,
   balance: accountBalances.balance,
+  /**
+   * Lo AHORRADO en la cuenta (no su saldo): lo que la persona decidió apartar,
+   * o sea las transferencias hacia/desde ella más sus registros manuales de
+   * ahorro (`savings_entries`). Solo tiene sentido en una cuenta de ahorro; en
+   * las demás es cero. Se calcula al leer, nunca se guarda.
+   */
+  saved: sql<string>`case when ${accounts.isSavings} then (
+    coalesce((
+      select sum(t.amount) from transactions t
+      where t.user_id = ${accounts.userId}
+        and t.account_id = ${accounts.id}
+        and t.kind = 'transfer'
+    ), 0)
+    +
+    coalesce((
+      select sum(e.amount) from savings_entries e
+      where e.user_id = ${accounts.userId}
+        and e.account_id = ${accounts.id}
+    ), 0)
+  )::numeric(19,4)::text else '0.0000' end`,
   movementCount: accountBalances.movementCount,
   lastMovementAt: accountBalances.lastMovementAt,
 };
@@ -43,6 +63,7 @@ function aCuenta(fila: FilaDeCuenta): Cuenta {
     type: fila.type as Cuenta['type'],
     currency: fila.currency.trim(),
     balance: fila.balance,
+    saved: fila.saved,
     movementCount: Number(fila.movementCount),
     lastMovementAt: fila.lastMovementAt?.toISOString() ?? null,
     archivedAt: fila.archivedAt?.toISOString() ?? null,

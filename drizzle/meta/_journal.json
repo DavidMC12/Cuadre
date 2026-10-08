@@ -92,6 +92,13 @@
       "when": 1791502844996,
       "tag": "0012_items_independientes",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791503354061,
+      "tag": "0013_ahorro_explicito",
+      "breakpoints": true
     }
   ]
 }
