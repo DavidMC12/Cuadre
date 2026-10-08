@@ -9,6 +9,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { accounts } from './accounts.js';
@@ -69,6 +70,19 @@ export const budgetItems = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => [
+    // Llaves que existen solo para que `transactions` pueda apuntar aquí con
+    // una llave foránea compuesta (ver `transactions_budget_item_fk` y
+    // `transactions_budget_item_category_fk`): un movimiento asignado a un
+    // ítem tiene que ser del mismo dueño, de la misma categoría y de la misma
+    // moneda que el ítem, y eso lo exige la base, no solo el service.
+    unique('budget_items_tenant_unique').on(t.userId, t.id),
+    unique('budget_items_tenant_category_currency_unique').on(
+      t.userId,
+      t.id,
+      t.categoryId,
+      t.currency,
+    ),
+
     // La categoría, si hay, tiene que ser de este mismo usuario Y de gasto:
     // `categories_tenant_kind_unique` es la llave de tres columnas que hace
     // posible exigir el `kind` aquí mismo, igual que la cuenta exige moneda.

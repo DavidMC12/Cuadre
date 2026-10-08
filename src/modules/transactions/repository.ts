@@ -17,6 +17,7 @@ interface FilaCruda {
   id: string;
   account_id: string;
   category_id: string | null;
+  budget_item_id: string | null;
   kind: string;
   amount: string;
   currency: string;
@@ -35,6 +36,7 @@ function aMovimiento(fila: FilaCruda): Movimiento {
     id: fila.id,
     accountId: fila.account_id,
     categoryId: fila.category_id,
+    budgetItemId: fila.budget_item_id,
     kind: fila.kind as Movimiento['kind'],
     amount: fila.amount,
     currency: fila.currency.trim(),
@@ -48,7 +50,7 @@ function aMovimiento(fila: FilaCruda): Movimiento {
 
 /** Para el RETURNING de un INSERT: una fila recién nacida no puede estar anulada. */
 const COLUMNAS = sql`
-  id, account_id, category_id, kind, amount::text as amount, currency,
+  id, account_id, category_id, budget_item_id, kind, amount::text as amount, currency,
   occurred_at, description, transfer_group_id, reverses_transaction_id`;
 
 /**
@@ -56,7 +58,7 @@ const COLUMNAS = sql`
  * movimiento ya lo anularon?", que es lo que decide si se puede anular.
  */
 const LECTURA_CON_ANULACION = sql`
-  select m.id, m.account_id, m.category_id, m.kind, m.amount::text as amount,
+  select m.id, m.account_id, m.category_id, m.budget_item_id, m.kind, m.amount::text as amount,
          m.currency, m.occurred_at, m.description, m.transfer_group_id,
          m.reverses_transaction_id,
          anulacion.id as reversed_by_transaction_id
@@ -73,6 +75,8 @@ export interface DatosParaRegistrar {
   ocurrioEn: string;
   descripcion?: string | null;
   categoriaId?: string | null;
+  /** A qué ítem del presupuesto cuenta. Nulo: "sin asignar". */
+  itemId?: string | null;
   tipo?: 'opening' | 'standard' | 'transfer' | 'adjustment';
   grupoDeTransferencia?: string | null;
   anula?: string | null;
@@ -94,11 +98,12 @@ export async function registrar(
 ): Promise<Movimiento | null> {
   const filas = (await ejecutor.execute(sql`
     insert into transactions
-      (user_id, account_id, category_id, kind, amount, currency, occurred_at,
-       description, transfer_group_id, reverses_transaction_id)
+      (user_id, account_id, category_id, budget_item_id, kind, amount, currency,
+       occurred_at, description, transfer_group_id, reverses_transaction_id)
     select ${usuarioId}::uuid,
            ${datos.cuentaId}::uuid,
            ${datos.categoriaId ?? null}::uuid,
+           ${datos.itemId ?? null}::uuid,
            ${datos.tipo ?? 'standard'},
            ${datos.monto}::numeric,
            cuenta.currency,
@@ -198,6 +203,7 @@ export async function listar(
       id: transactions.id,
       accountId: transactions.accountId,
       categoryId: transactions.categoryId,
+      budgetItemId: transactions.budgetItemId,
       kind: transactions.kind,
       amount: transactions.amount,
       currency: transactions.currency,
@@ -227,6 +233,7 @@ export async function listar(
       id: fila.id,
       accountId: fila.accountId,
       categoryId: fila.categoryId,
+      budgetItemId: fila.budgetItemId,
       kind: fila.kind,
       amount: fila.amount,
       currency: fila.currency.trim(),
@@ -295,6 +302,8 @@ export async function registrarTransferencia(
     monto: string;
     ocurrioEn: string;
     descripcion?: string | null;
+    /** Solo para el pago a una tarjeta: el ítem va en la pata de SALIDA. */
+    itemId?: string | null;
   },
 ): Promise<{ grupoId: string; patas: Movimiento[] } | null> {
   try {
@@ -311,6 +320,7 @@ export async function registrarTransferencia(
         ...comun,
         cuentaId: datos.origenId,
         monto: `-${datos.monto}`,
+        itemId: datos.itemId ?? null,
       });
       if (!salida) throw new CuentaDeTransferenciaInexistente();
 
@@ -357,6 +367,8 @@ export interface FilaParaExportar {
   moneda: string;
   tipo: string;
   categoria: string | null;
+  /** El ítem de presupuesto al que cuenta, con el nombre que se ve en pantalla. */
+  item: string | null;
   descripcion: string | null;
   monto: string;
   anula: string | null;
@@ -388,6 +400,7 @@ export async function listarParaExportar(usuarioId: string): Promise<FilaParaExp
            m.currency as moneda,
            m.kind as tipo,
            categoria.name as categoria,
+           coalesce(item.label, item_categoria.name) as item,
            m.description as descripcion,
            m.amount::text as monto,
            m.reverses_transaction_id as anula,
@@ -400,6 +413,12 @@ export async function listarParaExportar(usuarioId: string): Promise<FilaParaExp
       left join categories categoria
         on categoria.id = m.category_id
        and categoria.user_id = m.user_id
+      left join budget_items item
+        on item.id = m.budget_item_id
+       and item.user_id = m.user_id
+      left join categories item_categoria
+        on item_categoria.id = item.category_id
+       and item_categoria.user_id = item.user_id
       left join transactions anulacion
         on anulacion.reverses_transaction_id = m.id
        and anulacion.user_id = m.user_id
@@ -412,6 +431,7 @@ export async function listarParaExportar(usuarioId: string): Promise<FilaParaExp
     moneda: string;
     tipo: string;
     categoria: string | null;
+    item: string | null;
     descripcion: string | null;
     monto: string;
     anula: string | null;
@@ -426,6 +446,7 @@ export async function listarParaExportar(usuarioId: string): Promise<FilaParaExp
     moneda: fila.moneda.trim(),
     tipo: fila.tipo,
     categoria: fila.categoria,
+    item: fila.item,
     descripcion: fila.descripcion,
     monto: fila.monto,
     anula: fila.anula,
@@ -435,11 +456,15 @@ export async function listarParaExportar(usuarioId: string): Promise<FilaParaExp
 }
 
 /**
- * Corrige la categoria de un movimiento. Es lo UNICO que se puede cambiar de
- * una fila del libro: el monto, la fecha y la cuenta los protege un disparador
- * en la base (ver la migracion 0002).
+ * Corrige la categoria de un movimiento. Junto con el item de presupuesto, es
+ * lo UNICO que se puede cambiar de una fila del libro: el monto, la fecha y la
+ * cuenta los protege un disparador en la base (ver las migraciones 0002 y 0012).
  *
- * Devuelve null si el movimiento no existe o no es de esta persona.
+ * Un item solo sirve dentro de su categoria: si la categoria cambia, el
+ * movimiento queda "sin asignar" (si queda en la misma, conserva su item).
+ * Dentro de un UPDATE, `category_id` a la derecha es el valor de ANTES.
+ *
+ * Devuelve false si el movimiento no existe o no es de esta persona.
  */
 export async function recategorizar(
   ejecutor: Ejecutor,
@@ -449,7 +474,37 @@ export async function recategorizar(
 ): Promise<boolean> {
   const filas = (await ejecutor.execute(sql`
     update transactions
-       set category_id = ${categoriaId}::uuid
+       set category_id = ${categoriaId}::uuid,
+           budget_item_id = case
+             when category_id is not distinct from ${categoriaId}::uuid then budget_item_id
+             else null
+           end
+     where id = ${movimientoId}::uuid
+       and user_id = ${usuarioId}::uuid
+    returning id
+  `)) as unknown as { id: string }[];
+
+  return filas.length > 0;
+}
+
+/**
+ * Asigna un movimiento a un item del presupuesto (o lo deja "sin asignar" con
+ * `null`). La base exige que el item sea del mismo dueño y, si el movimiento
+ * lleva categoria, de la misma categoria y moneda; que el item sirva para este
+ * movimiento (por ejemplo, que el pago a una tarjeta sea de salida) lo decide
+ * quien llama.
+ *
+ * Devuelve false si el movimiento no existe o no es de esta persona.
+ */
+export async function asignarItem(
+  ejecutor: Ejecutor,
+  usuarioId: string,
+  movimientoId: string,
+  itemId: string | null,
+): Promise<boolean> {
+  const filas = (await ejecutor.execute(sql`
+    update transactions
+       set budget_item_id = ${itemId}::uuid
      where id = ${movimientoId}::uuid
        and user_id = ${usuarioId}::uuid
     returning id

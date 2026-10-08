@@ -56,6 +56,8 @@ export const MovimientoSchema = z.object({
   id: z.uuid(),
   accountId: z.uuid(),
   categoryId: z.uuid().nullable(),
+  /** A qué ítem del presupuesto cuenta; nulo si está "sin asignar". */
+  budgetItemId: z.uuid().nullable(),
   kind: z.enum(TIPOS_DE_MOVIMIENTO),
   amount: z.string(),
   currency: z.string(),
