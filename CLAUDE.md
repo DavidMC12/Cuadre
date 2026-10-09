@@ -569,6 +569,37 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   (no hay forma de anularla desde la pantalla aunque el servidor lo permite);
   una categoría archivada precargada al corregir no se ve elegida en el menú.
 
+- **Compra pagada con dos cuentas** (2026-10-09). El dueño quería pagar un
+  mercado la mitad con la tarjeta y la mitad con plata disponible registrándolo
+  una vez (hasta entonces eran dos gastos sueltos que podían quedar a medias).
+  Migración `0014` (**aplicada a producción el 2026-10-09**: 15 migraciones,
+  verificado): `transactions.payment_group_id` (nulo por defecto, índice parcial,
+  check solo para `kind = 'standard'`; el disparador de inmutabilidad ya lo
+  protege solo). Se guarda como DOS gastos (o ingresos) normales, uno por cuenta,
+  ligados por ese grupo, con la misma categoría, ítem y fecha, y la descripción
+  marcada "(1 de 2)" / "(2 de 2)" ("Pago 1 de 2" si no hubo). API:
+  `POST /api/v1/split-payments` (dos partes, cuentas distintas y de la misma
+  moneda, montos con signo y del mismo signo; entran las dos o ninguna) y
+  `POST /api/v1/split-payments/:id/reversal` (anula las dos con un grupo NUEVO,
+  como las transferencias: 409 si ya estaba anulada, 422 si es de una
+  anulación). Una parte sola NO se anula (422); cambiar categoría o ítem de una
+  parte mueve las dos (y sus anulaciones). Un gasto repartido cuenta entero una
+  sola vez en reportes y presupuesto; el CSV trae la columna "Pago dividido".
+  Pantalla: en Movimientos las dos partes son UNA fila ("Mercado · Tarjeta Nu
+  $100.000 + Nu Bank $100.000") con detalle propio y "Anular compra" (anula el
+  grupo; una parte suelta, por filtro de cuenta, también anula la compra
+  completa y el diálogo lo dice sin prometer un total que no ve); en registrar,
+  el enlace "Pagar con dos cuentas" reparte la mitad (el sobrante a la cuenta
+  1), completa la otra parte al editar una, y "Registrar" solo se habilita si
+  las dos cuentas están elegidas y la suma es EXACTA (no se ofrece en "Entre
+  cuentas" ni al corregir). La revisión independiente (worker1, dos rondas)
+  no halló ningún Critical; atrapó dos fallos de pantalla que ya estaban
+  cerrados: la franja decía "✓ Suma" con la cuenta 2 sin elegir y el diálogo de
+  anular mostraba la mitad del total. Sin hacer: corregir una compra =
+  anularla y registrarla de nuevo a mano; solo dos partes; la base no exige
+  "exactamente 2 patas" por grupo (la API siempre crea 2); el nombre de una
+  cuenta archivada sale como "…" en la fila combinada.
+
 Pendiente, sin fecha: otra ronda de `impeccable critique` para medir el
 puntaje tras estos cierres.
 
