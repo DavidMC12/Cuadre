@@ -262,6 +262,7 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       monto: "12.500",
       cuentaId: "a-7",
       categoriaId: "c-3",
+      itemDelPresupuesto: null,
       fecha: "2026-09-10",
       descripcion: "Mercado",
       tipo: "gasto",

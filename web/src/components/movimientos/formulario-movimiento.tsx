@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
-
 import {
   Dialog,
   DialogContent,
@@ -27,21 +26,24 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SelectorCategoria } from "@/components/movimientos/selector-categoria";
 import { useCategorias } from "@/hooks/use-categorias";
+import { useChecklistDelMes } from "@/hooks/use-presupuesto";
 import { useCrearMovimiento, useCrearTransferencia } from "@/hooks/use-movimientos";
 import { usePantallaGrande } from "@/hooks/use-pantalla-grande";
 import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
-import type { Cuenta } from "@/lib/api/types";
+import type { Cuenta, ItemDelChecklist } from "@/lib/api/types";
 import { fechaParaInput, inputAIso } from "@/lib/fecha";
 import { cn } from "@/lib/utils";
-import { normalizarMontoIngresado, textoMonto } from "@/lib/money";
+import { aUnidadesMinimas, normalizarMontoIngresado, restar, textoMonto } from "@/lib/money";
 import { cuentasDeDestino } from "@/lib/transferencias";
 
 type TipoMonto = "gasto" | "ingreso" | "transferencia";
@@ -53,20 +55,47 @@ type TipoMonto = "gasto" | "ingreso" | "transferencia";
  * `key` distinta si cambia de movimiento), así que no hace falta reaccionar a
  * cambios posteriores.
  *
- * La compuerta de "Registrar" en corrección compara estos seis campos: tipo,
- * monto, cuenta, categoría, fecha y descripción. No precargue una
- * transferencia — "Desde" y "Hacia" quedan fuera de esa comparación, y un
- * reenvío podría irse con las patas del respaldo en vez de las precargadas.
+ * La compuerta de "Registrar" en corrección compara estos siete campos: tipo,
+ * monto, cuenta, categoría, item del presupuesto, fecha y descripción. No
+ * precargue una transferencia — "Desde" y "Hacia" quedan fuera de esa
+ * comparación, y un reenvío podría irse con las patas del respaldo en vez de
+ * las precargadas.
  */
 interface ValoresInicialesMovimiento {
   /** Monto ya listo para el campo (mismo formato que `textoEditable`). */
   monto?: string;
   cuentaId?: string;
   categoriaId?: string;
+  /** El item del presupuesto al que contaba: `null` = no contaba para ninguno. */
+  itemDelPresupuesto?: string | null;
   /** YYYY-MM-DD, como lo espera un `<input type="date">`. */
   fecha?: string;
   descripcion?: string;
   tipo?: TipoMonto;
+}
+
+/** El valor del selector que marca "no cuenta para ningún item". */
+const SIN_ITEM = "__sin_item__";
+
+/**
+ * La opción del selector de item, con lo que falta por pagar o recibir:
+ * "Deuda TC Nu — faltan $102.500" (aritmética exacta, nada en número). Con el
+ * objetivo alcanzado o pasado dice "pagado" (o "recibido" en un ingreso), y
+ * sin objetivo ese mes solo queda el nombre.
+ */
+function textoDeOpcion(renglon: ItemDelChecklist): string {
+  if (renglon.target === null) return renglon.label;
+  const alcanzado = aUnidadesMinimas(renglon.progress);
+  const objetivo = aUnidadesMinimas(renglon.target);
+  if (alcanzado >= objetivo) {
+    return renglon.categoryKind === "income"
+      ? `${renglon.label} — recibido`
+      : `${renglon.label} — pagado`;
+  }
+  return `${renglon.label} — faltan ${textoMonto(
+    restar(renglon.target, renglon.progress),
+    renglon.currency
+  )}`;
 }
 
 
@@ -253,6 +282,78 @@ export function FormularioMovimiento({
   const hayDestinoPosible = destinosPosibles.length > 0;
   const cuentaDestino = cuentas.find((cuenta) => cuenta.id === cuentaDestinoId);
 
+  // El checklist del mes de la FECHA (no el de hoy: un movimiento retrasado
+  // cuenta para el mes en que ocurrió) y en la moneda de la cuenta que mueve
+  // la plata: la elegida, o la de origen en una transferencia.
+  const mesDelPresupuesto = fecha.slice(0, 7);
+  const monedaDelPresupuesto =
+    (tipoMonto === "transferencia" ? cuentaOrigen?.currency : cuentaElegida?.currency) ?? "";
+  const { data: checklist } = useChecklistDelMes({
+    month: mesDelPresupuesto,
+    currency: monedaDelPresupuesto || "",
+  });
+
+  // Los items del presupuesto de ESA categoria, en ESA moneda. Los de ahorro
+  // quedan fuera solos (no tienen categoria) y si la lista del mes todavía no
+  // llega, no hay nada que proponer: el campo muestra "Sin asignar" y en cuanto
+  // cargue se corrige solo.
+  const itemsDeCategoria =
+    categoryId && tipoMonto !== "transferencia"
+      ? (checklist?.items ?? []).filter((renglon) => renglon.categoryId === categoryId)
+      : [];
+
+  // La idea preseleccionada: con exactamente un item, ese; con varios, nadie —
+  // elegir entre varias deudas es decisión de quien registra, no del formulario.
+  const propuestaDeItem = itemsDeCategoria.length === 1 ? itemsDeCategoria[0].id : null;
+
+  /**
+   * El item elegido A MANO: `undefined` = nadie tocó el selector y manda la
+   * propuesta. Cambiar de categoría (o de tipo) limpia el manual y la propuesta
+   * gobierna otra vez; en una corrección arranca con el item que contaba el
+   * movimiento original (`null` = no contaba para ninguno), no con la propuesta.
+   */
+  const [itemAMano, setItemAMano] = useState<string | null | undefined>(
+    valoresIniciales ? (valoresIniciales.itemDelPresupuesto ?? null) : undefined
+  );
+  const itemDelMovimiento = itemAMano !== undefined ? itemAMano : propuestaDeItem;
+
+  // Pagar una tarjeta es apagar una deuda del presupuesto: si el destino lo
+  // es, el formulario lo pregunta con una opción opcional. Nunca se
+  // preselecciona: "Sin asignar" hasta que la persona elija.
+  const destinoEsTarjeta = tipoMonto === "transferencia" && cuentaDestino?.type === "card";
+  const itemsDePago = destinoEsTarjeta
+    ? (checklist?.items ?? []).filter(
+        (renglon) => renglon.categoryId !== null && renglon.categoryKind === "expense"
+      )
+    : [];
+  const [itemDePagoAMano, setItemDePagoAMano] = useState<string | null>(null);
+
+  // Los items de pago agrupados por categoría (alfabético), para que a la
+  // hora de elegir una deuda frente a otra se lean juntas. Con un solo
+  // grupo no hay rótulo: el grupo entero se muestra plano.
+  const gruposDePago = (() => {
+    const porCategoria = new Map<
+      string,
+      { categoryId: string; categoryName: string; items: ItemDelChecklist[] }
+    >();
+    for (const renglon of itemsDePago) {
+      const clave = renglon.categoryId as string;
+      let grupo = porCategoria.get(clave);
+      if (!grupo) {
+        grupo = {
+          categoryId: clave,
+          categoryName: renglon.categoryName ?? "Categoría",
+          items: [],
+        };
+        porCategoria.set(clave, grupo);
+      }
+      grupo.items.push(renglon);
+    }
+    return [...porCategoria.values()].sort((a, b) =>
+      a.categoryName.localeCompare(b.categoryName, "es")
+    );
+  })();
+
   // La cuenta que decide cómo se lee el monto escrito: la única elegida, o la
   // de origen cuando es una transferencia.
   const cuentaParaMonto = tipoMonto === "transferencia" ? cuentaOrigen : cuentaElegida;
@@ -288,6 +389,7 @@ export function FormularioMovimiento({
     monto !== (valoresIniciales?.monto ?? "") ||
     cuentaElegidaAMano !== (valoresIniciales?.cuentaId ?? null) ||
     categoryId !== valoresIniciales?.categoriaId ||
+    (itemDelMovimiento ?? null) !== (valoresIniciales?.itemDelPresupuesto ?? null) ||
     fecha !== (valoresIniciales?.fecha ?? hoyInput()) ||
     descripcion !== (valoresIniciales?.descripcion ?? "");
 
@@ -312,6 +414,8 @@ export function FormularioMovimiento({
     setFecha(valoresIniciales?.fecha ?? hoyInput());
     setDescripcion(valoresIniciales?.descripcion ?? "");
     setCategoryId(valoresIniciales?.categoriaId);
+    setItemAMano(valoresIniciales ? (valoresIniciales.itemDelPresupuesto ?? null) : undefined);
+    setItemDePagoAMano(null);
     setErrores({});
   }
 
@@ -345,6 +449,7 @@ export function FormularioMovimiento({
         amount: lectura.monto,
         occurredAt: inputAIso(fecha),
         description: descripcion.trim() || undefined,
+        budgetItemId: destinoEsTarjeta ? (itemDePagoAMano ?? null) : undefined,
       },
       {
         onSuccess: ({ data: guardada }) => {
@@ -398,6 +503,9 @@ export function FormularioMovimiento({
         occurredAt: inputAIso(fecha),
         description: descripcion.trim() || undefined,
         categoryId,
+        // Solo con categoría hay item: sin ella lo mandamos fuera y el
+        // movimiento queda sin asignar, que es lo correcto.
+        budgetItemId: categoryId ? (itemDelMovimiento ?? null) : undefined,
       },
       {
         onSuccess: ({ data: guardado }) => {
@@ -531,8 +639,10 @@ export function FormularioMovimiento({
             if (valores.length > 0) {
               setTipoMonto(valores[0] as TipoMonto);
               // Gasto e ingreso tienen categorías distintas: la que
-              // estaba elegida ya no aplica.
+              // estaba elegida ya no aplica. Y sin categoría vuelve
+              // la propuesta de item (el campo desaparece).
               setCategoryId(undefined);
+              setItemAMano(undefined);
             }
           }}
           variant="outline"
@@ -583,7 +693,10 @@ export function FormularioMovimiento({
                     aria-pressed={elegida}
                     // Un chip elegido se puede volver a tocar para quitar la
                     // categoría: no hace falta abrir "Más detalles" para eso.
-                    onClick={() => setCategoryId(elegida ? undefined : categoria.id)}
+                    onClick={() => {
+                      setCategoryId(elegida ? undefined : categoria.id);
+                      setItemAMano(undefined);
+                    }}
                     className={cn(
                       "min-h-11 rounded-full border px-3.5 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85",
                       elegida
@@ -676,6 +789,57 @@ export function FormularioMovimiento({
                 <p className="text-xs text-destructive">{errores.destino}</p>
               )}
             </div>
+
+            {/* Pagar la tarjeta puede ser apagar una de sus deudas: la
+                pregunta aparece solo si hay items de gasto este mes en esta
+                moneda, y nadie viene preseleccionado. Varios items de la
+                misma categoría viajan juntos, agrupados por categoría. */}
+            {destinoEsTarjeta && itemsDePago.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="pago-presupuesto-transferencia">
+                  ¿Qué pago del presupuesto es? (opcional)
+                </Label>
+                <Select
+                  value={itemDePagoAMano ?? SIN_ITEM}
+                  onValueChange={(valor) =>
+                    setItemDePagoAMano(valor && valor !== SIN_ITEM ? valor : null)
+                  }
+                >
+                  <SelectTrigger id="pago-presupuesto-transferencia" className="min-h-11 w-full">
+                    <SelectValue placeholder="Sin asignar">
+                      {(valor: string) => {
+                        const elegido =
+                          valor && valor !== SIN_ITEM
+                            ? itemsDePago.find((renglon) => renglon.id === valor)
+                            : undefined;
+                        return elegido ? textoDeOpcion(elegido) : "Sin asignar";
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SIN_ITEM}>Sin asignar</SelectItem>
+                    {gruposDePago.map((grupo) =>
+                      grupo.items.length > 1 ? (
+                        <SelectGroup key={grupo.categoryId}>
+                          <SelectLabel>{grupo.categoryName}</SelectLabel>
+                          {grupo.items.map((renglon) => (
+                            <SelectItem key={renglon.id} value={renglon.id}>
+                              {textoDeOpcion(renglon)}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ) : (
+                        grupo.items.map((renglon) => (
+                          <SelectItem key={renglon.id} value={renglon.id}>
+                            {textoDeOpcion(renglon)}
+                          </SelectItem>
+                        ))
+                      )
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </>
         ) : (
           <div className="flex flex-col gap-1.5">
@@ -771,8 +935,53 @@ export function FormularioMovimiento({
                   id="categoria-movimiento"
                   kind={tipoMonto === "gasto" ? "expense" : "income"}
                   value={categoryId}
-                  onChange={setCategoryId}
+                  onChange={(nueva) => {
+                    setCategoryId(nueva);
+                    // La propuesta de item (o el elegido a mano) ya no
+                    // aplica: la categoría nueva es otra historia.
+                    setItemAMano(undefined);
+                  }}
                 />
+              </div>
+            )}
+
+            {/* A qué item del presupuesto cuenta: solo existe cuando la
+                categoría elegida tiene items este mes. Si la categoría no
+                tiene ninguno no aparece: nada nuevo que explicar. */}
+            {categoryId && itemsDeCategoria.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="item-presupuesto-movimiento">
+                  Item del presupuesto (opcional)
+                </Label>
+                <Select
+                  value={itemDelMovimiento ?? SIN_ITEM}
+                  onValueChange={(valor) =>
+                    setItemAMano(valor && valor !== SIN_ITEM ? valor : null)
+                  }
+                >
+                  <SelectTrigger id="item-presupuesto-movimiento" className="min-h-11 w-full">
+                    {/* El popup vive en un portal que no está montado
+                        mientras el selector está cerrado: se resuelve el
+                        texto a mano, como en los demás selectores. */}
+                    <SelectValue>
+                      {(valor: string) => {
+                        const elegido =
+                          valor && valor !== SIN_ITEM
+                            ? itemsDeCategoria.find((renglon) => renglon.id === valor)
+                            : undefined;
+                        return elegido ? textoDeOpcion(elegido) : "Sin asignar";
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SIN_ITEM}>Sin asignar</SelectItem>
+                    {itemsDeCategoria.map((renglon) => (
+                      <SelectItem key={renglon.id} value={renglon.id}>
+                        {textoDeOpcion(renglon)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </div>
