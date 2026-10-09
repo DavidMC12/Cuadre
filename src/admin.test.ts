@@ -312,6 +312,13 @@ describe('desde una cuenta ajena solo se mira', () => {
     expect(perfil.estado).toBe(200);
   });
 
+  it('bajar los respaldos también se puede: son de lectura', async () => {
+    for (const ruta of ['/api/v1/transactions/export', '/api/v1/savings-entries/export']) {
+      const respuesta = await appSuplantando.inject({ method: 'GET', url: ruta });
+      expect(respuesta.statusCode, ruta).toBe(200);
+    }
+  });
+
   it('no deja crear una cuenta', async () => {
     const { estado, cuerpo } = await pedir(appSuplantando, 'POST', '/api/v1/accounts', {
       name: 'Cuenta metida a la fuerza',

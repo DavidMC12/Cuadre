@@ -27,7 +27,8 @@ async function crearUsuario(): Promise<string> {
 }
 
 beforeAll(async () => {
-  usuarioId = await crearUsuario();
+  // El resolver lee `usuarioId` en cada petición; cada prueba estrena su
+  // propio usuario en `beforeEach`.
   app = await construirApp({ silencioso: true, resolverUsuario: async () => usuarioId });
   await app.ready();
 });
