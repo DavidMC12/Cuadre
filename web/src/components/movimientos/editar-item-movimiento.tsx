@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -56,6 +56,9 @@ export function EditarItemMovimiento({
   children: React.ReactNode;
 }) {
   const soloMirar = useSoloMirar();
+  const idBase = useId();
+  const idItem = `${idBase}-item`;
+  const idSinEleccion = `${idBase}-sin-eleccion`;
   const [abierto, setAbierto] = useState(false);
   const [eleccion, setEleccion] = useState<string | null>(movimiento.budgetItemId ?? null);
 
@@ -137,7 +140,7 @@ export function EditarItemMovimiento({
           </DrawerHeader>
 
           <div className="flex flex-col gap-1.5 px-4 py-4">
-            <Label htmlFor="item-movimiento-existente">Cuenta para</Label>
+            <Label htmlFor={idItem}>Cuenta para</Label>
             {/* El selector existe siempre: con items este mes muestra sus
                 opciones; sin ellos queda "Sin asignar" con una ayuda que
                 dice por qué — nunca un cajón que no se puede usar ni se
@@ -145,9 +148,9 @@ export function EditarItemMovimiento({
             <Select
               value={eleccion ?? SIN_ITEM}
               onValueChange={setEleccion}
-              aria-describedby={items.length === 0 ? "item-movimiento-sin-eleccion" : undefined}
+              aria-describedby={items.length === 0 ? idSinEleccion : undefined}
             >
-              <SelectTrigger id="item-movimiento-existente" className="min-h-11 w-full">
+              <SelectTrigger id={idItem} className="min-h-11 w-full">
                 {/* El popup de opciones vive en un portal que no está
                     montado mientras el selector está cerrado: hay que
                     resolver el texto a mano, como en los demás. */}
@@ -186,7 +189,7 @@ export function EditarItemMovimiento({
               </SelectContent>
             </Select>
             {items.length === 0 && (
-              <p id="item-movimiento-sin-eleccion" className="text-xs text-muted-foreground">
+              <p id={idSinEleccion} className="text-xs text-muted-foreground">
                 {esTransferencia
                   ? "No hay ítems de gasto este mes en esta moneda."
                   : "Esta categoría no tiene ítems de presupuesto este mes."}

@@ -36,6 +36,14 @@ vi.mock("@/components/ui/select", () => ({
 
 afterEach(cleanup);
 
+// La línea del estado del reparto ya no tiene una id fija (useId); se la
+// encuentra por su aria-live, que es la propiedad que la hace anunciarse.
+function estadoDelReparto(): HTMLElement {
+  return screen.getByText(
+    (texto, nodo) => nodo !== null && nodo.getAttribute("aria-live") === "polite"
+  )!;
+}
+
 function cuenta(id: string, nombre: string, extras: Partial<Cuenta> = {}): Cuenta {
   return { id, name: nombre, currency: "COP", archivedAt: null, ...extras } as Cuenta;
 }
@@ -84,7 +92,7 @@ describe("CamposPagoDividido", () => {
     expect(screen.getByText("Pagar con dos cuentas")).toBeInTheDocument();
     expect(screen.getByLabelText("Monto en la cuenta 1")).toHaveValue("100.000");
     expect(screen.getByLabelText("Monto en la cuenta 2")).toHaveValue("100.000");
-    const estado = document.getElementById("estado-pago-dividido")!;
+    const estado = estadoDelReparto();
     expect(estado).toHaveTextContent("✓ Suma $200.000");
     expect(estado).toHaveAttribute("aria-live", "polite");
   });
@@ -92,7 +100,7 @@ describe("CamposPagoDividido", () => {
   it("si los montos cuadran pero falta elegir la cuenta 2, NO celebra: dice qué falta", () => {
     montar({ ...inicial, cuenta2Id: "" });
 
-    const estado = document.getElementById("estado-pago-dividido")!;
+    const estado = estadoDelReparto();
     expect(estado).toHaveTextContent("Elige la cuenta 2 para registrar.");
     expect(estado).not.toHaveTextContent("✓");
     expect(estado.className).not.toContain("emerald");
@@ -101,7 +109,7 @@ describe("CamposPagoDividido", () => {
   it("si faltan las dos cuentas, las nombra a las dos", () => {
     montar({ ...inicial, cuenta1Id: "", cuenta2Id: "" });
 
-    expect(document.getElementById("estado-pago-dividido")).toHaveTextContent(
+    expect(estadoDelReparto()).toHaveTextContent(
       "Elige las dos cuentas para registrar."
     );
   });
@@ -109,7 +117,7 @@ describe("CamposPagoDividido", () => {
   it("si no cuadra Y falta una cuenta, manda lo de los montos (es lo primero que hay que arreglar)", () => {
     montar({ ...inicial, cuenta2Id: "", texto2: "50.000" });
 
-    expect(document.getElementById("estado-pago-dividido")).toHaveTextContent(
+    expect(estadoDelReparto()).toHaveTextContent(
       "Faltan $50.000 por repartir."
     );
   });
@@ -117,13 +125,13 @@ describe("CamposPagoDividido", () => {
   it("con total 0 o vacío no hay nada que repartir ni que celebrar", () => {
     montar(inicial, { total: null });
 
-    expect(document.getElementById("estado-pago-dividido")).not.toHaveTextContent("✓");
+    expect(estadoDelReparto()).not.toHaveTextContent("✓");
   });
 
   it("si falta la cuenta 1, dice la cuenta 1", () => {
     montar({ ...inicial, cuenta1Id: "" });
 
-    expect(document.getElementById("estado-pago-dividido")).toHaveTextContent(
+    expect(estadoDelReparto()).toHaveTextContent(
       "Elige la cuenta 1 para registrar."
     );
   });
@@ -131,7 +139,7 @@ describe("CamposPagoDividido", () => {
   it("si no cuadra, lo dice en palabras con la cifra exacta", () => {
     montar({ ...inicial, texto2: "50.000" });
 
-    expect(document.getElementById("estado-pago-dividido")).toHaveTextContent(
+    expect(estadoDelReparto()).toHaveTextContent(
       "Faltan $50.000 por repartir."
     );
   });
@@ -139,7 +147,7 @@ describe("CamposPagoDividido", () => {
   it("si se pasa, dice cuánto", () => {
     montar({ ...inicial, texto1: "150.000" });
 
-    expect(document.getElementById("estado-pago-dividido")).toHaveTextContent(
+    expect(estadoDelReparto()).toHaveTextContent(
       "Te pasaste por $50.000."
     );
   });
@@ -206,7 +214,7 @@ describe("CamposPagoDividido", () => {
   it("sin total válido pide primero el monto de la compra", () => {
     montar(inicial, { total: null });
 
-    expect(document.getElementById("estado-pago-dividido")).toHaveTextContent(
+    expect(estadoDelReparto()).toHaveTextContent(
       "Escribe primero el monto de la compra."
     );
   });
@@ -216,7 +224,7 @@ describe("CamposPagoDividido", () => {
     // y ya no es una opción válida. No se manda una cuenta fantasma.
     montar({ ...inicial, cuenta2Id: "vieja" });
 
-    const estado = document.getElementById("estado-pago-dividido")!;
+    const estado = estadoDelReparto();
     expect(estado).toHaveTextContent("Elige la cuenta 2 para registrar.");
     expect(estado).not.toHaveTextContent("✓");
     expect(
@@ -230,7 +238,7 @@ describe("CamposPagoDividido", () => {
   it("si la cuenta 1 elegida se archivó, el estado nombra la 1 y no la 2", () => {
     montar({ ...inicial, cuenta1Id: "vieja" });
 
-    expect(document.getElementById("estado-pago-dividido")).toHaveTextContent(
+    expect(estadoDelReparto()).toHaveTextContent(
       "Elige la cuenta 1 para registrar."
     );
 

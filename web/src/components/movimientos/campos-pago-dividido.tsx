@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -56,6 +57,13 @@ export function CamposPagoDividido({
   /** Todas las cuentas del formulario: aquí se filtran las que sirven. */
   cuentas: readonly Cuenta[];
 }) {
+  // Los ids con useId: el AppShell monta dos formularios de movimiento a la
+  // vez (cada quien con su cajón), y unas ids fijas aquí se duplicarían en el
+  // DOM y romperían la asociación entre etiqueta y control.
+  const idBase = useId();
+  const idTitulo = `${idBase}-titulo`;
+  const idEstado = `${idBase}-estado`;
+
   const reparto = leerReparto(total, valor.texto1, valor.texto2, moneda);
 
   const cuenta1Valida = esCuentaValidaParaLaParte(cuentas, moneda, valor.cuenta1Id);
@@ -103,7 +111,7 @@ export function CamposPagoDividido({
     return (
       <div className="flex flex-col gap-1.5 sm:flex-row sm:items-end sm:gap-2">
         <div className="flex flex-col gap-1.5 sm:flex-1">
-          <Label htmlFor={`cuenta-pago-${cual}`}>Cuenta {cual}</Label>
+          <Label htmlFor={`${idBase}-cuenta-${cual}`}>Cuenta {cual}</Label>
           <Select
             // Una cuenta que ya no es válida no se muestra como elegida: su
             // opción tampoco está en el menú.
@@ -116,7 +124,7 @@ export function CamposPagoDividido({
               )
             }
           >
-            <SelectTrigger id={`cuenta-pago-${cual}`} className="min-h-11 w-full">
+            <SelectTrigger id={`${idBase}-cuenta-${cual}`} className="min-h-11 w-full">
               {/* El popup vive en un portal que no está montado mientras el
                   selector está cerrado: el nombre se resuelve a mano. */}
               <SelectValue placeholder="Elige una cuenta">
@@ -134,17 +142,17 @@ export function CamposPagoDividido({
         </div>
 
         <div className="flex flex-col gap-1.5 sm:w-44">
-          <Label htmlFor={`monto-pago-${cual}`} className="sm:sr-only">
+          <Label htmlFor={`${idBase}-monto-${cual}`} className="sm:sr-only">
             Monto en la cuenta {cual}
           </Label>
           <CampoMonto
-            id={`monto-pago-${cual}`}
+            id={`${idBase}-monto-${cual}`}
             moneda={moneda}
             value={texto}
             onChange={(nuevo) => editarMonto(cual, nuevo)}
             placeholder="Monto"
             className="min-h-11"
-            aria-describedby="estado-pago-dividido"
+            aria-describedby={idEstado}
           />
         </div>
       </div>
@@ -152,9 +160,9 @@ export function CamposPagoDividido({
   }
 
   return (
-    <div className="flex flex-col gap-3" role="group" aria-labelledby="pago-dividido-titulo">
+    <div className="flex flex-col gap-3" role="group" aria-labelledby={idTitulo}>
       <div className="flex items-center justify-between gap-2">
-        <span id="pago-dividido-titulo" className="text-sm font-medium">
+        <span id={idTitulo} className="text-sm font-medium">
           Pagar con dos cuentas
         </span>
         <button
@@ -170,7 +178,7 @@ export function CamposPagoDividido({
       {fila(2)}
 
       <p
-        id="estado-pago-dividido"
+        id={idEstado}
         aria-live="polite"
         className={
           reparto.cuadra && !faltaCuenta
