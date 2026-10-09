@@ -600,6 +600,43 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   "exactamente 2 patas" por grupo (la API siempre crea 2); el nombre de una
   cuenta archivada sale como "…" en la fila combinada.
 
+- **Anular transferencias, corregir compras divididas y respaldo del ahorro**
+  (2026-10-09, segunda tanda del día; cierra los pendientes de las dos entradas
+  anteriores). (1) **Anular una transferencia desde Movimientos**: su fila ya es
+  un botón que abre un detalle (de qué cuenta a cuál, monto, fecha, ítem si lo
+  lleva) con "Anular transferencia" y la confirmación existente, que dice en
+  palabras que la plata vuelve a su cuenta de origen; no se ofrece si ya está
+  anulada o es una anulación (el servidor siempre lo había permitido). (2) **Corregir
+  una compra pagada con dos cuentas** con el mismo "anular y corregir" de un
+  movimiento: se anulan las dos partes y el formulario se abre ya en "Pagar con
+  dos cuentas" con cuentas, montos, categoría/ítem, fecha y descripción base (sin
+  "(1 de 2)" ni "Pago 1 de 2"); "Registrar" queda apagado hasta que algo cambie
+  y la suma exacta sigue mandando. Si la anulación falla no se abre nada y se
+  muestra el error. (3) **Detalles de archivados**: al corregir, una categoría
+  archivada se ve elegida con "(archivada)" (no se ofrece en un registro nuevo);
+  la fila combinada de una compra dividida muestra el nombre real de una cuenta
+  archivada; si una cuenta del reparto se archiva después de elegirla, se trata
+  como no elegida, se avisa y "Registrar" se apaga. (4) **El foco del cajón
+  "Sin asignar"**: al asignar el último movimiento el botón que lo abrió
+  desaparecía y el foco caía en la página; ahora cae en el encabezado de la
+  categoría. (5) **Respaldo del ahorro**: `GET /api/v1/savings-entries/export`
+  baja un segundo CSV (fecha, cuenta, moneda, aparté/retiré, descripción, monto
+  exacto con signo, id; incluye cuentas archivadas) y Ajustes → Respaldo lo
+  ofrece junto al de movimientos; va aparte porque un registro de ahorro no es
+  un movimiento. `armarCsv` y `hoyEnBogota` viven ahora en `src/shared`. Se puede
+  bajar también dentro de la cuenta de otra persona (es de lectura). Sin
+  migraciones. La revisión independiente (esfuerzo alto, en las tres ramas) no
+  halló ningún Critical; atrapó dos fallos reales de pantalla en la corrección
+  de compras divididas (el aviso nombraba la cuenta equivocada si faltaba la 1,
+  y faltaba probar el fallo al anular). Dos pruebas de fecha que caducaban solas
+  (`registros-ahorro.test.tsx` y una de ahorro) quedaron fijas. Sin hacer a
+  propósito: dividir un movimiento entre ítems, sugerir ítem, metas de ahorro,
+  la huella de los cambios de ítem, y las deudas viejas del presupuesto (meses
+  en cero antes de crear un ítem, esquemas de monto solapados, sin guarda en la
+  base para montos con fecha: no se ven y exigirían migración). Anotado: si una
+  categoría entera desaparece con el cajón "Sin asignar" abierto, el foco aún
+  caería en la página; falta mirar todo esto a 320px en un navegador real.
+
 Pendiente, sin fecha: otra ronda de `impeccable critique` para medir el
 puntaje tras estos cierres.
 
