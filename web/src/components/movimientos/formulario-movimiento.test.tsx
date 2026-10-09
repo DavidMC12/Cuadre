@@ -46,6 +46,7 @@ const cuentas: Cuenta[] = [
     currency: "COP",
     balance: "1234567",
     isSavings: false,
+    saved: "0.0000",
     archivedAt: null,
   } as Cuenta,
 ];
@@ -234,6 +235,7 @@ const cuentaActiva: Cuenta = {
   lastMovementAt: null,
   archivedAt: null,
   isSavings: false,
+  saved: "0.0000",
   creditLimit: null,
   linkedAccountId: null,
 } as Cuenta;
@@ -649,6 +651,7 @@ const banco: Cuenta = {
   lastMovementAt: null,
   archivedAt: null,
   isSavings: false,
+  saved: "0.0000",
   creditLimit: null,
   linkedAccountId: null,
 } as Cuenta;

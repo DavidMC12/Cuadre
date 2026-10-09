@@ -29,6 +29,12 @@ vi.mock("@/hooks/use-perfil", () => ({
   useSoloMirar: () => false,
 }));
 
+// El cajón pregunta los registros de ahorro con el cajón abierto; estas
+// pruebas de cierre no miran su contenido, así que basta con que exista.
+vi.mock("@/hooks/use-ahorros", () => ({
+  useSavingsEntries: () => ({ data: [], isLoading: false }),
+}));
+
 import { DetalleCuenta } from "./detalle-cuenta";
 
 afterEach(() => {
@@ -47,7 +53,8 @@ const banco: Cuenta = {
   movementCount: 0,
   lastMovementAt: null,
   archivedAt: null,
-  isSavings: false,
+    isSavings: false,
+  saved: "0.0000",
   creditLimit: null,
   linkedAccountId: null,
 };

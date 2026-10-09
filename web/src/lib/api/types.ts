@@ -18,10 +18,16 @@ export interface Cuenta {
   archivedAt: string | null;
   /**
    * Si esta cuenta cuenta como ahorro. Es solo una etiqueta: no cambia el
-   * comportamiento de nada más, sirve para que el Resumen sepa cuánta plata
-   * está apartada. Una tarjeta nunca puede marcarse.
+   * comportamiento de nada más. Una tarjeta nunca puede marcarse.
    */
   isSavings: boolean;
+  /**
+   * Lo AHORRADO en esta cuenta: las transferencias que le pasaron más lo que
+   * se anotó a mano, NO su saldo. Texto exacto con signo posible, ej.
+   * "150000.0000" o "-25000.0000". En una cuenta que no es de ahorro trae
+   * "0.0000": el ahorro no se le aplica ni se le aplica por accidente.
+   */
+  saved: string;
   /** Solo en tarjetas: el cupo. Texto exacto, nunca number. Nulo si no hay. */
   creditLimit: string | null;
   /** Solo en tarjetas: la cuenta desde la que normalmente se paga. */
@@ -180,9 +186,10 @@ export interface TendenciaMes {
 }
 
 /**
- * Cuánto entró menos cuánto salió de las cuentas de ahorro en un mes. A
- * diferencia del resumen de ingresos/gastos, este puede ser negativo: si ese
- * mes se sacó más de lo que se metió, el monto viene con signo menos.
+ * Cuánto se apartó para ahorro en un mes (transferencias + lo anotado a
+ * mano), menos cuánto se sacó. A diferencia del resumen de ingresos/gastos,
+ * este puede ser negativo: si ese mes se retiró más de lo que se apartó, el
+ * monto viene con signo menos.
  */
 export interface AhorroMes {
   month: string;
@@ -232,6 +239,39 @@ export interface CambiosDePerfil {
 
 /** Las dos clases de ítem del checklist: un tope de gasto o un aporte a ahorro. */
 export type TipoItemPresupuesto = "category" | "savings";
+
+/**
+ * Lo que se envía al anotar explicitamente ahorro: una cantidad apartada
+ * (positiva) o retirada (negativa) en una cuenta de ahorro, sin mover plata
+ * de ninguna cuenta. El signo no lo teclea la persona: lo decide la
+ * interfaz con su toggle Aparte/Retire; por eso aquí siempre llega
+ * decidido. `amount` es texto exacto y nunca "0" (un cero no se aparta).
+ */
+export interface NuevoRegistroAhorro {
+  accountId: string;
+  /** Con signo, ya decidido por la interfaz. Texto exacto, nunca number. */
+  amount: string;
+  /** Opcional: una fecha ISO; si falta, queda el instante actual. */
+  occurredAt?: string;
+  /** Opcional; `null` y omitirlo son lo mismo: sin descripción. */
+  description?: string | null;
+}
+
+/**
+ * Un registro de ahorro ya guardado. Es una anotación, no un movimiento:
+ * no se puede editar ni anular — la corrección es anotar otro de signo
+ * contrario —, así que no expone reversa ni anulaciones.
+ */
+export interface RegistroDeAhorro {
+  id: string;
+  accountId: string;
+  currency: string;
+  /** Con signo: positivo es lo apartado, negativo lo retirado. Texto exacto. */
+  amount: string;
+  /** Fecha ISO del instante en que se apartó (o se dijo que se apartó). */
+  occurredAt: string;
+  description: string | null;
+}
 
 /** El tipo de categoría detrás de un ítem de categoría del checklist. */
 export type TipoCategoriaItem = "expense" | "income";

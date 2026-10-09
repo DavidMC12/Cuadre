@@ -28,7 +28,7 @@ export function fetchTrend(input: { months?: number; currency: string }): Promis
   return pedir("/reports/trend", { parametros: input });
 }
 
-/** Cuánto entró menos cuánto salió de las cuentas de ahorro, mes a mes. */
+/** Cuánto se apartó para ahorro menos cuánto se retiró, mes a mes (transferencias más anotaciones). */
 export function fetchSavingsTrend(input: { months?: number; currency: string }): Promise<{
   data: AhorroMes[];
 }> {
