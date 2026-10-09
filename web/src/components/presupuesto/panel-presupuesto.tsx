@@ -493,7 +493,7 @@ export function PanelPresupuesto({
           <EmptyState
             Icono={ListTodo}
             titulo="Nada por revisar este mes"
-            descripcion="Agrega un tope de gasto, un ingreso esperado o una meta de ahorro. El progreso se calcula solo con tus movimientos."
+            descripcion="Agrega un tope de gasto, un ingreso esperado o una meta de ahorro. El progreso se calcula con tus movimientos y tus anotaciones de ahorro."
             className="border-0 px-2 py-8"
           />
         ) : (

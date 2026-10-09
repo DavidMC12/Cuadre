@@ -9,7 +9,13 @@
  */
 
 import type { RegistroDeAhorro } from "@/lib/api/types";
-import { esCero, negar, textoMonto } from "@/lib/money";
+import {
+  aUnidadesMinimas,
+  esCero,
+  negar,
+  normalizarMontoIngresado,
+  textoMonto,
+} from "@/lib/money";
 
 /** Lo que el toggle del formulario elige: apartar (positivo) o retirar (negativo). */
 export type TipoRegistroAhorro = "aparte" | "retire";
@@ -67,4 +73,21 @@ export function textoDeExito(registro: RegistroDeAhorro, nombreDeCuenta: string)
   const texto = textoDeRegistro(registro);
   if (texto === null) return "Ahorro registrado.";
   return `${texto} en ${nombreDeCuenta}.`;
+}
+
+/**
+ * Lo que una cifra escrita falla para anotarse — o `null` si sirve.
+ *
+ * Vacío NO es un error: es "todavía no escribieron nada", y regañar al abrir
+ * el formulario explicaría algo que no pasó. El resto de las fallas son las
+ * de siempre, y viven aquí (una sola vez) para que el texto de ojos y la
+ * decisión de guardar no puedan divergir: lo mal escrito se lee como lo lee
+ * money.ts, y el cero no se aparta.
+ */
+export function errorDeMontoDeAhorro(texto: string, moneda: string): string | null {
+  if (texto.trim() === "") return null;
+  const lectura = normalizarMontoIngresado(texto, moneda);
+  if ("error" in lectura) return lectura.error;
+  if (aUnidadesMinimas(lectura.monto) <= 0n) return "El monto tiene que ser mayor que cero.";
+  return null;
 }

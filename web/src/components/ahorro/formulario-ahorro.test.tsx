@@ -152,6 +152,16 @@ describe("FormularioAhorro: con qué cuenta abre", () => {
     expect(screen.getByText("El monto tiene que ser mayor que cero.")).toBeInTheDocument();
   });
 
+  it("abrir no empieza regañando: el campo vacío no lleva error ni aria-invalid", () => {
+    abrirDominio([vacaciones]);
+
+    // Vacío no es "mal escrito": cada quien todavía no escribió nada. El
+    // botón apagado ya espera una cifra; un mensaje rojo al abrir explicaría
+    // algo que no pasó.
+    expect(screen.queryByText("Escribe el monto.")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Monto")).toHaveAttribute("aria-invalid", "false");
+  });
+
   it("sin cuentas de ahorro no muestra un formulario muerto", () => {
     abrirDominio([]);
     expect(

@@ -96,6 +96,7 @@ const cuantas: Cuenta[] = [
     currency: "COP",
     balance: "1234567",
     isSavings: false,
+    saved: "0.0000",
     archivedAt: null,
   } as Cuenta,
 ];

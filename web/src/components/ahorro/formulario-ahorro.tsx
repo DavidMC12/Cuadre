@@ -33,9 +33,10 @@ import {
   montoConSigno,
   textoDeExito,
   textoDeVistaPrevia,
+  errorDeMontoDeAhorro,
   type TipoRegistroAhorro,
 } from "@/lib/ahorros";
-import { aUnidadesMinimas, normalizarMontoIngresado } from "@/lib/money";
+import { normalizarMontoIngresado } from "@/lib/money";
 
 /**
  * El diálogo de "Registrar ahorro": anota que apartaste (o retiraste) plata
@@ -84,7 +85,6 @@ export function FormularioAhorro({
   const [fecha, setFecha] = useState(hoyInput);
   const [descripcion, setDescripcion] = useState("");
   const [cuentaAMano, setCuentaAMano] = useState<string | null>(cuentaIdPorDefecto ?? null);
-  const [errores, setErrores] = useState<{ monto?: string; cuenta?: string }>({});
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
 
   // La cuenta: la elegida a mano si sigue existiendo; si no, la preselección
@@ -101,26 +101,26 @@ export function FormularioAhorro({
           : "";
   const cuentaElegida = cuentas.find((cuenta) => cuenta.id === cuentaId);
 
-  // Lo escrito se lee con la moneda de la cuenta elegida: en pesos "25.000"
-  // son veinticinco mil. El monto SIEMPRE va sin signo en pantalla.
-  const lectura = cuentaElegida
+  // El texto de error del monto (o null si la cifra sirve). Vacío no es
+  // error: el formulario abre con el campo vacío y no empieza regañando; el
+  // botón espera una cifra Wrapped válida. El error DEL SERVIDOR va aparte:
+  // la cifra puede estar bien redactada y aun así el servidor rechazarla por
+  // lo que significa, no por cómo quedó escrita.
+  const errorDelMonto = cuentaElegida
+    ? errorDeMontoDeAhorro(monto, cuentaElegida.currency)
+    : null;
+  const montoValido =
+    cuentaElegida !== undefined && errorDelMonto === null && monto.trim() !== "";
+
+  // La cifra ya leída, lista para mandársela al toast y al servidor. Solo
+  // existe si el monto vale; el signo lo pone montoConSigno, no esto.
+  const lecturaDeCifra = cuentaElegida
     ? normalizarMontoIngresado(monto, cuentaElegida.currency)
     : null;
-  const errorEscrito = lectura !== null && "error" in lectura;
-  const montoValido =
-    lectura !== null && !errorEscrito && aUnidadesMinimas(lectura.monto) > 0n;
-
-  // El texto de error del monto: primero el del campo (mal escrito), y si
-  // está bien escrito pero vale cero, el del cero. El error DEL SERVIDOR va
-  // aparte: la cifra puede estar bien redactada y aun así el servidor
-  // rechazarla por lo que significa, no por cómo quedó escrita.
-  const errorDelMonto = errorEscrito
-    ? (lectura as { error: string }).error
-    : (errores.monto ?? (lectura !== null && !errorEscrito
-        ? aUnidadesMinimas(lectura.monto) <= 0n
-          ? "El monto tiene que ser mayor que cero."
-          : undefined
-        : undefined));
+  const cifra =
+    montoValido && lecturaDeCifra !== null && !("error" in lecturaDeCifra)
+      ? lecturaDeCifra.monto
+      : null;
 
   const registrar = useCrearRegistroAhorro();
   const procesando = registrar.isPending;
@@ -131,7 +131,6 @@ export function FormularioAhorro({
     setFecha(hoyInput());
     setDescripcion("");
     setCuentaAMano(cuentaIdPorDefecto ?? null);
-    setErrores({});
     setErrorServidor(null);
   }
 
@@ -144,29 +143,16 @@ export function FormularioAhorro({
   }
 
   function anotar() {
-    const lecturaDeEnvio = cuentaElegida
-      ? normalizarMontoIngresado(monto, cuentaElegida.currency)
-      : null;
-
-    const nuevosErrores: { monto?: string; cuenta?: string } = {};
-    if (!cuentaElegida) nuevosErrores.cuenta = "Elige una cuenta de ahorro.";
-    if (lecturaDeEnvio && "error" in lecturaDeEnvio) {
-      nuevosErrores.monto = lecturaDeEnvio.error;
-    } else if (lecturaDeEnvio && aUnidadesMinimas(lecturaDeEnvio.monto) <= 0n) {
-      // El cero no se aparta: un "0 apartado" no dice nada y el servidor lo
-      // rechazaría. Se avisa antes de que viaje.
-      nuevosErrores.monto = "El monto tiene que ser mayor que cero.";
-    }
-    setErrores(nuevosErrores);
-    if (!cuentaElegida || !lecturaDeEnvio || "error" in lecturaDeEnvio) return;
-    if (aUnidadesMinimas(lecturaDeEnvio.monto) <= 0n) return;
+    // El botón ya espera cuenta y cifra; estas guardias son por si algo
+    // cambia entre renders y el botón se abriera por accidente.
+    if (!cuentaElegida || cifra === null) return;
 
     setErrorServidor(null);
     registrar.mutate(
       {
         accountId: cuentaElegida.id,
         // El signo es del toggle, nunca del tecleo: positivo aparta.
-        amount: montoConSigno(tipo, lecturaDeEnvio.monto),
+        amount: montoConSigno(tipo, cifra),
         occurredAt: fecha ? inputAIso(fecha) : inputAIso(hoyInput()),
         description: descripcion.trim() || undefined,
       },
@@ -222,8 +208,10 @@ export function FormularioAhorro({
                 onValueChange={(valor) => {
                   if (valor) setCuentaAMano(valor);
                   // La moneda con la que se lee el monto puede cambiar de
-                  // cuenta en cuenta: el error escrito deja de ser válido.
-                  setErrores({});
+                  // cuenta en cuenta, y un rechazo del servidor hablaba de
+                  // la cuenta anterior: en cuanto se elige otra, queda
+                  // dicho de más.
+                  setErrorServidor(null);
                 }}
               >
                 <SelectTrigger id={idCuenta} className="min-h-11 w-full">
@@ -244,9 +232,6 @@ export function FormularioAhorro({
                   ))}
                 </SelectContent>
               </Select>
-              {errores.cuenta && (
-                <p className="text-xs text-destructive">{errores.cuenta}</p>
-              )}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -279,10 +264,8 @@ export function FormularioAhorro({
                 value={monto}
                 onChange={(valor) => {
                   setMonto(valor);
-                  // El rechazo de antes ya no dice nada útil sobre lo
-                  // recién escrito; y mientras se edita, el error de envío
-                  // de este campo tampoco.
-                  setErrores({});
+                  // El rechazo del servidor hablaba de lo que ya no está
+                  // escrito: en cuanto se toca el monto, queda de más.
                   setErrorServidor(null);
                 }}
                 // Siempre positivo en pantalla: el signo lo pone el tipo,
@@ -327,18 +310,14 @@ export function FormularioAhorro({
               />
             </div>
 
-            {cuentaElegida && montoValido && (
+            {cuentaElegida && montoValido && cifra !== null && (
               <div
                 role="status"
                 aria-live="polite"
                 className="flex flex-col gap-0.5 rounded-lg bg-muted px-3 py-2"
               >
                 <span className="text-sm">
-                  {textoDeVistaPrevia(
-                    tipo,
-                    (lectura as { monto: string }).monto,
-                    cuentaElegida.currency
-                  )}
+                  {textoDeVistaPrevia(tipo, cifra, cuentaElegida.currency)}
                 </span>
               </div>
             )}

@@ -28,9 +28,12 @@ const holders = vi.hoisted(() => ({
   ajustar: vi.fn(),
   soloMirar: false,
   // Lo de ahorro: qué registros llegan y con qué cuenta el cajón pide (o no
-  // pide) la lista.
+  // pide) la lista. El fallo y el reintento dejan ver que un cajón sin red
+  // no dice "no anotaste nada".
   registros: [] as unknown[],
   registrosCargando: false,
+  registrosError: false,
+  registrosReintentar: vi.fn(),
   cuentaPedida: null as string | null,
   formularioAhorro: undefined as
     | { cuentas?: unknown[]; cuentaIdPorDefecto?: string; children?: ReactNode }
@@ -90,25 +93,40 @@ vi.mock("@/components/ahorro/formulario-ahorro", () => ({
 }));
 
 // La lista de registros como testigo: visible solo con el cajón abierto y
-// con lo que el hook le ofrece.
+// con lo que el hook le ofrece. Con un fallo se comporta como el real:
+// desiste del vacío y ofrece reintentar.
 vi.mock("@/components/ahorro/registros-ahorro", () => ({
   RegistrosAhorro: ({
     registros,
     cargando,
+    fallo,
   }: {
     registros?: unknown[];
     cargando?: boolean;
-  }) => (
-    <div data-testid="registros-ahorro" data-cargando={String(Boolean(cargando))}>
-      {(registros ?? []).map((registro) => JSON.stringify(registro)).join("|")}
-    </div>
-  ),
+    fallo?: { onReintentar: () => void } | null;
+  }) =>
+    fallo ? (
+      <button type="button" onClick={fallo.onReintentar}>
+        Reintentar anotaciones
+      </button>
+    ) : (
+      <div data-testid="registros-ahorro" data-cargando={String(Boolean(cargando))}>
+        {(registros ?? []).map((registro) => JSON.stringify(registro)).join("|")}
+      </div>
+    ),
 }));
 
 vi.mock("@/hooks/use-ahorros", () => ({
   useSavingsEntries: (params: { accountId: string | null }) => {
     holders.cuentaPedida = params.accountId;
-    return { data: holders.registros, isLoading: holders.registrosCargando };
+    return {
+      data: holders.registrosError ? undefined : holders.registros,
+      isLoading: holders.registrosCargando,
+      isError: holders.registrosError,
+      isPaused: false,
+      isFetching: false,
+      refetch: holders.registrosReintentar,
+    };
   },
 }));
 
@@ -125,6 +143,8 @@ afterEach(() => {
   holders.drawerOnOpenChange = undefined;
   holders.registros = [];
   holders.registrosCargando = false;
+  holders.registrosError = false;
+  holders.registrosReintentar.mockReset();
   holders.cuentaPedida = null;
   holders.formularioAhorro = undefined;
   vi.mocked(toast.success).mockClear();
@@ -796,6 +816,20 @@ describe("DetalleCuenta: la cuenta de ahorro dice apartado, no saldo", () => {
     // La lista siempre se monta con el cajón abierto; el vacío lo dice
     // RegistrosAhorro, y aquí solo importa que no se esconda.
     expect(screen.getByTestId("registros-ahorro")).toBeInTheDocument();
+  });
+
+  it("si la consulta falla, no se dice 'no anotaste nada': se dice el fallo y se ofrece reintentar", () => {
+    holders.registrosError = true;
+    renderDetalle(vacaciones);
+    abrirCajon();
+
+    expect(screen.queryByTestId("registros-ahorro")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Aún no has anotado ahorro aquí.")
+    ).not.toBeInTheDocument();
+    const botonReintentar = screen.getByRole("button", { name: "Reintentar anotaciones" });
+    fireEvent.click(botonReintentar);
+    expect(holders.registrosReintentar).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, fireEvent } from "@testing-library/react";
 
 import { RegistrosAhorro } from "./registros-ahorro";
 import type { RegistroDeAhorro } from "@/lib/api/types";
@@ -64,5 +64,29 @@ describe("RegistrosAhorro", () => {
 
     expect(screen.queryByText("Aún no has anotado ahorro aquí.")).not.toBeInTheDocument();
     expect(container.querySelector(".animate-pulse")).not.toBeNull();
+  });
+
+  it("un fallo no se disfraza de vacío: se dice qué pasó y se ofrece reintentar", () => {
+    const intento = vi.fn();
+    render(
+      <RegistrosAhorro
+        cargando={false}
+        registros={undefined}
+        fallo={{
+          mensaje: "No pudimos cargar tus anotaciones de ahorro. Revisa tu conexión y vuelve a intentarlo.",
+          reintento: false,
+          onReintentar: intento,
+        }}
+      />
+    );
+
+    expect(screen.queryByText("Aún no has anotado ahorro aquí.")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "No pudimos cargar tus anotaciones de ahorro. Revisa tu conexión y vuelve a intentarlo."
+      )
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar anotaciones" }));
+    expect(intento).toHaveBeenCalledTimes(1);
   });
 });

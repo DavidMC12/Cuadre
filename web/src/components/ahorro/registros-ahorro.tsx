@@ -1,6 +1,7 @@
 "use client";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { FalloConsulta } from "@/components/fallo-consulta";
 import type { RegistroDeAhorro } from "@/lib/api/types";
 import { etiquetaFecha } from "@/lib/fecha";
 import { textoDeRegistro } from "@/lib/ahorros";
@@ -10,17 +11,38 @@ import { textoDeRegistro } from "@/lib/ahorros";
  * viejo.
  *
  * Cada registro es INMUTABLE: no hay editar ni borrar — la corrección es
- * anotar otro de signo contrario, igual que el ajuste de saldo. Si todavía
- * no hay nada, se dice sobrio: una cuenta de ahorro sin anotaciones no es un
- * error, es alguien que no ha empezado.
+ * anotar otro de signo contrario, igual que el ajuste de saldo.
+ *
+ * Cada registro es INMUTABLE: no hay editar ni borrar — la corrección es
+ * anotar otro de signo contrario, igual que el ajuste de saldo.
+ *
+ * "Sin registros" y "fallo de consulta" son cosas distintas: decir que no
+ * anotaste nada cuando el servidor no contestó sería mentir en una pantalla
+ * de dinero. Si la lista no se pudo leer, aquí se dice y se ofrece
+ * reintentar; el vacío solo se declara cuando la lista sí se conoce.
  */
 export function RegistrosAhorro({
   registros,
   cargando,
+  fallo,
 }: {
   registros: RegistroDeAhorro[] | undefined;
   cargando: boolean;
+  /** Los datos no llegaron porque la consulta falló o quedó sin conexión:
+   * mensaje y Reintentar, igual que el resto de bloques que consultan. */
+  fallo?: { mensaje: string; reintento?: boolean; onReintentar: () => void } | null;
 }) {
+  if (fallo) {
+    return (
+      <FalloConsulta
+        etiquetaBoton="Reintentar anotaciones"
+        mensaje={fallo.mensaje}
+        reintento={fallo.reintento}
+        onReintentar={fallo.onReintentar}
+      />
+    );
+  }
+
   if (cargando) {
     return (
       <div className="flex flex-col gap-2">

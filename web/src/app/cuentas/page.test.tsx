@@ -70,6 +70,7 @@ const bancolombia: Cuenta = {
   currency: "COP",
   balance: "1234567",
   isSavings: false,
+  saved: "0.0000",
   archivedAt: null,
 } as Cuenta;
 
@@ -80,6 +81,7 @@ const visaVieja: Cuenta = {
   currency: "USD",
   balance: "-500000",
   isSavings: false,
+  saved: "0.0000",
   archivedAt: "2026-01-01T00:00:00.000Z",
 } as Cuenta;
 

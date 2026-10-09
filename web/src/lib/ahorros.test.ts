@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup } from "@testing-library/react";
 
 import {
+  errorDeMontoDeAhorro,
   montoConSigno,
   textoDeExito,
   textoDeRegistro,
@@ -77,6 +78,28 @@ describe("textoDeVistaPrevia", () => {
     expect(textoDeVistaPrevia("retire", "25000", "COP")).toBe(
       "Vas a anotar que retiraste $25.000 para ahorro."
     );
+  });
+});
+
+describe("errorDeMontoDeAhorro", () => {
+  it("vacío no es error: abrir el formulario no empieza regañando", () => {
+    expect(errorDeMontoDeAhorro("", "COP")).toBeNull();
+    expect(errorDeMontoDeAhorro("   ", "COP")).toBeNull();
+  });
+
+  it("el cero se avisa antes de que vaya al servidor", () => {
+    expect(errorDeMontoDeAhorro("0", "COP")).toBe("El monto tiene que ser mayor que cero.");
+    expect(errorDeMontoDeAhorro("0", "USD")).toBe("El monto tiene que ser mayor que cero.");
+  });
+
+  it("lo mal escrito se lee como lo lee money.ts, con su frase de costumbre", () => {
+    expect(errorDeMontoDeAhorro("25.000,50", "COP")).toBe(
+      "Los pesos no llevan decimales: escribe el monto completo, por ejemplo 25.000."
+    );
+  });
+
+  it("una cifra válida no falla", () => {
+    expect(errorDeMontoDeAhorro("500.000", "COP")).toBeNull();
   });
 });
 

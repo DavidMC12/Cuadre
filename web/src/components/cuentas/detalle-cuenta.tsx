@@ -25,6 +25,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { CampoMonto } from "@/components/campo-monto";
+import { estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
 import { AjustarSaldo } from "@/components/cuentas/ajustar-saldo";
 import { ConfirmarArchivar } from "@/components/cuentas/confirmar-archivar";
 import { FormularioMovimiento } from "@/components/movimientos/formulario-movimiento";
@@ -136,6 +137,14 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
   const esDeAhorro = cuenta.isSavings && !esTarjeta;
   const registros = useSavingsEntries({
     accountId: abierto && esDeAhorro && !cuenta.archivedAt ? cuenta.id : null,
+  });
+  // La política del resto de la app: un fallo sin datos no puede dibujarse
+  // como "no anotaste nada", ni un silencio sin red como un vacío.
+  const estadoRegistros = estadoDeConsulta({
+    data: registros.data,
+    isError: registros.isError,
+    isPaused: registros.isPaused,
+    isLoading: registros.isLoading,
   });
 
   // Disponible, usado y porcentaje NUNCA se piden al servidor: se derivan del
@@ -464,6 +473,23 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
                 <RegistrosAhorro
                   registros={registros.data}
                   cargando={registros.isLoading}
+                  fallo={
+                    estadoRegistros === "fallo"
+                      ? {
+                          mensaje: mensajeDeFallo(
+                            registros.error,
+                            mensajeDeCargaFallida("tus anotaciones de ahorro")
+                          ),
+                          reintento: registros.isFetching,
+                          onReintentar: () => registros.refetch(),
+                        }
+                      : estadoRegistros === "pausada"
+                        ? {
+                            mensaje: mensajeSinConexion("tus anotaciones de ahorro"),
+                            onReintentar: () => registros.refetch(),
+                          }
+                        : null
+                  }
                 />
               )}
             </div>
