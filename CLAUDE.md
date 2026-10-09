@@ -637,8 +637,36 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   categoría entera desaparece con el cajón "Sin asignar" abierto, el foco aún
   caería en la página; falta mirar todo esto a 320px en un navegador real.
 
+- **Décima ronda de `impeccable critique`** (2026-10-09, 31/40 → 29/40,
+  "Bueno", **sin P0**): la hicieron los workers (A diseño en worker1, B detector
+  y mediciones en worker2, sesiones nuevas). Bajó dos puntos NO por regresiones
+  sino por el vocabulario de la funcionalidad nueva (items independientes,
+  ahorro explícito, compra dividida): detector con 0 hallazgos,
+  `medir:nav/panel/aside` en verde, 892 pruebas, 44px confirmado en los 16
+  grupos de controles nuevos, contrastes de los estados nuevos en regla y ni un
+  monto por float. Sigue sin navegador real (falta `web/.env.local` con
+  `NEON_AUTH_*`). Reporte en `.impeccable/critique/2026-10-09T19-35-43Z__web-src.md`.
+  Dos P1 y qué se decidió (verificados antes de aplicar, no a ciegas): (1) "el
+  ítem no tiene un nombre llano único" (se dice ítem, "Cuenta para", "¿En qué
+  fue?"): NO se cambia la palabra, porque "ítem" es el vocabulario del propio
+  dueño y cada etiqueta responde una pregunta distinta en su pantalla; queda a
+  su juicio si prefiere otra palabra. (2) "'Otro de <categoría>' se parece al
+  ítem": NO se quita — es la única forma de registrar un gasto solo por
+  categoría, y con un solo ítem la categoría igual lo necesita (comer fuera no
+  es "Mercado"); la propuesta de ofrecer solo el ítem habría forzado todo gasto
+  de esa categoría a contar para él. Los P2/P3 que sí se atienden (rama
+  `fix/decima-pulidos`): "Aparte/Retire" pasa a "Aparté/Retiré" con una línea
+  de ayuda antes de la cifra; los ids literales de los campos de compra
+  dividida y de los editores de ítem/categoría pasan a `useId()` (AppShell
+  monta dos formularios a la vez); el registro de suplantaciones vacío dice que
+  está vacío. Sin atender a propósito: el ítem en la fila de Movimientos (solo
+  se ve en el detalle), el verde de logro `emerald-600` a 12px (3,67:1 en
+  claro, token global previo), `CardTitle`/`EmptyState` como encabezados
+  falsos, y la parte suelta de una compra dividida bajo filtro de cuenta, que
+  se ve como gasto normal.
+
 Pendiente, sin fecha: otra ronda de `impeccable critique` para medir el
-puntaje tras estos cierres.
+puntaje tras los cierres de la décima.
 
 ### Pasos adicionales, ya pasado el 100%
 
