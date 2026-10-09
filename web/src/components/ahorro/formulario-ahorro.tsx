@@ -43,7 +43,7 @@ import {
  *
  * Solo entran cuentas de ahorro ACTIVAS — las que se le pasan ya vienen así;
  * una cuenta normal ni aparece —. Con exactamente una, esa va preseleccionada;
- * con varias, eligen. El signo lo pone la interfaz con el toggle Aparte/Retire:
+ * con varias, eligen. El signo lo pone la interfaz con el toggle Aparté/Retiré:
  * nadie teclea un menos. La cifra se escribe sin signo, siempre positiva, y el
  * monto rechaza el cero.
  *
@@ -75,6 +75,8 @@ export function FormularioAhorro({
   const idFecha = `${idBase}-fecha`;
   const idDescripcion = `${idBase}-descripcion`;
   const idErrorMonto = `${idBase}-error-monto`;
+  /** La ayuda bajo el toggle: cambia con la elección y se anuncia con él. */
+  const idAyuda = `${idBase}-ayuda`;
 
   const hoyInput = () => fechaParaInput(new Date().toISOString());
 
@@ -233,6 +235,7 @@ export function FormularioAhorro({
               <Label id={idTipo}>Tipo</Label>
               <ToggleGroup
                 aria-labelledby={idTipo}
+                aria-describedby={idAyuda}
                 value={[tipo]}
                 onValueChange={(valores) => {
                   if (valores.length > 0) setTipo(valores[0] as TipoRegistroAhorro);
@@ -242,12 +245,22 @@ export function FormularioAhorro({
                 className="w-full"
               >
                 <ToggleGroupItem value="aparte" className="flex-1">
-                  Aparte
+                  Aparté
                 </ToggleGroupItem>
                 <ToggleGroupItem value="retire" className="flex-1">
-                  Retire
+                  Retiré
                 </ToggleGroupItem>
               </ToggleGroup>
+              {/* Lo que la elección significa, ANTES de escribir la cifra:
+                  las opciones solas ("Aparté") dicen la acción pero no el
+                  efecto sobre lo ahorrado. La línea cambia al alternar y el
+                  toggle la anuncia descrita arriba (aria-describedby), así
+                  que oído no depende de llegar a la vista previa. */}
+              <p id={idAyuda} className="text-xs text-muted-foreground">
+                {tipo === "retire"
+                  ? "Resta de lo que llevas ahorrado. No mueve plata de ninguna cuenta."
+                  : "Suma a lo que llevas ahorrado. No mueve plata de ninguna cuenta."}
+              </p>
             </div>
 
             <div className="flex flex-col gap-1.5">
