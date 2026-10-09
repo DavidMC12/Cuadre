@@ -151,6 +151,10 @@ export function opcionesDeEnQueFue({
  *   "Otro de ..." cerrado.
  * - Categoría sin items: su nombre.
  * - Nada: "Sin categoría".
+ *
+ * Los `items` tienen que venir ya filtrados por el tipo del movimiento (los
+ * mismos que el desplegable ofrece, sin ahorro): esta función no conoce el
+ * tipo y no cruza `categoryKind` al decidir si la categoría "tiene items".
  */
 export function textoCerradoDeEnQueFue({
   categoriaId,

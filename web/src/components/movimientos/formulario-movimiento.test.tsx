@@ -742,8 +742,41 @@ describe("FormularioMovimiento: el desplegable '¿En qué fue?'", () => {
     elegirDelMenu("Deuda TC Nu — faltan $150.000");
     // Pasar a la cuenta en USD: moneda distinta, pero el mock del checklist
     // sigue sirviendo la misma lista (el id sigue ofrecido).
-    fireEvent.change(screen.getByLabelText("Cuenta"), { target: { value: "a-usd" } });
+    elegirDelMenu("Cuenta USD");
     expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas - Deuda TC Nu");
+  });
+
+  it("si cambia la moneda y el item ya no se ofrece, la elección cae a 'Otro de <su categoría>'", () => {
+    catalogo();
+    const otraMoneda: Cuenta = { ...cuentaActiva, id: "a-usd", name: "Cuenta USD", currency: "USD" };
+    // El checklist responde por moneda, como el servidor: en COP hay deuda,
+    // en USD ese mes no hay items que ofrecer.
+    vi.mocked(usePresupuestoModule.useChecklistDelMes).mockImplementation(
+      ({ currency }: { currency: string }) =>
+        ({
+          data:
+            currency === "COP"
+              ? { month: "2026-10", currency: "COP", items: [itemChecklist({ id: "i-nu" })], unassigned: [] }
+              : { month: "2026-10", currency: "USD", items: [], unassigned: [] },
+        }) as never
+    );
+    render(<FormularioMovimiento cuentas={[cuentaActiva, otraMoneda]} abierto />);
+
+    elegirDelMenu("Deuda TC Nu");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas - Deuda TC Nu");
+
+    // Suenan los dólares: la lista se vacía y el item deja de ofrecerse. La
+    // categoría sigue siendo válida y se lee a secas (ya no tiene items ese
+    // mes en esa moneda: su lugar natural es "Otras categorías").
+    elegirDelMenu("Cuenta USD");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas");
+
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "12.500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+    expect(mutaciones.movimiento.mock.calls[0][0]).toMatchObject({
+      categoryId: "c-deu",
+      budgetItemId: null,
+    });
   });
 
   it("al corregir, la precarga se ve bien elegida en el desplegable y Registrar queda apagado hasta el cambio", () => {

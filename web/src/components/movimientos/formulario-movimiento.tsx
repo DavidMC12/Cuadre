@@ -809,88 +809,88 @@ export function FormularioMovimiento({
           </>
         ) : (
           <>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="cuenta-movimiento">Cuenta</Label>
-            <Select
-              value={cuentaId}
-              onValueChange={(valor) => {
-                setCuentaElegidaAMano(valor ?? null);
-                // Igual que al cambiar el mes: otra cuenta puede ser otra
-                // moneda. Si la lista de items cambia y el elegido ya no se
-                // ofrece, la elección cae sola a "Otro de <su categoría>".
-              }}
-            >
-              <SelectTrigger
-                id="cuenta-movimiento"
-                className="min-h-11 w-full"
-                aria-invalid={Boolean(errores.cuenta)}
-                aria-describedby={cuentaElegida?.archivedAt ? "cuenta-archivada-aviso" : undefined}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cuenta-movimiento">Cuenta</Label>
+              <Select
+                value={cuentaId}
+                onValueChange={(valor) => {
+                  setCuentaElegidaAMano(valor ?? null);
+                  // Igual que al cambiar el mes: otra cuenta puede ser otra
+                  // moneda. Si la lista de items cambia y el elegido ya no se
+                  // ofrece, la elección cae sola a "Otro de <su categoría>".
+                }}
               >
-                {/* El popup de opciones vive en un portal que no está
-                          montado mientras el selector está cerrado: hay que
-                          resolver el nombre a mano, no asumir que lo encuentra solo. */}
-                <SelectValue placeholder="Elige una cuenta">
-                  {(valor: string) => cuentas.find((cuenta) => cuenta.id === valor)?.name ?? valor}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {cuentas.map((cuenta) => (
-                  <SelectItem key={cuenta.id} value={cuenta.id}>
-                    {cuenta.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {/* Corregir un movimiento de una cuenta ya retirada no es un
-                error: la cuenta original se conserva seleccionada. Pero se
-                dice que está archivada y que hay que desarchivarla: el
-                servidor rechaza registrar en cuentas archivadas (la misma
-                regla que aplica al anular), así que prometer que la corrección
-                "quedará en ella" sería mentir. Hoy el camino normal ni
-                siquiera llega aquí —anular ya falla si la cuenta está
-                archivada—, pero esto cubre que la archive mientras se
-                corrige. */}
-            {cuentaElegida?.archivedAt && (
-              <p id="cuenta-archivada-aviso" className="text-xs text-muted-foreground">
-                Esta cuenta está archivada: desarchívala para poder registrar la corrección.
-              </p>
-            )}
-            {errores.cuenta && <p className="text-xs text-destructive">{errores.cuenta}</p>}
-          </div>
+                <SelectTrigger
+                  id="cuenta-movimiento"
+                  className="min-h-11 w-full"
+                  aria-invalid={Boolean(errores.cuenta)}
+                  aria-describedby={cuentaElegida?.archivedAt ? "cuenta-archivada-aviso" : undefined}
+                >
+                  {/* El popup de opciones vive en un portal que no está
+                            montado mientras el selector está cerrado: hay que
+                            resolver el nombre a mano, no asumir que lo encuentra solo. */}
+                  <SelectValue placeholder="Elige una cuenta">
+                    {(valor: string) => cuentas.find((cuenta) => cuenta.id === valor)?.name ?? valor}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {cuentas.map((cuenta) => (
+                    <SelectItem key={cuenta.id} value={cuenta.id}>
+                      {cuenta.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {/* Corregir un movimiento de una cuenta ya retirada no es un
+                  error: la cuenta original se conserva seleccionada. Pero se
+                  dice que está archivada y que hay que desarchivarla: el
+                  servidor rechaza registrar en cuentas archivadas (la misma
+                  regla que aplica al anular), así que prometer que la corrección
+                  "quedará en ella" sería mentir. Hoy el camino normal ni
+                  siquiera llega aquí —anular ya falla si la cuenta está
+                  archivada—, pero esto cubre que la archive mientras se
+                  corrige. */}
+              {cuentaElegida?.archivedAt && (
+                <p id="cuenta-archivada-aviso" className="text-xs text-muted-foreground">
+                  Esta cuenta está archivada: desarchívala para poder registrar la corrección.
+                </p>
+              )}
+              {errores.cuenta && <p className="text-xs text-destructive">{errores.cuenta}</p>}
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="en-que-fue-movimiento">
-              {tipoMonto === "gasto" ? "¿En qué fue?" : "¿De dónde viene?"}
-            </Label>
-            <Select value={valorDesplegable} onValueChange={elegirDelDesplegable}>
-              <SelectTrigger id="en-que-fue-movimiento" className="min-h-11 w-full">
-                {/* El popup vive en un portal que no está montado mientras el
-                    selector está cerrado: el texto del renglón cerrado se
-                    resuelve a mano, como en los demás selectores. */}
-                <SelectValue placeholder="Sin categoría">{() => textoCerrado}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {gruposDesplegable.map((grupo) =>
-                  grupo.etiqueta === null ? (
-                    grupo.opciones.map((opcion) => (
-                      <SelectItem key={opcion.value} value={opcion.value}>
-                        {opcion.texto}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectGroup key={grupo.etiqueta}>
-                      <SelectLabel>{grupo.etiqueta}</SelectLabel>
-                      {grupo.opciones.map((opcion) => (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="en-que-fue-movimiento">
+                {tipoMonto === "gasto" ? "¿En qué fue?" : "¿De dónde viene?"}
+              </Label>
+              <Select value={valorDesplegable} onValueChange={elegirDelDesplegable}>
+                <SelectTrigger id="en-que-fue-movimiento" className="min-h-11 w-full">
+                  {/* El popup vive en un portal que no está montado mientras el
+                      selector está cerrado: el texto del renglón cerrado se
+                      resuelve a mano, como en los demás selectores. */}
+                  <SelectValue placeholder="Sin categoría">{() => textoCerrado}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {gruposDesplegable.map((grupo) =>
+                    grupo.etiqueta === null ? (
+                      grupo.opciones.map((opcion) => (
                         <SelectItem key={opcion.value} value={opcion.value}>
                           {opcion.texto}
                         </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  )
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+                      ))
+                    ) : (
+                      <SelectGroup key={grupo.etiqueta}>
+                        <SelectLabel>{grupo.etiqueta}</SelectLabel>
+                        {grupo.opciones.map((opcion) => (
+                          <SelectItem key={opcion.value} value={opcion.value}>
+                            {opcion.texto}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    )
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
           </>
         )}
 
