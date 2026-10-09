@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 import React from "react";
 
 import { FormularioMovimiento } from "./formulario-movimiento";
@@ -12,11 +12,13 @@ import type { ChecklistDelMes, Cuenta, ItemDelChecklist } from "@/lib/api/types"
 const mutaciones = vi.hoisted(() => ({
   movimiento: vi.fn(),
   transferencia: vi.fn(),
+  pagoDividido: vi.fn(),
 }));
 
 vi.mock("@/hooks/use-movimientos", () => ({
   useCrearMovimiento: () => ({ isPending: false, mutate: mutaciones.movimiento }),
   useCrearTransferencia: () => ({ isPending: false, mutate: mutaciones.transferencia }),
+  useCrearPagoDividido: () => ({ isPending: false, mutate: mutaciones.pagoDividido }),
 }));
 
 vi.mock("@/hooks/use-categorias", () => ({ useCategorias: vi.fn(() => ({ data: [] })) }));
@@ -1049,5 +1051,223 @@ describe("FormularioMovimiento: pagar una tarjeta y su pago del presupuesto", ()
 
     expect(screen.queryByLabelText("¿En qué fue?")).toBeNull();
     expect(screen.queryByLabelText("¿De dónde viene?")).toBeNull();
+  });
+});
+
+
+// -------------------------------------------------------------------------
+// "Pagar con dos cuentas": una compra repartida entre dos cuentas
+// -------------------------------------------------------------------------
+
+describe("FormularioMovimiento: pagar con dos cuentas", () => {
+  const bancolombia = { id: "a-1", name: "Bancolombia", type: "bank", currency: "COP", archivedAt: null } as Cuenta;
+  const tarjeta = { id: "a-2", name: "Tarjeta Nu", type: "card", currency: "COP", archivedAt: null } as Cuenta;
+  const dolares = { id: "a-3", name: "Dólares", type: "bank", currency: "USD", archivedAt: null } as Cuenta;
+  const vieja = { id: "a-4", name: "Vieja", type: "bank", currency: "COP", archivedAt: "2026-01-01T00:00:00Z" } as Cuenta;
+  const cuentasDos = [bancolombia, tarjeta, dolares, vieja];
+
+  function escribirTotal(texto: string) {
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: texto } });
+  }
+
+  function activar() {
+    fireEvent.click(screen.getByRole("button", { name: "Pagar con dos cuentas" }));
+  }
+
+  /** Elige la Cuenta 2 (el Select aplanado deja sus opciones dentro de su contenedor). */
+  function elegirCuenta2(nombre: string) {
+    const contenedor = screen.getByLabelText("Cuenta 2").parentElement!;
+    fireEvent.click(within(contenedor).getByRole("button", { name: nombre }));
+  }
+
+  function registrar() {
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+  }
+
+  it("ofrece 'Pagar con dos cuentas' en gasto e ingreso cuando hay otra cuenta activa de la misma moneda", () => {
+    render(<FormularioMovimiento cuentas={cuentasDos} abierto />);
+
+    expect(screen.getByRole("button", { name: "Pagar con dos cuentas" }).className).toContain(
+      "min-h-11"
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Ingreso" }));
+    expect(screen.getByRole("button", { name: "Pagar con dos cuentas" })).toBeInTheDocument();
+  });
+
+  it("no lo ofrece en 'Entre cuentas', al corregir, ni si no hay otra cuenta de la misma moneda", () => {
+    const { unmount } = render(<FormularioMovimiento cuentas={cuentasDos} abierto />);
+    fireEvent.click(screen.getByRole("button", { name: "Entre cuentas" }));
+    expect(screen.queryByRole("button", { name: "Pagar con dos cuentas" })).toBeNull();
+    unmount();
+
+    const correccion = render(
+      <FormularioMovimiento
+        cuentas={cuentasDos}
+        abierto
+        valoresIniciales={{ monto: "12.500", cuentaId: "a-1", tipo: "gasto" }}
+      />
+    );
+    expect(screen.queryByRole("button", { name: "Pagar con dos cuentas" })).toBeNull();
+    correccion.unmount();
+
+    // Sola en pesos: la de dólares y la archivada no cuentan.
+    render(<FormularioMovimiento cuentas={[bancolombia, dolares, vieja]} abierto />);
+    expect(screen.queryByRole("button", { name: "Pagar con dos cuentas" })).toBeNull();
+  });
+
+  it("al activarlo reparte la mitad en cada cuenta y 'Registrar' espera la segunda cuenta", () => {
+    render(<FormularioMovimiento cuentas={cuentasDos} abierto />);
+    escribirTotal("200.000");
+    activar();
+
+    expect(screen.getByText("Pagar con dos cuentas")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Cuenta")).toBeNull();
+    expect(screen.getByLabelText("Cuenta 1")).toHaveTextContent("Bancolombia");
+    expect(screen.getByLabelText("Monto en la cuenta 1")).toHaveValue("100.000");
+    expect(screen.getByLabelText("Monto en la cuenta 2")).toHaveValue("100.000");
+    expect(screen.getByRole("button", { name: "Registrar" })).toBeDisabled();
+  });
+
+  it("con las dos cuentas elegidas y la suma exacta, envía UNA compra con las dos partes en negativo", () => {
+    render(<FormularioMovimiento cuentas={cuentasDos} abierto />);
+    escribirTotal("200.000");
+    activar();
+    elegirCuenta2("Tarjeta Nu");
+
+    expect(screen.getByRole("button", { name: "Registrar" })).toBeEnabled();
+    registrar();
+
+    expect(mutaciones.pagoDividido).toHaveBeenCalledTimes(1);
+    expect(mutaciones.pagoDividido.mock.calls[0]![0]).toMatchObject({
+      payments: [
+        { accountId: "a-1", amount: "-100000" },
+        { accountId: "a-2", amount: "-100000" },
+      ],
+    });
+    expect(mutaciones.movimiento).not.toHaveBeenCalled();
+  });
+
+  it("editar el monto de una cuenta completa la otra, y se envía ese reparto exacto", () => {
+    render(<FormularioMovimiento cuentas={cuentasDos} abierto />);
+    escribirTotal("200.000");
+    activar();
+    elegirCuenta2("Tarjeta Nu");
+
+    fireEvent.change(screen.getByLabelText("Monto en la cuenta 1"), { target: { value: "150.000" } });
+    expect(screen.getByLabelText("Monto en la cuenta 2")).toHaveValue("50.000");
+    registrar();
+
+    expect(mutaciones.pagoDividido.mock.calls[0]![0].payments).toEqual([
+      { accountId: "a-1", amount: "-150000" },
+      { accountId: "a-2", amount: "-50000" },
+    ]);
+  });
+
+  it("si lo repartido no suma el total, 'Registrar' queda apagado y se dice cuánto falta", () => {
+    render(<FormularioMovimiento cuentas={cuentasDos} abierto />);
+    escribirTotal("200.000");
+    activar();
+    elegirCuenta2("Tarjeta Nu");
+
+    // Se pasa del total: la otra parte no se puede completar sola y queda en
+    // 100.000, así que 250.000 + 100.000 se pasa por 150.000.
+    fireEvent.change(screen.getByLabelText("Monto en la cuenta 1"), { target: { value: "250.000" } });
+
+    expect(document.getElementById("estado-pago-dividido")).toHaveTextContent(
+      "Te pasaste por $150.000."
+    );
+    expect(screen.getByRole("button", { name: "Registrar" })).toBeDisabled();
+  });
+
+  it("cambiar el total vuelve a repartirlo a la mitad", () => {
+    render(<FormularioMovimiento cuentas={cuentasDos} abierto />);
+    escribirTotal("200.000");
+    activar();
+    fireEvent.change(screen.getByLabelText("Monto en la cuenta 1"), { target: { value: "150.000" } });
+
+    escribirTotal("300.000");
+
+    expect(screen.getByLabelText("Monto en la cuenta 1")).toHaveValue("150.000");
+    expect(screen.getByLabelText("Monto en la cuenta 2")).toHaveValue("150.000");
+  });
+
+  it("un total impar se reparte con el sobrante en la primera cuenta", () => {
+    render(<FormularioMovimiento cuentas={cuentasDos} abierto />);
+    escribirTotal("100.001");
+    activar();
+
+    expect(screen.getByLabelText("Monto en la cuenta 1")).toHaveValue("50.001");
+    expect(screen.getByLabelText("Monto en la cuenta 2")).toHaveValue("50.000");
+  });
+
+  it("un ingreso se envía con las dos partes en positivo", () => {
+    render(<FormularioMovimiento cuentas={cuentasDos} abierto tipoInicial="ingreso" />);
+    escribirTotal("200.000");
+    activar();
+    elegirCuenta2("Tarjeta Nu");
+    registrar();
+
+    expect(mutaciones.pagoDividido.mock.calls[0]![0].payments).toEqual([
+      { accountId: "a-1", amount: "100000" },
+      { accountId: "a-2", amount: "100000" },
+    ]);
+  });
+
+  it("lleva la categoría y el ítem elegidos, y la fecha y la descripción", () => {
+    catalogo();
+    checklistCon([itemChecklist({ id: "i-nu" })]);
+    render(<FormularioMovimiento cuentas={cuentasDos} abierto />);
+    escribirTotal("200.000");
+    elegirDelMenu("Deuda TC Nu");
+    fireEvent.click(screen.getByRole("button", { name: /Más detalles/ }));
+    fireEvent.change(screen.getByLabelText("Descripción (opcional)"), { target: { value: "Mercado" } });
+    activar();
+    elegirCuenta2("Tarjeta Nu");
+    registrar();
+
+    expect(mutaciones.pagoDividido.mock.calls[0]![0]).toMatchObject({
+      categoryId: "c-deu",
+      budgetItemId: "i-nu",
+      description: "Mercado",
+    });
+  });
+
+  it("'Volver a una cuenta' regresa al campo Cuenta de siempre y descarta el reparto", () => {
+    render(<FormularioMovimiento cuentas={cuentasDos} abierto />);
+    escribirTotal("200.000");
+    activar();
+
+    fireEvent.click(screen.getByRole("button", { name: "Volver a una cuenta" }));
+
+    expect(screen.getByLabelText("Cuenta")).toHaveTextContent("Bancolombia");
+    expect(screen.queryByLabelText("Cuenta 1")).toBeNull();
+    registrar();
+    expect(mutaciones.movimiento).toHaveBeenCalledTimes(1);
+    expect(mutaciones.pagoDividido).not.toHaveBeenCalled();
+  });
+
+  it("pasar a 'Entre cuentas' sale del modo de dos cuentas", () => {
+    render(<FormularioMovimiento cuentas={cuentasDos} abierto />);
+    escribirTotal("200.000");
+    activar();
+
+    fireEvent.click(screen.getByRole("button", { name: "Entre cuentas" }));
+
+    expect(screen.queryByLabelText("Cuenta 1")).toBeNull();
+    expect(screen.getByLabelText("Desde")).toBeInTheDocument();
+  });
+
+  it("el éxito avisa con las dos cuentas, cierra y no registra un gasto suelto", () => {
+    mutaciones.pagoDividido.mockImplementation(
+      (_datos: unknown, opciones: { onSuccess?: () => void }) => opciones.onSuccess?.()
+    );
+    const alCambiar = vi.fn();
+    render(<FormularioMovimiento cuentas={cuentasDos} abierto onAbiertoChange={alCambiar} />);
+    escribirTotal("200.000");
+    activar();
+    elegirCuenta2("Tarjeta Nu");
+    registrar();
+
+    expect(alCambiar).toHaveBeenCalledWith(false);
   });
 });

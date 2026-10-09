@@ -187,7 +187,9 @@ export function DetalleMovimiento({
                 }}
               >
                 <Ban data-icon="inline-start" />
-                Anular
+                {/* Una parte suelta (la lista está filtrada a una cuenta) de una
+                    compra pagada con dos cuentas anula la compra completa. */}
+                {movimiento.paymentGroupId ? "Anular compra completa" : "Anular"}
               </Button>
             )}
           </DrawerFooter>

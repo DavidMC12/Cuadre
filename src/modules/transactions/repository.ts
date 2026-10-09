@@ -24,6 +24,7 @@ interface FilaCruda {
   occurred_at: Date | string;
   description: string | null;
   transfer_group_id: string | null;
+  payment_group_id: string | null;
   reverses_transaction_id: string | null;
   reversed_by_transaction_id?: string | null;
 }
@@ -43,6 +44,7 @@ function aMovimiento(fila: FilaCruda): Movimiento {
     occurredAt: aIso(fila.occurred_at),
     description: fila.description,
     transferGroupId: fila.transfer_group_id,
+    paymentGroupId: fila.payment_group_id,
     reversesTransactionId: fila.reverses_transaction_id,
     reversedByTransactionId: fila.reversed_by_transaction_id ?? null,
   };
@@ -51,7 +53,7 @@ function aMovimiento(fila: FilaCruda): Movimiento {
 /** Para el RETURNING de un INSERT: una fila recién nacida no puede estar anulada. */
 const COLUMNAS = sql`
   id, account_id, category_id, budget_item_id, kind, amount::text as amount, currency,
-  occurred_at, description, transfer_group_id, reverses_transaction_id`;
+  occurred_at, description, transfer_group_id, payment_group_id, reverses_transaction_id`;
 
 /**
  * Para las lecturas. El LEFT JOIN contra la propia tabla responde "¿a este
@@ -60,7 +62,7 @@ const COLUMNAS = sql`
 const LECTURA_CON_ANULACION = sql`
   select m.id, m.account_id, m.category_id, m.budget_item_id, m.kind, m.amount::text as amount,
          m.currency, m.occurred_at, m.description, m.transfer_group_id,
-         m.reverses_transaction_id,
+         m.payment_group_id, m.reverses_transaction_id,
          anulacion.id as reversed_by_transaction_id
   from transactions m
   left join transactions anulacion
@@ -79,6 +81,8 @@ export interface DatosParaRegistrar {
   itemId?: string | null;
   tipo?: 'opening' | 'standard' | 'transfer' | 'adjustment';
   grupoDeTransferencia?: string | null;
+  /** Las patas de una compra pagada con dos cuentas comparten este grupo. */
+  grupoDePago?: string | null;
   anula?: string | null;
 }
 
@@ -99,7 +103,7 @@ export async function registrar(
   const filas = (await ejecutor.execute(sql`
     insert into transactions
       (user_id, account_id, category_id, budget_item_id, kind, amount, currency,
-       occurred_at, description, transfer_group_id, reverses_transaction_id)
+       occurred_at, description, transfer_group_id, payment_group_id, reverses_transaction_id)
     select ${usuarioId}::uuid,
            ${datos.cuentaId}::uuid,
            ${datos.categoriaId ?? null}::uuid,
@@ -110,6 +114,7 @@ export async function registrar(
            ${datos.ocurrioEn}::timestamptz,
            ${datos.descripcion ?? null}::text,
            ${datos.grupoDeTransferencia ?? null}::uuid,
+           ${datos.grupoDePago ?? null}::uuid,
            ${datos.anula ?? null}::uuid
     from accounts cuenta
     where cuenta.id = ${datos.cuentaId}::uuid
@@ -210,6 +215,7 @@ export async function listar(
       occurredAt: transactions.occurredAt,
       description: transactions.description,
       transferGroupId: transactions.transferGroupId,
+      paymentGroupId: transactions.paymentGroupId,
       reversesTransactionId: transactions.reversesTransactionId,
       reversedByTransactionId: anulacion.id,
     })
@@ -240,6 +246,7 @@ export async function listar(
       occurredAt: fila.occurredAt.toISOString(),
       description: fila.description,
       transferGroupId: fila.transferGroupId,
+      paymentGroupId: fila.paymentGroupId,
       reversesTransactionId: fila.reversesTransactionId,
       reversedByTransactionId: fila.reversedByTransactionId,
     })),
@@ -302,7 +309,9 @@ export async function obtenerTiposDeCuentas(
 }
 
 /**
- * Señal interna para deshacer la transacción cuando alguna cuenta no existe.
+ * Señal interna para deshacer la transacción cuando alguna cuenta no existe
+ * (una transferencia o una compra pagada con dos cuentas: las patas entran
+ * juntas o ninguna).
  *
  * `db.transaction` solo hace ROLLBACK si el callback lanza: un simple
  * `return null` adentro se toma como éxito y la transacción se confirma
@@ -310,7 +319,7 @@ export async function obtenerTiposDeCuentas(
  * para forzar el rollback, y se atrapa afuera para no cambiarle el contrato a
  * quien llama (sigue devolviendo `null`, no un error).
  */
-class CuentaDeTransferenciaInexistente extends Error {}
+class CuentaInexistenteParaEscribir extends Error {}
 
 /** Los dos movimientos de una transferencia entran juntos o no entra ninguno. */
 export async function registrarTransferencia(
@@ -341,14 +350,14 @@ export async function registrarTransferencia(
         monto: `-${datos.monto}`,
         itemId: datos.itemId ?? null,
       });
-      if (!salida) throw new CuentaDeTransferenciaInexistente();
+      if (!salida) throw new CuentaInexistenteParaEscribir();
 
       const entrada = await registrar(tx, usuarioId, {
         ...comun,
         cuentaId: datos.destinoId,
         monto: datos.monto,
       });
-      if (!entrada) throw new CuentaDeTransferenciaInexistente();
+      if (!entrada) throw new CuentaInexistenteParaEscribir();
 
       // El disparador que exige que la transferencia cuadre se ejecuta al
       // confirmar. Se adelanta aquí para que el error salga dentro de este
@@ -358,7 +367,7 @@ export async function registrarTransferencia(
       return { grupoId, patas: [salida, entrada] };
     });
   } catch (error) {
-    if (error instanceof CuentaDeTransferenciaInexistente) return null;
+    if (error instanceof CuentaInexistenteParaEscribir) return null;
     throw error;
   }
 }
@@ -373,6 +382,72 @@ export async function obtenerPatasDeTransferencia(
     ${LECTURA_CON_ANULACION}
     where m.transfer_group_id = ${grupoId}::uuid and m.user_id = ${usuarioId}::uuid
     order by m.amount asc
+  `)) as unknown as FilaCruda[];
+
+  return filas.map((fila) => aMovimiento(fila));
+}
+
+/**
+ * Una compra pagada con dos cuentas: todas las patas entran juntas o no entra
+ * ninguna. Cada pata es un gasto (o ingreso) normal en SU cuenta, con la misma
+ * categoría, el mismo ítem y la misma fecha; solo cambian cuenta, monto y la
+ * marca de descripción. Devuelve null si alguna cuenta no existe, no es de
+ * esta persona o está archivada (no se escribe ninguna pata).
+ */
+export async function registrarPagoDividido(
+  usuarioId: string,
+  datos: {
+    patas: { cuentaId: string; monto: string; descripcion: string | null }[];
+    categoriaId: string | null;
+    itemId: string | null;
+    ocurrioEn: string;
+  },
+): Promise<{ grupoId: string; patas: Movimiento[] } | null> {
+  try {
+    return await db.transaction(async (tx) => {
+      const grupoId = crypto.randomUUID();
+      const registradas: Movimiento[] = [];
+
+      for (const pata of datos.patas) {
+        const movimiento = await registrar(tx, usuarioId, {
+          cuentaId: pata.cuentaId,
+          monto: pata.monto,
+          ocurrioEn: datos.ocurrioEn,
+          descripcion: pata.descripcion,
+          categoriaId: datos.categoriaId,
+          itemId: datos.itemId,
+          grupoDePago: grupoId,
+        });
+        // Se lanza para forzar el ROLLBACK: un `return null` adentro se
+        // tomaría como éxito y dejaría escritas las patas anteriores.
+        if (!movimiento) throw new CuentaInexistenteParaEscribir();
+        registradas.push(movimiento);
+      }
+
+      return { grupoId, patas: registradas };
+    });
+  } catch (error) {
+    if (error instanceof CuentaInexistenteParaEscribir) return null;
+    throw error;
+  }
+}
+
+/**
+ * Las patas de un pago dividido (las originales, o las anulaciones si se pide
+ * el grupo de una anulación), para poder verlas, corregirlas o anularlas
+ * juntas. Las patas se escriben en una sola transacción, o sea con la misma
+ * hora de registro: el desempate por descripción ("1 de 2" antes que "2 de 2")
+ * mantiene su orden estable.
+ */
+export async function obtenerPatasDePagoDividido(
+  ejecutor: Ejecutor,
+  usuarioId: string,
+  grupoId: string,
+): Promise<Movimiento[]> {
+  const filas = (await ejecutor.execute(sql`
+    ${LECTURA_CON_ANULACION}
+    where m.payment_group_id = ${grupoId}::uuid and m.user_id = ${usuarioId}::uuid
+    order by m.created_at asc, m.description asc, m.id asc
   `)) as unknown as FilaCruda[];
 
   return filas.map((fila) => aMovimiento(fila));
@@ -393,6 +468,8 @@ export interface FilaParaExportar {
   anula: string | null;
   anuladoPor: string | null;
   grupoDeTransferencia: string | null;
+  /** El identificador de la compra pagada con dos cuentas, si la hay. */
+  grupoDePago: string | null;
 }
 
 /**
@@ -424,7 +501,8 @@ export async function listarParaExportar(usuarioId: string): Promise<FilaParaExp
            m.amount::text as monto,
            m.reverses_transaction_id as anula,
            anulacion.id as anulado_por,
-           m.transfer_group_id as grupo_de_transferencia
+           m.transfer_group_id as grupo_de_transferencia,
+           m.payment_group_id as grupo_de_pago
       from transactions m
       join accounts cuenta
         on cuenta.id = m.account_id
@@ -456,6 +534,7 @@ export async function listarParaExportar(usuarioId: string): Promise<FilaParaExp
     anula: string | null;
     anulado_por: string | null;
     grupo_de_transferencia: string | null;
+    grupo_de_pago: string | null;
   }[];
 
   return filas.map((fila) => ({
@@ -471,6 +550,7 @@ export async function listarParaExportar(usuarioId: string): Promise<FilaParaExp
     anula: fila.anula,
     anuladoPor: fila.anulado_por,
     grupoDeTransferencia: fila.grupo_de_transferencia,
+    grupoDePago: fila.grupo_de_pago,
   }));
 }
 

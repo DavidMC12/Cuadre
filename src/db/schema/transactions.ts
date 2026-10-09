@@ -76,6 +76,15 @@ export const transactions = pgTable(
 
     /** Las dos patas de una transferencia comparten este identificador. */
     transferGroupId: uuid('transfer_group_id'),
+    /**
+     * Un gasto (o ingreso) pagado con dos cuentas (la mitad con tarjeta, la
+     * mitad con plata disponible) se guarda como dos movimientos normales
+     * —uno por cuenta— que comparten este identificador; su anulación (otras
+     * dos filas) lleva un grupo nuevo: es UN solo hecho, así que se ven y se
+     * anulan juntos, igual que las dos patas de una transferencia. Nulo en
+     * todo lo demás. Solo lo llevan gastos/ingresos normales y sus anulaciones.
+     */
+    paymentGroupId: uuid('payment_group_id'),
     /** Si esta fila anula a otra, aqui va el movimiento anulado. */
     reversesTransactionId: uuid('reverses_transaction_id'),
 
@@ -144,6 +153,9 @@ export const transactions = pgTable(
     index('transactions_transfer_group_idx')
       .on(t.transferGroupId)
       .where(sql`transfer_group_id is not null`),
+    index('transactions_payment_group_idx')
+      .on(t.paymentGroupId)
+      .where(sql`payment_group_id is not null`),
 
     // Un ítem solo cuelga de un gasto/ingreso con categoría o de una transferencia
     // (el pago a una tarjeta). Un saldo inicial o un ajuste nunca lo llevan.
@@ -162,6 +174,12 @@ export const transactions = pgTable(
       sql`${t.description} is null or length(btrim(${t.description})) > 0`,
     ),
 
+    // Un pago dividido es de gastos/ingresos normales: ni un saldo inicial, ni
+    // un ajuste, ni una transferencia (que ya tiene su propio grupo).
+    check(
+      'transactions_payment_group_is_standard',
+      sql`${t.paymentGroupId} is null or ${t.kind} = 'standard'`,
+    ),
     // Es transferencia si y solo si pertenece a un grupo de transferencia.
     check(
       'transactions_transfer_group_consistent',

@@ -4,13 +4,20 @@ import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-q
 
 import {
   createTransaction,
+  createSplitPayment,
   createTransfer,
   fetchTransactions,
+  reverseSplitPayment,
   reverseTransaction,
   updateTransactionBudgetItem,
   updateTransactionCategory,
 } from "@/lib/api/transactions";
-import type { FiltrosMovimientos, NuevaTransferencia, NuevoMovimiento } from "@/lib/api/types";
+import type {
+  FiltrosMovimientos,
+  NuevaTransferencia,
+  NuevoMovimiento,
+  NuevoPagoDividido,
+} from "@/lib/api/types";
 import { clavesCuentas } from "@/hooks/use-cuentas";
 import { clavesPresupuesto } from "@/hooks/use-presupuesto";
 import { clavesReportes } from "@/hooks/use-reportes";
@@ -61,6 +68,28 @@ export function useCrearTransferencia() {
     // Cambia el saldo de las dos cuentas a la vez: se invalida igual que un
     // movimiento normal.
     onSuccess: () => invalidarTrasEscritura(queryClient),
+  });
+}
+
+export function useCrearPagoDividido() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: NuevoPagoDividido) => createSplitPayment(input),
+    // Cambia el saldo de las dos cuentas y cuenta la compra entera en el
+    // presupuesto: se invalida igual que un movimiento normal.
+    onSuccess: () => invalidarTrasEscritura(queryClient),
+  });
+}
+
+/** Anula las dos partes de una compra pagada con dos cuentas, juntas. */
+export function useAnularPagoDividido() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (paymentGroupId: string) => reverseSplitPayment(paymentGroupId),
+    // También si falla: un 409 ("ya está anulada", p. ej. desde otro aparato)
+    // deja la fila desactualizada hasta recargar, y es justo lo que hay que
+    // refrescar.
+    onSettled: () => invalidarTrasEscritura(queryClient),
   });
 }
 

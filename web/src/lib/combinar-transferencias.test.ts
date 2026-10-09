@@ -13,6 +13,7 @@ function movimiento(datos: Partial<Movimiento> & Pick<Movimiento, "id">): Movimi
     description: null,
     transferGroupId: null,
     budgetItemId: null,
+    paymentGroupId: null,
     reversesTransactionId: null,
     reversedByTransactionId: null,
     ...datos,

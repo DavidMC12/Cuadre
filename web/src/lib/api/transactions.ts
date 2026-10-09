@@ -6,7 +6,9 @@ import type {
   Movimiento,
   NuevaTransferencia,
   NuevoMovimiento,
+  NuevoPagoDividido,
   PaginaMovimientos,
+  PagoDividido,
   Transferencia,
 } from "./types";
 
@@ -65,4 +67,20 @@ export function exportTransactions(): Promise<{ contenido: Blob; nombre: string 
  */
 export function createTransfer(input: NuevaTransferencia): Promise<{ data: Transferencia }> {
   return pedir("/transfers", { metodo: "POST", cuerpo: input });
+}
+
+/**
+ * Una compra pagada con dos cuentas: se registra UNA vez y el servidor escribe
+ * las dos partes (un gasto por cuenta) juntas o ninguna.
+ */
+export function createSplitPayment(input: NuevoPagoDividido): Promise<{ data: PagoDividido }> {
+  return pedir("/split-payments", { metodo: "POST", cuerpo: input });
+}
+
+/**
+ * Anular una compra pagada con dos cuentas: las dos partes juntas. Una parte
+ * sola no se anula (el servidor la rechaza): quedaría la compra a medias.
+ */
+export function reverseSplitPayment(paymentGroupId: string): Promise<{ data: PagoDividido }> {
+  return pedir(`/split-payments/${paymentGroupId}/reversal`, { metodo: "POST" });
 }

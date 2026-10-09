@@ -14,6 +14,7 @@ function movimiento(
     description: null,
     transferGroupId: null,
     budgetItemId: null,
+    paymentGroupId: null,
     reversesTransactionId: null,
     reversedByTransactionId: null,
     ...datos,

@@ -27,6 +27,7 @@ import type {
   ListarMovimientos,
   Movimiento,
   RegistrarMovimiento,
+  RegistrarPagoDividido,
 } from './schemas.js';
 
 // -----------------------------------------------------------------------------
@@ -219,6 +220,12 @@ export async function anularMovimiento(
       );
     }
 
+    if (original.paymentGroupId) {
+      throw reglaViolada(
+        'Ese movimiento es una parte de una compra pagada con dos cuentas. Anula la compra completa, no una de sus partes.',
+      );
+    }
+
     const anulacion = await repositorio.registrar(tx, usuarioId, {
       cuentaId: original.accountId,
       monto: negate(original.amount),
@@ -356,6 +363,141 @@ export async function anularTransferencia(
 }
 
 // -----------------------------------------------------------------------------
+// Compra pagada con dos cuentas
+
+/**
+ * Registra UNA compra pagada con dos cuentas: se guardan dos gastos (o
+ * ingresos) normales, uno por cuenta, ligados por un mismo grupo y con la misma
+ * categoría, ítem y fecha. Entran los dos o ninguno. A cada parte se le marca
+ * "(1 de 2)" / "(2 de 2)" en la descripción para reconocerlas en el historial.
+ */
+export async function registrarPagoDividido(
+  usuarioId: string,
+  datos: RegistrarPagoDividido,
+): Promise<{ paymentGroupId: string; legs: Movimiento[] }> {
+  const [primera, segunda] = datos.payments as [
+    { accountId: string; amount: string },
+    { accountId: string; amount: string },
+  ];
+
+  // Se revisa antes de escribir para dar un mensaje llano: la base igual lo
+  // impediría con un error que habla de restricciones.
+  const monedas = await repositorio.obtenerMonedasDeCuentas(db, usuarioId, [
+    primera.accountId,
+    segunda.accountId,
+  ]);
+  const monedaPrimera = monedas.get(primera.accountId);
+  const monedaSegunda = monedas.get(segunda.accountId);
+  if (monedaPrimera && monedaSegunda && monedaPrimera !== monedaSegunda) {
+    throw reglaViolada('Las dos cuentas deben ser de la misma moneda para repartir el pago.');
+  }
+
+  if (datos.budgetItemId) {
+    if (!datos.categoryId) {
+      throw reglaViolada('Para asignar un ítem, el movimiento necesita categoría.');
+    }
+    await exigirItemDeCategoria(
+      usuarioId,
+      datos.budgetItemId,
+      datos.categoryId,
+      monedaPrimera ?? monedaSegunda,
+    );
+  }
+
+  const descripcionDe = (numero: number): string =>
+    datos.description ? `${datos.description} (${numero} de 2)` : `Pago ${numero} de 2`;
+
+  const resultado = await repositorio.registrarPagoDividido(usuarioId, {
+    patas: [
+      { cuentaId: primera.accountId, monto: primera.amount, descripcion: descripcionDe(1) },
+      { cuentaId: segunda.accountId, monto: segunda.amount, descripcion: descripcionDe(2) },
+    ],
+    categoriaId: datos.categoryId ?? null,
+    itemId: datos.budgetItemId ?? null,
+    ocurrioEn: datos.occurredAt,
+  });
+
+  if (!resultado) {
+    throw noEncontrado('Alguna de las dos cuentas no existe o está archivada.');
+  }
+
+  return { paymentGroupId: resultado.grupoId, legs: resultado.patas };
+}
+
+/**
+ * Deshacer una compra pagada con dos cuentas son dos anulaciones que entran
+ * juntas y forman su propio grupo. Anular una sola parte dejaría la compra a
+ * medias y los saldos mal, por eso solo se anula completa.
+ */
+export async function anularPagoDividido(
+  usuarioId: string,
+  grupoId: string,
+): Promise<{ paymentGroupId: string; legs: Movimiento[] }> {
+  return db.transaction(async (tx) => {
+    const patas = await repositorio.obtenerPatasDePagoDividido(tx, usuarioId, grupoId);
+
+    if (patas.length === 0) throw noEncontrado('Esa compra no existe.');
+    if (patas.some((pata) => pata.reversesTransactionId)) {
+      throw reglaViolada('Esa compra ya es la anulación de otra.');
+    }
+    if (patas.some((pata) => pata.reversedByTransactionId)) {
+      throw conflicto('Esa compra ya está anulada.');
+    }
+
+    const grupoNuevo = crypto.randomUUID();
+    const anulaciones: Movimiento[] = [];
+
+    for (const pata of patas) {
+      const anulacion = await repositorio.registrar(tx, usuarioId, {
+        cuentaId: pata.accountId,
+        monto: negate(pata.amount),
+        ocurrioEn: pata.occurredAt,
+        categoriaId: pata.categoryId,
+        itemId: pata.budgetItemId,
+        descripcion: pata.description ? `Anulación de: ${pata.description}` : 'Anulación',
+        tipo: pata.kind,
+        grupoDePago: grupoNuevo,
+        anula: pata.id,
+      });
+
+      if (!anulacion) {
+        throw reglaViolada(
+          'Alguna de las cuentas de esa compra está archivada. Desarchívala para poder corregir su historial.',
+        );
+      }
+
+      anulaciones.push(anulacion);
+    }
+
+    return { paymentGroupId: grupoNuevo, legs: anulaciones };
+  });
+}
+
+/**
+ * Los ids que se corrigen JUNTOS cuando se cambia la categoría o el ítem de un
+ * movimiento: el original y su anulación, y si es una parte de una compra
+ * pagada con dos cuentas, también la otra parte y la anulación de ésta. Una
+ * compra reparte la misma categoría e ítem entre sus partes: si una cambiara
+ * sola, el presupuesto quedaría contando la compra en dos sitios.
+ */
+async function idsQueSeCorrigenJuntos(
+  tx: Ejecutor,
+  usuarioId: string,
+  original: Movimiento,
+): Promise<string[]> {
+  const partes = original.paymentGroupId
+    ? await repositorio.obtenerPatasDePagoDividido(tx, usuarioId, original.paymentGroupId)
+    : [original];
+
+  const ids: string[] = [];
+  for (const parte of partes) {
+    ids.push(parte.id);
+    if (parte.reversedByTransactionId) ids.push(parte.reversedByTransactionId);
+  }
+  return ids;
+}
+
+// -----------------------------------------------------------------------------
 // Exportación
 
 const ENCABEZADOS = [
@@ -371,6 +513,7 @@ const ENCABEZADOS = [
   'Id',
   'Anula a',
   'Transferencia',
+  'Pago dividido',
 ] as const;
 
 /**
@@ -420,6 +563,7 @@ export async function exportarMovimientos(
       fila.id,
       fila.anula,
       fila.grupoDeTransferencia,
+      fila.grupoDePago,
     ]),
   );
 
@@ -521,8 +665,7 @@ export async function recategorizarMovimiento(
       );
     }
 
-    const aMover = [original.id];
-    if (original.reversedByTransactionId) aMover.push(original.reversedByTransactionId);
+    const aMover = await idsQueSeCorrigenJuntos(tx, usuarioId, original);
 
     for (const id of aMover) {
       const movido = await repositorio.recategorizar(tx, usuarioId, id, categoriaId);
@@ -642,8 +785,7 @@ export async function asignarItemAMovimiento(
 
       // El original y su anulación (si la tiene) se mueven juntos: si no, la
       // pareja quedaría repartida entre dos ítems y los dos renglones mentirían.
-      const aMover = [original.id];
-      if (original.reversedByTransactionId) aMover.push(original.reversedByTransactionId);
+      const aMover = await idsQueSeCorrigenJuntos(tx, usuarioId, original);
 
       for (const id of aMover) {
         const movido = await repositorio.asignarItem(tx, usuarioId, id, itemId);

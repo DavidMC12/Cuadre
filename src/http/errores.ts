@@ -105,6 +105,11 @@ const POR_RESTRICCION: Record<string, Traduccion> = {
     codigo: 'RULE_VIOLATION',
     mensaje: 'Para asignar un ítem, el movimiento necesita categoría.',
   },
+  transactions_payment_group_is_standard: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'Solo un gasto o un ingreso normal puede ser parte de una compra pagada con dos cuentas.',
+  },
   transactions_reversal_unique: {
     estado: 409,
     codigo: 'CONFLICT',

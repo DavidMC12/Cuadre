@@ -10,8 +10,10 @@ import {
   IdEnRutaSchema,
   ListaDeMovimientosSchema,
   ListarMovimientosSchema,
+  PagoDivididoSchema,
   RecategorizarSchema,
   RegistrarMovimientoSchema,
+  RegistrarPagoDivididoSchema,
   TransferenciaSchema,
   UnMovimientoSchema,
 } from './schemas.js';
@@ -66,6 +68,28 @@ export const rutasDeMovimientos: FastifyPluginAsyncZod = async (app) => {
     { schema: { params: IdEnRutaSchema, response: { 201: UnMovimientoSchema } } },
     async (peticion, respuesta) => {
       const anulacion = await servicio.anularMovimiento(peticion.usuarioId, peticion.params.id);
+      return respuesta.code(201).send({ data: anulacion });
+    },
+  );
+
+  /**
+   * Una compra pagada con dos cuentas: se registra UNA vez y se guardan dos
+   * gastos ligados (juntos o ninguno). Se anula completa, no por partes.
+   */
+  app.post(
+    '/split-payments',
+    { schema: { body: RegistrarPagoDivididoSchema, response: { 201: PagoDivididoSchema } } },
+    async (peticion, respuesta) => {
+      const pago = await servicio.registrarPagoDividido(peticion.usuarioId, peticion.body);
+      return respuesta.code(201).send({ data: pago });
+    },
+  );
+
+  app.post(
+    '/split-payments/:id/reversal',
+    { schema: { params: IdEnRutaSchema, response: { 201: PagoDivididoSchema } } },
+    async (peticion, respuesta) => {
+      const anulacion = await servicio.anularPagoDividido(peticion.usuarioId, peticion.params.id);
       return respuesta.code(201).send({ data: anulacion });
     },
   );
