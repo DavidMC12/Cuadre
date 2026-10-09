@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import React from "react";
 
 import { FormularioMovimiento } from "./formulario-movimiento";
 import * as useCategoriasModule from "@/hooks/use-categorias";
@@ -24,12 +25,95 @@ vi.mock("@/hooks/use-presupuesto", () => ({ useChecklistDelMes: vi.fn(() => ({ d
 
 vi.mock("@/hooks/use-perfil", () => ({ useSoloMirar: () => false }));
 vi.mock("@/hooks/use-pantalla-grande", () => ({ usePantallaGrande: () => false }));
-// El selector real es un desplegable; aquí basta con ver qué valor recibió.
-vi.mock("@/components/movimientos/selector-categoria", () => ({
-  SelectorCategoria: ({ value }: { value?: string }) => (
-    <div data-testid="categoria-seleccionada">{value ?? "sin-categoria"}</div>
-  ),
-}));
+
+// El Select real abre su popup en un portal que jsdom no puede abrir. Este
+// mock lo vuelve plano: el contenido se ve siempre y cada opción es un botón
+// que le pasa el value al `onValueChange` del Select que lo contiene. Así las
+// pruebas eligen opciones con clics y el trigger conserva id/className/aria.
+vi.mock("@/components/ui/select", async () => {
+  const React = await import("react");
+  type CtxSelector = {
+    valor: string | undefined;
+    elegir: (valor: string | null) => void;
+  };
+  const Ctx = React.createContext<CtxSelector>({ valor: undefined, elegir: () => {} });
+
+  function Select({
+    value,
+    onValueChange,
+    children,
+  }: {
+    value?: string;
+    onValueChange?: (valor: string | null) => void;
+    children?: React.ReactNode;
+  }) {
+    return (
+      <Ctx.Provider
+        value={{ valor: value, elegir: (valor) => onValueChange?.(valor ?? null) }}
+      >
+        {children}
+      </Ctx.Provider>
+    );
+  }
+
+  function SelectTrigger({
+    id,
+    className,
+    children,
+  }: {
+    id?: string;
+    className?: string;
+    children?: React.ReactNode;
+  }) {
+    // `output` es de los pocos elementos etiquetables por htmlFor sin ser
+    // `button`: así el trigger no se grapa el rol de botón ni choca con las
+    // opciones del menú en las consultas por rol.
+    return (
+      <output id={id} className={className}>
+        {children}
+      </output>
+    );
+  }
+
+  function SelectValue({ children }: { children?: unknown; placeholder?: string }) {
+    const { valor } = React.useContext(Ctx);
+    return <span>{typeof children === "function" ? children(valor ?? "") : children}</span>;
+  }
+
+  function SelectContent({ children }: { children?: React.ReactNode }) {
+    const { elegir } = React.useContext(Ctx);
+    return (
+      <Ctx.Provider value={{ valor: undefined, elegir }}>
+        <div>{children}</div>
+      </Ctx.Provider>
+    );
+  }
+
+  function SelectItem({
+    value,
+    children,
+  }: {
+    value: string;
+    children?: React.ReactNode;
+  }) {
+    const { elegir } = React.useContext(Ctx);
+    return (
+      <button type="button" onClick={() => elegir(value)}>
+        {children}
+      </button>
+    );
+  }
+
+  function SelectGroup({ children }: { children?: React.ReactNode }) {
+    return <div>{children}</div>;
+  }
+
+  function SelectLabel({ children }: { children?: React.ReactNode }) {
+    return <span>{children}</span>;
+  }
+
+  return { Select, SelectTrigger, SelectValue, SelectContent, SelectItem, SelectGroup, SelectLabel };
+});
 
 afterEach(() => {
   cleanup();
@@ -53,6 +137,9 @@ const cuentas: Cuenta[] = [
 
 describe("FormularioMovimiento abierto desde afuera (corregir un movimiento)", () => {
   it("aplica los valores iniciales a los campos, sin disparador visible", () => {
+    vi.mocked(useCategoriasModule.useCategorias).mockReturnValue({
+      data: [{ id: "c-3", name: "Mercado", kind: "expense", archivedAt: null }],
+    } as never);
     render(
       <FormularioMovimiento
         cuentas={cuentas}
@@ -71,8 +158,9 @@ describe("FormularioMovimiento abierto desde afuera (corregir un movimiento)", (
     expect(screen.getByLabelText("Monto")).toHaveValue("12.500");
     expect(screen.getByLabelText("Fecha")).toHaveValue("2026-09-10");
     expect(screen.getByLabelText("Descripción (opcional)")).toHaveValue("Mercado");
-    // La categoría y la fecha vienen en "Más detalles", que abre ya desplegado.
-    expect(screen.getByTestId("categoria-seleccionada")).toHaveTextContent("c-3");
+    // La categoría precargada se ve bien elegida en el desplegable, que ya no
+    // vive escondido en "Más detalles".
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Mercado");
     expect(screen.getByRole("button", { name: "Gasto" })).toHaveAttribute(
       "aria-pressed",
       "true"
@@ -223,6 +311,37 @@ describe("FormularioMovimiento abierto desde afuera (corregir un movimiento)", (
     fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2026-09-09" } });
     expect(registrar).toBeEnabled();
   });
+
+  it("cambiar solo la elección del desplegable cuenta como cambio", () => {
+    vi.mocked(useCategoriasModule.useCategorias).mockReturnValue({
+      data: [{ id: "c-3", name: "Mercado", kind: "expense", archivedAt: null }],
+    } as never);
+    render(
+      <FormularioMovimiento
+        cuentas={cuentas}
+        abierto
+        valoresIniciales={{
+          monto: "12.500",
+          cuentaId: "a-1",
+          categoriaId: "c-3",
+          fecha: "2026-09-10",
+          descripcion: "Mercado",
+          tipo: "gasto",
+        }}
+      />
+    );
+
+    const registrar = screen.getByRole("button", { name: "Registrar" });
+    expect(registrar).toBeDisabled();
+
+    // Elegir "Sin categoría" (quitar la precargada) es un cambio de verdad.
+    fireEvent.click(screen.getByRole("button", { name: "Sin categoría" }));
+    expect(registrar).toBeEnabled();
+
+    // Y volver a la precargada lo apaga otra vez, como cualquier otro campo.
+    fireEvent.click(screen.getByRole("button", { name: "Mercado" }));
+    expect(registrar).toBeDisabled();
+  });
 });
 
 const cuentaActiva: Cuenta = {
@@ -278,21 +397,12 @@ describe("FormularioMovimiento: la corrección conserva la cuenta original", () 
 });
 
 describe("FormularioMovimiento: piso de toque de 44px", () => {
-  it("los chips rápidos de categoría llevan el piso de toque", () => {
-    // Séptima critique: los chips medían ~40px (py-2.5 sin piso). El chip
-    // entra en la 320px si sigue cabiendo: la altura sube, no el ancho.
-    vi.mocked(useCategoriasModule.useCategorias).mockReturnValue({
-      data: [
-        { id: "c-1", name: "Mercado", kind: "expense", archivedAt: null },
-        { id: "c-2", name: "Transporte", kind: "expense", archivedAt: null },
-      ],
-    } as never);
-
+  it("el desplegable de '¿En qué fue?' lleva el piso de toque", () => {
+    // Reemplaza a los chips: es el control de la fila principal que no puede
+    // quedar por debajo del piso. La altura sube, no el ancho.
     render(<FormularioMovimiento cuentas={cuentas} abierto />);
 
-    const chip = screen.getByRole("button", { name: "Mercado" });
-    expect(chip.classList.contains("min-h-11")).toBe(true);
-    expect(chip.getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByLabelText("¿En qué fue?").className).toContain("min-h-11");
   });
 
   it("el botón 'Más detalles' lleva el piso de toque", () => {
@@ -354,7 +464,7 @@ describe("FormularioMovimiento: piso de toque de 44px", () => {
 });
 
 // -------------------------------------------------------------------------
-// El item del presupuesto: cada movimiento cuenta para uno solo
+// El desplegable "¿En qué fue?": una sola pregunta para categoría e item
 // -------------------------------------------------------------------------
 
 const CATEGORIAS = [
@@ -362,6 +472,7 @@ const CATEGORIAS = [
   { id: "c-mer", name: "Mercado", kind: "expense", archivedAt: null },
   { id: "c-str", name: "Transporte", kind: "expense", archivedAt: null },
   { id: "c-sue", name: "Sueldo", kind: "income", archivedAt: null },
+  { id: "c-hon", name: "Honorarios", kind: "income", archivedAt: null },
 ] as const;
 
 function itemChecklist(over: Partial<ItemDelChecklist> & { id: string }): ItemDelChecklist {
@@ -388,211 +499,289 @@ function checklistCon(items: ItemDelChecklist[]) {
   );
 }
 
-function categoriasRapidas() {
+function catalogo(lista = CATEGORIAS) {
   vi.mocked(useCategoriasModule.useCategorias).mockImplementation(
-    () => ({ data: [...CATEGORIAS] }) as never
+    () => ({ data: [...lista] }) as never
   );
 }
 
-/** Abre "Más detalles" y elige la categoría con el chip rápido. */
-function elegirCategoria(nombre: string) {
-  fireEvent.click(screen.getByRole("button", { name: /Más detalles/ }));
-  fireEvent.click(screen.getByRole("button", { name: nombre }));
+/** Elige una opción del menú del desplegable (con el Select aplanado en mock,
+ * cada opción es un botón con su texto). Acepta texto parcial. */
+function elegirDelMenu(texto: string) {
+  fireEvent.click(screen.getByRole("button", { name: descripcionDeOpcion(texto) }));
 }
 
-describe("FormularioMovimiento: el item del presupuesto del movimiento", () => {
-  it("con exactamente un ítem de la categoría, viene preseleccionado con lo que falta", () => {
-    categoriasRapidas();
-    checklistCon([
-      // target 250.000 − progress 147.500 = faltan $102.500, texto exacto.
-      itemChecklist({ id: "i-nu", progress: "147500", status: "partial", checked: true }),
-    ]);
+/** getByRole compara el nombre accesible completo; el texto del monto usa
+ * espacios duros. Con un regex parcial se busca sin pelear con eso. */
+function descripcionDeOpcion(texto: string): RegExp {
+  return new RegExp(texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+}
 
+describe("FormularioMovimiento: el desplegable '¿En qué fue?'", () => {
+  it("abre en 'Sin categoría' y es siempre visible, sin abrir Más detalles", () => {
+    catalogo();
+    checklistCon([itemChecklist({ id: "i-nu" })]);
     render(<FormularioMovimiento cuentas={cuentas} abierto />);
-    elegirCategoria("Deudas");
 
-    const campo = screen.getByLabelText("Ítem del presupuesto (opcional)");
-    expect(campo).toHaveTextContent("Deuda TC Nu — faltan $102.500");
-  });
-
-  it("un item ya pagado dice pagado, no le inventa un faltante de $0", () => {
-    categoriasRapidas();
-    checklistCon([
-      itemChecklist({ id: "i-nu", progress: "250000", status: "paid", checked: true }),
-    ]);
-
-    render(<FormularioMovimiento cuentas={cuentas} abierto />);
-    elegirCategoria("Deudas");
-
-    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
-      "Deuda TC Nu — pagado"
+    const campo = screen.getByLabelText("¿En qué fue?");
+    expect(campo).toHaveTextContent("Sin categoría");
+    // El botón ya no anuncia categoría: es solo fecha y descripción.
+    expect(screen.getByRole("button", { name: /Más detalles/ })).toHaveTextContent(
+      "Más detalles (fecha, descripción)"
     );
+    expect(
+      screen.queryByRole("button", { name: "Más detalles (fecha, descripción, categoría)" })
+    ).toBeNull();
   });
 
-  it("un item de ingreso dice recibido, no pagado", () => {
-    categoriasRapidas();
+  it("en un ingreso la etiqueta cambia a '¿De dónde viene?'", () => {
+    catalogo();
+    render(<FormularioMovimiento cuentas={cuentas} abierto tipoInicial="ingreso" />);
+
+    expect(screen.queryByLabelText("¿En qué fue?")).toBeNull();
+    expect(screen.getByLabelText("¿De dónde viene?")).toBeInTheDocument();
+  });
+
+  it("agrupa los items por su categoría y deja un renglón 'Otro de ...' por cada una", () => {
+    catalogo();
     checklistCon([
+      itemChecklist({ id: "i-nu", target: "250000", progress: "147500" }),
+      itemChecklist({ id: "i-dav", label: "Deuda Davivienda", target: "267530" }),
+      itemChecklist({
+        id: "i-mer",
+        label: "Compra semanal",
+        categoryId: "c-mer",
+        categoryName: "Mercado",
+        target: "60000",
+      }),
+    ]);
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+
+    // Los renglones de cada grupo están en el menú (el mock lo mantiene
+    // siempre montado: así se puede revisar su contenido sin abrir popup).
+    expect(screen.getByRole("button", { name: "Deuda TC Nu — faltan $102.500" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Deuda Davivienda — faltan $267.530" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Otro de Deudas" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Compra semanal — faltan $60.000" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Otro de Mercado" })).toBeInTheDocument();
+    // Transporte no tiene items este mes: su lugar es "Otras categorías".
+    expect(screen.getByRole("button", { name: "Transporte" })).toBeInTheDocument();
+    expect(screen.getByText("Otras categorías")).toBeInTheDocument();
+  });
+
+  it("elegir un item fija categoría e item a la vez y envía los dos", () => {
+    catalogo();
+    checklistCon([itemChecklist({ id: "i-nu", target: "250000", progress: "147500" })]);
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+
+    elegirDelMenu("Deuda TC Nu — faltan $102.500");
+    // Cerrado muestra "<Categoría> - <nombre>", sin el "faltan".
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas - Deuda TC Nu");
+
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "12.500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+
+    const envio = mutaciones.movimiento.mock.calls[0][0];
+    expect(envio.categoryId).toBe("c-deu");
+    expect(envio.budgetItemId).toBe("i-nu");
+  });
+
+  it("'Otro de ...' envía solo la categoría, sin item", () => {
+    catalogo();
+    checklistCon([itemChecklist({ id: "i-nu" })]);
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+
+    elegirDelMenu("Otro de Deudas");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas (sin item)");
+
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "12.500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+
+    const envio = mutaciones.movimiento.mock.calls[0][0];
+    expect(envio.categoryId).toBe("c-deu");
+    expect(envio.budgetItemId).toBeNull();
+  });
+
+  it("una categoría sin items vive bajo 'Otras categorías' y envía solo la categoría", () => {
+    catalogo();
+    checklistCon([itemChecklist({ id: "i-nu" })]);
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+
+    // Transporte no aparece como grupo propio: solo bajo Otras categorías.
+    elegirDelMenu("Transporte");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Transporte");
+
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "12.500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+
+    const envio = mutaciones.movimiento.mock.calls[0][0];
+    expect(envio.categoryId).toBe("c-str");
+    expect(envio.budgetItemId).toBeNull();
+  });
+
+  it("un ingreso ve los items de ingreso (recibido), no los de gasto", () => {
+    catalogo();
+    checklistCon([
+      itemChecklist({ id: "i-nu" }),
       itemChecklist({
         id: "i-sue",
         label: "Sueldo septiembre",
         categoryId: "c-sue",
         categoryKind: "income",
+        categoryName: "Sueldo",
         progress: "1200000",
         status: "paid",
         checked: true,
       }),
     ]);
-
     render(<FormularioMovimiento cuentas={cuentas} abierto tipoInicial="ingreso" />);
-    elegirCategoria("Sueldo");
 
-    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
-      "Sueldo septiembre — recibido"
-    );
-  });
-
-  it("con varios ítems de la categoría abre en Sin asignar: la persona elige", () => {
-    categoriasRapidas();
-    checklistCon([
-      itemChecklist({ id: "i-nu", target: "147000" }),
-      itemChecklist({ id: "i-dav", label: "Deuda Davivienda", target: "267530" }),
-    ]);
-
-    render(<FormularioMovimiento cuentas={cuentas} abierto />);
-    elegirCategoria("Deudas");
-
-    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
-      "Sin asignar"
-    );
-  });
-
-  it("cambiar de categoría reinicia la selección: la propuesta de la nueva manda", () => {
-    categoriasRapidas();
-    checklistCon([
-      itemChecklist({ id: "i-nu", target: "250000", progress: "147500" }),
-      itemChecklist({
-        id: "i-jp",
-        label: "John Perez",
-        categoryId: "c-mer",
-        categoryName: "Mercado",
-        target: "60000",
-        progress: "0",
-      }),
-    ]);
-
-    render(<FormularioMovimiento cuentas={cuentas} abierto />);
-    elegirCategoria("Deudas");
-    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
-      "Deuda TC Nu"
+    // Un item de gasto no se ofrece en un ingreso…
+    expect(screen.queryByRole("button", { name: /Deuda TC Nu/ })).toBeNull();
+    // …y el de ingreso sí, con su logro.
+    elegirDelMenu("Sueldo septiembre — recibido");
+    expect(screen.getByLabelText("¿De dónde viene?")).toHaveTextContent(
+      "Sueldo - Sueldo septiembre"
     );
 
-    // Mercado tiene un solo item: el reinicio lo propone, no trae "Deuda TC Nu".
-    fireEvent.click(screen.getByRole("button", { name: "Mercado" }));
-    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
-      "John Perez — faltan $60.000"
-    );
-  });
-
-  it("cambiar de tipo (Gasto a Ingreso) también reinicia: sin categoría no hay campo", () => {
-    categoriasRapidas();
-    checklistCon([itemChecklist({ id: "i-nu" })]);
-
-    render(<FormularioMovimiento cuentas={cuentas} abierto />);
-    elegirCategoria("Deudas");
-    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
-      "Deuda TC Nu"
-    );
-
-    // Ahora es un ingreso: la categoría se limpia y con ella la selección.
-    fireEvent.click(screen.getByRole("button", { name: "Ingreso" }));
-    expect(screen.queryByLabelText("Ítem del presupuesto (opcional)")).not.toBeInTheDocument();
-  });
-
-  it("si el checklist del mes no llegó todavía, el campo no aparece hasta cargar (no inventa nombres)", () => {
-    categoriasRapidas();
-    // El checklist no llegó: data undefined, como en un cargue lento.
-    vi.mocked(usePresupuestoModule.useChecklistDelMes).mockImplementation(
-      () => ({ data: undefined }) as never
-    );
-    render(<FormularioMovimiento cuentas={cuentas} abierto />);
-    elegirCategoria("Deudas");
-
-    // Sin datos no hay qué proponer: el campo espera a que cargue, igual que
-    // hace el formulario con el resto de listas (cuentas, categorías).
-    expect(screen.queryByLabelText("Ítem del presupuesto (opcional)")).not.toBeInTheDocument();
-  });
-
-  it("si la categoría no tiene items, el campo no aparece (nada nuevo que explicar)", () => {
-    categoriasRapidas();
-    checklistCon([]);
-
-    render(<FormularioMovimiento cuentas={cuentas} abierto />);
-    elegirCategoria("Transporte");
-
-    expect(screen.queryByLabelText("Ítem del presupuesto (opcional)")).not.toBeInTheDocument();
-  });
-
-  it("si la categoría no tiene items y no está elegida, el campo tampoco aparece", () => {
-    categoriasRapidas();
-    checklistCon([itemChecklist({ id: "i-nu" })]);
-
-    render(<FormularioMovimiento cuentas={cuentas} abierto />);
-    fireEvent.click(screen.getByRole("button", { name: /Más detalles/ }));
-
-    expect(screen.queryByLabelText("Ítem del presupuesto (opcional)")).not.toBeInTheDocument();
-  });
-
-  it("envía al servidor el item preseleccionado cuando hay exactamente uno", () => {
-    categoriasRapidas();
-    checklistCon([itemChecklist({ id: "i-nu", progress: "147500" })]);
-
-    render(<FormularioMovimiento cuentas={cuentas} abierto />);
-    elegirCategoria("Deudas");
-    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "12.500" } });
-    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
-
-    expect(mutaciones.movimiento).toHaveBeenCalledTimes(1);
-    const envio = mutaciones.movimiento.mock.calls[0][0];
-    expect(envio).toEqual({
-      accountId: "a-1",
-      amount: "-12500",
-      occurredAt: expect.any(String),
-      categoryId: "c-deu",
-      budgetItemId: "i-nu",
-    });
-  });
-
-  it("con varios ítems y 'Sin asignar', envía null: queda sin item, no con el último tocado", () => {
-    categoriasRapidas();
-    checklistCon([
-      itemChecklist({ id: "i-nu", target: "147000" }),
-      itemChecklist({ id: "i-dav", label: "Deuda Davivienda" }),
-    ]);
-
-    render(<FormularioMovimiento cuentas={cuentas} abierto />);
-    elegirCategoria("Deudas");
-    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "12.500" } });
-    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
-
-    expect(mutaciones.movimiento.mock.calls[0][0].budgetItemId).toBeNull();
-  });
-
-  it("sin categoría elegida, el envío no lleva item", () => {
-    categoriasRapidas();
-    checklistCon([itemChecklist({ id: "i-nu" })]);
-
-    render(<FormularioMovimiento cuentas={cuentas} abierto />);
     fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "12.500" } });
     fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
 
     const envio = mutaciones.movimiento.mock.calls[0][0];
+    expect(envio.categoryId).toBe("c-sue");
+    expect(envio.budgetItemId).toBe("i-sue");
+  });
+
+  it("elegir 'Sin categoría' borra la elección: ni categoría ni item en el envío", () => {
+    catalogo();
+    checklistCon([itemChecklist({ id: "i-nu" })]);
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+
+    elegirDelMenu("Deuda TC Nu — faltan $250.000");
+    elegirDelMenu("Sin categoría");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Sin categoría");
+
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "12.500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+
+    const envio = mutaciones.movimiento.mock.calls[0][0];
+    expect(envio.categoryId).toBeUndefined();
     expect(envio.budgetItemId).toBeUndefined();
   });
 
-  it("la corrección trae el item que contaba y Registrar queda apagado hasta un cambio", () => {
-    categoriasRapidas();
-    checklistCon([itemChecklist({ id: "i-nu" })]);
+  it("cambiar el tipo (Gasto a Ingreso) limpia la elección del desplegable", () => {
+    catalogo();
+    checklistCon([
+      itemChecklist({ id: "i-nu" }),
+      itemChecklist({
+        id: "i-sue",
+        categoryId: "c-sue",
+        categoryName: "Sueldo",
+        categoryKind: "income",
+      }),
+    ]);
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
 
+    elegirDelMenu("Deuda TC Nu");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas - Deuda TC Nu");
+
+    fireEvent.click(screen.getByRole("button", { name: "Ingreso" }));
+    // El desplegable del ingreso arranca de nuevo en "Sin categoría": la
+    // deuda era una historia del gasto.
+    expect(screen.getByLabelText("¿De dónde viene?")).toHaveTextContent("Sin categoría");
+  });
+
+  it("si cambia el mes y el item ya no se ofrece, la elección cae a 'Otro de <su categoría>'", () => {
+    catalogo();
+    // El checklist responde por mes, como el servidor.
+    vi.mocked(usePresupuestoModule.useChecklistDelMes).mockImplementation(
+      ({ month }: { month: string }) =>
+        ({
+          data:
+            month === "2026-09"
+              ? {
+                  month: "2026-09",
+                  currency: "COP",
+                  items: [itemChecklist({ id: "i-sep", label: "Cuota 9", target: "250000" })],
+                  unassigned: [],
+                }
+              : {
+                  month: "2026-10",
+                  currency: "COP",
+                  items: [itemChecklist({ id: "i-ago", label: "Cuota 8", target: "150000" })],
+                  unassigned: [],
+                },
+        }) as never
+    );
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+
+    elegirDelMenu("Cuota 8 — faltan $150.000");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas - Cuota 8");
+
+    // Suena la fecha a septiembre: i-ago ya no está en la lista. La categoría
+    // sigue siendo válida ("Otro de Deudas" se sigue ofreciendo), pero nunca
+    // se manda un item que el menú no ofrece.
+    fireEvent.click(screen.getByRole("button", { name: /Más detalles/ }));
+    fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2026-09-10" } });
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas (sin item)");
+
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "12.500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+
+    const envio = mutaciones.movimiento.mock.calls[0][0];
+    expect(envio.categoryId).toBe("c-deu");
+    expect(envio.budgetItemId).toBeNull();
+  });
+
+  it("si el item sigue ofrecido tras cambiar de cuenta, la elección se conserva", () => {
+    catalogo();
+    const otraMoneda: Cuenta = { ...cuentaActiva, id: "a-usd", name: "Cuenta USD", currency: "USD" };
+    checklistCon([itemChecklist({ id: "i-nu", target: "150000" })]);
+    render(<FormularioMovimiento cuentas={[cuentaActiva, otraMoneda]} abierto />);
+
+    elegirDelMenu("Deuda TC Nu — faltan $150.000");
+    // Pasar a la cuenta en USD: moneda distinta, pero el mock del checklist
+    // sigue sirviendo la misma lista (el id sigue ofrecido).
+    elegirDelMenu("Cuenta USD");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas - Deuda TC Nu");
+  });
+
+  it("si cambia la moneda y el item ya no se ofrece, la elección cae a 'Otro de <su categoría>'", () => {
+    catalogo();
+    const otraMoneda: Cuenta = { ...cuentaActiva, id: "a-usd", name: "Cuenta USD", currency: "USD" };
+    // El checklist responde por moneda, como el servidor: en COP hay deuda,
+    // en USD ese mes no hay items que ofrecer.
+    vi.mocked(usePresupuestoModule.useChecklistDelMes).mockImplementation(
+      ({ currency }: { currency: string }) =>
+        ({
+          data:
+            currency === "COP"
+              ? { month: "2026-10", currency: "COP", items: [itemChecklist({ id: "i-nu" })], unassigned: [] }
+              : { month: "2026-10", currency: "USD", items: [], unassigned: [] },
+        }) as never
+    );
+    render(<FormularioMovimiento cuentas={[cuentaActiva, otraMoneda]} abierto />);
+
+    elegirDelMenu("Deuda TC Nu");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas - Deuda TC Nu");
+
+    // Suenan los dólares: la lista se vacía y el item deja de ofrecerse. La
+    // categoría sigue siendo válida y se lee a secas (ya no tiene items ese
+    // mes en esa moneda: su lugar natural es "Otras categorías").
+    elegirDelMenu("Cuenta USD");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas");
+
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "12.500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+    expect(mutaciones.movimiento.mock.calls[0][0]).toMatchObject({
+      categoryId: "c-deu",
+      budgetItemId: null,
+    });
+  });
+
+  it("al corregir, la precarga se ve bien elegida en el desplegable y Registrar queda apagado hasta el cambio", () => {
+    catalogo();
+    checklistCon([itemChecklist({ id: "i-nu", target: "250000", progress: "147500" })]);
     render(
       <FormularioMovimiento
         cuentas={cuentas}
@@ -609,31 +798,75 @@ describe("FormularioMovimiento: el item del presupuesto del movimiento", () => {
       />
     );
 
-    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
-      "Deuda TC Nu"
-    );
+    // Item de la precarga: elegido y legible sin "faltan".
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas - Deuda TC Nu");
     const registrar = screen.getByRole("button", { name: "Registrar" });
     expect(registrar).toBeDisabled();
 
-    // Un cambio en otro campo lo enciende… y volver atrás lo apaga otra vez:
-    // el item es un campo como cualquier otro en la comparación con la precarga.
-    const descripcion = screen.getByLabelText("Descripción (opcional)");
-    fireEvent.change(descripcion, { target: { value: "Pago de la semana" } });
+    // Cambiar SOLO la elección lo enciende…
+    elegirDelMenu("Otro de Deudas");
     expect(registrar).toBeEnabled();
-    fireEvent.change(descripcion, { target: { value: "Mercado" } });
+    // …y volver a lo precargado lo apaga otra vez.
+    elegirDelMenu("Deuda TC Nu — faltan $102.500");
     expect(registrar).toBeDisabled();
   });
 
-  it("el selector de item lleva el piso de toque de 44px", () => {
-    categoriasRapidas();
+  it("al corregir, un movimiento con categoría sin item se ve como la categoría sola", () => {
+    catalogo();
     checklistCon([itemChecklist({ id: "i-nu" })]);
+    render(
+      <FormularioMovimiento
+        cuentas={cuentas}
+        abierto
+        valoresIniciales={{
+          monto: "12.500",
+          cuentaId: "a-1",
+          categoriaId: "c-mer",
+          itemDelPresupuesto: null,
+          fecha: "2026-09-10",
+          tipo: "gasto",
+        }}
+      />
+    );
 
+    // Mercado no tiene items este mes: su nombre a secas, no "(sin item)".
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Mercado");
+    expect(screen.getByRole("button", { name: "Registrar" })).toBeDisabled();
+  });
+
+  it("sin una selección todavía, Registrar sigue funcionando desde el primer toque", () => {
+    catalogo();
     render(<FormularioMovimiento cuentas={cuentas} abierto />);
-    elegirCategoria("Deudas");
 
-    expect(
-      screen.getByLabelText("Ítem del presupuesto (opcional)").className
-    ).toContain("min-h-11");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Sin categoría");
+    expect(screen.getByRole("button", { name: "Registrar" })).toBeEnabled();
+  });
+});
+
+describe("FormularioMovimiento: sin presupuesto el desplegable es el viejo selector de categoría", () => {
+  it("solo hay 'Sin categoría' y las categorías del tipo bajo 'Otras categorías'", () => {
+    catalogo();
+    // El checklist no llegó (o no hay presupuesto ese mes).
+    vi.mocked(usePresupuestoModule.useChecklistDelMes).mockImplementation(
+      () => ({ data: undefined }) as never
+    );
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+
+    expect(screen.getByRole("button", { name: "Sin categoría" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Deudas" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Otro de/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sueldo" })).toBeNull();
+
+    // Elegir una categoría ahí envía solo la categoría.
+    elegirDelMenu("Mercado");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Mercado");
+
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "12.500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+
+    const envio = mutaciones.movimiento.mock.calls[0][0];
+    expect(envio.categoryId).toBe("c-mer");
+    expect(envio.budgetItemId).toBeNull();
   });
 });
 
@@ -803,109 +1036,18 @@ describe("FormularioMovimiento: pagar una tarjeta y su pago del presupuesto", ()
       screen.getByLabelText("¿Qué pago del presupuesto es? (opcional)").className
     ).toContain("min-h-11");
   });
-});
 
-describe("FormularioMovimiento: cambiar el mes de la fecha reinicia la elección del ítem", () => {
-  function checklistPorMes(septiembre: ItemDelChecklist[], octubre: ItemDelChecklist[]) {
-    vi.mocked(usePresupuestoModule.useChecklistDelMes).mockImplementation(
-      ({ month }: { month: string }) =>
-        ({
-          data:
-            month === "2026-08"
-              ? {
-                  month: "2026-08",
-                  currency: "COP",
-                  items: septiembre,
-                  unassigned: [],
-                }
-              : {
-                  month: "2026-09",
-                  currency: "COP",
-                  items: octubre,
-                  unassigned: [],
-                },
-        }) as never
-    );
-  }
-
-  const iAgosto = itemChecklist({ id: "i-ago", label: "Cuota 8", target: "150000" });
-  const iSeptiembre = itemChecklist({ id: "i-sep", label: "Cuota 9", target: "250000" });
-
-  it("el item precargado no viaja a la lista del otro mes: la propuesta de la fecha manda", () => {
-    categoriasRapidas();
-    // Septiembre tiene un mismo renglón con cifras de septiembre; octubre
-    // otro con las suyas. El checklist responde por mes, como el servidor.
-    checklistPorMes(
-      [itemChecklist({ ...iAgosto, progress: "0" })],
-      [{ ...iSeptiembre, progress: "0" }]
-    );
-
+  it("en 'Entre cuentas' no aparece el desplegable de ¿En qué fue?", () => {
     render(
       <FormularioMovimiento
-        cuentas={cuentas}
+        cuentas={[banco, otroBanco]}
         abierto
-        valoresIniciales={{
-          monto: "12.500",
-          cuentaId: "a-1",
-          categoriaId: "c-deu",
-          itemDelPresupuesto: "i-ago",
-          fecha: "2026-08-10",
-          descripcion: "Mercado",
-          tipo: "gasto",
-        }}
+        tipoInicial="transferencia"
+        transferenciaInicial={{ origen: "a-banco", destino: "a-davi" }}
       />
     );
 
-    // Precarga de agosto: muestra la cifra de ese mes ("faltan $150.000").
-    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
-      "Cuota 8 — faltan $150.000"
-    );
-
-    // Suena la fecha a septiembre: la lista cambia de mes y la selección vuelve
-    // a calcularse con la de septiembre ("faltan $250.000"), no queda pegada a
-    // la decisión que se tomó mirando agosto.
-    fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2026-09-10" } });
-    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
-      "Cuota 9 — faltan $250.000"
-    );
-
-    // Y el envío lleva la decisión del MES DE LA FECHA, no la precargada.
-    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
-    expect(mutaciones.movimiento.mock.calls[0][0]).toMatchObject({
-      budgetItemId: "i-sep",
-      occurredAt: expect.stringContaining("2026-09"),
-    });
-  });
-
-  it("si el nuevo mes tiene varios ítems, la fecha los deja en Sin asignar", () => {
-    categoriasRapidas();
-    checklistPorMes(
-      [iAgosto],
-      [iSeptiembre, itemChecklist({ id: "i-dav-sep", label: "Deuda Davivienda", target: "60000" })]
-    );
-
-    render(
-      <FormularioMovimiento
-        cuentas={cuentas}
-        abierto
-        valoresIniciales={{
-          monto: "12.500",
-          cuentaId: "a-1",
-          categoriaId: "c-deu",
-          itemDelPresupuesto: "i-ago",
-          fecha: "2026-08-10",
-          descripcion: "Mercado",
-          tipo: "gasto",
-        }}
-      />
-    );
-
-    fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2026-09-10" } });
-    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
-      "Sin asignar"
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
-    expect(mutaciones.movimiento.mock.calls[0][0].budgetItemId).toBeNull();
+    expect(screen.queryByLabelText("¿En qué fue?")).toBeNull();
+    expect(screen.queryByLabelText("¿De dónde viene?")).toBeNull();
   });
 });
