@@ -240,17 +240,26 @@ export default function PaginaAdmin() {
           quién entró a sus cuentas. Con datos viejos en la memoria el
           registro se sigue mostrando; el error no borra lo que ya está en el
           libro — y sin datos, un fallo no se disfraza de "no has entrado a
-          ninguna". */}
-      {registro && registro.length > 0 && (
+          ninguna". Cargado y vacío tampoco se queda mudo: una sección que
+          no existe no se puede explicar. */}
+      {registro && (
         <Seccion titulo="Cuentas a las que has entrado">
-          {registro.map((entrada) => (
-            <div key={entrada.id} className="flex flex-col px-3 py-2.5">
-              <span className="truncate text-sm">{entrada.targetEmail}</span>
-              <span className="text-xs text-muted-foreground">
-                {etiquetaFecha(entrada.startedAt)} a las {horaCorta(entrada.startedAt)}
-              </span>
-            </div>
-          ))}
+          {registro.length === 0 ? (
+            // Sin el estado vacío grande ni ícono: una línea apagada que
+            // dice en palabras que la sección todavía no tiene historial.
+            <p className="px-3 py-2.5 text-xs text-muted-foreground">
+              Todavía no has entrado a ninguna cuenta.
+            </p>
+          ) : (
+            registro.map((entrada) => (
+              <div key={entrada.id} className="flex flex-col px-3 py-2.5">
+                <span className="truncate text-sm">{entrada.targetEmail}</span>
+                <span className="text-xs text-muted-foreground">
+                  {etiquetaFecha(entrada.startedAt)} a las {horaCorta(entrada.startedAt)}
+                </span>
+              </div>
+            ))
+          )}
         </Seccion>
       )}
 
