@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo, mensajeSinConexion } from "@/components/fallo-consulta";
 import { Monto } from "@/components/monto";
+import { AsignarSinAsignar } from "@/components/presupuesto/asignar-sin-asignar";
 import { FormularioItemPresupuesto } from "@/components/presupuesto/formulario-item-presupuesto";
 import { useCategorias } from "@/hooks/use-categorias";
 import { useGruposColapsados } from "@/hooks/use-grupos-colapsados";
@@ -449,12 +450,14 @@ export function PanelPresupuesto({
               sin categoría (Clave propia) no tienen dónde caer: su item no
               existe, así que nada aparece. */}
           {grupo.categoryId !== null && sinAsignarDe.get(grupo.categoryId) && (
-            <li className="border-t border-border px-2 py-2 text-xs text-muted-foreground">
-              Sin asignar:{" "}
-              <span className="font-mono tabular-nums">
-                {textoMonto(sinAsignarDe.get(grupo.categoryId)!.amount, moneda)}
-              </span>
-            </li>
+            <AsignarSinAsignar
+              categoryId={grupo.categoryId}
+              categoriaNombre={grupo.titulo}
+              monto={sinAsignarDe.get(grupo.categoryId)!.amount}
+              moneda={moneda}
+              mes={mes}
+              items={grupo.items}
+            />
           )}
         </ul>
       </div>

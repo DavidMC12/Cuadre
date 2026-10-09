@@ -1670,7 +1670,7 @@ describe("PanelPresupuesto: lo que queda Sin asignar por categoría", () => {
     expect(screen.queryByText(/Sin asignar:/)).not.toBeInTheDocument();
   });
 
-  it("la fila Sin asignar es texto apagado, sin barra de progreso", () => {
+  it("la fila Sin asignar es un botón de 44px con su 'Asignar', sin barra de progreso", () => {
     const items = [deCategoria("c1", "comida", "Mercado")];
     ajustarConsultas(
       { data: { items: items.map(renglonDe), unassigned: [{ categoryId: "cat-comida", categoryName: "Comida", categoryKind: "expense", amount: "267530" }] } },
@@ -1680,9 +1680,12 @@ describe("PanelPresupuesto: lo que queda Sin asignar por categoría", () => {
 
     render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
 
-    const fila = screen.getByText(/Sin asignar:/).closest("li")!;
-    expect(fila.className).toContain("text-muted-foreground");
-    expect(within(fila).queryByRole("progressbar")).not.toBeInTheDocument();
+    const boton = screen.getByText(/Sin asignar:/).closest("button")!;
+    // Se puede tocar: piso de 44px y la palabra que lo dice.
+    expect(boton.classList.contains("min-h-11")).toBe(true);
+    expect(boton.className).toContain("text-muted-foreground");
+    expect(within(boton).getByText("Asignar")).toBeInTheDocument();
+    expect(within(boton).queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
   it("la fila Sin asignar NO entra en los totales de sección (siguen viendo solo los montos presupuestados)", () => {
