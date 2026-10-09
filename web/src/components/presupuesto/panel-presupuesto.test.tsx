@@ -1759,5 +1759,8 @@ describe("PanelPresupuesto: lo que queda Sin asignar por categoría", () => {
 
     expect(screen.getByText("Sin asignar en Comida")).toBeInTheDocument();
     expect(screen.getByText("Todo asignado")).toBeInTheDocument();
+    // El botón de la fila ya no está (el monto quedó en cero): solo sigue el
+    // cajón abierto con su estado vacío.
+    expect(screen.queryByText(/Sin asignar:/)).not.toBeInTheDocument();
   });
 });
