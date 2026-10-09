@@ -29,6 +29,7 @@ import { useCategorias } from "@/hooks/use-categorias";
 import {
   useAnularMovimiento,
   useAnularPagoDividido,
+  useAnularTransferencia,
   useMovimientos,
 } from "@/hooks/use-movimientos";
 import { agruparMovimientosPorDia } from "@/lib/agrupar-movimientos";
@@ -132,6 +133,7 @@ function ContenidoMovimientos() {
   } = useMovimientos(filtros);
   const anularMovimiento = useAnularMovimiento();
   const anularPagoDividido = useAnularPagoDividido();
+  const anularTransferencia = useAnularTransferencia();
 
   // Una consulta pausada sin red no es un mes en blanco: la misma política
   // que el resto de la app, para que el historial no se lea como vacío.
@@ -214,7 +216,8 @@ function ContenidoMovimientos() {
 
   // Las partes de la compra pagada con dos cuentas que se va a anular, para que
   // el diálogo diga el total. Si la lista solo trae una (filtro por cuenta), es
-  // la que haya.
+  // la que haya. Para una transferencia no hace falta: las dos patas llevan el
+  // mismo monto, así que el diálogo lo saca de la pata que confirmó.
   const partesDeLaCompraAConfirmar = useMemo(() => {
     const grupo = movimientoAConfirmar?.paymentGroupId;
     if (!grupo) return undefined;
@@ -223,6 +226,24 @@ function ContenidoMovimientos() {
 
   function confirmarAnulacion() {
     if (!movimientoAConfirmar) return;
+
+    // Una transferencia tampoco se anula por mitades: se anula el grupo
+    // completo (las dos patas) y la plata vuelve a su cuenta de origen.
+    if (movimientoAConfirmar.kind === "transfer" && movimientoAConfirmar.transferGroupId) {
+      anularTransferencia.mutate(movimientoAConfirmar.transferGroupId, {
+        onSuccess: () => {
+          toast.success("Transferencia anulada.");
+          setMovimientoAConfirmar(null);
+        },
+        onError: (error) => {
+          toast.error(
+            error instanceof ApiError ? error.message : "No se pudo anular. Intenta de nuevo."
+          );
+          setMovimientoAConfirmar(null);
+        },
+      });
+      return;
+    }
 
     // Una parte de una compra pagada con dos cuentas nunca se anula sola: se
     // anula la compra completa. Y no hay "corregir": corregir una compra es
@@ -459,6 +480,7 @@ function ContenidoMovimientos() {
                       par={item}
                       cuentaOrigen={cuentasPorId.get(item.salida.accountId)}
                       cuentaDestino={cuentasPorId.get(item.entrada.accountId)}
+                      onSolicitarAnular={(par) => setMovimientoAConfirmar(par.salida)}
                     />
                   ) : (
                     <MovimientoItem
@@ -501,7 +523,11 @@ function ContenidoMovimientos() {
       <ConfirmarAnulacion
         movimiento={movimientoAConfirmar}
         partesDeLaCompra={partesDeLaCompraAConfirmar}
-        procesando={anularMovimiento.isPending || anularPagoDividido.isPending}
+        procesando={
+          anularMovimiento.isPending ||
+          anularPagoDividido.isPending ||
+          anularTransferencia.isPending
+        }
         onConfirmar={confirmarAnulacion}
         onCancelar={() => setMovimientoAConfirmar(null)}
       />

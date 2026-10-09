@@ -407,8 +407,12 @@ export function PanelPresupuesto({
 
     return (
       <div key={grupo.clave}>
+        {/* El id lo consume la fila "Sin asignar" (`idEncabezado`): si al
+            cerrar su cajón la fila ya no existe, el foco vuelve aqui y no se
+            pierde en `body`. */}
         <button
           type="button"
+          id={`${idLista}-encabezado`}
           aria-expanded={!colapsado}
           aria-controls={idLista}
           aria-label={etiquetaGrupo}
@@ -460,6 +464,7 @@ export function PanelPresupuesto({
               moneda={moneda}
               mes={mes}
               items={grupo.items}
+              idEncabezado={`${idLista}-encabezado`}
             />
           )}
         </ul>

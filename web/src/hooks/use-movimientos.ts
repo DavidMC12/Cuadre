@@ -9,6 +9,7 @@ import {
   fetchTransactions,
   reverseSplitPayment,
   reverseTransaction,
+  reverseTransfer,
   updateTransactionBudgetItem,
   updateTransactionCategory,
 } from "@/lib/api/transactions";
@@ -89,6 +90,18 @@ export function useAnularPagoDividido() {
     // También si falla: un 409 ("ya está anulada", p. ej. desde otro aparato)
     // deja la fila desactualizada hasta recargar, y es justo lo que hay que
     // refrescar.
+    onSettled: () => invalidarTrasEscritura(queryClient),
+  });
+}
+
+/** Anula las dos patas de una transferencia entre cuentas, juntas. */
+export function useAnularTransferencia() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (transferGroupId: string) => reverseTransfer(transferGroupId),
+    // Igual que la compra dividida: también si falla. Un 409 ("ya está
+    // anulada", p. ej. desde otro aparato) deja la fila desactualizada hasta
+    // recargar, y es justo lo que hay que refrescar.
     onSettled: () => invalidarTrasEscritura(queryClient),
   });
 }
