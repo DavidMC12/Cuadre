@@ -22,10 +22,12 @@ import type { TipoDeCategoria } from './schemas.js';
 const SOLO_INGRESOS_Y_GASTOS = sql`m.kind not in ('transfer', 'opening', 'adjustment')`;
 
 /**
- * Para el ahorro: el saldo inicial es capital de partida y un ajuste es una
- * corrección del saldo; ninguno es "plata que se apartó este mes".
+ * Para el ahorro: lo que la persona decide apartar. Solo cuentan las
+ * transferencias hacia o desde una cuenta de ahorro (más los registros manuales
+ * de `savings_entries`). Un ingreso que llega a una cuenta de ahorro, un gasto
+ * pagado desde ella, el saldo inicial y un ajuste NO son ahorro: son saldo.
  */
-const SIN_CAPITAL_NI_AJUSTES = sql`m.kind not in ('opening', 'adjustment')`;
+const SOLO_TRASLADOS = sql`m.kind = 'transfer'`;
 
 /**
  * Regla 3: una anulación no es un evento propio, es el borrado de otro. Por eso
@@ -54,11 +56,11 @@ const CATEGORIA_QUE_CLASIFICA = sql`coalesce(anulado.category_id, m.category_id)
  * columna tal como está guardada: así la comparación aprovecha el índice por
  * fecha en vez de recalcular la zona horaria fila por fila.
  */
-function rangoDelMes(mes: string): SQL {
+function rangoDelMes(mes: string, columna: SQL = sql`m.occurred_at`): SQL {
   const primerDia = sql`(${mes}::text || '-01')::timestamp`;
 
-  return sql`m.occurred_at >= (${primerDia} at time zone ${ZONA_HORARIA}::text)
-         and m.occurred_at <  ((${primerDia} + interval '1 month') at time zone ${ZONA_HORARIA}::text)`;
+  return sql`${columna} >= (${primerDia} at time zone ${ZONA_HORARIA}::text)
+         and ${columna} <  ((${primerDia} + interval '1 month') at time zone ${ZONA_HORARIA}::text)`;
 }
 
 /**
@@ -221,14 +223,17 @@ export async function sinAsignarPorCategoria(
  * cuenta a la vez contra su propia meta en vez de sumar todas las cuentas de
  * ahorro de una moneda.
  *
+ * Es lo que la persona APARTÓ ese mes: transferencias hacia o desde la cuenta
+ * (la anulación de una transferencia es otra transferencia de signo contrario,
+ * así que se cancela sola) más los registros manuales de ahorro. No es el
+ * cambio de saldo de la cuenta: un ingreso que cae ahí no cuenta.
+ *
  * A propósito no filtra por `is_savings`: el ítem del checklist ya eligió
  * esta cuenta puntual al crearse (ahí sí se exige que esté marcada), así que
  * aquí basta con que la cuenta sea de este usuario. Tampoco hace falta
  * `deLaMoneda` (regla 4): una cuenta tiene una única moneda fija
  * (`transactions_account_fk` la amarra), así que pedir "esta cuenta" ya
- * implica una sola moneda sin tener que decirlo aparte. Y por la misma razón
- * no hace falta unir contra `accounts`: filtrar `m.account_id` ya prueba que
- * la cuenta es la pedida, sin necesitar ningún otro dato suyo.
+ * implica una sola moneda sin tener que decirlo aparte.
  */
 export async function ahorroDeUnaCuentaEnElMes(
   usuarioId: string,
@@ -236,12 +241,24 @@ export async function ahorroDeUnaCuentaEnElMes(
   cuentaId: string,
 ): Promise<string> {
   const filas = (await db.execute(sql`
-    select coalesce(sum(m.amount), 0)::numeric(19,4)::text as amount
-    from transactions m
-    where m.user_id = ${usuarioId}::uuid
-      and m.account_id = ${cuentaId}::uuid
-      and ${SIN_CAPITAL_NI_AJUSTES}
-      and ${rangoDelMes(mes)}
+    select (
+      coalesce((
+        select sum(m.amount)
+        from transactions m
+        where m.user_id = ${usuarioId}::uuid
+          and m.account_id = ${cuentaId}::uuid
+          and ${SOLO_TRASLADOS}
+          and ${rangoDelMes(mes)}
+      ), 0)
+      +
+      coalesce((
+        select sum(e.amount)
+        from savings_entries e
+        where e.user_id = ${usuarioId}::uuid
+          and e.account_id = ${cuentaId}::uuid
+          and ${rangoDelMes(mes, sql`e.occurred_at`)}
+      ), 0)
+    )::numeric(19,4)::text as amount
   `)) as unknown as { amount: string }[];
 
   return filas[0]?.amount ?? '0.0000';
@@ -353,21 +370,16 @@ export async function tendencia(
 }
 
 /**
- * Ahorro mensual, NO acumulado: cada mes es solo lo que le cambió el saldo
- * ESE mes a las cuentas marcadas como ahorro (`accounts.is_savings`), con
- * signo — igual que `tendencia`, un mes sin movimiento sale en cero en vez de
+ * Ahorro mensual, NO acumulado: cada mes es solo lo que la persona APARTÓ ese
+ * mes en las cuentas marcadas como ahorro (`accounts.is_savings`), con signo —
+ * igual que `tendencia`, un mes sin movimiento sale en cero en vez de
  * desaparecer, y nunca se mezclan monedas (regla 4).
  *
- * Cuenta TODO lo que mueve esas cuentas —ingresos y gastos registrados
- * directo ahí, y las dos patas de cualquier transferencia hacia o desde
- * ellas— excepto el saldo inicial (`kind = 'opening'`) y los ajustes de saldo
- * (`kind = 'adjustment'`): uno es capital de partida y el otro una corrección,
- * y ninguno es "ahorro de este mes". No hace falta el patrón de
- * `UNION_CON_EL_ANULADO`/`MONTO_QUE_CLASIFICA` de arriba: ahí existe para
- * reclasificar una anulación bajo la categoría del movimiento que anula, y
- * aquí no hay categoría que reclasificar — el signo del monto ya es la
- * respuesta completa, y una anulación cae en el mismo mes que el movimiento
- * original porque comparte su fecha.
+ * Cuenta SOLO lo que la persona decidió apartar: las transferencias hacia o
+ * desde esas cuentas (una anulación es otra transferencia de signo contrario y
+ * se cancela sola) y los registros manuales de `savings_entries`. NO cuenta un
+ * ingreso que cae en esa cuenta, un gasto pagado desde ella, el saldo inicial
+ * ni un ajuste: eso es saldo, no ahorro.
  *
  * Ojo con esto: la marca de "ahorro" se lee al momento de la consulta, no al
  * momento del movimiento. Desmarcar una cuenta vacía su historial completo
@@ -397,20 +409,33 @@ export async function ahorroMensual(
     ventana as (
       select min(mes) as desde, max(mes) + interval '1 month' as hasta from meses
     ),
-    totales as (
-      select date_trunc('month', m.occurred_at at time zone ${ZONA_HORARIA}::text) as mes,
-             sum(m.amount) as amount
+    aportes as (
+      select m.occurred_at, m.amount
       from transactions m
       inner join accounts a
               on a.id = m.account_id
              and a.user_id = m.user_id
-      cross join ventana
       where m.user_id = ${usuarioId}::uuid
         and ${deLaMoneda(moneda)}
-        and ${SIN_CAPITAL_NI_AJUSTES}
+        and ${SOLO_TRASLADOS}
         and a.is_savings = true
-        and m.occurred_at >= (ventana.desde at time zone ${ZONA_HORARIA}::text)
-        and m.occurred_at <  (ventana.hasta at time zone ${ZONA_HORARIA}::text)
+      union all
+      select e.occurred_at, e.amount
+      from savings_entries e
+      inner join accounts a
+              on a.id = e.account_id
+             and a.user_id = e.user_id
+      where e.user_id = ${usuarioId}::uuid
+        and e.currency = ${moneda}::text
+        and a.is_savings = true
+    ),
+    totales as (
+      select date_trunc('month', aportes.occurred_at at time zone ${ZONA_HORARIA}::text) as mes,
+             sum(aportes.amount) as amount
+      from aportes
+      cross join ventana
+      where aportes.occurred_at >= (ventana.desde at time zone ${ZONA_HORARIA}::text)
+        and aportes.occurred_at <  (ventana.hasta at time zone ${ZONA_HORARIA}::text)
       group by 1
     )
     select to_char(meses.mes, 'YYYY-MM')                    as month,

@@ -525,22 +525,32 @@ describe('tendencia', () => {
 });
 
 describe('ahorro mensual', () => {
-  it('un ingreso directo en la cuenta de ahorro cuenta ese mes', async () => {
+  it('un ingreso directo en la cuenta de ahorro NO cuenta: es saldo, no ahorro', async () => {
     const ahorro = await crearCuenta({ isSavings: true });
     const esteMes = mesRelativo(0);
     await registrar(ahorro.id, '200000', { occurredAt: esteMes.fecha });
 
     const { cuerpo } = await pedir('GET', '/api/v1/reports/savings-trend?months=1&currency=COP');
-    expect(cuerpo.data).toEqual([{ month: esteMes.etiqueta, amount: '200000.0000' }]);
+    expect(cuerpo.data).toEqual([{ month: esteMes.etiqueta, amount: '0.0000' }]);
   });
 
   it('NO es acumulado: cada mes cuenta solo lo suyo', async () => {
+    const banco = await crearCuenta({ openingBalance: '1000000' });
     const ahorro = await crearCuenta({ isSavings: true });
     const hace2 = mesRelativo(-2);
     const esteMes = mesRelativo(0);
 
-    await registrar(ahorro.id, '100000', { occurredAt: hace2.fecha });
-    await registrar(ahorro.id, '50000', { occurredAt: esteMes.fecha });
+    for (const [monto, fecha] of [
+      ['100000', hace2.fecha],
+      ['50000', esteMes.fecha],
+    ] as const) {
+      await pedir('POST', '/api/v1/transfers', {
+        fromAccountId: banco.id,
+        toAccountId: ahorro.id,
+        amount: monto,
+        occurredAt: fecha,
+      });
+    }
 
     const { cuerpo } = await pedir('GET', '/api/v1/reports/savings-trend?months=3&currency=COP');
     expect(cuerpo.data).toEqual([
@@ -550,13 +560,13 @@ describe('ahorro mensual', () => {
     ]);
   });
 
-  it('un gasto directo desde la cuenta de ahorro resta ese mes', async () => {
+  it('un gasto directo desde la cuenta de ahorro tampoco cuenta: no la decidiste apartar', async () => {
     const ahorro = await crearCuenta({ isSavings: true, openingBalance: '500000' });
     const esteMes = mesRelativo(0);
     await registrar(ahorro.id, '-80000', { occurredAt: esteMes.fecha });
 
     const { cuerpo } = await pedir('GET', '/api/v1/reports/savings-trend?months=1&currency=COP');
-    expect(cuerpo.data).toEqual([{ month: esteMes.etiqueta, amount: '-80000.0000' }]);
+    expect(cuerpo.data).toEqual([{ month: esteMes.etiqueta, amount: '0.0000' }]);
   });
 
   it('una transferencia entre dos cuentas de ahorro no aumenta el total: solo se movió', async () => {
@@ -651,12 +661,24 @@ describe('ahorro mensual', () => {
   });
 
   it('nunca suma dos monedas distintas', async () => {
+    const bancoCop = await crearCuenta({ openingBalance: '1000000' });
+    const bancoUsd = await crearCuenta({ currency: 'USD', openingBalance: '500' });
     const ahorroCop = await crearCuenta({ isSavings: true });
     const ahorroUsd = await crearCuenta({ isSavings: true, currency: 'USD' });
     const esteMes = mesRelativo(0);
 
-    await registrar(ahorroCop.id, '200000', { occurredAt: esteMes.fecha });
-    await registrar(ahorroUsd.id, '50', { occurredAt: esteMes.fecha });
+    await pedir('POST', '/api/v1/transfers', {
+      fromAccountId: bancoCop.id,
+      toAccountId: ahorroCop.id,
+      amount: '200000',
+      occurredAt: esteMes.fecha,
+    });
+    await pedir('POST', '/api/v1/transfers', {
+      fromAccountId: bancoUsd.id,
+      toAccountId: ahorroUsd.id,
+      amount: '50',
+      occurredAt: esteMes.fecha,
+    });
 
     expect(
       (await pedir('GET', '/api/v1/reports/savings-trend?months=1&currency=COP')).cuerpo.data,

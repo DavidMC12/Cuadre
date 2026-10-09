@@ -21,6 +21,7 @@ import { rutasDePresupuesto } from './modules/budgets/routes.js';
 import { rutasDeCategorias } from './modules/categories/routes.js';
 import { rutasDePerfil } from './modules/profile/routes.js';
 import { rutasDeReportes } from './modules/reports/routes.js';
+import { rutasDeAhorro } from './modules/savings/routes.js';
 import { rutasDeMovimientos } from './modules/transactions/routes.js';
 import { configurarMensajesEnEspanol } from './shared/mensajes-zod.js';
 
@@ -92,6 +93,7 @@ export async function construirApp(opciones: OpcionesDeApp = {}): Promise<Fastif
       await api.register(rutasDeCategorias);
       await api.register(rutasDeMovimientos);
       await api.register(rutasDeReportes);
+      await api.register(rutasDeAhorro);
       await api.register(rutasDePresupuesto);
       await api.register(rutasDePerfil);
       await api.register(rutasDeAdmin);

@@ -184,12 +184,30 @@ describe('gastado en categoría (reports)', () => {
 
 describe('ahorro de una cuenta en el mes (reports)', () => {
   it('cuenta solo esa cuenta puntual, no todas las de ahorro juntas', async () => {
+    const banco = await crearCuenta({ openingBalance: '2000000' });
     const ahorro1 = await crearCuenta({ isSavings: true });
     const ahorro2 = await crearCuenta({ isSavings: true });
-    await registrar(ahorro1.id, '200000');
-    await registrar(ahorro2.id, '999000');
+    for (const [destino, monto] of [
+      [ahorro1, '200000'],
+      [ahorro2, '999000'],
+    ] as const) {
+      const { estado, cuerpo } = await pedir('POST', '/api/v1/transfers', {
+        fromAccountId: banco.id,
+        toAccountId: destino.id,
+        amount: monto,
+        occurredAt: DIA_5,
+      });
+      expect(estado, JSON.stringify(cuerpo)).toBe(201);
+    }
 
     expect(await reportes.ahorroDeUnaCuentaEnElMes(usuarioId, MES, ahorro1.id)).toBe('200000.0000');
+  });
+
+  it('un ingreso que cae en la cuenta de ahorro no es ahorro', async () => {
+    const ahorro = await crearCuenta({ isSavings: true });
+    await registrar(ahorro.id, '350000');
+
+    expect(await reportes.ahorroDeUnaCuentaEnElMes(usuarioId, MES, ahorro.id)).toBe('0.0000');
   });
 
   it('el saldo inicial no cuenta como ahorro de este mes', async () => {

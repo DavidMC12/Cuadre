@@ -74,6 +74,11 @@ export const CuentaSchema = z.object({
   currency: z.string(),
   /** Suma de los movimientos. Texto, para no perder precisión. */
   balance: z.string(),
+  /**
+   * Lo ahorrado en la cuenta, que NO es su saldo: transferencias hacia/desde
+   * ella más los registros manuales de ahorro. Cero si no es de ahorro. Texto.
+   */
+  saved: z.string(),
   movementCount: z.number().int(),
   lastMovementAt: z.string().nullable(),
   archivedAt: z.string().nullable(),

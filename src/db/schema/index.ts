@@ -5,3 +5,4 @@ export * from './transactions.js';
 export * from './budgets.js';
 export * from './views.js';
 export * from './admin.js';
+export * from './savings.js';
