@@ -21,6 +21,10 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { CampoMonto } from "@/components/campo-monto";
+import {
+  CamposPagoDividido,
+  type PagoDivididoEnEdicion,
+} from "@/components/movimientos/campos-pago-dividido";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -35,7 +39,11 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useCategorias } from "@/hooks/use-categorias";
 import { useChecklistDelMes } from "@/hooks/use-presupuesto";
-import { useCrearMovimiento, useCrearTransferencia } from "@/hooks/use-movimientos";
+import {
+  useCrearMovimiento,
+  useCrearPagoDividido,
+  useCrearTransferencia,
+} from "@/hooks/use-movimientos";
 import { usePantallaGrande } from "@/hooks/use-pantalla-grande";
 import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
@@ -52,7 +60,8 @@ import {
 } from "@/lib/desplegable-en-que-fue";
 import { agruparItemsDePago, SIN_ITEM, textoDeOpcion } from "@/lib/item-presupuesto";
 import { cn } from "@/lib/utils";
-import { normalizarMontoIngresado, textoMonto } from "@/lib/money";
+import { esCero, normalizarMontoIngresado, textoMonto } from "@/lib/money";
+import { cuentasParaLaParte, leerReparto, repartoInicial } from "@/lib/pago-dividido";
 import { cuentasDeDestino } from "@/lib/transferencias";
 
 type TipoMonto = "gasto" | "ingreso" | "transferencia";
@@ -315,7 +324,14 @@ export function FormularioMovimiento({
 
   const crearMovimiento = useCrearMovimiento();
   const crearTransferencia = useCrearTransferencia();
-  const registrando = crearMovimiento.isPending || crearTransferencia.isPending;
+  const crearPagoDividido = useCrearPagoDividido();
+  const registrando =
+    crearMovimiento.isPending || crearTransferencia.isPending || crearPagoDividido.isPending;
+
+  // "Pagar con dos cuentas": la compra se reparte entre dos cuentas de la misma
+  // moneda (la mitad con la tarjeta, la mitad con plata disponible). `null` =
+  // modo de una sola cuenta, el de siempre.
+  const [pagoDividido, setPagoDividido] = useState<PagoDivididoEnEdicion | null>(null);
   const hayCuentas = cuentas.length > 0;
   // "Entre cuentas" no tiene sentido con una sola cuenta: no habría hacia
   // dónde transferir, y ofrecer una opción que nunca puede completarse es
@@ -349,6 +365,52 @@ export function FormularioMovimiento({
     descripcion !== (valoresIniciales?.descripcion ?? "");
 
   const { data: categorias } = useCategorias(false);
+
+  // El monto grande, leído y positivo, o `null` si aún no es un monto válido:
+  // es el TOTAL de la compra que se reparte.
+  const totalLeido = (() => {
+    if (!cuentaElegida) return null;
+    const lectura = normalizarMontoIngresado(monto, cuentaElegida.currency);
+    return "monto" in lectura && !esCero(lectura.monto) ? lectura.monto : null;
+  })();
+
+  // ¿Se puede ofrecer pagar con dos cuentas? Solo en un registro nuevo de
+  // gasto o ingreso (no en una corrección ni en "Entre cuentas") y si hay al
+  // menos otra cuenta activa de la misma moneda con quién repartir.
+  const puedeDividirElPago =
+    !enCorreccion &&
+    tipoMonto !== "transferencia" &&
+    cuentaElegida !== undefined &&
+    cuentasParaLaParte(cuentas, cuentaElegida.currency, cuentaId).length > 0;
+
+  const repartoDelPago =
+    pagoDividido && cuentaElegida
+      ? leerReparto(totalLeido, pagoDividido.texto1, pagoDividido.texto2, cuentaElegida.currency)
+      : null;
+  const pagoDivididoListo = Boolean(
+    pagoDividido?.cuenta1Id && pagoDividido.cuenta2Id && repartoDelPago?.cuadra
+  );
+
+  function activarPagoDividido() {
+    if (!cuentaElegida) return;
+    const [texto1, texto2] = totalLeido
+      ? repartoInicial(totalLeido, cuentaElegida.currency)
+      : ["", ""];
+    setPagoDividido({ cuenta1Id: cuentaId, cuenta2Id: "", texto1, texto2 });
+  }
+
+  // Cambiar el total de la compra vuelve a repartirla a la mitad: lo que se
+  // había ajustado a mano ya no sumaba el total nuevo.
+  function cambiarMonto(nuevo: string) {
+    setMonto(nuevo);
+    if (!pagoDividido || !cuentaElegida) return;
+    const lectura = normalizarMontoIngresado(nuevo, cuentaElegida.currency);
+    const [texto1, texto2] =
+      "monto" in lectura && !esCero(lectura.monto)
+        ? repartoInicial(lectura.monto, cuentaElegida.currency)
+        : ["", ""];
+    setPagoDividido({ ...pagoDividido, texto1, texto2 });
+  }
 
   // Los grupos del desplegable "¿En qué fue?" / "¿De dónde viene?": los items
   // agrupados por su categoría del mes, y al final las categorías sin items
@@ -413,6 +475,7 @@ export function FormularioMovimiento({
     setCategoryId(valoresIniciales?.categoriaId);
     setItemElegido(valoresIniciales?.itemDelPresupuesto ?? null);
     setItemDePagoAMano(null);
+    setPagoDividido(null);
     setErrores({});
   }
 
@@ -471,11 +534,54 @@ export function FormularioMovimiento({
     );
   }
 
+  function manejarEnvioPagoDividido() {
+    if (!pagoDividido || !cuentaElegida || !repartoDelPago?.montos || !pagoDivididoListo) return;
+
+    const [monto1, monto2] = repartoDelPago.montos;
+    const signo = tipoMonto === "gasto" ? "-" : "";
+    const cuenta1 = cuentas.find((cuenta) => cuenta.id === pagoDividido.cuenta1Id);
+    const cuenta2 = cuentas.find((cuenta) => cuenta.id === pagoDividido.cuenta2Id);
+
+    crearPagoDividido.mutate(
+      {
+        payments: [
+          { accountId: pagoDividido.cuenta1Id, amount: `${signo}${monto1}` },
+          { accountId: pagoDividido.cuenta2Id, amount: `${signo}${monto2}` },
+        ],
+        occurredAt: inputAIso(fecha),
+        description: descripcion.trim() || undefined,
+        categoryId,
+        budgetItemId: categoryId ? (itemDelMovimiento ?? null) : undefined,
+      },
+      {
+        onSuccess: () => {
+          recordarCuenta(pagoDividido.cuenta1Id);
+          toast.success(
+            `Compra registrada en dos cuentas: ${cuenta1?.name ?? "cuenta 1"} y ${cuenta2?.name ?? "cuenta 2"}.`
+          );
+          manejarCambioAbierto(false);
+        },
+        onError: (error) => {
+          toast.error(
+            error instanceof ApiError
+              ? error.message
+              : "No se pudo registrar la compra. Intenta de nuevo."
+          );
+        },
+      }
+    );
+  }
+
   function manejarEnvio(evento: React.FormEvent<HTMLFormElement>) {
     evento.preventDefault();
 
     if (tipoMonto === "transferencia") {
       manejarEnvioTransferencia();
+      return;
+    }
+
+    if (pagoDividido) {
+      manejarEnvioPagoDividido();
       return;
     }
 
@@ -621,7 +727,7 @@ export function FormularioMovimiento({
               moneda={cuentaParaMonto?.currency ?? ""}
               placeholder="0"
               value={monto}
-              onChange={setMonto}
+              onChange={cambiarMonto}
               aria-invalid={Boolean(errores.monto)}
               autoFocus
               className="min-h-11 h-auto w-40 border-none bg-transparent p-0 text-center font-mono text-4xl tabular-nums text-inherit shadow-none focus-visible:ring-0 dark:bg-transparent"
@@ -635,6 +741,8 @@ export function FormularioMovimiento({
           onValueChange={(valores) => {
             if (valores.length > 0) {
               setTipoMonto(valores[0] as TipoMonto);
+              // Una transferencia no se reparte entre dos cuentas.
+              if (valores[0] === "transferencia") setPagoDividido(null);
               // Gasto e ingreso tienen categorías distintas: la elección
               // entera del desplegable (categoría e item) ya no aplica.
               setCategoryId(undefined);
@@ -809,6 +917,21 @@ export function FormularioMovimiento({
           </>
         ) : (
           <>
+            {pagoDividido && cuentaElegida ? (
+              <CamposPagoDividido
+                valor={pagoDividido}
+                onChange={(siguiente) => {
+                  setPagoDividido(siguiente);
+                  // La Cuenta 1 es la cuenta del formulario: de ella salen la
+                  // moneda y el mes de los ítems.
+                  if (siguiente.cuenta1Id) setCuentaElegidaAMano(siguiente.cuenta1Id);
+                }}
+                onVolver={() => setPagoDividido(null)}
+                total={totalLeido}
+                moneda={cuentaElegida.currency}
+                cuentas={cuentas}
+              />
+            ) : (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="cuenta-movimiento">Cuenta</Label>
               <Select
@@ -857,6 +980,16 @@ export function FormularioMovimiento({
               )}
               {errores.cuenta && <p className="text-xs text-destructive">{errores.cuenta}</p>}
             </div>
+            )}
+            {!pagoDividido && puedeDividirElPago && (
+              <button
+                type="button"
+                onClick={activarPagoDividido}
+                className="-mt-1 flex min-h-11 items-center self-start px-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
+              >
+                Pagar con dos cuentas
+              </button>
+            )}
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="en-que-fue-movimiento">
@@ -953,7 +1086,10 @@ export function FormularioMovimiento({
           type="submit"
           className="min-h-11"
           disabled={
-            registrando || !cambioAlgo || (tipoMonto === "transferencia" && !hayDestinoPosible)
+            registrando ||
+            !cambioAlgo ||
+            (tipoMonto === "transferencia" && !hayDestinoPosible) ||
+            (pagoDividido !== null && !pagoDivididoListo)
           }
           // El botón apagado se explica al oído también: `describedby` solo se
           // lee al enfocar o inspeccionar el botón, no anuncia por su cuenta.
