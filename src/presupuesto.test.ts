@@ -387,7 +387,7 @@ describe('el checklist del mes', () => {
     expect(items[0]).toMatchObject({ progress: '0.0000', checked: false, exceeded: false });
   });
 
-  it('un ítem de ahorro cuenta lo que entró a la cuenta en el mes', async () => {
+  it('un ítem de ahorro cuenta lo que se apartó con una transferencia, no lo que entró', async () => {
     const banco = await crearCuenta({ openingBalance: '1000000' });
     const ahorro = await crearCuenta({ isSavings: true });
     await crearItemDeAhorro(ahorro.id, '200000');
@@ -407,6 +407,45 @@ describe('el checklist del mes', () => {
       exceeded: false,
     });
     expect(items[0].label).toBe(ahorro.name);
+  });
+
+  it('un ingreso a la cuenta de ahorro NO avanza su ítem; una transferencia o un registro manual SÍ', async () => {
+    const banco = await crearCuenta({ openingBalance: '1000000' });
+    const ahorro = await crearCuenta({ isSavings: true });
+    await crearItemDeAhorro(ahorro.id, '200000');
+
+    // Entra un ingreso a la cuenta: el saldo sube, pero no es ahorro: nadie
+    // decidió apartarlo. El ítem sigue en cero.
+    await registrar(ahorro.id, '500000');
+    expect((await checklist(mesRelativo(0).etiqueta)).items[0]).toMatchObject({
+      progress: '0.0000',
+      checked: false,
+    });
+
+    // Una transferencia hacia la cuenta sí es apartar: el ítem avanza.
+    await pedir('POST', '/api/v1/transfers', {
+      fromAccountId: banco.id,
+      toAccountId: ahorro.id,
+      amount: '120000',
+      occurredAt: mesRelativo(0).fecha,
+    });
+    expect((await checklist(mesRelativo(0).etiqueta)).items[0]).toMatchObject({
+      progress: '120000.0000',
+      checked: false,
+    });
+
+    // Un registro manual ("aparté a mano") también cuenta, sin mover el saldo.
+    const { estado, cuerpo } = await pedir('POST', '/api/v1/savings-entries', {
+      accountId: ahorro.id,
+      amount: '90000',
+      occurredAt: mesRelativo(0).fecha,
+      description: 'Aparté a mano',
+    });
+    expect(estado, JSON.stringify(cuerpo)).toBe(201);
+    expect((await checklist(mesRelativo(0).etiqueta)).items[0]).toMatchObject({
+      progress: '210000.0000',
+      checked: true,
+    });
   });
 
   it('la etiqueta propia manda sobre el nombre de la categoría o cuenta', async () => {
