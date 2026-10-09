@@ -178,9 +178,9 @@ export function FormularioMovimiento({
   valoresIniciales?: ValoresInicialesMovimiento;
   /**
    * Si la corrección es de una compra pagada con dos cuentas: abre YA en modo
-   * "Pagar con dos cuentas" con las dos cuentas y sus dos montos. `null` (lo
-   * de siempre) abre corregiendo un movimiento de una sola cuenta. Solo la
-   * corrección de una compra dividida lo trae: un registro nuevo o un
+   * "Pagar con dos cuentas" con las dos cuentas y sus dos montos. No pasarlo
+   * (lo de siempre) abre corrigiendo un movimiento de una sola cuenta. Solo
+   * la corrección de una compra dividida lo trae: un registro nuevo o un
    * movimiento simple no.
    */
   pagoDivididoInicial?: PagoDivididoEnEdicion;

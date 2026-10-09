@@ -6,7 +6,11 @@ import PaginaMovimientos from "./page";
 import * as useMovimientosModule from "@/hooks/use-movimientos";
 import * as useCuentasModule from "@/hooks/use-cuentas";
 import * as useCategoriasModule from "@/hooks/use-categorias";
+import { ApiError } from "@/lib/api/client";
 import type { Cuenta, Movimiento } from "@/lib/api/types";
+
+const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: toastError } }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn() }),
@@ -450,6 +454,27 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       );
       expect(cabecera.tituloCabecera).toBe("Corregir compra");
       expect(cabecera.descripcionCabecera).not.toContain("movimiento");
+    });
+
+    it("si la anulación falla (422 cuenta archivada), muestra el error y NO abre el formulario", () => {
+      const mensaje =
+        "Alguna de las cuentas de esa compra está archivada. Desarchívala para poder corregir su historial.";
+      anularPagoMutate.mockImplementation(
+        (_grupo: string, opciones: { onError?: (error: unknown) => void }) =>
+          opciones.onError?.(new ApiError({ code: "RULE_VIOLATION", message: mensaje }))
+      );
+      ajustar({ data: [parte("p1", "a-1", "Mercado (1 de 2)"), parte("p2", "a-2", "Mercado (2 de 2)")] });
+
+      render(<PaginaMovimientos />);
+      fireEvent.click(screen.getByRole("button", { name: "anular-compra" }));
+      fireEvent.click(screen.getByRole("button", { name: "confirmar-anulacion" }));
+
+      // El error se muestra tal cual (lo manda el servidor)…
+      expect(toastError).toHaveBeenCalledWith(mensaje);
+      // …y no se abre ningún formulario de corrección: la compra no quedó
+      // anulada, así que no hay nada que corregir.
+      expect(screen.queryByTestId("valores-iniciales")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("pago-dividido-inicial")).not.toBeInTheDocument();
     });
 
     it("el diálogo recibe las dos partes cuando la lista las trae, y una sola cuando solo llega una", () => {

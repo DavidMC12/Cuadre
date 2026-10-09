@@ -226,4 +226,15 @@ describe("CamposPagoDividido", () => {
     const [, cuenta2] = screen.getAllByTestId("select");
     expect(cuenta2).toHaveValue("");
   });
+
+  it("si la cuenta 1 elegida se archivó, el estado nombra la 1 y no la 2", () => {
+    montar({ ...inicial, cuenta1Id: "vieja" });
+
+    expect(document.getElementById("estado-pago-dividido")).toHaveTextContent(
+      "Elige la cuenta 1 para registrar."
+    );
+
+    const [cuenta1] = screen.getAllByTestId("select");
+    expect(cuenta1).toHaveValue("");
+  });
 });
