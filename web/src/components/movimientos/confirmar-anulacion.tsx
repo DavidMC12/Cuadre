@@ -34,6 +34,11 @@ export function ConfirmarAnulacion({
 }) {
   const esCompra = movimiento?.paymentGroupId != null;
   const partes = esCompra && partesDeLaCompra?.length ? partesDeLaCompra : movimiento ? [movimiento] : [];
+  // Si la pantalla solo trae UNA de las dos partes (filtro por cuenta o
+  // paginación), el total de la compra no se conoce: decir "$100.000" para una
+  // compra de $200.000 engañaría justo antes de una acción que no se deshace.
+  // Se muestra la parte que se ve, dicho como tal.
+  const veLaCompraEntera = partes.length >= 2;
 
   return (
     <Dialog
@@ -56,11 +61,13 @@ export function ConfirmarAnulacion({
           <div className="flex items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2">
             <span className="truncate text-sm text-muted-foreground">
               {esCompra
-                ? descripcionDeLaCompra(partes)
+                ? veLaCompraEntera
+                  ? descripcionDeLaCompra(partes)
+                  : `${descripcionDeLaCompra(partes)} · una de las dos partes`
                 : movimiento.description?.trim() || "Movimiento"}
             </span>
             <Monto
-              valor={esCompra ? totalDeLaCompra(partes) : movimiento.amount}
+              valor={esCompra && veLaCompraEntera ? totalDeLaCompra(partes) : movimiento.amount}
               moneda={movimiento.currency}
             />
           </div>

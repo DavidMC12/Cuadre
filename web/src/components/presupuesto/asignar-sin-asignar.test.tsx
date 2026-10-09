@@ -120,6 +120,7 @@ function movimiento(over: Partial<Movimiento> & { id: string }): Movimiento {
     accountId: "a-1",
     categoryId: "c-deu",
     budgetItemId: null,
+    paymentGroupId: null,
     kind: "standard",
     amount: "-12500",
     currency: "COP",

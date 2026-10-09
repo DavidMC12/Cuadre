@@ -69,7 +69,9 @@ export const RegistrarPagoDivididoSchema = z
       .array(z.object({ accountId: z.uuid(), amount: MontoSchema }))
       .length(2, 'un pago dividido tiene exactamente dos partes'),
     occurredAt: FechaSchema,
-    description: z.string().trim().min(1).max(500).nullish(),
+    // Menos de 500: el servidor le agrega " (1 de 2)" a cada parte y la
+    // descripción guardada no debe pasar del tope de un movimiento normal.
+    description: z.string().trim().min(1).max(490).nullish(),
     categoryId: z.uuid().nullish(),
     budgetItemId: z.uuid().nullish(),
   })
@@ -83,7 +85,8 @@ export const RegistrarPagoDivididoSchema = z
       datos.payments[1] === undefined ||
       isNegative(datos.payments[0].amount) === isNegative(datos.payments[1].amount),
     {
-      message: 'Las dos partes del pago deben ser del mismo tipo: las dos gastos o las dos ingresos.',
+      message:
+        'Las dos partes del pago deben ser del mismo tipo: las dos gastos o las dos ingresos.',
       path: ['payments'],
     },
   );
@@ -103,7 +106,10 @@ export const MovimientoSchema = z.object({
   occurredAt: z.string(),
   description: z.string().nullable(),
   transferGroupId: z.uuid().nullable(),
-  /** Las patas de una compra pagada con dos cuentas comparten este grupo. */
+  /**
+   * Las dos partes de un gasto o ingreso repartido entre dos cuentas comparten
+   * este grupo; la anulación de ese pago lleva su propio grupo nuevo.
+   */
   paymentGroupId: z.uuid().nullable(),
   /** Si esta fila anula a otra, aquí va la anulada. */
   reversesTransactionId: z.uuid().nullable(),

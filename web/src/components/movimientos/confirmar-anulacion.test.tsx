@@ -79,11 +79,22 @@ describe("ConfirmarAnulacion: una compra pagada con dos cuentas", () => {
     );
   });
 
-  it("con una sola parte a la vista anuncia la compra igual, con el monto de esa parte", () => {
+  it("con una sola parte a la vista NO promete un total: muestra esa parte, dicha como tal", () => {
+    // Filtro por cuenta o paginación: la otra parte no llegó. Mostrar "$100.000"
+    // como si fuera la compra sería engañar justo antes de anular $200.000.
     montar([parte1]);
 
     expect(screen.getByText("¿Anular la compra completa?")).toBeInTheDocument();
+    expect(screen.getByText(/Mercado · una de las dos partes/)).toBeInTheDocument();
     expect(screen.getByText(/100\.000/)).toBeInTheDocument();
+    expect(screen.queryByText(/200\.000/)).not.toBeInTheDocument();
+    expect(screen.getByText(/se anulan las dos partes juntas/)).toBeInTheDocument();
+  });
+
+  it("con las dos partes a la vista sí muestra el total y no dice 'una de las dos partes'", () => {
+    montar([parte1, parte2]);
+
+    expect(screen.queryByText(/una de las dos partes/)).not.toBeInTheDocument();
   });
 
   it("un movimiento normal sigue diciendo lo de siempre", () => {

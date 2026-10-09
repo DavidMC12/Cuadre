@@ -86,7 +86,10 @@ export function useAnularPagoDividido() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (paymentGroupId: string) => reverseSplitPayment(paymentGroupId),
-    onSuccess: () => invalidarTrasEscritura(queryClient),
+    // También si falla: un 409 ("ya está anulada", p. ej. desde otro aparato)
+    // deja la fila desactualizada hasta recargar, y es justo lo que hay que
+    // refrescar.
+    onSettled: () => invalidarTrasEscritura(queryClient),
   });
 }
 

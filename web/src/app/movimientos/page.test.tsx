@@ -107,15 +107,20 @@ vi.mock("@/components/movimientos/compra-dividida-item", () => ({
 vi.mock("@/components/movimientos/confirmar-anulacion", () => ({
   ConfirmarAnulacion: ({
     movimiento,
+    partesDeLaCompra,
     onConfirmar,
   }: {
     movimiento: Movimiento | null;
+    partesDeLaCompra?: readonly Movimiento[];
     onConfirmar: () => void;
   }) =>
     movimiento ? (
-      <button type="button" onClick={onConfirmar}>
-        confirmar-anulacion
-      </button>
+      <>
+        <span data-testid="partes-de-la-compra">{partesDeLaCompra?.length ?? "ninguna"}</span>
+        <button type="button" onClick={onConfirmar}>
+          confirmar-anulacion
+        </button>
+      </>
     ) : null,
 }));
 
@@ -342,6 +347,19 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       expect(anularPagoMutate).toHaveBeenCalledWith("g-1", expect.anything());
       expect(anularMutate).not.toHaveBeenCalled();
       expect(screen.queryByTestId("valores-iniciales")).not.toBeInTheDocument();
+    });
+
+    it("el diálogo recibe las dos partes cuando la lista las trae, y una sola cuando solo llega una", () => {
+      ajustar({ data: [parte("p1", "a-1", "Mercado (1 de 2)"), parte("p2", "a-2", "Mercado (2 de 2)")] });
+      const completa = render(<PaginaMovimientos />);
+      fireEvent.click(screen.getByRole("button", { name: "anular-compra" }));
+      expect(screen.getByTestId("partes-de-la-compra")).toHaveTextContent("2");
+      completa.unmount();
+
+      ajustar({ data: [parte("p1", "a-1", "Mercado (1 de 2)")] });
+      render(<PaginaMovimientos />);
+      fireEvent.click(screen.getByRole("button", { name: "anular-fila" }));
+      expect(screen.getByTestId("partes-de-la-compra")).toHaveTextContent("1");
     });
 
     it("una parte suelta (filtro por cuenta) también anula la compra completa", () => {

@@ -53,6 +53,17 @@ export function CamposPagoDividido({
 }) {
   const reparto = leerReparto(total, valor.texto1, valor.texto2, moneda);
 
+  // Los montos pueden cuadrar sin que esté elegida la segunda cuenta: ahí no
+  // hay nada que celebrar (Registrar sigue apagado) y hay que decir qué falta.
+  const faltaCuenta = !valor.cuenta1Id || !valor.cuenta2Id;
+  const textoDeEstado = !reparto.cuadra
+    ? (reparto.motivo ?? "")
+    : faltaCuenta
+      ? `Elige la cuenta ${valor.cuenta1Id ? 2 : 1} para registrar.`
+      : total
+        ? `✓ Suma ${textoMonto(total, moneda)}`
+        : "";
+
   // Ni una cuenta repetida, ni de otra moneda, ni archivada.
   const opcionesDeLa1 = cuentasParaLaParte(cuentas, moneda, valor.cuenta2Id || null);
   const opcionesDeLa2 = cuentasParaLaParte(cuentas, moneda, valor.cuenta1Id || null);
@@ -142,14 +153,12 @@ export function CamposPagoDividido({
         id="estado-pago-dividido"
         aria-live="polite"
         className={
-          reparto.cuadra
+          reparto.cuadra && !faltaCuenta
             ? "text-xs text-emerald-600 dark:text-emerald-400"
             : "text-xs text-muted-foreground"
         }
       >
-        {reparto.cuadra && total
-          ? `✓ Suma ${textoMonto(total, moneda)}`
-          : (reparto.motivo ?? "")}
+        {textoDeEstado}
       </p>
     </div>
   );

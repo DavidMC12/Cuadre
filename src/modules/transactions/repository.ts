@@ -309,7 +309,9 @@ export async function obtenerTiposDeCuentas(
 }
 
 /**
- * Señal interna para deshacer la transacción cuando alguna cuenta no existe.
+ * Señal interna para deshacer la transacción cuando alguna cuenta no existe
+ * (una transferencia o una compra pagada con dos cuentas: las patas entran
+ * juntas o ninguna).
  *
  * `db.transaction` solo hace ROLLBACK si el callback lanza: un simple
  * `return null` adentro se toma como éxito y la transacción se confirma
@@ -317,7 +319,7 @@ export async function obtenerTiposDeCuentas(
  * para forzar el rollback, y se atrapa afuera para no cambiarle el contrato a
  * quien llama (sigue devolviendo `null`, no un error).
  */
-class CuentaDeTransferenciaInexistente extends Error {}
+class CuentaInexistenteParaEscribir extends Error {}
 
 /** Los dos movimientos de una transferencia entran juntos o no entra ninguno. */
 export async function registrarTransferencia(
@@ -348,14 +350,14 @@ export async function registrarTransferencia(
         monto: `-${datos.monto}`,
         itemId: datos.itemId ?? null,
       });
-      if (!salida) throw new CuentaDeTransferenciaInexistente();
+      if (!salida) throw new CuentaInexistenteParaEscribir();
 
       const entrada = await registrar(tx, usuarioId, {
         ...comun,
         cuentaId: datos.destinoId,
         monto: datos.monto,
       });
-      if (!entrada) throw new CuentaDeTransferenciaInexistente();
+      if (!entrada) throw new CuentaInexistenteParaEscribir();
 
       // El disparador que exige que la transferencia cuadre se ejecuta al
       // confirmar. Se adelanta aquí para que el error salga dentro de este
@@ -365,7 +367,7 @@ export async function registrarTransferencia(
       return { grupoId, patas: [salida, entrada] };
     });
   } catch (error) {
-    if (error instanceof CuentaDeTransferenciaInexistente) return null;
+    if (error instanceof CuentaInexistenteParaEscribir) return null;
     throw error;
   }
 }
@@ -418,14 +420,14 @@ export async function registrarPagoDividido(
         });
         // Se lanza para forzar el ROLLBACK: un `return null` adentro se
         // tomaría como éxito y dejaría escritas las patas anteriores.
-        if (!movimiento) throw new CuentaDeTransferenciaInexistente();
+        if (!movimiento) throw new CuentaInexistenteParaEscribir();
         registradas.push(movimiento);
       }
 
       return { grupoId, patas: registradas };
     });
   } catch (error) {
-    if (error instanceof CuentaDeTransferenciaInexistente) return null;
+    if (error instanceof CuentaInexistenteParaEscribir) return null;
     throw error;
   }
 }

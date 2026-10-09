@@ -89,6 +89,23 @@ describe("CamposPagoDividido", () => {
     expect(estado).toHaveAttribute("aria-live", "polite");
   });
 
+  it("si los montos cuadran pero falta elegir la cuenta 2, NO celebra: dice qué falta", () => {
+    montar({ ...inicial, cuenta2Id: "" });
+
+    const estado = document.getElementById("estado-pago-dividido")!;
+    expect(estado).toHaveTextContent("Elige la cuenta 2 para registrar.");
+    expect(estado).not.toHaveTextContent("✓");
+    expect(estado.className).not.toContain("emerald");
+  });
+
+  it("si falta la cuenta 1, dice la cuenta 1", () => {
+    montar({ ...inicial, cuenta1Id: "" });
+
+    expect(document.getElementById("estado-pago-dividido")).toHaveTextContent(
+      "Elige la cuenta 1 para registrar."
+    );
+  });
+
   it("si no cuadra, lo dice en palabras con la cifra exacta", () => {
     montar({ ...inicial, texto2: "50.000" });
 

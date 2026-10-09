@@ -77,9 +77,10 @@ export const transactions = pgTable(
     /** Las dos patas de una transferencia comparten este identificador. */
     transferGroupId: uuid('transfer_group_id'),
     /**
-     * Una compra pagada con dos cuentas (la mitad con tarjeta, la mitad con
-     * plata disponible) se guarda como dos gastos normales —uno por cuenta—
-     * que comparten este identificador: es UN solo hecho, así que se ven y se
+     * Un gasto (o ingreso) pagado con dos cuentas (la mitad con tarjeta, la
+     * mitad con plata disponible) se guarda como dos movimientos normales
+     * —uno por cuenta— que comparten este identificador; su anulación (otras
+     * dos filas) lleva un grupo nuevo: es UN solo hecho, así que se ven y se
      * anulan juntos, igual que las dos patas de una transferencia. Nulo en
      * todo lo demás. Solo lo llevan gastos/ingresos normales y sus anulaciones.
      */

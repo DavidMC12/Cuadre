@@ -267,6 +267,21 @@ describe('registrar una compra pagada con dos cuentas', () => {
     expect(await contarMovimientos(tarjeta.id)).toBe(0);
   });
 
+  it('la descripción deja lugar para la marca "(1 de 2)": más de 490 caracteres es 400', async () => {
+    const { tarjeta, banco } = await escenario();
+    const dosPartes = [
+      { accountId: tarjeta.id, amount: '-1000' },
+      { accountId: banco.id, amount: '-1000' },
+    ];
+
+    const justa = await dividir({ payments: dosPartes, description: 'x'.repeat(490) });
+    const larga = await dividir({ payments: dosPartes, description: 'x'.repeat(491) });
+
+    expect(justa.estado).toBe(201);
+    expect(justa.cuerpo.data.legs[0].description.length).toBeLessThanOrEqual(500);
+    expect(larga.estado).toBe(400);
+  });
+
   it('dos monedas distintas: 422 con mensaje llano', async () => {
     const cop = await crearCuenta();
     const usd = await crearCuenta({ currency: 'USD' });
@@ -304,6 +319,37 @@ describe('registrar una compra pagada con dos cuentas', () => {
   });
 });
 
+describe('el grupo viaja en las lecturas', () => {
+  it('paymentGroupId sale en el detalle y en el listado de movimientos', async () => {
+    const { tarjeta, banco } = await escenario();
+    const { cuerpo } = await dividir({
+      payments: [
+        { accountId: tarjeta.id, amount: '-1000' },
+        { accountId: banco.id, amount: '-1000' },
+      ],
+    });
+    const grupo = cuerpo.data.paymentGroupId;
+    const parte = cuerpo.data.legs[0];
+
+    const detalle = await pedir('GET', `/api/v1/transactions/${parte.id}`);
+    const lista = await pedir('GET', '/api/v1/transactions');
+
+    expect(detalle.cuerpo.data.paymentGroupId).toBe(grupo);
+    expect(lista.cuerpo.data.filter((m: any) => m.paymentGroupId === grupo)).toHaveLength(2);
+  });
+
+  it('un movimiento normal no lleva grupo', async () => {
+    const { banco } = await escenario();
+    const normal = await pedir('POST', '/api/v1/transactions', {
+      accountId: banco.id,
+      amount: '-500',
+      occurredAt: DIA_5,
+    });
+
+    expect(normal.cuerpo.data.paymentGroupId).toBeNull();
+  });
+});
+
 describe('anular una compra pagada con dos cuentas', () => {
   async function comprar() {
     const base = await escenario();
@@ -322,12 +368,23 @@ describe('anular una compra pagada con dos cuentas', () => {
   it('se anula completa: los saldos y el presupuesto vuelven, y la anulación forma su propio grupo', async () => {
     const compra = await comprar();
 
-    const { estado, cuerpo } = await pedir('POST', `/api/v1/split-payments/${compra.paymentGroupId}/reversal`);
+    const { estado, cuerpo } = await pedir(
+      'POST',
+      `/api/v1/split-payments/${compra.paymentGroupId}/reversal`,
+    );
 
     expect(estado, JSON.stringify(cuerpo)).toBe(201);
     expect(cuerpo.data.paymentGroupId).not.toBe(compra.paymentGroupId);
+    // Las dos anulaciones comparten el MISMO grupo nuevo.
+    expect(cuerpo.data.legs.map((l: any) => l.paymentGroupId)).toEqual([
+      cuerpo.data.paymentGroupId,
+      cuerpo.data.paymentGroupId,
+    ]);
     expect(cuerpo.data.legs).toHaveLength(2);
-    expect(cuerpo.data.legs.map((l: any) => l.amount).sort()).toEqual(['100000.0000', '100000.0000']);
+    expect(cuerpo.data.legs.map((l: any) => l.amount).sort()).toEqual([
+      '100000.0000',
+      '100000.0000',
+    ]);
     expect(cuerpo.data.legs.every((l: any) => l.reversesTransactionId)).toBe(true);
     expect(cuerpo.data.legs[0].description).toBe('Anulación de: Mercado (1 de 2)');
 
@@ -372,7 +429,10 @@ describe('anular una compra pagada con dos cuentas', () => {
     const compra = await comprar();
     usuarioId = await crearUsuario();
 
-    const { estado } = await pedir('POST', `/api/v1/split-payments/${compra.paymentGroupId}/reversal`);
+    const { estado } = await pedir(
+      'POST',
+      `/api/v1/split-payments/${compra.paymentGroupId}/reversal`,
+    );
 
     expect(estado).toBe(404);
   });
@@ -381,7 +441,10 @@ describe('anular una compra pagada con dos cuentas', () => {
     const compra = await comprar();
     await pedir('POST', `/api/v1/accounts/${compra.banco.id}/archive`);
 
-    const { estado } = await pedir('POST', `/api/v1/split-payments/${compra.paymentGroupId}/reversal`);
+    const { estado } = await pedir(
+      'POST',
+      `/api/v1/split-payments/${compra.paymentGroupId}/reversal`,
+    );
 
     expect(estado).toBe(422);
     expect(await saldoDe(compra.tarjeta.id)).toBe('-100000.0000');
@@ -411,9 +474,13 @@ describe('corregir categoría o ítem de una compra dividida', () => {
   it('cambiar el ítem de una parte lo cambia en las dos', async () => {
     const compra = await comprar();
 
-    const { estado, cuerpo } = await pedir('PATCH', `/api/v1/transactions/${compra.legs[0].id}/budget-item`, {
-      budgetItemId: compra.otro,
-    });
+    const { estado, cuerpo } = await pedir(
+      'PATCH',
+      `/api/v1/transactions/${compra.legs[0].id}/budget-item`,
+      {
+        budgetItemId: compra.otro,
+      },
+    );
 
     expect(estado, JSON.stringify(cuerpo)).toBe(200);
     expect((await movimiento(compra.legs[0].id)).budgetItemId).toBe(compra.otro);
@@ -439,7 +506,10 @@ describe('corregir categoría o ítem de una compra dividida', () => {
 
   it('con la compra ya anulada, la corrección alcanza también a las anulaciones', async () => {
     const compra = await comprar();
-    const anulacion = await pedir('POST', `/api/v1/split-payments/${compra.paymentGroupId}/reversal`);
+    const anulacion = await pedir(
+      'POST',
+      `/api/v1/split-payments/${compra.paymentGroupId}/reversal`,
+    );
 
     await pedir('PATCH', `/api/v1/transactions/${compra.legs[0].id}/budget-item`, {
       budgetItemId: compra.otro,

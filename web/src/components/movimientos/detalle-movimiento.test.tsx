@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 
 import { DetalleMovimiento } from "./detalle-movimiento";
@@ -307,5 +307,33 @@ describe("DetalleMovimiento: el renglón del item del presupuesto", () => {
     expect(
       screen.getByRole("button", { name: /Cambiar ítem/ }).className
     ).toContain("min-h-11");
+  });
+});
+
+describe("DetalleMovimiento: una parte suelta de una compra pagada con dos cuentas", () => {
+  it("el botón dice 'Anular compra completa' y pide anular ESA parte (la página anula el grupo)", () => {
+    const alAnular = vi.fn();
+    const parte: Movimiento = {
+      ...movimiento,
+      paymentGroupId: "g-1",
+      description: "Mercado (1 de 2)",
+    };
+    render(
+      <DetalleMovimiento
+        movimiento={parte}
+        cuenta={undefined}
+        categoria={undefined}
+        abierto
+        onOpenChange={vi.fn()}
+        onSolicitarAnular={alAnular}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: "Anular" })).not.toBeInTheDocument();
+    const boton = screen.getByRole("button", { name: "Anular compra completa" });
+    expect(boton.className).toContain("min-h-11");
+    fireEvent.click(boton);
+
+    expect(alAnular).toHaveBeenCalledWith(parte);
   });
 });
