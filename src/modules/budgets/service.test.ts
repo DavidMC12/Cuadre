@@ -466,12 +466,16 @@ describe('estadoDelItem (función pura)', () => {
     expect(servicio.estadoDelItem(ahorro, null, '0.0000')).toBe('none');
   });
 
-  it('meta de cero ("este mes no aplica"): con movimiento es exceso, sin movimiento es "none"', () => {
+  it('meta de cero ("este mes no aplica"): solo un tope de gasto puede excederse', () => {
+    // Tope de gasto: gastar algo cuando se dijo "no gasto nada" es un exceso.
     expect(servicio.estadoDelItem(gasto, '0', '0.0000')).toBe('none');
     expect(servicio.estadoDelItem(gasto, '0.0000', '30000.0000')).toBe('exceeded');
+    // Ingreso y ahorro: recibir o ahorrar cuando no había meta no es un logro
+    // ni una falta; nunca se marca "excedido".
     expect(servicio.estadoDelItem(ingreso, '0', '0.0000')).toBe('none');
-    expect(servicio.estadoDelItem(ingreso, '00', '1000.0000')).toBe('exceeded');
+    expect(servicio.estadoDelItem(ingreso, '00', '1000.0000')).toBe('none');
     expect(servicio.estadoDelItem(ahorro, '0', '0.0000')).toBe('none');
+    expect(servicio.estadoDelItem(ahorro, '0', '5000.0000')).toBe('none');
   });
 
   it('tabla de casos: tope de gasto', () => {

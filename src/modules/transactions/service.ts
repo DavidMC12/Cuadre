@@ -13,6 +13,11 @@ import { db } from '../../db/client.js';
 import { conflicto, ErrorDeApp, noEncontrado, reglaViolada } from '../../http/errores.js';
 import { isNegative, negate } from '../../shared/money.js';
 import { ZONA_HORARIA } from '../../shared/zona-horaria.js';
+// Ojo: este import cierra un ciclo (transacciones -> presupuesto -> cuentas ->
+// transacciones). Funciona mientras nada de `presupuestoService` se use al
+// evaluar el módulo: ESM resuelve el binding en vivo. Si algún día se llamara
+// algo de presupuesto a nivel de módulo (fuera de una función), aparecería
+// `undefined` al cargar.
 import * as presupuestoService from '../budgets/service.js';
 import { armarCsv } from './csv.js';
 import * as repositorio from './repository.js';

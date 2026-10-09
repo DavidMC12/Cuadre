@@ -212,13 +212,15 @@ export function estadoDelItem(
   // Sin meta no hay estado que dar: el ítem no existía ese mes.
   if (target === null) return 'none';
 
-  // Un objetivo de cero es "este mes no aplica". Si aun así se movió algo, es
-  // un exceso; si no, no hay nada que reportar.
-  if (esCero(target)) {
-    return compare(progress, '0') > 0 ? 'exceeded' : 'none';
-  }
-
   const esTopeDeGasto = item.kind === 'category' && item.categoryKind === 'expense';
+
+  // Un objetivo de cero es "este mes no aplica": en ingreso y ahorro no hay
+  // nada que reportar (recibir o ahorrar cuando no había meta no es un logro
+  // ni una falta). En un tope de gasto sí es un exceso gastar algo cuando se
+  // dijo que no se gastaría nada, y así el estado coincide con `exceeded`.
+  if (esCero(target)) {
+    return esTopeDeGasto && compare(progress, '0') > 0 ? 'exceeded' : 'none';
+  }
 
   if (esTopeDeGasto) {
     const contraLaMeta = compare(progress, target);
@@ -259,6 +261,9 @@ async function sinAsignarDelChecklist(
       categoryKind: objetivo.categoryKind === 'income' ? 'income' : 'expense',
     });
   }
+
+  // Sin categorías con ítem no hay nada que cruzar: ninguno puede aparecer.
+  if (categorias.size === 0) return [];
 
   const filas = await reportsService.sinAsignarPorCategoria(usuarioId, mes, moneda);
   const porCategoria = new Map(filas.map((fila) => [fila.categoryId, fila]));

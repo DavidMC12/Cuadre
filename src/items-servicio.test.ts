@@ -471,6 +471,52 @@ describe('corregir el ítem de un movimiento', () => {
     expect(estado).toBe(422);
   });
 
+  it('un ítem de otra moneda es 422', async () => {
+    const cuenta = await crearCuenta();
+    const comida = await crearCategoria('Comida');
+    const itemUsd = await crearItem(comida.id, { currency: 'USD' });
+    const { cuerpo: gasto } = await registrar(cuenta.id, '-30000', { categoryId: comida.id });
+
+    const { estado, cuerpo } = await pedir(
+      'PATCH',
+      `/api/v1/transactions/${gasto.data.id}/budget-item`,
+      { budgetItemId: itemUsd.id },
+    );
+    expect(estado).toBe(422);
+    expect(cuerpo.error.message).toMatch(/moneda/i);
+  });
+
+  it('un ítem archivado es 422', async () => {
+    const cuenta = await crearCuenta();
+    const comida = await crearCategoria('Comida');
+    const item = await crearItem(comida.id);
+    await pedir('POST', `/api/v1/budgets/items/${item.id}/archive`);
+    const { cuerpo: gasto } = await registrar(cuenta.id, '-30000', { categoryId: comida.id });
+
+    const { estado } = await pedir(
+      'PATCH',
+      `/api/v1/transactions/${gasto.data.id}/budget-item`,
+      { budgetItemId: item.id },
+    );
+    expect(estado).toBe(422);
+  });
+
+  it('un ítem de ahorro es 422', async () => {
+    const ahorro = await crearCuenta({ isSavings: true });
+    const itemAhorro = await crearItemDeAhorro(ahorro.id);
+    const cuenta = await crearCuenta();
+    const comida = await crearCategoria('Comida');
+    const { cuerpo: gasto } = await registrar(cuenta.id, '-30000', { categoryId: comida.id });
+
+    const { estado, cuerpo } = await pedir(
+      'PATCH',
+      `/api/v1/transactions/${gasto.data.id}/budget-item`,
+      { budgetItemId: itemAhorro.id },
+    );
+    expect(estado).toBe(422);
+    expect(cuerpo.error.message).toMatch(/ahorro/i);
+  });
+
   it('arrastra la anulación: el original y su anulación cambian juntos', async () => {
     const cuenta = await crearCuenta();
     const comida = await crearCategoria('Comida');
