@@ -540,11 +540,15 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
       expanded: false,
     });
     // El aviso visual es un punto pequeño y rojo (aria-hidden: lo audible
-    // ya lo dice el aria-label del botón), no un circulo con triángulo.
-    const punto = encabezado.querySelector("span.bg-destructive") as HTMLElement;
+    // ya lo dice el aria-label del botón), no un círculo con triángulo.
+    // El selector va con las clases completas del punto: más estricto que
+    // buscar solo bg-destructive, y único en el botón (el punto de color
+    // del grupo es size-2.5 y no trae bg-destructive).
+    const punto = encabezado.querySelector(
+      "span.size-2.rounded-full.bg-destructive"
+    ) as HTMLElement;
     expect(punto).toBeInTheDocument();
-    expect(punto.className).toContain("size-2");
-    expect(punto.className).toContain("rounded-full");
+    expect(punto.getAttribute("aria-hidden")).toBe("true");
     // El texto del triángulo desapareció del panel entero: el "Te pasaste
     // por" del renglón (oculto aquí por el repliegue, pero montado) es la
     // voz del exceso.

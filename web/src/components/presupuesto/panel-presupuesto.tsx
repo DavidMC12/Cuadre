@@ -427,7 +427,7 @@ export function PanelPresupuesto({
           </span>
           <span className="tabular-nums">{cantidad}</span>
           {/* Replegado con excedidos: un puntito rojo discreto al lado del
-              conteo, no un triángulo con circulo que gritara. El aviso
+              conteo, no un triángulo con círculo que gritara. El aviso
               audible ya vive en el aria-label del botón ("con un tope
               excedido" / "con topes excedidos") y el detalle se ve al
               desplegar el grupo. */}
@@ -792,7 +792,7 @@ function ContenidoRenglon({
             exceso SOLO sucede en un tope de gasto. Recibir más de lo
             presupuestado es bueno: nunca sale en rojo. El aviso vive en la
             barra roja y el texto "Te pasaste por X" de abajo; un ícono más
-            con circulo rojo era un tercer aviso para lo mismo y se sentía
+            con círculo rojo era un tercer aviso para lo mismo y se sentía
             alarmista ("muy warning"). El texto visible habla por sí solo
             para lector de pantalla, y la barra lleva su aria-label. */}
         {renglon.checked && (
