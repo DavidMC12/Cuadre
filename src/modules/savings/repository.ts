@@ -7,16 +7,7 @@
  */
 import { sql } from 'drizzle-orm';
 import type { Ejecutor } from '../../db/client.js';
-
-export interface RegistroDeAhorro {
-  id: string;
-  accountId: string;
-  currency: string;
-  /** Con signo: positivo = apartaste, negativo = retiraste. */
-  amount: string;
-  occurredAt: string;
-  description: string | null;
-}
+import type { RegistroDeAhorro } from './schemas.js';
 
 interface FilaCruda {
   id: string;
