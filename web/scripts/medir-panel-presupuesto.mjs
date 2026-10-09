@@ -63,6 +63,22 @@ function fila(conMargenNegativo) {
   </li>`;
 }
 
+/**
+ * La fila "Sin asignar: $X" del grupo, ya convertida en botón de 44px con su
+ * "Asignar" discreto. Se mide junto al resto: a 320px no puede desbordar ni
+ * bajar del piso del pulgar. Las clases son las del componente real
+ * (asignar-sin-asignar.tsx).
+ */
+function filaSinAsignar() {
+  return `
+  <li data-sin-asignar class="border-t border-border">
+    <button class="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-xs text-muted-foreground outline-none transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85">
+      <span class="min-w-0 truncate">Sin asignar: <span class="font-mono tabular-nums">$267.530</span></span>
+      <span class="shrink-0 font-medium text-foreground">Asignar</span>
+    </button>
+  </li>`;
+}
+
 function grupo(titulo, conMargenNegativo) {
   return `
   <section>
@@ -72,7 +88,7 @@ function grupo(titulo, conMargenNegativo) {
       <span class="tabular-nums">2</span>
       <svg aria-hidden class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
     </button>
-    <ul class="flex flex-col">${fila(conMargenNegativo)}${fila(conMargenNegativo)}</ul>
+    <ul class="flex flex-col">${fila(conMargenNegativo)}${fila(conMargenNegativo)}${filaSinAsignar()}</ul>
   </section>`;
 }
 
@@ -258,6 +274,7 @@ const MEDICION = `(() => [...document.querySelectorAll("[data-caso]")].map((caso
   const titulo = caso.querySelector("[data-titulo]");
   const filaTexto = caso.querySelector("[data-fila-texto]");
   const filaLi = caso.querySelector("[data-fila]");
+  const sinAsignar = caso.querySelector("[data-sin-asignar] button");
   const seccion = caso.querySelector("[data-seccion]");
   const total = caso.querySelector("[data-total]");
   // Cuántos contenedores dentro del caso tienen scroll vertical propio: con
@@ -282,6 +299,9 @@ const MEDICION = `(() => [...document.querySelectorAll("[data-caso]")].map((caso
     seccionTituloAlto: seccion.querySelector("h3").offsetHeight,
     scrollables,
     headerAlto: header.offsetHeight,
+    // La fila "Sin asignar" ahora es un botón: piso de 44px y sin desborde.
+    sinAsignarAlto: sinAsignar.offsetHeight,
+    sinAsignarOverflowX: sinAsignar.scrollWidth - sinAsignar.clientWidth,
     // Cuánto se corre la caja del renglón respecto de la del encabezado: es lo
     // que el margen negativo descuadraba (el texto se movía 8px a la izquierda).
     desalineacion: Math.round((filaLi.getBoundingClientRect().left - header.getBoundingClientRect().left) * 100) / 100,
@@ -305,6 +325,7 @@ function revisar(mediciones) {
       const resumen =
         `desborde-x ${m.desbordeX}px; caja del renglón vs encabezado ${m.desalineacion}px; ` +
         `sangría del título ${m.sangriaTitulo}px; alto de encabezado ${m.headerAlto}px; ` +
+        `fila Sin asignar ${m.sinAsignarAlto}px, desborde ${m.sinAsignarOverflowX}px; ` +
         `sección ${m.seccionOverflowX}px, total ${m.totalOverflowX}px, alto ${m.seccionAlto}px (título ${m.seccionTituloAlto}px); ` +
         `scroll ${m.scrollables}; desborde-y ${m.desbordeY}px`;
       if (m.variante === "antes") {
@@ -332,6 +353,10 @@ function revisar(mediciones) {
       if (Math.abs(m.desalineacion) > 0.5)
         problemas.push(`renglón descuadrado con el encabezado (${m.desalineacion}px)`);
       if (m.headerAlto < 44) problemas.push(`encabezado de ${m.headerAlto}px (piso 44px)`);
+      if (m.sinAsignarAlto < 44)
+        problemas.push(`fila Sin asignar de ${m.sinAsignarAlto}px (piso 44px)`);
+      if (m.sinAsignarOverflowX > 0)
+        problemas.push(`la fila Sin asignar desborda (${m.sinAsignarOverflowX}px)`);
       if (m.motivo === "cajon" && m.scrollables !== 1)
         problemas.push(`scroll anidado: ${m.scrollables} contenedores scrollean`);
       if (problemas.length > 0) {

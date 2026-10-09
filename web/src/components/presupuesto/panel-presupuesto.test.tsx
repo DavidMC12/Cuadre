@@ -26,6 +26,24 @@ vi.mock("@/hooks/use-perfil", () => ({
   useSoloMirar: () => false,
 }));
 
+// El cajón de "sin asignar" que abre cada categoría consulta movimientos al
+// montarse; con este doble la prueba de panel no sale a la red.
+vi.mock("@/hooks/use-movimientos", () => ({
+  useMovimientos: () => ({
+    data: [],
+    isLoading: false,
+    isError: false,
+    error: null,
+    isPaused: false,
+    isFetching: false,
+    refetch: vi.fn(),
+    hasNextPage: false,
+    fetchNextPage: vi.fn(),
+    isFetchingNextPage: false,
+  }),
+  useActualizarItemMovimiento: () => ({ isPending: false, mutate: vi.fn() }),
+}));
+
 vi.mock("next-themes", () => ({
   useTheme: () => ({ resolvedTheme: "light" }),
 }));
@@ -1670,7 +1688,7 @@ describe("PanelPresupuesto: lo que queda Sin asignar por categoría", () => {
     expect(screen.queryByText(/Sin asignar:/)).not.toBeInTheDocument();
   });
 
-  it("la fila Sin asignar es texto apagado, sin barra de progreso", () => {
+  it("la fila Sin asignar es un botón de 44px con su 'Asignar', sin barra de progreso", () => {
     const items = [deCategoria("c1", "comida", "Mercado")];
     ajustarConsultas(
       { data: { items: items.map(renglonDe), unassigned: [{ categoryId: "cat-comida", categoryName: "Comida", categoryKind: "expense", amount: "267530" }] } },
@@ -1680,9 +1698,12 @@ describe("PanelPresupuesto: lo que queda Sin asignar por categoría", () => {
 
     render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
 
-    const fila = screen.getByText(/Sin asignar:/).closest("li")!;
-    expect(fila.className).toContain("text-muted-foreground");
-    expect(within(fila).queryByRole("progressbar")).not.toBeInTheDocument();
+    const boton = screen.getByText(/Sin asignar:/).closest("button")!;
+    // Se puede tocar: piso de 44px y la palabra que lo dice.
+    expect(boton.classList.contains("min-h-11")).toBe(true);
+    expect(boton.className).toContain("text-muted-foreground");
+    expect(within(boton).getByText("Asignar")).toBeInTheDocument();
+    expect(within(boton).queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
   it("la fila Sin asignar NO entra en los totales de sección (siguen viendo solo los montos presupuestados)", () => {
@@ -1711,5 +1732,35 @@ describe("PanelPresupuesto: lo que queda Sin asignar por categoría", () => {
     fireEvent.click(screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true }));
 
     expect(screen.getByText(/Sin asignar:/)).not.toBeVisible();
+  });
+
+  it("al desaparecer el monto sin asignar, el cajón abierto sigue con 'Todo asignado'", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas(
+      { data: { items: items.map(renglonDe), unassigned: [{ categoryId: "cat-comida", categoryName: "Comida", categoryKind: "expense", amount: "267530" }] } },
+      { data: items },
+      CATALOGO
+    );
+
+    const { rerender } = render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Sin asignar/ }));
+    expect(screen.getByText("Sin asignar en Comida")).toBeInTheDocument();
+
+    // El panel recarga el checklist y la categoría ya no trae sin asignar (el
+    // servidor omite el renglón en cero): el cajón abierto no puede cerrarse
+    // solo ni perderse el "Todo asignado".
+    ajustarConsultas(
+      { data: { items: items.map(renglonDe), unassigned: [] } },
+      { data: items },
+      CATALOGO
+    );
+    rerender(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.getByText("Sin asignar en Comida")).toBeInTheDocument();
+    expect(screen.getByText("Todo asignado")).toBeInTheDocument();
+    // El botón de la fila ya no está (el monto quedó en cero): solo sigue el
+    // cajón abierto con su estado vacío.
+    expect(screen.queryByText(/Sin asignar:/)).not.toBeInTheDocument();
   });
 });
