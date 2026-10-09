@@ -47,7 +47,8 @@ const banco: Cuenta = {
   movementCount: 0,
   lastMovementAt: null,
   archivedAt: null,
-  isSavings: false,
+    isSavings: false,
+  saved: "0.0000",
   creditLimit: null,
   linkedAccountId: null,
 };
