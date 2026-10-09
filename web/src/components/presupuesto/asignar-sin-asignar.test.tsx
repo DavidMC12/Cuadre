@@ -399,4 +399,60 @@ describe("AsignarSinAsignar: vacío, fallo y paginación", () => {
     fireEvent.click(cargarMas);
     expect(fetchNextPage).toHaveBeenCalled();
   });
+
+  it("'Cargar más' sigue disponible aunque la página no traiga filas pendientes", () => {
+    // Página 1 toda asignada/otra moneda, pero el servidor dice que hay más:
+    // sin el botón se escondería plata por repartir en la página 2.
+    dejarConsulta({ data: [], hasNextPage: true });
+    montar();
+    abrir();
+
+    expect(screen.getByRole("button", { name: "Cargar más" })).toBeInTheDocument();
+    expect(screen.queryByText("Todo asignado")).not.toBeInTheDocument();
+  });
+});
+
+describe("AsignarSinAsignar: el desplegable", () => {
+  it("no ofrece 'Sin asignar' (ya lo están) y sí el ítem real de la categoría", () => {
+    dejarConsulta({ data: [movimiento({ id: "m-1" })] });
+    montar();
+    abrir();
+
+    expect(screen.queryByRole("button", { name: "Sin asignar" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /faltan \$250\.000/ })).toBeInTheDocument();
+  });
+
+  it("el cajón sigue abierto con 'Todo asignado' aunque el panel ya no mande la fila", async () => {
+    // El servidor omite del checklist las categorías cuyo sin-asignar llegó a
+    // cero. Al asignar la última, el panel deja de pasar `monto`, pero el cajón
+    // abierto no debe desaparecer: el estado vacío se queda hasta que cierren.
+    dejarConsulta({ data: [movimiento({ id: "m-1" })] });
+    actualizarItem.mockImplementation(
+      (_datos: unknown, opciones: { onSuccess?: () => void; onSettled?: () => void }) => {
+        opciones.onSuccess?.();
+        opciones.onSettled?.();
+      }
+    );
+
+    const vista = montar();
+    abrir();
+    fireEvent.click(screen.getByRole("button", { name: /faltan \$250\.000/ }));
+    await waitFor(() => expect(screen.getByText("Todo asignado")).toBeInTheDocument());
+
+    vista.rerender(
+      <ul>
+        <AsignarSinAsignar
+          categoryId="c-deu"
+          categoriaNombre="Deudas"
+          monto={null}
+          moneda="COP"
+          mes="2026-09"
+          items={[itemChecklist({ id: "i-nu" })]}
+        />
+      </ul>
+    );
+
+    expect(screen.getByText("Sin asignar en Deudas")).toBeInTheDocument();
+    expect(screen.getByText("Todo asignado")).toBeInTheDocument();
+  });
 });

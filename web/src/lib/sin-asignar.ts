@@ -45,16 +45,19 @@ export function itemsDeLaCategoria(
 }
 
 /**
- * "10 sept" — el día y el mes de un movimiento, cortos, en hora de Bogotá
- * (igual que los rangos del mes), para que la lista del cajón no se vaya de
- * ancho a 320px. Se arma por partes para no arrastrar el "de" ("10 de sept").
+ * El formato corto de fecha, creado una sola vez: "10 sept" — el día y el mes
+ * de un movimiento, en hora de Bogotá (igual que los rangos del mes), para que
+ * la lista del cajón no se vaya de ancho a 320px.
  */
+const FORMATO_FECHA_CORTA = new Intl.DateTimeFormat("es-CO", {
+  timeZone: "America/Bogota",
+  day: "numeric",
+  month: "short",
+});
+
+/** "10 sept". Se arma por partes para no arrastrar el "de" ("10 de sept"). */
 export function fechaCorta(iso: string): string {
-  const partes = new Intl.DateTimeFormat("es-CO", {
-    timeZone: "America/Bogota",
-    day: "numeric",
-    month: "short",
-  }).formatToParts(new Date(iso));
+  const partes = FORMATO_FECHA_CORTA.formatToParts(new Date(iso));
   const dia = partes.find((parte) => parte.type === "day")?.value ?? "";
   const mes = partes.find((parte) => parte.type === "month")?.value ?? "";
   return `${dia} ${mes}`.trim();

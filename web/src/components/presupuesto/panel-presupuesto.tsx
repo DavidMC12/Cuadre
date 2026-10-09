@@ -449,11 +449,11 @@ export function PanelPresupuesto({
               que no se pierda plata en el cuadre por cada grupo. Los grupos
               sin categoría (Clave propia) no tienen dónde caer: su item no
               existe, así que nada aparece. */}
-          {grupo.categoryId !== null && sinAsignarDe.get(grupo.categoryId) && (
+          {grupo.categoryId !== null && (
             <AsignarSinAsignar
               categoryId={grupo.categoryId}
               categoriaNombre={grupo.titulo}
-              monto={sinAsignarDe.get(grupo.categoryId)!.amount}
+              monto={sinAsignarDe.get(grupo.categoryId)?.amount ?? null}
               moneda={moneda}
               mes={mes}
               items={grupo.items}

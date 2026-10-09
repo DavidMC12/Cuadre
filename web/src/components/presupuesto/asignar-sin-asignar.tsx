@@ -55,8 +55,12 @@ const SIN_ELEGIR = "__elegir__";
  * Movimientos; cada elección se guarda al instante.
  *
  * `items` son los renglones del checklist de esa categoría y ese mes (el
- * panel ya los tiene cargados); `monto` es el total sin asignar que el
- * servidor reportó, solo para la etiqueta del botón.
+ * panel ya los tiene cargados). `monto` es el total sin asignar que el
+ * servidor reportó; llega `null` cuando la categoría ya no tiene nada sin
+ * repartir (el servidor omite el renglón en cero). El componente lo recibe
+ * siempre montado: así, cuando la última asignación deja el monto en cero y
+ * el panel deja de mandar la fila, el cajón ya abierto sigue en pie hasta que
+ * lo cierren — el "Todo asignado" no se apaga solo.
  */
 export function AsignarSinAsignar({
   categoryId,
@@ -68,8 +72,8 @@ export function AsignarSinAsignar({
 }: {
   categoryId: string;
   categoriaNombre: string;
-  /** Texto exacto del servidor, siempre positivo. */
-  monto: string;
+  /** Texto exacto del servidor, siempre positivo, o `null` si ya no queda nada. */
+  monto: string | null;
   moneda: string;
   mes: string;
   items: readonly ItemDelChecklist[];
@@ -81,6 +85,7 @@ export function AsignarSinAsignar({
   // ninguna escritura que el servidor fuese a rechazar. La cifra se sigue
   // viendo, porque es parte del cuadre.
   if (soloMirar) {
+    if (monto === null) return null;
     return (
       <li className="border-t border-border px-2 py-2 text-xs text-muted-foreground">
         Sin asignar:{" "}
@@ -89,28 +94,35 @@ export function AsignarSinAsignar({
     );
   }
 
+  // Nada sin asignar y cajón cerrado: la fila no existe. Con el cajón abierto
+  // sí se sigue pintando (aunque el monto ya sea cero) para no cerrarlo solo.
+  if (monto === null && !abierto) return null;
+
   return (
     <li className="border-t border-border">
       <Drawer open={abierto} onOpenChange={setAbierto}>
-        <DrawerTrigger
-          render={
-            <button
-              type="button"
-              className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-xs text-muted-foreground outline-none transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
-            >
-              <span className="min-w-0 truncate">
-                Sin asignar:{" "}
-                <span className="font-mono tabular-nums">{textoMonto(monto, moneda)}</span>
-              </span>
-              {/* La palabra le dice a quien no ve el color que la fila es una
-                  acción; el tono de tinta la mantiene discreta. */}
-              <span className="shrink-0 font-medium text-foreground">Asignar</span>
-            </button>
-          }
-        />
+        {monto !== null && (
+          <DrawerTrigger
+            render={
+              <button
+                type="button"
+                className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-xs text-muted-foreground outline-none transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
+              >
+                <span className="min-w-0 truncate">
+                  Sin asignar:{" "}
+                  <span className="font-mono tabular-nums">{textoMonto(monto, moneda)}</span>
+                </span>
+                {/* La palabra le dice a quien no ve el color que la fila es una
+                    acción; el tono de tinta la mantiene discreta. */}
+                <span className="shrink-0 font-medium text-foreground">Asignar</span>
+              </button>
+            }
+          />
+        )}
         <DrawerContent>
           {/* Solo se monta con el cajón abierto: la consulta de movimientos no
-              sale a la red por cada categoría del panel. */}
+              sale a la red por cada categoría del panel. El foco vuelve a la
+              fila al cerrar: lo maneja el Drawer de Base UI. */}
           {abierto && (
             <CajonSinAsignar
               categoryId={categoryId}
@@ -224,14 +236,14 @@ function CajonSinAsignar({
             <Skeleton className="h-16 w-full rounded-lg" />
             <Skeleton className="h-16 w-full rounded-lg" />
           </div>
-        ) : pendientes.length === 0 ? (
+        ) : pendientes.length === 0 && !consulta.hasNextPage ? (
           <EmptyState
             Icono={CircleCheck}
             titulo="Todo asignado"
             descripcion="Cada movimiento de esta categoría ya cuenta para un ítem."
             className="border-0 px-2 py-8"
           />
-        ) : (
+        ) : pendientes.length === 0 ? null : (
           <>
             <ul className="flex flex-col divide-y divide-border">
               {pendientes.map((movimiento) => {
@@ -290,19 +302,19 @@ function CajonSinAsignar({
                 );
               })}
             </ul>
-
-            {consulta.hasNextPage && (
-              <Button
-                type="button"
-                variant="outline"
-                className="min-h-11 self-center"
-                onClick={() => consulta.fetchNextPage()}
-                disabled={consulta.isFetchingNextPage}
-              >
-                {consulta.isFetchingNextPage ? "Cargando…" : "Cargar más"}
-              </Button>
-            )}
           </>
+        )}
+
+        {consulta.hasNextPage && (
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 self-center"
+            onClick={() => consulta.fetchNextPage()}
+            disabled={consulta.isFetchingNextPage}
+          >
+            {consulta.isFetchingNextPage ? "Cargando…" : "Cargar más"}
+          </Button>
         )}
       </div>
     </>
