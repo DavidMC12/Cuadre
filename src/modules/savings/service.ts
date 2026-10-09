@@ -11,6 +11,9 @@
  */
 import { db } from '../../db/client.js';
 import { reglaViolada } from '../../http/errores.js';
+import { armarCsv } from '../../shared/csv.js';
+import { isNegative } from '../../shared/money.js';
+import { hoyEnBogota } from '../../shared/zona-horaria.js';
 import * as cuentasService from '../accounts/service.js';
 import * as repositorio from './repository.js';
 import type { ListarAhorros, RegistrarAhorro, RegistroDeAhorro } from './schemas.js';
@@ -52,4 +55,33 @@ export async function listarAhorros(
   return {
     data: await repositorio.listarDeUnaCuenta(db, usuarioId, filtros.accountId, filtros.limit),
   };
+}
+
+const ENCABEZADOS_DEL_RESPALDO = ['Fecha', 'Cuenta', 'Moneda', 'Qué fue', 'Descripción', 'Monto', 'Id'] as const;
+
+/**
+ * Los registros de ahorro en un archivo aparte del de movimientos: no son
+ * movimientos (no cambian ningún saldo) y mezclarlos dañaría quien abra el
+ * otro archivo esperando solo plata que se movió. El monto sale con signo y
+ * exacto, como lo guarda la base.
+ */
+export async function exportarAhorros(
+  usuarioId: string,
+): Promise<{ nombreDeArchivo: string; contenido: string }> {
+  const filas = await repositorio.listarParaExportar(db, usuarioId);
+
+  const contenido = armarCsv(
+    ENCABEZADOS_DEL_RESPALDO,
+    filas.map((fila) => [
+      fila.fecha,
+      fila.cuenta,
+      fila.moneda,
+      isNegative(fila.monto) ? 'Retiré' : 'Aparté',
+      fila.descripcion,
+      fila.monto,
+      fila.id,
+    ]),
+  );
+
+  return { nombreDeArchivo: `cuadre-ahorros-${hoyEnBogota()}.csv`, contenido };
 }

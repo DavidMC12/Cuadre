@@ -7,21 +7,34 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
-import { exportTransactions } from "@/lib/api/transactions";
 
-export function BotonExportar() {
+/**
+ * Un botón que baja un archivo. Lo usan los dos respaldos de Ajustes (los
+ * movimientos y los registros de ahorro): cambia qué se descarga y cómo se
+ * llama, no cómo se descarga.
+ */
+export function BotonExportar({
+  descargar,
+  etiqueta,
+  etiquetaAjena,
+}: {
+  descargar: () => Promise<{ contenido: Blob; nombre: string }>;
+  etiqueta: string;
+  /** El mismo texto dicho sobre la cuenta de otra persona. */
+  etiquetaAjena: string;
+}) {
   const [descargando, setDescargando] = useState(false);
 
   // Descargar se permite estando en la cuenta de otra persona: es de lectura y
   // no da más poder del que ya se tiene en pantalla. Solo cambia el texto, que
-  // diría "mis movimientos" sobre un historial que no es de uno.
+  // diría "mis" sobre un historial que no es de uno.
   const soloMirar = useSoloMirar();
 
   async function manejarClic() {
     setDescargando(true);
 
     try {
-      const { contenido, nombre } = await exportTransactions();
+      const { contenido, nombre } = await descargar();
 
       // El archivo ya está en memoria: se le arma un enlace invisible y se le
       // hace clic, que es la única forma de que el navegador lo guarde con el
@@ -55,11 +68,7 @@ export function BotonExportar() {
       className="min-h-11 w-full"
     >
       <Download data-icon="inline-start" />
-      {descargando
-        ? "Preparando…"
-        : soloMirar
-          ? "Descargar sus movimientos"
-          : "Descargar mis movimientos"}
+      {descargando ? "Preparando…" : soloMirar ? etiquetaAjena : etiqueta}
     </Button>
   );
 }

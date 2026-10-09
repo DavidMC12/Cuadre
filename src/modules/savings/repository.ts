@@ -7,6 +7,7 @@
  */
 import { sql } from 'drizzle-orm';
 import type { Ejecutor } from '../../db/client.js';
+import { ZONA_HORARIA } from '../../shared/zona-horaria.js';
 import type { RegistroDeAhorro } from './schemas.js';
 
 interface FilaCruda {
@@ -89,4 +90,41 @@ export async function listarDeUnaCuenta(
   `)) as unknown as FilaCruda[];
 
   return filas.map(aRegistro);
+}
+
+/** Una fila del respaldo: el registro con el nombre de su cuenta y la fecha ya en el día de la persona. */
+export interface FilaDeAhorroParaExportar {
+  id: string;
+  fecha: string;
+  cuenta: string;
+  moneda: string;
+  monto: string;
+  descripcion: string | null;
+}
+
+/**
+ * Todo lo anotado, de la cuenta que sea (también las archivadas), del más viejo
+ * al más nuevo. Sin paginar a propósito: un respaldo a la mitad no sirve de
+ * respaldo.
+ */
+export async function listarParaExportar(
+  ejecutor: Ejecutor,
+  usuarioId: string,
+): Promise<FilaDeAhorroParaExportar[]> {
+  const filas = (await ejecutor.execute(sql`
+    select r.id,
+           to_char(r.occurred_at at time zone ${ZONA_HORARIA}::text, 'YYYY-MM-DD') as fecha,
+           cuenta.name as cuenta,
+           r.currency as moneda,
+           r.amount::text as monto,
+           r.description as descripcion
+      from savings_entries r
+      join accounts cuenta
+        on cuenta.id = r.account_id
+       and cuenta.user_id = r.user_id
+     where r.user_id = ${usuarioId}::uuid
+     order by r.occurred_at asc, r.created_at asc, r.id asc
+  `)) as unknown as FilaDeAhorroParaExportar[];
+
+  return filas.map((fila) => ({ ...fila, moneda: fila.moneda.trim() }));
 }

@@ -14,3 +14,8 @@
  * usuarios reales, sale de su perfil.
  */
 export const ZONA_HORARIA = 'America/Bogota';
+
+/** El día de hoy (AAAA-MM-DD) en esa zona, para el nombre de los archivos que se bajan. */
+export function hoyEnBogota(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_HORARIA }).format(new Date());
+}

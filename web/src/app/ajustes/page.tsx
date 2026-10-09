@@ -11,6 +11,8 @@ import { SelectorTema } from "@/components/ajustes/selector-tema";
 import { BotonSalir } from "@/components/auth/boton-salir";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePerfil } from "@/hooks/use-perfil";
+import { exportSavingsEntries } from "@/lib/api/savings";
+import { exportTransactions } from "@/lib/api/transactions";
 import { etiquetaMesDeFecha } from "@/lib/fecha";
 import { MONEDAS } from "@/lib/labels";
 import type { PantallaDeInicio } from "@/lib/api/types";
@@ -147,7 +149,22 @@ export default function PaginaAjustes() {
               ayuda="Todo el historial, para abrirlo en Excel o guardarlo aparte."
               apilado
             >
-              <BotonExportar />
+              <BotonExportar
+                descargar={exportTransactions}
+                etiqueta="Descargar mis movimientos"
+                etiquetaAjena="Descargar sus movimientos"
+              />
+            </Fila>
+            <Fila
+              etiqueta="Tu ahorro apartado en un archivo"
+              ayuda="Lo que has anotado como ahorro, aparte de los movimientos."
+              apilado
+            >
+              <BotonExportar
+                descargar={exportSavingsEntries}
+                etiqueta="Descargar mis ahorros"
+                etiquetaAjena="Descargar sus ahorros"
+              />
             </Fila>
           </Seccion>
 

@@ -1,6 +1,6 @@
 /** Llamadas a la API de registros de ahorro. */
 
-import { pedir } from "./client";
+import { descargar, pedir } from "./client";
 import type { NuevoRegistroAhorro, RegistroDeAhorro } from "./types";
 
 /**
@@ -28,4 +28,9 @@ export function createSavingsEntry(input: NuevoRegistroAhorro): Promise<{
   data: RegistroDeAhorro;
 }> {
   return pedir("/savings-entries", { metodo: "POST", cuerpo: input });
+}
+
+/** Todo lo anotado, de todas las cuentas, en un archivo para guardarlo aparte. */
+export function exportSavingsEntries(): Promise<{ contenido: Blob; nombre: string }> {
+  return descargar("/savings-entries/export", "cuadre-ahorros.csv");
 }
