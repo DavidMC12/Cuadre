@@ -93,7 +93,7 @@ export function EditarItemMovimiento({
       {
         onSuccess: () => {
           toast.success(
-            item ? "Ítem del presupuesto actualizado." : "El movimiento ya no cuenta para ningún item."
+            item ? "Ítem del presupuesto actualizado." : "El movimiento ya no cuenta para ningún ítem."
           );
           setAbierto(false);
         },

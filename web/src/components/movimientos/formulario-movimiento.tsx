@@ -599,9 +599,12 @@ export function FormularioMovimiento({
               setTipoMonto(valores[0] as TipoMonto);
               // Gasto e ingreso tienen categorías distintas: la que
               // estaba elegida ya no aplica. Y sin categoría vuelve
-              // la propuesta de item (el campo desaparece).
+              // la propuesta de ítem (el campo desaparece).
               setCategoryId(undefined);
               setItemAMano(undefined);
+              // La pregunta del pago igual se apaga al salir de la
+              // transferencia: no sobrevive un pago elegido.
+              setItemDePagoAMano(null);
             }
           }}
           variant="outline"
@@ -888,8 +891,9 @@ export function FormularioMovimiento({
                   setFecha(nueva);
                   // Los items del presupuesto son los del mes de la fecha:
                   // con otro mes, la propuesta y lo elegido a mano cuentan
-                  // la historia de un mes que ya no es este.
-                  if (nueva.slice(0, 7) !== fecha.slice(0, 7)) {
+                  // la historia de un mes que ya no es este. (Con la fecha
+                  // vacía no hay mes nuevo del que hablar: no se tira.) 
+                  if (nueva && nueva.slice(0, 7) !== fecha.slice(0, 7)) {
                     setItemAMano(undefined);
                     setItemDePagoAMano(null);
                   }
