@@ -49,4 +49,14 @@ describe('armar el archivo', () => {
     const csv = armarCsv(['Descripción', 'Monto'], [['Café, pan y leche', '-12000']]);
     expect(csv).toContain('"Café, pan y leche",-12000');
   });
+
+  it('un ítem de presupuesto con coma no corre la descripción ni el monto', () => {
+    // La columna del ítem va entre la categoría y la descripción; si su nombre
+    // trae una coma, se escapa y las demás columnas no se desplazan.
+    const csv = armarCsv(
+      ['Categoría', 'Item de presupuesto', 'Descripción', 'Monto'],
+      [['Deudas', 'Nu, la tarjeta', 'Pago', '-30000.0000']],
+    );
+    expect(csv).toContain('Deudas,"Nu, la tarjeta",Pago,-30000.0000');
+  });
 });
