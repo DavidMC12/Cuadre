@@ -33,7 +33,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { SelectorCategoria } from "@/components/movimientos/selector-categoria";
 import { useCategorias } from "@/hooks/use-categorias";
 import { useChecklistDelMes } from "@/hooks/use-presupuesto";
 import { useCrearMovimiento, useCrearTransferencia } from "@/hooks/use-movimientos";
@@ -42,6 +41,15 @@ import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { Cuenta } from "@/lib/api/types";
 import { fechaParaInput, inputAIso } from "@/lib/fecha";
+import {
+  PREFIJO_CATEGORIA,
+  PREFIJO_ITEM,
+  PREFIJO_OTRO,
+  SIN_CATEGORIA_EN_QUE_FUE,
+  leerEleccion,
+  opcionesDeEnQueFue,
+  textoCerradoDeEnQueFue,
+} from "@/lib/desplegable-en-que-fue";
 import { agruparItemsDePago, SIN_ITEM, textoDeOpcion } from "@/lib/item-presupuesto";
 import { cn } from "@/lib/utils";
 import { normalizarMontoIngresado, textoMonto } from "@/lib/money";
@@ -78,23 +86,6 @@ interface ValoresInicialesMovimiento {
 /** El valor del selector que marca "no cuenta para ningún ítem" y la opción
  * con su texto (lo que falta, o el logro) viven en `lib/item-presupuesto.ts`,
  * para que el formulario y el cajón del detalle digan lo mismo. */
-
-/**
- * Cuántas categorías se ofrecen como chip antes de "Más detalles".
- *
- * El catálogo no lleva cuenta de qué tan seguido se usa cada categoría (eso
- * pediría guardar esa cuenta en el servidor), así que esto no es "las más
- * usadas": son las primeras del catálogo, en el mismo orden alfabético que ya
- * usa el resto de la app. Sigue resolviendo el problema real —hoy la
- * categoría vive detrás de un enlace de 12px— sin inventar una función nueva
- * de estadísticas.
- *
- * Son tres, no más, y con su propio rótulo: al registrar de pie y con prisa,
- * el primer vistazo ya tiene el tipo (Gasto / Ingreso / Entre cuentas) y estos
- * chips, y ocho opciones sueltas se leían como un solo grupo. El resto del
- * catálogo sigue a un toque en "Más detalles".
- */
-const CANTIDAD_CHIPS_RAPIDOS = 3;
 
 /** Dónde se recuerda la última cuenta usada: una comodidad de este aparato,
  * no un dato que haga falta guardar en el servidor. */
@@ -273,29 +264,34 @@ export function FormularioMovimiento({
     currency: monedaDelPresupuesto || "",
   });
 
-  // Los items del presupuesto de ESA categoria, en ESA moneda. Los de ahorro
-  // quedan fuera solos (no tienen categoria) y si la lista del mes todavía no
-  // llega, no hay nada que proponer: el campo muestra "Sin asignar" y en cuanto
-  // cargue se corrige solo.
-  const itemsDeCategoria =
-    categoryId && tipoMonto !== "transferencia"
-      ? (checklist?.items ?? []).filter((renglon) => renglon.categoryId === categoryId)
-      : [];
-
-  // La idea preseleccionada: con exactamente un item, ese; con varios, nadie —
-  // elegir entre varias deudas es decisión de quien registra, no del formulario.
-  const propuestaDeItem = itemsDeCategoria.length === 1 ? itemsDeCategoria[0].id : null;
-
-  /**
-   * El item elegido A MANO: `undefined` = nadie tocó el selector y manda la
-   * propuesta. Cambiar de categoría (o de tipo) limpia el manual y la propuesta
-   * gobierna otra vez; en una corrección arranca con el item que contaba el
-   * movimiento original (`null` = no contaba para ninguno), no con la propuesta.
-   */
-  const [itemAMano, setItemAMano] = useState<string | null | undefined>(
-    valoresIniciales ? (valoresIniciales.itemDelPresupuesto ?? null) : undefined
+  // El item del presupuesto que la persona eligió en el desplegable de "¿En
+  // qué fue?": `null` = no cuenta para ningún item. Elegir un item fija la
+  // categoría a la vez; elegir "Otro de ..." o una categoría de "Otras
+  // categorías" fija solo la categoría.
+  const [itemElegido, setItemElegido] = useState<string | null>(
+    valoresIniciales?.itemDelPresupuesto ?? null
   );
-  const itemDelMovimiento = itemAMano !== undefined ? itemAMano : propuestaDeItem;
+
+  // Los items que el desplegable ofrece: del checklist del MES de la fecha, en
+  // la moneda de la cuenta, y solo de categorías del tipo del movimiento (los
+  // de ahorro quedan fuera solos: no tienen categoría). Si cambia el mes, la
+  // cuenta o la moneda y el item elegido deja de estar en la lista, la
+  // elección REAL cae a "Otro de <su categoría>" — nunca se manda un item que
+  // el menú no ofrece; si sigue ofrecido, se conserva.
+  const tipoCategoria = tipoMonto === "gasto" ? "expense" : "income";
+  const itemsOfrecidos =
+    tipoMonto === "transferencia"
+      ? []
+      : (checklist?.items ?? []).filter(
+          (renglon) =>
+            renglon.categoryId !== null &&
+            renglon.categoryKind === tipoCategoria &&
+            renglon.kind !== "savings"
+        );
+  const itemDelMovimiento =
+    itemElegido && itemsOfrecidos.some((renglon) => renglon.id === itemElegido)
+      ? itemElegido
+      : null;
 
   // Pagar una tarjeta es apagar una deuda del presupuesto: si el destino lo
   // es, el formulario lo pregunta con una opción opcional. Nunca se
@@ -353,13 +349,55 @@ export function FormularioMovimiento({
     descripcion !== (valoresIniciales?.descripcion ?? "");
 
   const { data: categorias } = useCategorias(false);
-  // Una transferencia no lleva categoría: no hay chips que ofrecer ahí.
-  const chipsDeCategoria =
-    tipoMonto === "transferencia"
-      ? []
-      : (categorias ?? [])
-          .filter((categoria) => categoria.kind === (tipoMonto === "gasto" ? "expense" : "income"))
-          .slice(0, CANTIDAD_CHIPS_RAPIDOS);
+
+  // Los grupos del desplegable "¿En qué fue?" / "¿De dónde viene?": los items
+  // agrupados por su categoría del mes, y al final las categorías sin items
+  // este mes ("Otras categorías"). Solo tipos del movimiento en cuestión y
+  // categorías activas.
+  const gruposDesplegable = opcionesDeEnQueFue({
+    categorias: categorias ?? [],
+    items: itemsOfrecidos,
+    tipo: tipoCategoria,
+  });
+  // El value que este desplegable tiene elegido, y el texto del campo cerrado
+  // (el popup vive en un portal que no está montado mientras está cerrado:
+  // el texto se resuelve a mano, como en los demás selectores).
+  const valorDesplegable = !categoryId
+    ? SIN_CATEGORIA_EN_QUE_FUE
+    : itemDelMovimiento
+      ? `${PREFIJO_ITEM}${itemDelMovimiento}`
+      : itemsOfrecidos.some((renglon) => renglon.categoryId === categoryId)
+        ? `${PREFIJO_OTRO}${categoryId}`
+        : `${PREFIJO_CATEGORIA}${categoryId}`;
+  const textoCerrado = textoCerradoDeEnQueFue({
+    categoriaId: categoryId,
+    itemId: itemDelMovimiento,
+    items: itemsOfrecidos,
+    categorias: categorias ?? [],
+  });
+
+  function elegirDelDesplegable(valor: string | null) {
+    if (!valor || valor === SIN_CATEGORIA_EN_QUE_FUE) {
+      setCategoryId(undefined);
+      setItemElegido(null);
+      return;
+    }
+    const eleccion = valor ? leerEleccion(valor) : null;
+    if (!eleccion) return;
+    if (eleccion.tipo === "item") {
+      // Un item trae su categoría: se fija a la vez, a que el envío siempre
+      // lleve la pareja consistente.
+      const item = itemsOfrecidos.find((renglon) => renglon.id === eleccion.id);
+      if (!item?.categoryId) return;
+      setCategoryId(item.categoryId);
+      setItemElegido(item.id);
+      return;
+    }
+    // "Otro de <categoría>" o una categoría bajo "Otras categorías": solo
+    // cuenta la categoría, sin item.
+    setCategoryId(eleccion.id);
+    setItemElegido(null);
+  }
 
   function reiniciar() {
     setCuentaElegidaAMano(valoresIniciales?.cuentaId ?? null);
@@ -373,7 +411,7 @@ export function FormularioMovimiento({
     setFecha(valoresIniciales?.fecha ?? hoyInput());
     setDescripcion(valoresIniciales?.descripcion ?? "");
     setCategoryId(valoresIniciales?.categoriaId);
-    setItemAMano(valoresIniciales ? (valoresIniciales.itemDelPresupuesto ?? null) : undefined);
+    setItemElegido(valoresIniciales?.itemDelPresupuesto ?? null);
     setItemDePagoAMano(null);
     setErrores({});
   }
@@ -597,11 +635,10 @@ export function FormularioMovimiento({
           onValueChange={(valores) => {
             if (valores.length > 0) {
               setTipoMonto(valores[0] as TipoMonto);
-              // Gasto e ingreso tienen categorías distintas: la que
-              // estaba elegida ya no aplica. Y sin categoría vuelve
-              // la propuesta de ítem (el campo desaparece).
+              // Gasto e ingreso tienen categorías distintas: la elección
+              // entera del desplegable (categoría e item) ya no aplica.
               setCategoryId(undefined);
-              setItemAMano(undefined);
+              setItemElegido(null);
               // La pregunta del pago igual se apaga al salir de la
               // transferencia: no sobrevive un pago elegido.
               setItemDePagoAMano(null);
@@ -632,47 +669,6 @@ export function FormularioMovimiento({
             </ToggleGroupItem>
           )}
         </ToggleGroup>
-
-        {chipsDeCategoria.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <span
-              id="categorias-rapidas-etiqueta"
-              className="text-xs font-medium text-muted-foreground"
-            >
-              Categoría
-            </span>
-            <div
-              role="group"
-              aria-labelledby="categorias-rapidas-etiqueta"
-              className="flex flex-wrap gap-1.5"
-            >
-              {chipsDeCategoria.map((categoria) => {
-                const elegida = categoryId === categoria.id;
-                return (
-                  <button
-                    key={categoria.id}
-                    type="button"
-                    aria-pressed={elegida}
-                    // Un chip elegido se puede volver a tocar para quitar la
-                    // categoría: no hace falta abrir "Más detalles" para eso.
-                    onClick={() => {
-                      setCategoryId(elegida ? undefined : categoria.id);
-                      setItemAMano(undefined);
-                    }}
-                    className={cn(
-                      "min-h-11 rounded-full border px-3.5 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85",
-                      elegida
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
-                    )}
-                  >
-                    {categoria.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {tipoMonto === "transferencia" ? (
           <>
@@ -812,16 +808,16 @@ export function FormularioMovimiento({
             )}
           </>
         ) : (
+          <>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="cuenta-movimiento">Cuenta</Label>
             <Select
               value={cuentaId}
               onValueChange={(valor) => {
                 setCuentaElegidaAMano(valor ?? null);
-                // Igual que al cambiar de categoría: otra cuenta puede ser
-                // otra moneda (y otro mes si la fecha cambia después, que ya
-                // lo cubre el campo de fecha).
-                setItemAMano(undefined);
+                // Igual que al cambiar el mes: otra cuenta puede ser otra
+                // moneda. Si la lista de items cambia y el elegido ya no se
+                // ofrece, la elección cae sola a "Otro de <su categoría>".
               }}
             >
               <SelectTrigger
@@ -861,6 +857,41 @@ export function FormularioMovimiento({
             )}
             {errores.cuenta && <p className="text-xs text-destructive">{errores.cuenta}</p>}
           </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="en-que-fue-movimiento">
+              {tipoMonto === "gasto" ? "¿En qué fue?" : "¿De dónde viene?"}
+            </Label>
+            <Select value={valorDesplegable} onValueChange={elegirDelDesplegable}>
+              <SelectTrigger id="en-que-fue-movimiento" className="min-h-11 w-full">
+                {/* El popup vive en un portal que no está montado mientras el
+                    selector está cerrado: el texto del renglón cerrado se
+                    resuelve a mano, como en los demás selectores. */}
+                <SelectValue placeholder="Sin categoría">{() => textoCerrado}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {gruposDesplegable.map((grupo) =>
+                  grupo.etiqueta === null ? (
+                    grupo.opciones.map((opcion) => (
+                      <SelectItem key={opcion.value} value={opcion.value}>
+                        {opcion.texto}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectGroup key={grupo.etiqueta}>
+                      <SelectLabel>{grupo.etiqueta}</SelectLabel>
+                      {grupo.opciones.map((opcion) => (
+                        <SelectItem key={opcion.value} value={opcion.value}>
+                          {opcion.texto}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+          </>
         )}
 
         <button
@@ -869,9 +900,7 @@ export function FormularioMovimiento({
           className="flex min-h-11 items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           aria-expanded={masDetalles}
         >
-          {tipoMonto === "transferencia"
-            ? "Más detalles (fecha, descripción)"
-            : "Más detalles (fecha, descripción, categoría)"}
+          Más detalles (fecha, descripción)
           <ChevronDown
             className={cn("size-3.5 transition-transform", masDetalles && "rotate-180")}
           />
@@ -889,14 +918,13 @@ export function FormularioMovimiento({
                 onChange={(evento) => {
                   const nueva = evento.target.value;
                   setFecha(nueva);
-                  // Los items del presupuesto son los del mes de la fecha:
-                  // con otro mes, la propuesta y lo elegido a mano cuentan
-                  // la historia de un mes que ya no es este. (Con la fecha
-                  // vacía no hay mes nuevo del que hablar: no se tira.) 
-                  if (nueva && nueva.slice(0, 7) !== fecha.slice(0, 7)) {
-                    setItemAMano(undefined);
-                    setItemDePagoAMano(null);
-                  }
+                  // Los items del presupuesto son los del mes de la fecha. Si
+                  // el mes cambia y el item elegido ya no se ofrece en el
+                  // checklist nuevo, la decisión de arriba resuelve sola: la
+                  // elección REAL cae a "Otro de <su categoría>" y nunca se
+                  // manda un item que ya no está en la lista. (Con la fecha
+                  // vacía no hay mes nuevo del que hablar: no se tira.)
+                  setItemDePagoAMano(null);
                 }}
                 className="min-h-11"
               />
@@ -912,65 +940,6 @@ export function FormularioMovimiento({
                 className="min-h-11"
               />
             </div>
-
-            {/* Pasar plata entre cuentas propias no es un gasto ni un
-                ingreso, así que no lleva categoría. */}
-            {tipoMonto !== "transferencia" && (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="categoria-movimiento">Categoría (opcional)</Label>
-                <SelectorCategoria
-                  id="categoria-movimiento"
-                  kind={tipoMonto === "gasto" ? "expense" : "income"}
-                  value={categoryId}
-                  onChange={(nueva) => {
-                    setCategoryId(nueva);
-                    // La propuesta de item (o el elegido a mano) ya no
-                    // aplica: la categoría nueva es otra historia.
-                    setItemAMano(undefined);
-                  }}
-                />
-              </div>
-            )}
-
-            {/* A qué item del presupuesto cuenta: solo existe cuando la
-                categoría elegida tiene items este mes. Si la categoría no
-                tiene ninguno no aparece: nada nuevo que explicar. */}
-            {categoryId && itemsDeCategoria.length > 0 && (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="item-presupuesto-movimiento">
-                  Ítem del presupuesto (opcional)
-                </Label>
-                <Select
-                  value={itemDelMovimiento ?? SIN_ITEM}
-                  onValueChange={(valor) =>
-                    setItemAMano(valor && valor !== SIN_ITEM ? valor : null)
-                  }
-                >
-                  <SelectTrigger id="item-presupuesto-movimiento" className="min-h-11 w-full">
-                    {/* El popup vive en un portal que no está montado
-                        mientras el selector está cerrado: se resuelve el
-                        texto a mano, como en los demás selectores. */}
-                    <SelectValue>
-                      {(valor: string) => {
-                        const elegido =
-                          valor && valor !== SIN_ITEM
-                            ? itemsDeCategoria.find((renglon) => renglon.id === valor)
-                            : undefined;
-                        return elegido ? textoDeOpcion(elegido) : "Sin asignar";
-                      }}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={SIN_ITEM}>Sin asignar</SelectItem>
-                    {itemsDeCategoria.map((renglon) => (
-                      <SelectItem key={renglon.id} value={renglon.id}>
-                        {textoDeOpcion(renglon)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
           </div>
         )}
       </div>
