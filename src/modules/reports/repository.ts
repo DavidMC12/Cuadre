@@ -134,6 +134,87 @@ export async function gastadoEnCategoria(
   return filas[0]?.total ?? '0.0000';
 }
 
+/** A qué ítem cuenta la fila: el de su original si es una anulación. */
+const ITEM_QUE_CLASIFICA = sql`coalesce(anulado.budget_item_id, m.budget_item_id)`;
+
+export interface ProgresoDeUnItem {
+  itemId: string;
+  /** Lo gastado (o pagado) en el mes: gastos y pagos a tarjeta asignados al ítem. */
+  gastado: string;
+  /** Lo recibido en el mes: ingresos asignados al ítem. */
+  recibido: string;
+}
+
+/**
+ * Lo que cuenta para CADA ítem del presupuesto en un mes y una moneda, en una
+ * sola consulta: solo los movimientos asignados a ese ítem, no todos los de su
+ * categoría. Sin esto, siete ítems de "Deudas" mostrarían el mismo gasto cada
+ * uno.
+ *
+ * A propósito NO usa `SOLO_INGRESOS_Y_GASTOS`: el pago a una tarjeta es una
+ * transferencia (no es gasto ni ingreso en los reportes), pero sí es lo que
+ * "paga" el ítem de esa deuda. Solo la pata de salida lleva el ítem, y la regla
+ * 3 (la anulación se clasifica como su original) hace que se cancele sola. Un
+ * saldo inicial o un ajuste jamás llevan ítem, lo prohíbe la base.
+ */
+export async function progresoPorItemEnElMes(
+  usuarioId: string,
+  mes: string,
+  moneda: string,
+): Promise<ProgresoDeUnItem[]> {
+  const filas = (await db.execute(sql`
+    select ${ITEM_QUE_CLASIFICA} as "itemId",
+      coalesce(sum(- m.amount) filter (where ${MONTO_QUE_CLASIFICA} < 0), 0)::numeric(19,4)::text as gastado,
+      coalesce(sum(m.amount)   filter (where ${MONTO_QUE_CLASIFICA} > 0), 0)::numeric(19,4)::text as recibido
+    from transactions m
+    ${UNION_CON_EL_ANULADO}
+    where m.user_id = ${usuarioId}::uuid
+      and ${deLaMoneda(moneda)}
+      and ${rangoDelMes(mes)}
+      and ${ITEM_QUE_CLASIFICA} is not null
+    group by 1
+  `)) as unknown as ProgresoDeUnItem[];
+
+  return filas;
+}
+
+export interface SinAsignarDeUnaCategoria {
+  categoryId: string;
+  /** Gastado en la categoría sin ítem asignado. */
+  gastado: string;
+  /** Recibido en la categoría sin ítem asignado. */
+  recibido: string;
+}
+
+/**
+ * Lo que se movió en cada categoría en un mes y una moneda SIN ítem asignado:
+ * lo que le falta decidir a quien registró. Es lo que queda de la categoría
+ * después de restar lo de sus ítems, así que ítems + "sin asignar" = el total
+ * de la categoría en los reportes (gastos e ingresos, sin transferencias).
+ */
+export async function sinAsignarPorCategoria(
+  usuarioId: string,
+  mes: string,
+  moneda: string,
+): Promise<SinAsignarDeUnaCategoria[]> {
+  const filas = (await db.execute(sql`
+    select ${CATEGORIA_QUE_CLASIFICA} as "categoryId",
+      coalesce(sum(- m.amount) filter (where ${MONTO_QUE_CLASIFICA} < 0), 0)::numeric(19,4)::text as gastado,
+      coalesce(sum(m.amount)   filter (where ${MONTO_QUE_CLASIFICA} > 0), 0)::numeric(19,4)::text as recibido
+    from transactions m
+    ${UNION_CON_EL_ANULADO}
+    where m.user_id = ${usuarioId}::uuid
+      and ${deLaMoneda(moneda)}
+      and ${SOLO_INGRESOS_Y_GASTOS}
+      and ${rangoDelMes(mes)}
+      and ${CATEGORIA_QUE_CLASIFICA} is not null
+      and ${ITEM_QUE_CLASIFICA} is null
+    group by 1
+  `)) as unknown as SinAsignarDeUnaCategoria[];
+
+  return filas;
+}
+
 /**
  * Ahorro de UNA cuenta puntual en UN mes puntual, con signo — la versión de
  * `ahorroMensual` que usa el checklist de presupuesto, que compara una

@@ -220,8 +220,9 @@ describe('crear ítems', () => {
 
     expect(item).toMatchObject({ kind: 'category', categoryKind: 'income' });
 
-    // Recibir de más: logro, y jamás un aviso en rojo.
-    await registrar(banco.id, '950000', { categoryId: sueldo.id });
+    // Recibir de más: logro, y jamás un aviso en rojo. El ingreso se asigna al
+    // ítem: sin ítem quedaría "sin asignar" y no sumaría a ninguno.
+    await registrar(banco.id, '950000', { categoryId: sueldo.id, budgetItemId: item.id });
 
     const { items } = await checklist(mesRelativo(0).etiqueta);
     expect(items[0]).toMatchObject({
@@ -229,6 +230,7 @@ describe('crear ítems', () => {
       categoryKind: 'income',
       target: '900000.0000',
       progress: '950000.0000',
+      status: 'paid',
       checked: true,
       exceeded: false,
     });
@@ -275,10 +277,13 @@ describe('el checklist del mes', () => {
   it('un tope de gasto no se cumple: solo puede excederse', async () => {
     const mercado = await crearCategoria('Mercado');
     const cuenta = await crearCuenta();
-    await crearItemDeCategoria(mercado.id, '100000');
+    const item = await crearItemDeCategoria(mercado.id, '100000');
 
     // La mitad: dentro del tope, sin aviso ni logro.
-    await registrar(cuenta.id, '-50000', { categoryId: mercado.id });
+    await registrar(cuenta.id, '-50000', {
+      categoryId: mercado.id,
+      budgetItemId: item.id,
+    });
 
     const primerVistazo = await checklist(mesRelativo(0).etiqueta);
     expect(primerVistazo.items).toEqual([
@@ -287,9 +292,12 @@ describe('el checklist del mes', () => {
         kind: 'category',
         categoryKind: 'expense',
         currency: 'COP',
+        categoryId: mercado.id,
+        categoryName: 'Mercado',
         label: 'Mercado',
         target: '100000.0000',
         progress: '50000.0000',
+        status: 'partial',
         checked: false,
         exceeded: false,
       },
@@ -297,19 +305,27 @@ describe('el checklist del mes', () => {
 
     // Justo en el tope: no es un logro (un tope no se "cumple" gastando) y
     // todavía no es un exceso.
-    await registrar(cuenta.id, '-50000', { categoryId: mercado.id });
+    await registrar(cuenta.id, '-50000', {
+      categoryId: mercado.id,
+      budgetItemId: item.id,
+    });
     const alLlegar = await checklist(mesRelativo(0).etiqueta);
     expect(alLlegar.items[0]).toMatchObject({
       progress: '100000.0000',
+      status: 'paid',
       checked: false,
       exceeded: false,
     });
 
     // Pasarse sí enciende el aviso, y nunca el check verde.
-    await registrar(cuenta.id, '-30000', { categoryId: mercado.id });
+    await registrar(cuenta.id, '-30000', {
+      categoryId: mercado.id,
+      budgetItemId: item.id,
+    });
     const alPasar = await checklist(mesRelativo(0).etiqueta);
     expect(alPasar.items[0]).toMatchObject({
       progress: '130000.0000',
+      status: 'exceeded',
       checked: false,
       exceeded: true,
     });
@@ -430,12 +446,9 @@ describe('el checklist del mes', () => {
     const pesos = await crearCuenta();
     const dolares = await crearCuenta({ currency: 'USD' });
 
-    await registrar(pesos.id, '-80000', { categoryId: mercado.id });
-    await registrar(dolares.id, '-50', { categoryId: mercado.id });
-
     // La misma categoría puede tener un renglón por moneda: el checklist
-    // siempre pregunta por una sola.
-    await crearItemDeCategoria(mercado.id, '100000');
+    // siempre pregunta por una sola. Cada gasto se asigna al ítem de su moneda.
+    const itemPesos = await crearItemDeCategoria(mercado.id, '100000');
     const { cuerpo: enDolares } = await pedir('POST', '/api/v1/budgets/items', {
       kind: 'category',
       categoryId: mercado.id,
@@ -444,6 +457,15 @@ describe('el checklist del mes', () => {
     });
     expect(enDolares.data.currency).toBe('USD');
 
+    await registrar(pesos.id, '-80000', {
+      categoryId: mercado.id,
+      budgetItemId: itemPesos.id,
+    });
+    await registrar(dolares.id, '-50', {
+      categoryId: mercado.id,
+      budgetItemId: enDolares.data.id,
+    });
+
     const checklistPesos = await checklist(mesRelativo(0).etiqueta, 'COP');
     expect(checklistPesos.items).toHaveLength(1);
     expect(checklistPesos.items[0]).toMatchObject({ currency: 'COP', progress: '80000.0000' });
@@ -451,6 +473,149 @@ describe('el checklist del mes', () => {
     const checklistDolares = await checklist(mesRelativo(0).etiqueta, 'USD');
     expect(checklistDolares.items).toHaveLength(1);
     expect(checklistDolares.items[0]).toMatchObject({ currency: 'USD', progress: '50.0000' });
+  });
+});
+
+describe('cada movimiento cuenta para un solo ítem', () => {
+  it('dos ítems de la misma categoría suman solo lo suyo, y el sobrante sale en "sin asignar"', async () => {
+    const deudas = await crearCategoria('Deudas');
+    const cuenta = await crearCuenta({ openingBalance: '1000000' });
+    const dávila = await crearItemDeCategoria(deudas.id, '200000', { label: 'Dávila' });
+    const moto = await crearItemDeCategoria(deudas.id, '100000', { label: 'Moto' });
+
+    await registrar(cuenta.id, '-267530', { categoryId: deudas.id, budgetItemId: dávila.id });
+    await registrar(cuenta.id, '-40000', { categoryId: deudas.id, budgetItemId: moto.id });
+    // Este no apunta a ningún ítem: queda sin asignar dentro de Deudas.
+    await registrar(cuenta.id, '-5000', { categoryId: deudas.id });
+
+    const { items, unassigned } = await checklist(mesRelativo(0).etiqueta);
+    const porId = new Map(items.map((renglon: any) => [renglon.id, renglon]));
+
+    // Cada ítem ve SOLO lo suyo; el gasto ya no se repite entre los siete ítems.
+    expect(porId.get(dávila.id)).toMatchObject({ progress: '267530.0000', status: 'exceeded' });
+    expect(porId.get(moto.id)).toMatchObject({ progress: '40000.0000', status: 'partial' });
+
+    expect(unassigned).toEqual([
+      {
+        categoryId: deudas.id,
+        categoryName: 'Deudas',
+        categoryKind: 'expense',
+        amount: '5000.0000',
+      },
+    ]);
+  });
+
+  it('una categoría sin ítems no aparece en "sin asignar"; un "sin asignar" en cero tampoco', async () => {
+    const conItem = await crearCategoria('Con ítem');
+    const sinItem = await crearCategoria('Sin ítem');
+    const comida = await crearCategoria('Comida');
+    const itemDeConItem = await crearItemDeCategoria(conItem.id, '100000');
+    await crearItemDeCategoria(comida.id, '100000');
+
+    const cuenta = await crearCuenta();
+    // Gasto suelto en una categoría que SÍ tiene ítem: aparece.
+    await registrar(cuenta.id, '-3000', { categoryId: conItem.id });
+    // Gasto suelto en una categoría SIN ítems: no aparece aunque tenga plata.
+    await registrar(cuenta.id, '-9000', { categoryId: sinItem.id });
+    // Gasto suelto que luego se anula: queda en cero y no aparece.
+    const suelto = await registrar(cuenta.id, '-7000', { categoryId: comida.id });
+    await pedir('POST', `/api/v1/transactions/${suelto.id}/reversal`);
+
+    const { unassigned } = await checklist(mesRelativo(0).etiqueta);
+    expect(unassigned).toEqual([
+      {
+        categoryId: conItem.id,
+        categoryName: 'Con ítem',
+        categoryKind: 'expense',
+        amount: '3000.0000',
+      },
+    ]);
+    expect(itemDeConItem).toBeDefined();
+  });
+
+  it('un ingreso asignado a su ítem se mide por lo recibido', async () => {
+    const sueldo = await crearCategoria('Sueldo', 'income');
+    const cuenta = await crearCuenta();
+    const item = await crearItemDeCategoria(sueldo.id, '1000000');
+
+    await registrar(cuenta.id, '400000', { categoryId: sueldo.id, budgetItemId: item.id });
+
+    const { items, unassigned } = await checklist(mesRelativo(0).etiqueta);
+    expect(items[0]).toMatchObject({
+      categoryKind: 'income',
+      progress: '400000.0000',
+      status: 'partial',
+    });
+    expect(unassigned).toEqual([]);
+  });
+
+  it('pagar una tarjeta paga su ítem sin volverse gasto; anular la transferencia lo deja pendiente', async () => {
+    const banco = await crearCuenta({ openingBalance: '1000000' });
+    const tarjeta = await crearCuenta({ type: 'card', openingBalance: '-300000' });
+    const deudas = await crearCategoria('Deudas');
+    const nu = await crearItemDeCategoria(deudas.id, '300000', { label: 'Deuda TC Nu' });
+
+    const { estado, cuerpo } = await pedir('POST', '/api/v1/transfers', {
+      fromAccountId: banco.id,
+      toAccountId: tarjeta.id,
+      amount: '102500',
+      occurredAt: mesRelativo(0).fecha,
+      budgetItemId: nu.id,
+    });
+    expect(estado, JSON.stringify(cuerpo)).toBe(201);
+
+    const salida = cuerpo.data.legs.find((pata: any) => pata.amount.startsWith('-'));
+    const entrada = cuerpo.data.legs.find((pata: any) => !pata.amount.startsWith('-'));
+    expect(salida.budgetItemId).toBe(nu.id);
+    expect(entrada.budgetItemId).toBeNull();
+
+    const vista = await checklist(mesRelativo(0).etiqueta);
+    expect(vista.items.find((renglon: any) => renglon.id === nu.id)).toMatchObject({
+      progress: '102500.0000',
+      status: 'partial',
+    });
+    // No es plata suelta de la categoría: el pago no es un gasto del mes.
+    expect(vista.unassigned).toEqual([]);
+
+    const { cuerpo: resumen } = await pedir(
+      'GET',
+      `/api/v1/reports/summary?month=${mesRelativo(0).etiqueta}&currency=COP`,
+    );
+    expect(resumen.data.expense).toBe('0.0000');
+
+    // Anular la transferencia deshace el pago.
+    await pedir('POST', `/api/v1/transfers/${cuerpo.data.transferGroupId}/reversal`);
+    const despues = await checklist(mesRelativo(0).etiqueta);
+    expect(despues.items.find((renglon: any) => renglon.id === nu.id)).toMatchObject({
+      progress: '0.0000',
+      status: 'pending',
+    });
+  });
+
+  it('al cambiar de categoría el movimiento suelta su ítem; en la misma categoría lo conserva', async () => {
+    const comida = await crearCategoria('Comida');
+    const ocio = await crearCategoria('Ocio');
+    const item = await crearItemDeCategoria(comida.id, '100000');
+    const cuenta = await crearCuenta();
+    const gasto = await registrar(cuenta.id, '-20000', {
+      categoryId: comida.id,
+      budgetItemId: item.id,
+    });
+
+    const { cuerpo: igual } = await pedir(
+      'PATCH',
+      `/api/v1/transactions/${gasto.id}/category`,
+      { categoryId: comida.id },
+    );
+    expect(igual.data.budgetItemId).toBe(item.id);
+
+    const { estado, cuerpo: movido } = await pedir(
+      'PATCH',
+      `/api/v1/transactions/${gasto.id}/category`,
+      { categoryId: ocio.id },
+    );
+    expect(estado, JSON.stringify(movido)).toBe(200);
+    expect(movido.data).toMatchObject({ categoryId: ocio.id, budgetItemId: null });
   });
 });
 

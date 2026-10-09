@@ -85,6 +85,13 @@
       "when": 1791377300020,
       "tag": "0011_ajuste_de_saldo",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791502844996,
+      "tag": "0012_items_independientes",
+      "breakpoints": true
     }
   ]
 }

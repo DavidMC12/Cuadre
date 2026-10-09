@@ -99,7 +99,7 @@ describe('el archivo', () => {
 
     expect(todas).toHaveLength(1);
     expect(todas[0]).toBe(
-      'Fecha,Cuenta,Moneda,Tipo,Categoría,Descripción,Monto,Estado,Id,Anula a,Transferencia',
+      'Fecha,Cuenta,Moneda,Tipo,Categoría,Item de presupuesto,Descripción,Monto,Estado,Id,Anula a,Transferencia',
     );
   });
 
@@ -155,10 +155,10 @@ describe('qué es cada movimiento', () => {
     await registrar(cuenta.id, '-5000', { description: 'Almuerzo' });
     await registrar(cuenta.id, '9000', { description: 'Devolución' });
 
-    // La celda vacía del medio es la categoría, que estos dos no tienen.
+    // La celda vacía del medio es la categoría y el ítem, que estos dos no tienen.
     const texto = (await exportar()).texto;
-    expect(texto).toContain('Gasto,,Almuerzo,-5000.0000');
-    expect(texto).toContain('Ingreso,,Devolución,9000.0000');
+    expect(texto).toContain('Gasto,,,Almuerzo,-5000.0000');
+    expect(texto).toContain('Ingreso,,,Devolución,9000.0000');
   });
 
   it('dos movimientos del mismo instante salen en el orden en que se registraron', async () => {
@@ -166,7 +166,7 @@ describe('qué es cada movimiento', () => {
     await registrar(cuenta.id, '-5000', { description: 'Primero' });
     await registrar(cuenta.id, '9000', { description: 'Segundo' });
 
-    const descripciones = (await filas()).map((fila) => fila.split(',')[5]);
+    const descripciones = (await filas()).map((fila) => fila.split(',')[6]);
     expect(descripciones).toEqual(['Primero', 'Segundo']);
   });
 
@@ -196,7 +196,31 @@ describe('qué es cada movimiento', () => {
     const cuenta = await crearCuenta();
     await registrar(cuenta.id, '-1000', { description: 'Sin clasificar' });
 
-    expect((await filas())[0]).toContain(',,Sin clasificar,');
+    expect((await filas())[0]).toContain(',,,Sin clasificar,');
+  });
+
+  it('trae el nombre del ítem del presupuesto, entre la categoría y la descripción', async () => {
+    const cuenta = await crearCuenta({ name: 'Efectivo' });
+    const { cuerpo: categoria } = await pedirJson('POST', '/api/v1/categories', {
+      name: 'Deudas',
+      kind: 'expense',
+    });
+    const { cuerpo: item } = await pedirJson('POST', '/api/v1/budgets/items', {
+      kind: 'category',
+      categoryId: categoria.data.id,
+      currency: 'COP',
+      amount: '100000',
+      label: 'Deuda TC Nu',
+    });
+    await registrar(cuenta.id, '-30000', {
+      categoryId: categoria.data.id,
+      budgetItemId: item.data.id,
+      description: 'Pago',
+    });
+
+    const texto = (await exportar()).texto;
+    // Categoría, ítem, descripción: el ítem va justo después de la categoría.
+    expect(texto).toContain('Deudas,Deuda TC Nu,Pago,-30000.0000');
   });
 });
 

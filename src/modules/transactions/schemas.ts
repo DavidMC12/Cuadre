@@ -19,6 +19,8 @@ export const RegistrarMovimientoSchema = z.object({
   occurredAt: FechaSchema,
   description: z.string().trim().min(1).max(500).nullish(),
   categoryId: z.uuid().nullish(),
+  /** A qué ítem del presupuesto cuenta; nulo o ausente lo deja "sin asignar". */
+  budgetItemId: z.uuid().nullish(),
 });
 
 export const ListarMovimientosSchema = z.object({
@@ -35,6 +37,9 @@ export const IdEnRutaSchema = z.object({ id: z.uuid() });
 /** Lo unico corregible de un movimiento. `null` lo deja sin categoria. */
 export const RecategorizarSchema = z.object({ categoryId: z.uuid().nullable() });
 
+/** Cambiar el ítem del presupuesto de un movimiento. `null` = "sin asignar". */
+export const AsignarItemSchema = z.object({ budgetItemId: z.uuid().nullable() });
+
 export const CrearTransferenciaSchema = z
   .object({
     fromAccountId: z.uuid(),
@@ -43,6 +48,8 @@ export const CrearTransferenciaSchema = z
     amount: MontoPositivoSchema,
     occurredAt: FechaSchema,
     description: z.string().trim().min(1).max(500).nullish(),
+    /** Solo el pago a una tarjeta: el ítem que ese pago deja pagado. */
+    budgetItemId: z.uuid().nullish(),
   })
   .refine((datos) => datos.fromAccountId !== datos.toAccountId, {
     message: 'La cuenta de origen y la de destino no pueden ser la misma.',
@@ -56,6 +63,8 @@ export const MovimientoSchema = z.object({
   id: z.uuid(),
   accountId: z.uuid(),
   categoryId: z.uuid().nullable(),
+  /** A qué ítem del presupuesto cuenta; nulo si está "sin asignar". */
+  budgetItemId: z.uuid().nullable(),
   kind: z.enum(TIPOS_DE_MOVIMIENTO),
   amount: z.string(),
   currency: z.string(),
@@ -87,3 +96,4 @@ export type ListarMovimientos = z.infer<typeof ListarMovimientosSchema>;
 export type CrearTransferencia = z.infer<typeof CrearTransferenciaSchema>;
 export type Movimiento = z.infer<typeof MovimientoSchema>;
 export type Recategorizar = z.infer<typeof RecategorizarSchema>;
+export type AsignarItem = z.infer<typeof AsignarItemSchema>;

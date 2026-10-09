@@ -5,6 +5,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import {
+  AsignarItemSchema,
   CrearTransferenciaSchema,
   IdEnRutaSchema,
   ListaDeMovimientosSchema,
@@ -110,6 +111,28 @@ export const rutasDeMovimientos: FastifyPluginAsyncZod = async (app) => {
         peticion.usuarioId,
         peticion.params.id,
         peticion.body.categoryId,
+      ),
+    }),
+  );
+
+  /**
+   * Cambiar (o quitar) el ítem del presupuesto. Igual que la categoría, es una
+   * etiqueta corregible: el monto y la fecha no se tocan.
+   */
+  app.patch(
+    '/transactions/:id/budget-item',
+    {
+      schema: {
+        params: IdEnRutaSchema,
+        body: AsignarItemSchema,
+        response: { 200: UnMovimientoSchema },
+      },
+    },
+    async (peticion) => ({
+      data: await servicio.asignarItemAMovimiento(
+        peticion.usuarioId,
+        peticion.params.id,
+        peticion.body.budgetItemId,
       ),
     }),
   );

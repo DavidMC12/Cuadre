@@ -89,6 +89,22 @@ const POR_RESTRICCION: Record<string, Traduccion> = {
     codigo: 'NOT_FOUND',
     mensaje: 'Esa categoría no existe.',
   },
+  transactions_budget_item_fk: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'Ese ítem del presupuesto no existe o no es tuyo.',
+  },
+  transactions_budget_item_category_fk: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje:
+      'Ese ítem del presupuesto no es de la misma categoría y moneda que este movimiento.',
+  },
+  transactions_budget_item_needs_category: {
+    estado: 422,
+    codigo: 'RULE_VIOLATION',
+    mensaje: 'Para asignar un ítem, el movimiento necesita categoría.',
+  },
   transactions_reversal_unique: {
     estado: 409,
     codigo: 'CONFLICT',

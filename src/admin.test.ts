@@ -369,6 +369,18 @@ describe('desde una cuenta ajena solo se mira', () => {
     expect(transferencia.estado).toBe(403);
   });
 
+  it('tampoco deja cambiar el ítem del presupuesto de un movimiento ajeno', async () => {
+    const { estado, cuerpo } = await pedir(
+      appSuplantando,
+      'PATCH',
+      `/api/v1/transactions/${randomUUID()}/budget-item`,
+      { budgetItemId: null },
+    );
+
+    expect(estado).toBe(403);
+    expect(cuerpo.error.code).toBe('FORBIDDEN');
+  });
+
   it('no deja cambiarle las preferencias a esa persona', async () => {
     const { estado } = await pedir(appSuplantando, 'PATCH', '/api/v1/profile', {
       displayName: 'Nombre puesto por otro',

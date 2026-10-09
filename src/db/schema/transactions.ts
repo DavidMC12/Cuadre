@@ -13,6 +13,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { accounts } from './accounts.js';
+import { budgetItems } from './budgets.js';
 import { categories } from './categories.js';
 import { users } from './users.js';
 
@@ -48,6 +49,14 @@ export const transactions = pgTable(
     accountId: uuid('account_id').notNull(),
     /** Nulo si esta sin clasificar o si es una pata de transferencia. */
     categoryId: uuid('category_id'),
+    /**
+     * A qué ítem del presupuesto cuenta este movimiento. Es una etiqueta,
+     * igual que la categoría: se puede corregir sin tocar el dinero. Nulo si
+     * está "sin asignar" dentro de su categoría. Lo lleva un gasto o ingreso
+     * normal (el ítem es de su misma categoría y moneda) o la pata de salida
+     * de un pago a una tarjeta (una transferencia, que no lleva categoría).
+     */
+    budgetItemId: uuid('budget_item_id'),
 
     kind: text('kind').$type<TransactionKind>().notNull().default('standard'),
 
@@ -90,6 +99,22 @@ export const transactions = pgTable(
       name: 'transactions_category_fk',
     }).onDelete('restrict'),
 
+    // El ítem de presupuesto, si hay, es de este mismo dueño.
+    foreignKey({
+      columns: [t.userId, t.budgetItemId],
+      foreignColumns: [budgetItems.userId, budgetItems.id],
+      name: 'transactions_budget_item_fk',
+    }).onDelete('restrict'),
+
+    // Y, cuando el movimiento lleva categoría, el ítem es de ESA categoría y
+    // de ESA moneda. Si `category_id` es nulo (una transferencia) la llave no
+    // aplica y lo revisa el service.
+    foreignKey({
+      columns: [t.userId, t.budgetItemId, t.categoryId, t.currency],
+      foreignColumns: [budgetItems.userId, budgetItems.id, budgetItems.categoryId, budgetItems.currency],
+      name: 'transactions_budget_item_category_fk',
+    }).onDelete('restrict'),
+
     // El movimiento anulado tiene que ser del mismo dueno.
     foreignKey({
       columns: [t.userId, t.reversesTransactionId],
@@ -120,6 +145,12 @@ export const transactions = pgTable(
       .on(t.transferGroupId)
       .where(sql`transfer_group_id is not null`),
 
+    // Un ítem solo cuelga de un gasto/ingreso con categoría o de una transferencia
+    // (el pago a una tarjeta). Un saldo inicial o un ajuste nunca lo llevan.
+    check(
+      'transactions_budget_item_needs_category',
+      sql`${t.budgetItemId} is null or ${t.categoryId} is not null or ${t.kind} = 'transfer'`,
+    ),
     check('transactions_amount_not_zero', sql`${t.amount} <> 0`),
     check('transactions_currency_format', sql`${t.currency} ~ '^[A-Z]{3}$'`),
     check(
