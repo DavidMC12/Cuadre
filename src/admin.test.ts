@@ -382,12 +382,10 @@ describe('desde una cuenta ajena solo se mira', () => {
   });
 
   it('tampoco deja anotar un ahorro en una cuenta ajena', async () => {
-    const { estado, cuerpo } = await pedir(
-      appSuplantando,
-      'POST',
-      '/api/v1/savings-entries',
-      { accountId: randomUUID(), amount: '500000' },
-    );
+    const { estado, cuerpo } = await pedir(appSuplantando, 'POST', '/api/v1/savings-entries', {
+      accountId: randomUUID(),
+      amount: '500000',
+    });
 
     expect(estado).toBe(403);
     expect(cuerpo.error.code).toBe('FORBIDDEN');

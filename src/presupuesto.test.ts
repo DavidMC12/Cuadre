@@ -641,11 +641,9 @@ describe('cada movimiento cuenta para un solo ítem', () => {
       budgetItemId: item.id,
     });
 
-    const { cuerpo: igual } = await pedir(
-      'PATCH',
-      `/api/v1/transactions/${gasto.id}/category`,
-      { categoryId: comida.id },
-    );
+    const { cuerpo: igual } = await pedir('PATCH', `/api/v1/transactions/${gasto.id}/category`, {
+      categoryId: comida.id,
+    });
     expect(igual.data.budgetItemId).toBe(item.id);
 
     const { estado, cuerpo: movido } = await pedir(

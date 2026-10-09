@@ -49,11 +49,7 @@ interface Respuesta<T = any> {
   cuerpo: T;
 }
 
-async function pedir(
-  metodo: 'GET' | 'POST',
-  url: string,
-  cuerpo?: unknown,
-): Promise<Respuesta> {
+async function pedir(metodo: 'GET' | 'POST', url: string, cuerpo?: unknown): Promise<Respuesta> {
   const respuesta = await app.inject({
     method: metodo,
     url,
@@ -141,6 +137,23 @@ describe('anotar un ahorro', () => {
     expect(cuerpo.data.description).toBeNull();
   });
 
+  it('recorta la descripción y acepta una fecha sin hora', async () => {
+    const ahorros = await crearCuenta({ isSavings: true });
+
+    const { estado, cuerpo } = await anotar(ahorros.id, '1000', {
+      occurredAt: '2026-06-05',
+      description: '  aparté para el viaje  ',
+    });
+
+    expect(estado, JSON.stringify(cuerpo)).toBe(201);
+    expect(cuerpo.data.description).toBe('aparté para el viaje');
+    expect(Number.isNaN(Date.parse(cuerpo.data.occurredAt))).toBe(false);
+  });
+
+  it('rechaza un accountId que no es uuid con 400', async () => {
+    expect((await anotar('no-es-un-uuid', '1000')).estado).toBe(400);
+  });
+
   it('el cero no es un ahorro: 400', async () => {
     const ahorros = await crearCuenta({ isSavings: true });
 
@@ -202,14 +215,13 @@ describe('listar los ahorros de una cuenta', () => {
     await anotar(ahorros.id, '2000', { occurredAt: DIA_7 });
     await anotar(ahorros.id, '3000', { occurredAt: DIA_6 });
 
-    const { estado, cuerpo } = await pedir('GET', `/api/v1/savings-entries?accountId=${ahorros.id}`);
+    const { estado, cuerpo } = await pedir(
+      'GET',
+      `/api/v1/savings-entries?accountId=${ahorros.id}`,
+    );
 
     expect(estado).toBe(200);
-    expect(cuerpo.data.map((r: any) => r.amount)).toEqual([
-      '2000.0000',
-      '3000.0000',
-      '1000.0000',
-    ]);
+    expect(cuerpo.data.map((r: any) => r.amount)).toEqual(['2000.0000', '3000.0000', '1000.0000']);
   });
 
   it('no mezcla las cuentas y respeta el límite', async () => {
@@ -224,15 +236,21 @@ describe('listar los ahorros de una cuenta', () => {
     expect(cuerpo.data.map((r: any) => r.amount)).toEqual(['3000.0000', '2000.0000']);
 
     // El máximo es 200; 201 es un error de validación del borde.
-    expect((await pedir('GET', `/api/v1/savings-entries?accountId=${una.id}&limit=201`)).estado).toBe(400);
-    expect((await pedir('GET', `/api/v1/savings-entries?accountId=${una.id}&limit=0`)).estado).toBe(400);
+    expect(
+      (await pedir('GET', `/api/v1/savings-entries?accountId=${una.id}&limit=201`)).estado,
+    ).toBe(400);
+    expect((await pedir('GET', `/api/v1/savings-entries?accountId=${una.id}&limit=0`)).estado).toBe(
+      400,
+    );
   });
 
   it('responde 404 si la cuenta no existe o es de otra persona', async () => {
     const ahorros = await crearCuenta({ isSavings: true });
     await anotar(ahorros.id, '1000', { occurredAt: DIA_5 });
 
-    expect((await pedir('GET', `/api/v1/savings-entries?accountId=${randomUUID()}`)).estado).toBe(404);
+    expect((await pedir('GET', `/api/v1/savings-entries?accountId=${randomUUID()}`)).estado).toBe(
+      404,
+    );
 
     usuarioId = await crearUsuario();
     const ajena = await pedir('GET', `/api/v1/savings-entries?accountId=${ahorros.id}`);
