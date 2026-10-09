@@ -57,9 +57,12 @@ export function CamposPagoDividido({
   /** Todas las cuentas del formulario: aquí se filtran las que sirven. */
   cuentas: readonly Cuenta[];
 }) {
-  // Los ids con useId: el AppShell monta dos formularios de movimiento a la
-  // vez (cada quien con su cajón), y unas ids fijas aquí se duplicarían en el
-  // DOM y romperían la asociación entre etiqueta y control.
+  // Los ids con useId, defensa en profundidad: hoy un solo cajón puede estar
+  // abierto a la vez (el portal del Drawer desmonta el contenido al cerrar),
+  // pero estos dos talleres pueden convivir en el árbol si eso cambia, y una
+  // id fija aquí rompería la asociación entre etiqueta y control. La prueba
+  // de ids-unicos.test.tsx ancla el invariante: dos instancias montadas a la
+  // vez no dejan una id repetida en el documento.
   const idBase = useId();
   const idTitulo = `${idBase}-titulo`;
   const idEstado = `${idBase}-estado`;

@@ -3,19 +3,20 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 
-// El AppShell monta DOS FormularioMovimiento a la vez (app-shell.tsx), y cada
-// uno puede abrir "Pagar con dos cuentas" o los cajones de cambiar categoría e
-// ítem. Las ids fijas de esos subtalleres se duplicarían en el DOM y romperían
-// la asociación etiqueta↔control (y los aria-describedby/aria-labelledby).
-// Desde la décima critique usan useId(); esta prueba lo ancla: dos instancias
-// montadas a la vez no dejan una id repetida en todo el documento.
+// Las ids literales de estos subtalleres pasaron a useId por defensa en
+// profundidad: hoy un solo cajón puede estar abierto a la vez (el portal del
+// Drawer desmonta el contenido al cerrar, así que las dos instancias del
+// AppShell no comparten DOM al mismo tiempo), pero si eso cambia las ids
+// fijas se duplicarían y romperían la asociación etiqueta↔control y los
+// aria-describedby/aria-labelledby. Esta prueba ancla el invariante: dos
+// instancias montadas a la vez no dejan una id repetida en todo el documento.
 
 import { CamposPagoDividido, type PagoDivididoEnEdicion } from "./campos-pago-dividido";
 import { EditarCategoriaMovimiento } from "./editar-categoria-movimiento";
 import { EditarItemMovimiento } from "./editar-item-movimiento";
 import { useChecklistDelMes } from "@/hooks/use-presupuesto";
 import { useCategorias } from "@/hooks/use-categorias";
-import type { ItemDelChecklist, Movimiento } from "@/lib/api/types";
+import type { Movimiento } from "@/lib/api/types";
 
 type ConHijos = { children?: ReactNode };
 
@@ -36,8 +37,17 @@ vi.mock("@/components/ui/select", async (importOriginal) => {
     await importOriginal<typeof import("@/components/ui/select")>();
   return {
     ...original,
-    SelectTrigger: ({ id, children }: { id?: string; children?: ReactNode }) => (
-      <button type="button" id={id} data-testid="select-trigger">
+    SelectTrigger: ({
+      id,
+      "aria-describedby": descrito,
+      children,
+    }: { id?: string; "aria-describedby"?: string; children?: ReactNode }) => (
+      <button
+        type="button"
+        id={id}
+        data-testid="select-trigger"
+        aria-describedby={descrito}
+      >
         {children}
       </button>
     ),
@@ -57,21 +67,6 @@ vi.mock("@/hooks/use-presupuesto", () => ({ useChecklistDelMes: vi.fn() }));
 vi.mock("@/hooks/use-categorias", () => ({ useCategorias: vi.fn() }));
 
 afterEach(cleanup);
-
-const renglon: ItemDelChecklist = {
-  id: "i-nu",
-  kind: "category",
-  currency: "COP",
-  label: "Deuda TC Nu",
-  categoryKind: "expense",
-  categoryId: "c-deu",
-  categoryName: "Deudas",
-  target: "250000",
-  progress: "0",
-  checked: false,
-  exceeded: false,
-  status: "pending",
-};
 
 const movimiento: Movimiento = {
   id: "m-1",
@@ -97,10 +92,13 @@ const reparto: PagoDivididoEnEdicion = {
 };
 
 it("dos instancias de cada taller montadas a la vez no dejan ids repetidas en el DOM", () => {
+  // Sin items este mes: los dos selects de ítem quedan descritos por su
+  // aviso de "sin ítems" (la relación vive en el trigger, no en el Root del
+  // Select de Base UI, que descarta aria-describedby).
   vi.mocked(useChecklistDelMes).mockImplementation(
     () =>
       ({
-        data: { month: "2026-09", currency: "COP", items: [renglon], unassigned: [] },
+        data: { month: "2026-09", currency: "COP", items: [], unassigned: [] },
       }) as never
   );
   vi.mocked(useCategorias).mockImplementation(() => ({ data: [] }) as never);
@@ -146,6 +144,17 @@ it("dos instancias de cada taller montadas a la vez no dejan ids repetidas en el
   expect(screen.getAllByText("Cuenta para")).toHaveLength(2);
   expect(screen.getAllByText("Categoría")).toHaveLength(2);
   expect(screen.getAllByText("Monto en la cuenta 1")).toHaveLength(2);
+  expect(
+    screen.getAllByText("Esta categoría no tiene ítems de presupuesto este mes.")
+  ).toHaveLength(2);
+
+  // La relación descripción es REAL, no una id que cuelga: cada trigger de
+  // ítem apunta a un nodo que existe en el DOM (su aviso propio).
+  for (const trigger of screen.getAllByTestId("select-trigger")) {
+    const descrito = trigger.getAttribute("aria-describedby");
+    if (descrito === null) continue;
+    expect(document.getElementById(descrito)).not.toBeNull();
+  }
 
   // La regla: ninguna id se repite en el documento entero.
   const ids = Array.from(document.querySelectorAll("[id]")).map(

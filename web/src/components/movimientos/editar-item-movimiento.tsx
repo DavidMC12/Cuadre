@@ -144,13 +144,19 @@ export function EditarItemMovimiento({
             {/* El selector existe siempre: con items este mes muestra sus
                 opciones; sin ellos queda "Sin asignar" con una ayuda que
                 dice por qué — nunca un cajón que no se puede usar ni se
-                puede quitar lo que el movimiento ya tenía. */}
+                puede quitar lo que el movimiento ya tenía. La relación con
+                esa ayuda vive en el trigger: el Root del Select de Base UI
+                descarta aria-describedby (como en el formulario de
+                movimientos). */}
             <Select
               value={eleccion ?? SIN_ITEM}
               onValueChange={setEleccion}
-              aria-describedby={items.length === 0 ? idSinEleccion : undefined}
             >
-              <SelectTrigger id={idItem} className="min-h-11 w-full">
+              <SelectTrigger
+                id={idItem}
+                className="min-h-11 w-full"
+                aria-describedby={items.length === 0 ? idSinEleccion : undefined}
+              >
                 {/* El popup de opciones vive en un portal que no está
                     montado mientras el selector está cerrado: hay que
                     resolver el texto a mano, como en los demás. */}
