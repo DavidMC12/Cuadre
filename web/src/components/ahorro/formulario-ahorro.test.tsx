@@ -59,7 +59,7 @@ function abrirDominio(cuentas: Cuenta[], cuentaIdPorDefecto?: string) {
 }
 
 describe("FormularioAhorro: qué llega al servidor", () => {
-  it("un Aparte envía el monto positivo, con la fecha y la descripción", () => {
+  it("un Aparté envía el monto positivo, con la fecha y la descripción", () => {
     abrirDominio([vacaciones]);
     fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "500.000" } });
     fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2026-10-03" } });
@@ -80,9 +80,9 @@ describe("FormularioAhorro: qué llega al servidor", () => {
     expect(envio.occurredAt).toContain("2026-10-03");
   });
 
-  it("un Retire envía el monto negativo: el signo lo aporta el toggle, no el tecleo", () => {
+  it("un Retiré envía el monto negativo: el signo lo aporta el toggle, no el tecleo", () => {
     abrirDominio([vacaciones]);
-    fireEvent.click(screen.getByRole("button", { name: "Retire" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retiré" }));
     fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "25.000" } });
     fireEvent.click(screen.getByRole("button", { name: "Sí, anotar" }));
 
@@ -101,17 +101,78 @@ describe("FormularioAhorro: qué llega al servidor", () => {
     expect(envio.description).toBeUndefined();
   });
 
-  it("la vista previa habla antes de guardar, en aparte y en retiro", () => {
+  it("la vista previa habla antes de guardar, en Aparté y en Retiré", () => {
     abrirDominio([vacaciones]);
     fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "500.000" } });
     expect(
       screen.getByText("Vas a anotar que apartaste $500.000 para ahorro.")
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Retire" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retiré" }));
     fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "500.000" } });
     expect(
       screen.getByText("Vas a anotar que retiraste $500.000 para ahorro.")
+    ).toBeInTheDocument();
+  });
+});
+
+describe("FormularioAhorro: la ayuda del tipo, antes de la cifra", () => {
+  it("bajo el toggle, la ayuda dice el efecto de cada opción y cambia al alternar", () => {
+    abrirDominio([vacaciones]);
+
+    // Aparté, antes de escribir nada: el efecto ya está dicho.
+    const helpAparte = screen.getByText(
+      "Suma a lo que llevas ahorrado. No mueve plata de ninguna cuenta."
+    );
+    expect(helpAparte).toBeInTheDocument();
+
+    // El toggle anuncia EXACTAMENTE esa ayuda (no una id que cuelga).
+    expect(screen.getByRole("group", { name: "Tipo" })).toHaveAttribute(
+      "aria-describedby",
+      helpAparte.id
+    );
+
+    // Ida y vuelta: Retiré cambia la ayuda y volver a Aparté la repone.
+    fireEvent.click(screen.getByRole("button", { name: "Retiré" }));
+    expect(
+      screen.getByText("Resta de lo que llevas ahorrado. No mueve plata de ninguna cuenta.")
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Suma a lo que llevas ahorrado. No mueve plata de ninguna cuenta.")
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Aparté" }));
+    expect(helpAparte).toBeInTheDocument();
+  });
+
+  it("tras guardar y reabrir, la ayuda vuelve al estado inicial (Aparté)", () => {
+    registrar.mutate.mockImplementationOnce(
+      (_variables: unknown, opciones: { onSuccess?: (respuesta: unknown) => void }) => {
+        opciones.onSuccess?.({
+          data: {
+            id: "reg-1",
+            accountId: "cta-1",
+            currency: "COP",
+            amount: "10000",
+            occurredAt: "2026-10-09T12:00:00.000Z",
+            description: null,
+          },
+        });
+      }
+    );
+
+    abrirDominio([vacaciones]);
+    fireEvent.click(screen.getByRole("button", { name: "Retiré" }));
+    expect(
+      screen.getByText("Resta de lo que llevas ahorrado. No mueve plata de ninguna cuenta.")
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "10.000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sí, anotar" }));
+
+    // Reabrir: el reinicio vuelve a "aparte" y la ayuda con él.
+    fireEvent.click(screen.getByRole("button", { name: "Registrar ahorro" }));
+    expect(
+      screen.getByText("Suma a lo que llevas ahorrado. No mueve plata de ninguna cuenta.")
     ).toBeInTheDocument();
   });
 });

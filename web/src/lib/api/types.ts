@@ -273,7 +273,7 @@ export type TipoItemPresupuesto = "category" | "savings";
  * Lo que se envía al anotar explicitamente ahorro: una cantidad apartada
  * (positiva) o retirada (negativa) en una cuenta de ahorro, sin mover plata
  * de ninguna cuenta. El signo no lo teclea la persona: lo decide la
- * interfaz con su toggle Aparte/Retire; por eso aquí siempre llega
+ * interfaz con su toggle Aparté/Retiré; por eso aquí siempre llega
  * decidido. `amount` es texto exacto y nunca "0" (un cero no se aparta).
  */
 export interface NuevoRegistroAhorro {

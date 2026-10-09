@@ -1215,9 +1215,12 @@ describe("FormularioMovimiento: pagar con dos cuentas", () => {
     // 100.000, así que 250.000 + 100.000 se pasa por 150.000.
     fireEvent.change(screen.getByLabelText("Monto en la cuenta 1"), { target: { value: "250.000" } });
 
-    expect(document.getElementById("estado-pago-dividido")).toHaveTextContent(
-      "Te pasaste por $150.000."
-    );
+    // La línea del estado no tiene id fijo (useId); se la encuentra por su
+    // aria-live, la propiedad que la hace anunciarse.
+    const estado = screen
+      .getAllByText((texto, nodo) => nodo !== null && nodo.getAttribute("aria-live") === "polite")
+      .find((nodo) => nodo.textContent?.includes("Te pasaste"))!;
+    expect(estado).toHaveTextContent("Te pasaste por $150.000.");
     expect(screen.getByRole("button", { name: "Registrar" })).toBeDisabled();
   });
 

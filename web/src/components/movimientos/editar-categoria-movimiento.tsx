@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -33,6 +33,7 @@ export function EditarCategoriaMovimiento({
   children: React.ReactNode;
 }) {
   const soloMirar = useSoloMirar();
+  const idCategoria = useId();
   const [abierto, setAbierto] = useState(false);
   const [categoryId, setCategoryId] = useState<string | undefined>(
     movimiento.categoryId ?? undefined
@@ -81,9 +82,9 @@ export function EditarCategoriaMovimiento({
           </DrawerHeader>
 
           <div className="flex flex-col gap-1.5 px-4 py-4">
-            <Label htmlFor="categoria-existente">Categoría</Label>
+            <Label htmlFor={idCategoria}>Categoría</Label>
             <SelectorCategoria
-              id="categoria-existente"
+              id={idCategoria}
               value={categoryId}
               onChange={setCategoryId}
             />

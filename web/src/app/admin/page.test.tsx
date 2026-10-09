@@ -227,6 +227,22 @@ describe("Admin: el registro de suplantaciones no se cae en silencio (novena cri
     expect(screen.getByText("Cuentas a las que has entrado")).toBeInTheDocument();
     expect(screen.getByText("sam@cuadre.co")).toBeInTheDocument();
   });
+
+  it("cargó bien y no hay entradas: la sección se pinta con una línea apagada, no se queda muda", () => {
+    ajustarPerfil();
+    ajustarPersonas({});
+    ajustarRegistro({ data: [] });
+
+    render(<PaginaAdmin />);
+
+    expect(screen.getByText("Cuentas a las que has entrado")).toBeInTheDocument();
+    expect(screen.getByText("Todavía no has entrado a ninguna cuenta.")).toBeInTheDocument();
+    // Un vacío no es ni un fallo ni una conexión caída: no hay bloque de error.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Reintentar el registro de entradas" })
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("Admin: suplantar no arranca sin confirmar (octava critique, P2)", () => {
