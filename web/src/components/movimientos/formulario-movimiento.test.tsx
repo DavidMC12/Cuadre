@@ -836,6 +836,48 @@ describe("FormularioMovimiento: el desplegable '¿En qué fue?'", () => {
     expect(screen.getByRole("button", { name: "Registrar" })).toBeDisabled();
   });
 
+  it("al corregir con una categoría archivada, la muestra elegida y marcada, sin ofrecerla en un registro nuevo", () => {
+    const VIEJA = {
+      id: "c-vieja",
+      name: "Vieja",
+      kind: "expense",
+      archivedAt: "2026-01-01T00:00:00Z",
+    } as const;
+    // El formulario pide las archivadas al corregir (y solo al corregir): el
+    // catálogo activo no trae "Vieja".
+    vi.mocked(useCategoriasModule.useCategorias).mockImplementation(
+      (incluirArchivadas = false) =>
+        ({ data: incluirArchivadas ? [...CATEGORIAS, VIEJA] : [...CATEGORIAS] }) as never
+    );
+
+    const { unmount } = render(
+      <FormularioMovimiento
+        cuentas={cuentas}
+        abierto
+        valoresIniciales={{
+          monto: "12.500",
+          cuentaId: "a-1",
+          categoriaId: "c-vieja",
+          itemDelPresupuesto: null,
+          fecha: "2026-09-10",
+          tipo: "gasto",
+        }}
+      />
+    );
+
+    // Se ve elegida con su nombre y la marca sobria de archivada; y el menú
+    // tiene una opción que representa ese valor.
+    const campo = screen.getByLabelText("¿En qué fue?");
+    expect(campo).toHaveTextContent("Vieja");
+    expect(campo).toHaveTextContent("archivada");
+    expect(screen.getByRole("button", { name: /Vieja/ })).toBeInTheDocument();
+    unmount();
+
+    // Un registro nuevo no la ofrece: una archivada no se elige de nuevo.
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+    expect(screen.queryByRole("button", { name: /Vieja/ })).toBeNull();
+  });
+
   it("sin una selección todavía, Registrar sigue funcionando desde el primer toque", () => {
     catalogo();
     render(<FormularioMovimiento cuentas={cuentas} abierto />);

@@ -394,7 +394,10 @@ export function FormularioMovimiento({
     // suman lo mismo pero se reparten distinto son correcciones distintas.
     !mismoReparto(pagoDividido, pagoDivididoInicial ?? null);
 
-  const { data: categorias } = useCategorias(false);
+  // Al corregir se piden también las archivadas: una categoría retirada puede
+  // ser la que traía el movimiento y hay que poder verla con su nombre. En un
+  // registro nuevo solo se piden las activas (una archivada no se elige).
+  const { data: categorias } = useCategorias(enCorreccion);
 
   // El monto grande, leído y positivo, o `null` si aún no es un monto válido:
   // es el TOTAL de la compra que se reparte.
@@ -469,6 +472,32 @@ export function FormularioMovimiento({
     items: itemsOfrecidos,
     categorias: categorias ?? [],
   });
+
+  // La categoría archivada que quedó precargada al corregir no la ofrece el
+  // menú (las archivadas no se eligen al registrar), pero su valor tiene que
+  // existir: sin una opción que lo represente, el desplegable se vería como
+  // "Sin categoría" aunque la categoría sí esté elegida. Se agrega UNA opción,
+  // marcada, solo para representar lo que ya estaba. En un registro nuevo no
+  // aparece: `categorias` no trae archivadas.
+  const categoriaArchivadaElegida = (categorias ?? []).find(
+    (categoria) => categoria.id === categoryId && categoria.archivedAt
+  );
+  const yaEstaEnElMenu = gruposDesplegable.some((grupo) =>
+    grupo.opciones.some((opcion) => opcion.value === valorDesplegable)
+  );
+  const grupoArchivada =
+    categoriaArchivadaElegida && !yaEstaEnElMenu
+      ? [
+          {
+            etiqueta: "Archivadas",
+            opciones: [{ value: valorDesplegable, texto: `${textoCerrado} (archivada)` }],
+          },
+        ]
+      : [];
+  const gruposDelDesplegable = [...gruposDesplegable, ...grupoArchivada];
+  const textoCerradoMostrado = categoriaArchivadaElegida
+    ? `${textoCerrado} (archivada)`
+    : textoCerrado;
 
   function elegirDelDesplegable(valor: string | null) {
     if (!valor || valor === SIN_CATEGORIA_EN_QUE_FUE) {
@@ -1032,10 +1061,10 @@ export function FormularioMovimiento({
                   {/* El popup vive en un portal que no está montado mientras el
                       selector está cerrado: el texto del renglón cerrado se
                       resuelve a mano, como en los demás selectores. */}
-                  <SelectValue placeholder="Sin categoría">{() => textoCerrado}</SelectValue>
+                  <SelectValue placeholder="Sin categoría">{() => textoCerradoMostrado}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {gruposDesplegable.map((grupo) =>
+                  {gruposDelDesplegable.map((grupo) =>
                     grupo.etiqueta === null ? (
                       grupo.opciones.map((opcion) => (
                         <SelectItem key={opcion.value} value={opcion.value}>
