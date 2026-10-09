@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CircleCheck } from "lucide-react";
 
@@ -69,6 +69,7 @@ export function AsignarSinAsignar({
   moneda,
   mes,
   items,
+  idEncabezado,
 }: {
   categoryId: string;
   categoriaNombre: string;
@@ -77,9 +78,19 @@ export function AsignarSinAsignar({
   moneda: string;
   mes: string;
   items: readonly ItemDelChecklist[];
+  /**
+   * El id del botón de encabezado de la categoría en el panel. Si al cerrar el
+   * cajón la fila ya no existe (la última asignación dejó la categoría en cero
+   * y el botón "Sin asignar" se desmontó), el foco no puede volver a ella:
+   * cae en este lugar sensato del panel en vez de perderse en `body`.
+   */
+  idEncabezado?: string;
 }) {
   const soloMirar = useSoloMirar();
   const [abierto, setAbierto] = useState(false);
+  // El botón que abre el cajón: al cerrar, Base UI le devuelve el foco MIENTRAS
+  // siga en el árbol. Se guarda para poder distinguir "sigue" de "se fue".
+  const referenciaGatillo = useRef<HTMLButtonElement>(null);
 
   // Mirar la cuenta de otra persona es solo lectura: el botón no lleva a
   // ninguna escritura que el servidor fuese a rechazar. La cifra se sigue
@@ -106,6 +117,7 @@ export function AsignarSinAsignar({
             render={
               <button
                 type="button"
+                ref={referenciaGatillo}
                 className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-xs text-muted-foreground outline-none transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/85"
               >
                 <span className="min-w-0 truncate">
@@ -119,7 +131,18 @@ export function AsignarSinAsignar({
             }
           />
         )}
-        <DrawerContent>
+        <DrawerContent
+          finalFocus={() => {
+            // Devolver `null` deja el comportamiento de Base UI: el foco vuelve
+            // al botón que abrió el cajón, mientras ese botón siga montado.
+            if (referenciaGatillo.current?.isConnected) return null;
+            // Si la fila se fue (la categoría quedó en cero), no hay botón al
+            // que volver: el foco cae en el encabezado de la categoría y no se
+            // pierde en `body`.
+            const encabezado = idEncabezado ? document.getElementById(idEncabezado) : null;
+            return encabezado;
+          }}
+        >
           {/* Solo se monta con el cajón abierto: la consulta de movimientos no
               sale a la red por cada categoría del panel. El foco vuelve a la
               fila al cerrar: lo maneja el Drawer de Base UI. */}
