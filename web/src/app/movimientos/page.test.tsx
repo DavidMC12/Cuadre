@@ -97,13 +97,20 @@ vi.mock("@/components/movimientos/transferencia-item", () => ({
 vi.mock("@/components/movimientos/compra-dividida-item", () => ({
   CompraDivididaItem: ({
     compra,
+    cuentasPorId,
     onSolicitarAnular,
   }: {
     compra: { partes: [Movimiento, Movimiento] };
+    cuentasPorId?: ReadonlyMap<string, Cuenta>;
     onSolicitarAnular: (parte: Movimiento) => void;
   }) => (
     <li>
       <span>compra-dividida</span>
+      {/* Qué cuentas conoce la fila: una archivada también tiene que llegar
+          para que su nombre no salga "…". */}
+      <span data-testid="cuentas-de-la-fila">
+        {[...(cuentasPorId?.keys() ?? [])].join(",")}
+      </span>
       <button type="button" onClick={() => onSolicitarAnular(compra.partes[0])}>
         anular-compra
       </button>
@@ -378,6 +385,28 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
 
       expect(screen.getAllByText("compra-dividida")).toHaveLength(1);
       expect(screen.queryByText("movimiento")).not.toBeInTheDocument();
+    });
+
+    it("la fila conoce las cuentas archivadas, para que su nombre no salga '…'", () => {
+      // `useCuentas(true)` trae activas y archivadas: la fila combinada tiene
+      // que recibirlas todas, no solo las activas, o el nombre de una cuenta
+      // retirada quedaría en "…".
+      ajustar(
+        {
+          data: [
+            parte("p1", "a-1", "Mercado (1 de 2)"),
+            parte("p2", "a-vieja", "Mercado (2 de 2)"),
+          ],
+        },
+        [
+          { id: "a-1", name: "Activa", archivedAt: null } as Cuenta,
+          { id: "a-vieja", name: "Cuenta vieja", archivedAt: "2026-01-01T00:00:00Z" } as Cuenta,
+        ]
+      );
+
+      render(<PaginaMovimientos />);
+
+      expect(screen.getByTestId("cuentas-de-la-fila")).toHaveTextContent("a-vieja");
     });
 
     it("anularla manda anular la compra COMPLETA (el grupo), nunca una parte, y abre 'corregir' ya en dos cuentas", () => {

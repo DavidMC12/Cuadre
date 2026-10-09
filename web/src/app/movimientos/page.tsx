@@ -148,9 +148,12 @@ function ContenidoMovimientos() {
   const estado = estadoDeConsulta({ data: movimientos, isError, isPaused, isLoading });
   const pausada = estado === "pausada";
 
+  // Con las archivadas incluidas: una compra pagada con dos cuentas puede
+  // tener una cuenta ya retirada, y su nombre debe verse igual en la fila
+  // combinada y en el detalle (nunca un "…").
   const cuentasPorId = useMemo(
-    () => new Map((cuentas ?? []).map((cuenta) => [cuenta.id, cuenta])),
-    [cuentas]
+    () => new Map((todasLasCuentas ?? []).map((cuenta) => [cuenta.id, cuenta])),
+    [todasLasCuentas]
   );
 
   // Lo que ve el formulario de corrección: las activas, más la cuenta original
