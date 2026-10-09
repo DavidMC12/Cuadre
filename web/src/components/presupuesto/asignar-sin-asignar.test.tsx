@@ -75,8 +75,9 @@ vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock("@/hooks/use-perfil", () => ({ useSoloMirar: () => false }));
+vi.mock("@/hooks/use-perfil", () => ({ useSoloMirar: () => soloMirar.valor }));
 
+const soloMirar = vi.hoisted(() => ({ valor: false }));
 const usarMovimientos = vi.hoisted(() => vi.fn());
 const actualizarItem = vi.hoisted(() => vi.fn());
 
@@ -90,6 +91,7 @@ afterEach(() => {
   vi.clearAllMocks();
   usarMovimientos.mockReset();
   actualizarItem.mockReset();
+  soloMirar.valor = false;
 });
 
 // -------------------------------------------------------------------------
@@ -454,5 +456,26 @@ describe("AsignarSinAsignar: el desplegable", () => {
 
     expect(screen.getByText("Sin asignar en Deudas")).toBeInTheDocument();
     expect(screen.getByText("Todo asignado")).toBeInTheDocument();
+  });
+});
+
+describe("AsignarSinAsignar: mirar la cuenta de otra persona", () => {
+  it("no ofrece el cajón: queda la cifra como texto, sin consultar movimientos", () => {
+    soloMirar.valor = true;
+    dejarConsulta();
+    montar();
+
+    expect(screen.queryByRole("button", { name: /Asignar/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/Sin asignar:/)).toBeInTheDocument();
+    expect(screen.getByText("$267.530")).toBeInTheDocument();
+    expect(usarMovimientos).not.toHaveBeenCalled();
+  });
+
+  it("sin monto y en solo lectura no pinta ninguna fila", () => {
+    soloMirar.valor = true;
+    dejarConsulta();
+    montar({ monto: null });
+
+    expect(screen.queryByText(/Sin asignar:/)).not.toBeInTheDocument();
   });
 });

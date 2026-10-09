@@ -445,9 +445,12 @@ export function PanelPresupuesto({
         <ul id={idLista} hidden={colapsado} className="flex flex-col">
           {grupo.items.map((renglon, indice) => renderRenglon(renglon, indice))}
           {/* Lo movido sin item en ESTA categoría (el servidor solo lo manda
-              cuando no es cero): una fila de texto apagado, sin barra, para
-              que no se pierda plata en el cuadre por cada grupo. Los grupos
-              sin categoría (Clave propia) no tienen dónde caer: su item no
+              cuando no es cero): una fila tocable, sin barra, para que no se
+              pierda plata en el cuadre por cada grupo. El componente se monta
+              siempre que la categoría exista —con `monto` nulo si no hay
+              nada— para que un cajón ya abierto no se cierre solo cuando la
+              última asignación deja la categoría en cero. Los grupos sin
+              categoría (Clave propia) no tienen dónde caer: su item no
               existe, así que nada aparece. */}
           {grupo.categoryId !== null && (
             <AsignarSinAsignar
