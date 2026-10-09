@@ -33,6 +33,7 @@ export function ConfirmarAnulacion({
   onCancelar: () => void;
 }) {
   const esCompra = movimiento?.paymentGroupId != null;
+  const esTransferencia = movimiento?.kind === "transfer" && movimiento.transferGroupId != null;
   // Solo se confía en las partes de la pantalla si incluyen al propio movimiento:
   // la lista de la página siempre lo trae, pero que este diálogo no dependa de
   // eso evita mostrar el monto de una parte con el nombre de otra.
@@ -56,11 +57,19 @@ export function ConfirmarAnulacion({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{esCompra ? "¿Anular la compra completa?" : "¿Anular este movimiento?"}</DialogTitle>
+          <DialogTitle>
+            {esCompra
+              ? "¿Anular la compra completa?"
+              : esTransferencia
+                ? "¿Anular la transferencia?"
+                : "¿Anular este movimiento?"}
+          </DialogTitle>
           <DialogDescription>
             {esCompra
               ? "Es una compra pagada con dos cuentas: se anulan las dos partes juntas, y los saldos y el presupuesto vuelven a como estaban. No se borra nada: se crean movimientos nuevos por el valor contrario. Esto no se puede deshacer."
-              : "No se borra: se crea un movimiento nuevo por el valor contrario, para que el historial cuente lo que de verdad pasó. Esto no se puede deshacer."}
+              : esTransferencia
+                ? "No se borra nada: se crean dos movimientos nuevos en sentido contrario y la plata vuelve a su cuenta de origen. Esto no se puede deshacer."
+                : "No se borra: se crea un movimiento nuevo por el valor contrario, para que el historial cuente lo que de verdad pasó. Esto no se puede deshacer."}
           </DialogDescription>
         </DialogHeader>
 
@@ -71,11 +80,24 @@ export function ConfirmarAnulacion({
                 ? veLaCompraEntera
                   ? descripcionDeLaCompra(partes)
                   : `${descripcionDeLaCompra(partes)} · una de las dos partes`
-                : movimiento.description?.trim() || "Movimiento"}
+                : esTransferencia
+                  ? movimiento.description?.trim() || "Transferencia"
+                  : movimiento.description?.trim() || "Movimiento"}
             </span>
             <Monto
-              valor={esCompra && veLaCompraEntera ? totalDeLaCompra(partes) : movimiento.amount}
+              valor={
+                esCompra && veLaCompraEntera
+                  ? totalDeLaCompra(partes)
+                  : esTransferencia
+                    ? // Las dos patas llevan el mismo monto (una sale, la otra
+                      // entra): la transferencia vale ese monto, sin signo.
+                      // Una pata sola tampoco engaña, a diferencia de la
+                      // compra dividida cuyo total es la suma.
+                      movimiento.amount.replace(/^-/, "")
+                    : movimiento.amount
+              }
               moneda={movimiento.currency}
+              signo={esTransferencia ? "ninguno" : undefined}
             />
           </div>
         )}
@@ -90,7 +112,13 @@ export function ConfirmarAnulacion({
             onClick={onConfirmar}
             disabled={procesando}
           >
-            {procesando ? "Anulando…" : esCompra ? "Sí, anular la compra" : "Sí, anular"}
+            {procesando
+              ? "Anulando…"
+              : esCompra
+                ? "Sí, anular la compra"
+                : esTransferencia
+                  ? "Sí, anular la transferencia"
+                  : "Sí, anular"}
           </Button>
         </DialogFooter>
       </DialogContent>

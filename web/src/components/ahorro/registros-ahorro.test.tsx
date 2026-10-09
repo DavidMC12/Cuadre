@@ -7,12 +7,17 @@ import type { RegistroDeAhorro } from "@/lib/api/types";
 
 afterEach(cleanup);
 
+/** La fecha "ahora" en ISO: la etiqueta (Hoy/Ayer) depende del día en que corre la prueba. */
+function ahoraEnIso(): string {
+  return new Date().toISOString();
+}
+
 function registro(datos: Partial<RegistroDeAhorro> & Pick<RegistroDeAhorro, "amount">): RegistroDeAhorro {
   return {
     id: "reg-1",
     accountId: "cta-1",
     currency: "COP",
-    occurredAt: "2026-10-08T15:00:00.000Z",
+    occurredAt: ahoraEnIso(),
     description: null,
     ...datos,
   };

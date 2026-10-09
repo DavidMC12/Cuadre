@@ -104,3 +104,71 @@ describe("ConfirmarAnulacion: una compra pagada con dos cuentas", () => {
     expect(screen.getByRole("button", { name: "Sí, anular" })).toBeInTheDocument();
   });
 });
+
+describe("ConfirmarAnulacion: una transferencia entre cuentas", () => {
+  const pataSalida: Movimiento = {
+    ...movimiento,
+    id: "salida",
+    accountId: "a-1",
+    kind: "transfer",
+    transferGroupId: "tg-1",
+    amount: "-100000.0000",
+    description: "Pago tarjeta",
+  };
+  const pataEntrada: Movimiento = {
+    ...pataSalida,
+    id: "entrada",
+    accountId: "a-2",
+    amount: "100000.0000",
+  };
+
+  function montarTransferencia(movimientoAConfirmar: Movimiento = pataSalida) {
+    render(
+      <ConfirmarAnulacion
+        movimiento={movimientoAConfirmar}
+        procesando={false}
+        onConfirmar={vi.fn()}
+        onCancelar={vi.fn()}
+      />
+    );
+  }
+
+  it("dice que se anula la transferencia COMPLETA y que la plata vuelve a su cuenta de origen", () => {
+    montarTransferencia();
+
+    expect(screen.getByText("¿Anular la transferencia?")).toBeInTheDocument();
+    expect(screen.getByText(/la plata vuelve a su cuenta de origen/)).toBeInTheDocument();
+    expect(screen.getByText("Pago tarjeta")).toBeInTheDocument();
+    // El monto sin signo: una transferencia ni entra ni sale.
+    expect(screen.getByText(/\$100\.000/)).toBeInTheDocument();
+    expect(screen.queryByText(/−|\+/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sí, anular la transferencia" }).className
+    ).toContain("min-h-11");
+  });
+
+  it("con una sola pata a la vista el monto no engaña: es el mismo en las dos", () => {
+    // A diferencia de la compra dividida (el total es la suma), en una
+    // transferencia las dos patas llevan el mismo valor; el diálogo solo
+    // necesita la pata que confirmó. La de entrada (positiva) dice igual.
+    montarTransferencia();
+
+    expect(screen.getByText("¿Anular la transferencia?")).toBeInTheDocument();
+    expect(screen.getByText(/\$100\.000/)).toBeInTheDocument();
+    expect(screen.queryByText(/una de las dos partes/)).not.toBeInTheDocument();
+
+    cleanup();
+    montarTransferencia(pataEntrada);
+    expect(screen.getByText("¿Anular la transferencia?")).toBeInTheDocument();
+    expect(screen.getByText(/\$100\.000/)).toBeInTheDocument();
+  });
+
+  it("sin descripción la fila dice 'Transferencia'", () => {
+    montarTransferencia({
+      ...pataSalida,
+      description: null,
+    });
+
+    expect(screen.getByText("Transferencia")).toBeInTheDocument();
+  });
+});

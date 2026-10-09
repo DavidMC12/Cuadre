@@ -13,9 +13,10 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams.url,
 }));
 
-const { anularMutate, anularPagoMutate } = vi.hoisted(() => ({
+const { anularMutate, anularPagoMutate, anularTransferenciaMutate } = vi.hoisted(() => ({
   anularMutate: vi.fn(),
   anularPagoMutate: vi.fn(),
+  anularTransferenciaMutate: vi.fn(),
 }));
 const { searchParams, CATEGORIA_FILTRO } = vi.hoisted(() => ({
   searchParams: { url: new URLSearchParams() },
@@ -27,6 +28,7 @@ vi.mock("@/hooks/use-movimientos", () => ({
   useMovimientos: vi.fn(),
   useAnularMovimiento: () => ({ isPending: false, mutate: anularMutate }),
   useAnularPagoDividido: () => ({ isPending: false, mutate: anularPagoMutate }),
+  useAnularTransferencia: () => ({ isPending: false, mutate: anularTransferenciaMutate }),
 }));
 
 vi.mock("@/hooks/use-cuentas", () => ({ useCuentas: vi.fn() }));
@@ -86,7 +88,20 @@ vi.mock("@/components/movimientos/movimiento-item", () => ({
   ),
 }));
 vi.mock("@/components/movimientos/transferencia-item", () => ({
-  TransferenciaItem: () => <li>transferencia</li>,
+  TransferenciaItem: ({
+    par,
+    onSolicitarAnular,
+  }: {
+    par: { salida: Movimiento };
+    onSolicitarAnular: (par: { salida: Movimiento }) => void;
+  }) => (
+    <li>
+      <span>transferencia</span>
+      <button type="button" onClick={() => onSolicitarAnular(par)}>
+        anular-transferencia
+      </button>
+    </li>
+  ),
 }));
 vi.mock("@/components/movimientos/compra-dividida-item", () => ({
   CompraDivididaItem: ({
@@ -375,6 +390,68 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
 
       expect(anularPagoMutate).toHaveBeenCalledWith("g-1", expect.anything());
       expect(anularMutate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("una transferencia entre cuentas", () => {
+    function pata(id: string, cuenta: string, monto: string): Movimiento {
+      return {
+        id,
+        accountId: cuenta,
+        categoryId: null,
+        budgetItemId: null,
+        paymentGroupId: null,
+        kind: "transfer",
+        amount: monto,
+        currency: "COP",
+        occurredAt: "2026-09-10T15:30:00Z",
+        description: "Pago tarjeta",
+        transferGroupId: "tg-1",
+        reversesTransactionId: null,
+        reversedByTransactionId: null,
+      };
+    }
+
+    it("las dos patas salen en UNA sola fila, no en dos movimientos sueltos", () => {
+      ajustar({
+        data: [pata("salida", "a-1", "-100000.0000"), pata("entrada", "a-2", "100000.0000")],
+      });
+
+      render(<PaginaMovimientos />);
+
+      expect(screen.getAllByText("transferencia")).toHaveLength(1);
+      expect(screen.queryByText("movimiento")).not.toBeInTheDocument();
+    });
+
+    it("anularla manda anular el grupo (transferGroupId), nunca una pata, y no abre 'corregir'", () => {
+      anularTransferenciaMutate.mockImplementation(
+        (_grupo: string, opciones: { onSuccess?: () => void }) => opciones.onSuccess?.()
+      );
+      ajustar({
+        data: [pata("salida", "a-1", "-100000.0000"), pata("entrada", "a-2", "100000.0000")],
+      });
+
+      render(<PaginaMovimientos />);
+      fireEvent.click(screen.getByRole("button", { name: "anular-transferencia" }));
+      fireEvent.click(screen.getByRole("button", { name: "confirmar-anulacion" }));
+
+      expect(anularTransferenciaMutate).toHaveBeenCalledWith("tg-1", expect.anything());
+      expect(anularMutate).not.toHaveBeenCalled();
+      expect(anularPagoMutate).not.toHaveBeenCalled();
+      // Una transferencia no se "corrige" con el formulario: anularla devuelve
+      // la plata a su cuenta de origen y queda.
+      expect(screen.queryByTestId("valores-iniciales")).not.toBeInTheDocument();
+    });
+
+    it("una pata suelta (filtro por cuenta) se muestra como movimiento normal, no como fila combinada", () => {
+      // Solo llega una de las dos patas: se deja tal cual llegó. El detalle de
+      // un movimiento nunca ofrece anular una mitad de transferencia (lo
+      // bloquea DetalleMovimiento); la fila combinada es la que anula el grupo.
+      ajustar({ data: [pata("salida", "a-1", "-100000.0000")] });
+
+      render(<PaginaMovimientos />);
+      expect(screen.getAllByText("movimiento")).toHaveLength(1);
+      expect(screen.queryByText("transferencia")).not.toBeInTheDocument();
     });
   });
 
