@@ -526,6 +526,35 @@ describe("PanelPresupuesto: agrupado por categoría", () => {
     ).toBeInTheDocument();
   });
 
+  it("replegado con topes excedidos, el encabezado avisa con un puntito rojo discreto, no con triángulo", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    const checklist = items.map((item) => ({ ...renglonDe(item), exceeded: true }));
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    fireEvent.click(screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true }));
+
+    const encabezado = screen.getByRole("button", {
+      name: `${etiquetaGrupo("Comida", 1)}, con un tope excedido`,
+      expanded: false,
+    });
+    // El aviso visual es un punto pequeño y rojo (aria-hidden: lo audible
+    // ya lo dice el aria-label del botón), no un círculo con triángulo.
+    // El selector va con las clases completas del punto: más estricto que
+    // buscar solo bg-destructive, y único en el botón (el punto de color
+    // del grupo es size-2.5 y no trae bg-destructive).
+    const punto = encabezado.querySelector(
+      "span.size-2.rounded-full.bg-destructive"
+    ) as HTMLElement;
+    expect(punto).toBeInTheDocument();
+    expect(punto.getAttribute("aria-hidden")).toBe("true");
+    // El texto del triángulo desapareció del panel entero: el "Te pasaste
+    // por" del renglón (oculto aquí por el repliegue, pero montado) es la
+    // voz del exceso.
+    expect(screen.queryByText("Tope excedido")).not.toBeInTheDocument();
+  });
+
   it("los ids de aria-controls son únicos entre dos paneles montados a la vez", () => {
     const items = [deCategoria("c1", "comida", "Mercado")];
     ajustarConsultas({ data: { items: items.map(renglonDe) } }, { data: items }, CATALOGO);
@@ -1189,15 +1218,17 @@ describe("PanelPresupuesto: ingresos y gastos en secciones", () => {
     expect(screen.queryByText(/Te pasaste por/)).not.toBeInTheDocument();
   });
 
-  it("el mismo exceso en un tope de gasto sí avisa en rojo", () => {
+  it("el mismo exceso en un tope de gasto sí avisa: texto visible 'Te pasaste por' y nada de triángulo", () => {
     const items = [deCategoria("c1", "comida", "Mercado")];
     const checklist = [{ ...renglonDe(items[0]), progress: "1500", target: "1000", checked: false, exceeded: true }];
     ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
 
     render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
 
-    expect(screen.getByText("Tope excedido")).toBeInTheDocument();
+    // El aviso vive en el texto visible y en la barra roja; el círculo con
+    // triángulo (y su "Tope excedido" para lector de pantalla) ya no existe.
     expect(screen.getByText(/Te pasaste por/)).toBeInTheDocument();
+    expect(screen.queryByText("Tope excedido")).not.toBeInTheDocument();
   });
 
   it("la etiqueta del progreso dice 'recibido' en ingresos y 'gastado' en gastos", () => {
