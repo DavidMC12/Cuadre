@@ -18,6 +18,7 @@ const movimiento: Movimiento = {
   description: "Mercado",
   transferGroupId: null,
   budgetItemId: null,
+  paymentGroupId: null,
   reversesTransactionId: null,
   reversedByTransactionId: null,
 };
@@ -36,5 +37,59 @@ describe("ConfirmarAnulacion: los botones del diálogo llevan el piso de toque",
 
     expect(screen.getByRole("button", { name: "Cancelar" }).className).toContain("min-h-11");
     expect(screen.getByRole("button", { name: "Sí, anular" }).className).toContain("min-h-11");
+  });
+});
+
+describe("ConfirmarAnulacion: una compra pagada con dos cuentas", () => {
+  const parte1: Movimiento = {
+    ...movimiento,
+    id: "p1",
+    paymentGroupId: "g-1",
+    amount: "-100000.0000",
+    description: "Mercado (1 de 2)",
+  };
+  const parte2: Movimiento = {
+    ...parte1,
+    id: "p2",
+    accountId: "a-2",
+    description: "Mercado (2 de 2)",
+  };
+
+  function montar(partes: Movimiento[] | undefined, movimientoAConfirmar: Movimiento = parte1) {
+    render(
+      <ConfirmarAnulacion
+        movimiento={movimientoAConfirmar}
+        partesDeLaCompra={partes}
+        procesando={false}
+        onConfirmar={vi.fn()}
+        onCancelar={vi.fn()}
+      />
+    );
+  }
+
+  it("dice que se anula la compra COMPLETA, con su total y sin la marca '(1 de 2)'", () => {
+    montar([parte1, parte2]);
+
+    expect(screen.getByText("¿Anular la compra completa?")).toBeInTheDocument();
+    expect(screen.getByText(/se anulan las dos partes juntas/)).toBeInTheDocument();
+    expect(screen.getByText("Mercado")).toBeInTheDocument();
+    expect(screen.getByText(/200\.000/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sí, anular la compra" }).className).toContain(
+      "min-h-11"
+    );
+  });
+
+  it("con una sola parte a la vista anuncia la compra igual, con el monto de esa parte", () => {
+    montar([parte1]);
+
+    expect(screen.getByText("¿Anular la compra completa?")).toBeInTheDocument();
+    expect(screen.getByText(/100\.000/)).toBeInTheDocument();
+  });
+
+  it("un movimiento normal sigue diciendo lo de siempre", () => {
+    montar(undefined, movimiento);
+
+    expect(screen.getByText("¿Anular este movimiento?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sí, anular" })).toBeInTheDocument();
   });
 });

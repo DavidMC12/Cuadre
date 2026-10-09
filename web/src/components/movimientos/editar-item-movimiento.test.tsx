@@ -69,6 +69,7 @@ const movimiento: Movimiento = {
   accountId: "a-1",
   categoryId: "c-deu",
   budgetItemId: "i-nu",
+  paymentGroupId: null,
   kind: "standard",
   amount: "-12500",
   currency: "COP",
@@ -176,6 +177,7 @@ describe("EditarItemMovimiento: el cajón de asignar item", () => {
       categoryId: null,
       transferGroupId: "g-1",
       budgetItemId: null,
+      paymentGroupId: null,
     };
 
     render(

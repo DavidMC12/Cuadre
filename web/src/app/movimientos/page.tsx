@@ -21,12 +21,18 @@ import { FalloConsulta, estadoDeConsulta, mensajeDeCargaFallida, mensajeDeFallo,
 import { SelectorMes } from "@/components/dashboard/selector-mes";
 import { MovimientoItem } from "@/components/movimientos/movimiento-item";
 import { TransferenciaItem } from "@/components/movimientos/transferencia-item";
+import { CompraDivididaItem } from "@/components/movimientos/compra-dividida-item";
 import { FormularioMovimiento } from "@/components/movimientos/formulario-movimiento";
 import { ConfirmarAnulacion } from "@/components/movimientos/confirmar-anulacion";
 import { useCuentas } from "@/hooks/use-cuentas";
 import { useCategorias } from "@/hooks/use-categorias";
-import { useAnularMovimiento, useMovimientos } from "@/hooks/use-movimientos";
+import {
+  useAnularMovimiento,
+  useAnularPagoDividido,
+  useMovimientos,
+} from "@/hooks/use-movimientos";
 import { agruparMovimientosPorDia } from "@/lib/agrupar-movimientos";
+import { combinarPagosDivididos, esCompraDividida } from "@/lib/combinar-pagos-divididos";
 import { combinarTransferencias, esTransferencia } from "@/lib/combinar-transferencias";
 import { ApiError } from "@/lib/api/client";
 import { textoEditable } from "@/lib/money";
@@ -125,6 +131,7 @@ function ContenidoMovimientos() {
     isFetchingNextPage,
   } = useMovimientos(filtros);
   const anularMovimiento = useAnularMovimiento();
+  const anularPagoDividido = useAnularPagoDividido();
 
   // Una consulta pausada sin red no es un mes en blanco: la misma política
   // que el resto de la app, para que el historial no se lea como vacío.
@@ -200,13 +207,42 @@ function ContenidoMovimientos() {
     () =>
       grupos.map((grupo) => ({
         etiqueta: grupo.etiqueta,
-        items: combinarTransferencias(grupo.items),
+        items: combinarPagosDivididos(combinarTransferencias(grupo.items)),
       })),
     [grupos]
   );
 
+  // Las partes de la compra pagada con dos cuentas que se va a anular, para que
+  // el diálogo diga el total. Si la lista solo trae una (filtro por cuenta), es
+  // la que haya.
+  const partesDeLaCompraAConfirmar = useMemo(() => {
+    const grupo = movimientoAConfirmar?.paymentGroupId;
+    if (!grupo) return undefined;
+    return (movimientos ?? []).filter((movimiento) => movimiento.paymentGroupId === grupo);
+  }, [movimientoAConfirmar, movimientos]);
+
   function confirmarAnulacion() {
     if (!movimientoAConfirmar) return;
+
+    // Una parte de una compra pagada con dos cuentas nunca se anula sola: se
+    // anula la compra completa. Y no hay "corregir": corregir una compra es
+    // anularla y registrarla de nuevo a mano.
+    if (movimientoAConfirmar.paymentGroupId) {
+      anularPagoDividido.mutate(movimientoAConfirmar.paymentGroupId, {
+        onSuccess: () => {
+          toast.success("Compra anulada.");
+          setMovimientoAConfirmar(null);
+        },
+        onError: (error) => {
+          toast.error(
+            error instanceof ApiError ? error.message : "No se pudo anular. Intenta de nuevo."
+          );
+          setMovimientoAConfirmar(null);
+        },
+      });
+      return;
+    }
+
     anularMovimiento.mutate(movimientoAConfirmar.id, {
       onSuccess: () => {
         toast.success("Movimiento anulado.");
@@ -405,7 +441,19 @@ function ContenidoMovimientos() {
               </h2>
               <div className="flex flex-col divide-y divide-border">
                 {grupo.items.map((item) =>
-                  esTransferencia(item) ? (
+                  esCompraDividida(item) ? (
+                    <CompraDivididaItem
+                      key={item.paymentGroupId}
+                      compra={item}
+                      cuentasPorId={cuentasPorId}
+                      categoria={
+                        item.partes[0].categoryId
+                          ? categoriasPorId.get(item.partes[0].categoryId)
+                          : undefined
+                      }
+                      onSolicitarAnular={setMovimientoAConfirmar}
+                    />
+                  ) : esTransferencia(item) ? (
                     <TransferenciaItem
                       key={item.transferGroupId}
                       par={item}
@@ -452,7 +500,8 @@ function ContenidoMovimientos() {
 
       <ConfirmarAnulacion
         movimiento={movimientoAConfirmar}
-        procesando={anularMovimiento.isPending}
+        partesDeLaCompra={partesDeLaCompraAConfirmar}
+        procesando={anularMovimiento.isPending || anularPagoDividido.isPending}
         onConfirmar={confirmarAnulacion}
         onCancelar={() => setMovimientoAConfirmar(null)}
       />

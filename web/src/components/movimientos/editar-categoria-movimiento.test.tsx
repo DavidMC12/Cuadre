@@ -43,6 +43,7 @@ const movimiento: Movimiento = {
   description: "Mercado",
   transferGroupId: null,
   budgetItemId: null,
+  paymentGroupId: null,
   reversesTransactionId: null,
   reversedByTransactionId: null,
 };

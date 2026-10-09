@@ -13,7 +13,10 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams.url,
 }));
 
-const { anularMutate } = vi.hoisted(() => ({ anularMutate: vi.fn() }));
+const { anularMutate, anularPagoMutate } = vi.hoisted(() => ({
+  anularMutate: vi.fn(),
+  anularPagoMutate: vi.fn(),
+}));
 const { searchParams, CATEGORIA_FILTRO } = vi.hoisted(() => ({
   searchParams: { url: new URLSearchParams() },
   // El filtro de la URL exige un UUID válido; una invención lo descarta.
@@ -23,6 +26,7 @@ const { searchParams, CATEGORIA_FILTRO } = vi.hoisted(() => ({
 vi.mock("@/hooks/use-movimientos", () => ({
   useMovimientos: vi.fn(),
   useAnularMovimiento: () => ({ isPending: false, mutate: anularMutate }),
+  useAnularPagoDividido: () => ({ isPending: false, mutate: anularPagoMutate }),
 }));
 
 vi.mock("@/hooks/use-cuentas", () => ({ useCuentas: vi.fn() }));
@@ -83,6 +87,22 @@ vi.mock("@/components/movimientos/movimiento-item", () => ({
 }));
 vi.mock("@/components/movimientos/transferencia-item", () => ({
   TransferenciaItem: () => <li>transferencia</li>,
+}));
+vi.mock("@/components/movimientos/compra-dividida-item", () => ({
+  CompraDivididaItem: ({
+    compra,
+    onSolicitarAnular,
+  }: {
+    compra: { partes: [Movimiento, Movimiento] };
+    onSolicitarAnular: (parte: Movimiento) => void;
+  }) => (
+    <li>
+      <span>compra-dividida</span>
+      <button type="button" onClick={() => onSolicitarAnular(compra.partes[0])}>
+        anular-compra
+      </button>
+    </li>
+  ),
 }));
 vi.mock("@/components/movimientos/confirmar-anulacion", () => ({
   ConfirmarAnulacion: ({
@@ -176,6 +196,7 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       description: null,
       transferGroupId: null,
       budgetItemId: null,
+      paymentGroupId: null,
       reversesTransactionId: null,
       reversedByTransactionId: null,
     };
@@ -238,6 +259,7 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       description: "Mercado",
       transferGroupId: null,
       budgetItemId: null,
+      paymentGroupId: null,
       reversesTransactionId: null,
       reversedByTransactionId: null,
     };
@@ -279,6 +301,65 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
     });
   });
 
+  describe("una compra pagada con dos cuentas", () => {
+    function parte(id: string, cuenta: string, descripcion: string): Movimiento {
+      return {
+        id,
+        accountId: cuenta,
+        categoryId: "c-3",
+        budgetItemId: null,
+        paymentGroupId: "g-1",
+        kind: "standard",
+        amount: "-100000.0000",
+        currency: "COP",
+        occurredAt: "2026-09-10T12:00:00Z",
+        description: descripcion,
+        transferGroupId: null,
+        reversesTransactionId: null,
+        reversedByTransactionId: null,
+      };
+    }
+
+    it("las dos partes salen en UNA sola fila, no en dos gastos sueltos", () => {
+      ajustar({ data: [parte("p1", "a-1", "Mercado (1 de 2)"), parte("p2", "a-2", "Mercado (2 de 2)")] });
+
+      render(<PaginaMovimientos />);
+
+      expect(screen.getAllByText("compra-dividida")).toHaveLength(1);
+      expect(screen.queryByText("movimiento")).not.toBeInTheDocument();
+    });
+
+    it("anularla manda anular la compra COMPLETA (el grupo), nunca una parte, y no abre 'corregir'", () => {
+      anularPagoMutate.mockImplementation(
+        (_grupo: string, opciones: { onSuccess?: () => void }) => opciones.onSuccess?.()
+      );
+      ajustar({ data: [parte("p1", "a-1", "Mercado (1 de 2)"), parte("p2", "a-2", "Mercado (2 de 2)")] });
+
+      render(<PaginaMovimientos />);
+      fireEvent.click(screen.getByRole("button", { name: "anular-compra" }));
+      fireEvent.click(screen.getByRole("button", { name: "confirmar-anulacion" }));
+
+      expect(anularPagoMutate).toHaveBeenCalledWith("g-1", expect.anything());
+      expect(anularMutate).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("valores-iniciales")).not.toBeInTheDocument();
+    });
+
+    it("una parte suelta (filtro por cuenta) también anula la compra completa", () => {
+      anularPagoMutate.mockImplementation(
+        (_grupo: string, opciones: { onSuccess?: () => void }) => opciones.onSuccess?.()
+      );
+      // Solo llega una de las dos partes: se muestra como movimiento normal.
+      ajustar({ data: [parte("p1", "a-1", "Mercado (1 de 2)")] });
+
+      render(<PaginaMovimientos />);
+      fireEvent.click(screen.getByRole("button", { name: "anular-fila" }));
+      fireEvent.click(screen.getByRole("button", { name: "confirmar-anulacion" }));
+
+      expect(anularPagoMutate).toHaveBeenCalledWith("g-1", expect.anything());
+      expect(anularMutate).not.toHaveBeenCalled();
+    });
+  });
+
   const cuentaActiva: Cuenta = {
     id: "a-activa",
     name: "Efectivo",
@@ -313,6 +394,7 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       description: null,
       transferGroupId: null,
       budgetItemId: null,
+      paymentGroupId: null,
       reversesTransactionId: null,
       reversedByTransactionId: null,
     };
@@ -458,6 +540,7 @@ describe("Movimientos: piso de toque de 44px", () => {
       description: null,
       transferGroupId: null,
       budgetItemId: null,
+      paymentGroupId: null,
       reversesTransactionId: null,
       reversedByTransactionId: null,
     };

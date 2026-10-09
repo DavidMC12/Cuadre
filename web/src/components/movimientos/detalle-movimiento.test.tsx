@@ -41,6 +41,7 @@ const movimiento: Movimiento = {
   accountId: "a-1",
   categoryId: null,
   budgetItemId: null,
+  paymentGroupId: null,
   kind: "standard",
   amount: "-12500",
   currency: "COP",
@@ -84,6 +85,7 @@ describe("DetalleMovimiento: un ajuste de saldo", () => {
     description: "Ajuste de saldo",
     transferGroupId: null,
     budgetItemId: null,
+    paymentGroupId: null,
     reversesTransactionId: null,
     reversedByTransactionId: null,
   };
@@ -255,6 +257,7 @@ describe("DetalleMovimiento: el renglón del item del presupuesto", () => {
           kind: "adjustment",
           categoryId: "c-deu",
           budgetItemId: null,
+          paymentGroupId: null,
         }}
         cuenta={undefined}
         categoria={undefined}

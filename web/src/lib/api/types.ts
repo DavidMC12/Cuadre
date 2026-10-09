@@ -85,6 +85,12 @@ export interface Movimiento {
   occurredAt: string;
   description: string | null;
   transferGroupId: string | null;
+  /**
+   * Una compra pagada con dos cuentas se guarda como dos gastos que comparten
+   * este grupo (las dos partes se ven y se anulan juntas). `null` en todo lo
+   * demás. La anulación de una compra lleva su propio grupo nuevo.
+   */
+  paymentGroupId: string | null;
   /** Si no es null, esta fila anula a la que tiene ese id. */
   reversesTransactionId: string | null;
   /** Si no es null, a esta fila la anuló la que tiene ese id. */
@@ -103,6 +109,29 @@ export interface NuevoMovimiento {
    * categoria y el item es de esa categoria y de la moneda de la cuenta.
    */
   budgetItemId?: string | null;
+}
+
+/**
+ * Una compra pagada con dos cuentas (la mitad con tarjeta, la mitad con plata
+ * disponible), registrada de una vez. Cada parte lleva el monto CON SIGNO de
+ * su cuenta, decidido por la interfaz (gasto = negativo) y del mismo signo las
+ * dos; el servidor escribe las dos partes juntas o ninguna.
+ */
+export interface NuevoPagoDividido {
+  payments: [
+    { accountId: string; amount: string },
+    { accountId: string; amount: string },
+  ];
+  occurredAt: string;
+  description?: string;
+  categoryId?: string;
+  budgetItemId?: string | null;
+}
+
+/** Las dos partes de una compra pagada con dos cuentas, ya guardadas. */
+export interface PagoDividido {
+  paymentGroupId: string;
+  legs: Movimiento[];
 }
 
 /**
