@@ -267,18 +267,21 @@ describe('registrar una compra pagada con dos cuentas', () => {
     expect(await contarMovimientos(tarjeta.id)).toBe(0);
   });
 
-  it('la descripción deja lugar para la marca "(1 de 2)": más de 490 caracteres es 400', async () => {
+  it('la descripción deja lugar para la marca "(1 de 2)": 491 caracteres es el tope, 492 es 400', async () => {
     const { tarjeta, banco } = await escenario();
     const dosPartes = [
       { accountId: tarjeta.id, amount: '-1000' },
       { accountId: banco.id, amount: '-1000' },
     ];
 
-    const justa = await dividir({ payments: dosPartes, description: 'x'.repeat(490) });
-    const larga = await dividir({ payments: dosPartes, description: 'x'.repeat(491) });
+    const justa = await dividir({ payments: dosPartes, description: 'x'.repeat(491) });
+    const larga = await dividir({ payments: dosPartes, description: 'x'.repeat(492) });
 
     expect(justa.estado).toBe(201);
-    expect(justa.cuerpo.data.legs[0].description.length).toBeLessThanOrEqual(500);
+    // 491 + " (1 de 2)" (9 caracteres) = 500: justo el tope de un movimiento normal.
+    expect(justa.cuerpo.data.legs[0].description).toHaveLength(500);
+    expect(justa.cuerpo.data.legs[0].description).toMatch(/ \(1 de 2\)$/);
+    expect(justa.cuerpo.data.legs[1].description).toMatch(/ \(2 de 2\)$/);
     expect(larga.estado).toBe(400);
   });
 
@@ -394,6 +397,24 @@ describe('anular una compra pagada con dos cuentas', () => {
     expect(resumen.cuerpo.data.expense).toBe('0.0000');
     const item = (await checklist()).find((i) => i.id === compra.mercado);
     expect(item).toMatchObject({ progress: '0.0000', status: 'pending' });
+  });
+
+  it('dos anulaciones simultáneas: una sola entra (201) y la otra es 409, sin duplicar saldos', async () => {
+    const compra = await comprar();
+
+    const [uno, otro] = await Promise.all([
+      pedir('POST', `/api/v1/split-payments/${compra.paymentGroupId}/reversal`),
+      pedir('POST', `/api/v1/split-payments/${compra.paymentGroupId}/reversal`),
+    ]);
+
+    expect([uno.estado, otro.estado].sort()).toEqual([201, 409]);
+    expect(await saldoDe(compra.tarjeta.id)).toBe('0.0000');
+    expect(await saldoDe(compra.banco.id)).toBe('500000.0000');
+    const filas = (await db.execute(sql`
+      select count(*)::int as n from transactions
+      where user_id = ${usuarioId}::uuid and reverses_transaction_id is not null
+    `)) as unknown as { n: number }[];
+    expect(filas[0]!.n).toBe(2);
   });
 
   it('anular una sola parte no se puede: 422 que manda a anular la compra completa', async () => {

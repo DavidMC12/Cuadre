@@ -59,7 +59,9 @@ export function CamposPagoDividido({
   const textoDeEstado = !reparto.cuadra
     ? (reparto.motivo ?? "")
     : faltaCuenta
-      ? `Elige la cuenta ${valor.cuenta1Id ? 2 : 1} para registrar.`
+      ? !valor.cuenta1Id && !valor.cuenta2Id
+        ? "Elige las dos cuentas para registrar."
+        : `Elige la cuenta ${valor.cuenta1Id ? 2 : 1} para registrar.`
       : total
         ? `✓ Suma ${textoMonto(total, moneda)}`
         : "";

@@ -98,6 +98,28 @@ describe("CamposPagoDividido", () => {
     expect(estado.className).not.toContain("emerald");
   });
 
+  it("si faltan las dos cuentas, las nombra a las dos", () => {
+    montar({ ...inicial, cuenta1Id: "", cuenta2Id: "" });
+
+    expect(document.getElementById("estado-pago-dividido")).toHaveTextContent(
+      "Elige las dos cuentas para registrar."
+    );
+  });
+
+  it("si no cuadra Y falta una cuenta, manda lo de los montos (es lo primero que hay que arreglar)", () => {
+    montar({ ...inicial, cuenta2Id: "", texto2: "50.000" });
+
+    expect(document.getElementById("estado-pago-dividido")).toHaveTextContent(
+      "Faltan $50.000 por repartir."
+    );
+  });
+
+  it("con total 0 o vacío no hay nada que repartir ni que celebrar", () => {
+    montar(inicial, { total: null });
+
+    expect(document.getElementById("estado-pago-dividido")).not.toHaveTextContent("✓");
+  });
+
   it("si falta la cuenta 1, dice la cuenta 1", () => {
     montar({ ...inicial, cuenta1Id: "" });
 

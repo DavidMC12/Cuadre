@@ -69,9 +69,10 @@ export const RegistrarPagoDivididoSchema = z
       .array(z.object({ accountId: z.uuid(), amount: MontoSchema }))
       .length(2, 'un pago dividido tiene exactamente dos partes'),
     occurredAt: FechaSchema,
-    // Menos de 500: el servidor le agrega " (1 de 2)" a cada parte y la
-    // descripción guardada no debe pasar del tope de un movimiento normal.
-    description: z.string().trim().min(1).max(490).nullish(),
+    // Menos de 500: el servidor le agrega " (1 de 2)" (9 caracteres) a cada
+    // parte y la descripción guardada no debe pasar del tope de un movimiento
+    // normal.
+    description: z.string().trim().min(1).max(491).nullish(),
     categoryId: z.uuid().nullish(),
     budgetItemId: z.uuid().nullish(),
   })

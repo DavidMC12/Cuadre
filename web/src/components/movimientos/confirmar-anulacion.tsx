@@ -33,7 +33,14 @@ export function ConfirmarAnulacion({
   onCancelar: () => void;
 }) {
   const esCompra = movimiento?.paymentGroupId != null;
-  const partes = esCompra && partesDeLaCompra?.length ? partesDeLaCompra : movimiento ? [movimiento] : [];
+  // Solo se confía en las partes de la pantalla si incluyen al propio movimiento:
+  // la lista de la página siempre lo trae, pero que este diálogo no dependa de
+  // eso evita mostrar el monto de una parte con el nombre de otra.
+  const partesVistas =
+    esCompra && movimiento && partesDeLaCompra?.some((parte) => parte.id === movimiento.id)
+      ? partesDeLaCompra
+      : undefined;
+  const partes = partesVistas?.length ? partesVistas : movimiento ? [movimiento] : [];
   // Si la pantalla solo trae UNA de las dos partes (filtro por cuenta o
   // paginación), el total de la compra no se conoce: decir "$100.000" para una
   // compra de $200.000 engañaría justo antes de una acción que no se deshace.
