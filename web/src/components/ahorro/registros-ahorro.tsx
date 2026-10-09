@@ -13,9 +13,6 @@ import { textoDeRegistro } from "@/lib/ahorros";
  * Cada registro es INMUTABLE: no hay editar ni borrar — la corrección es
  * anotar otro de signo contrario, igual que el ajuste de saldo.
  *
- * Cada registro es INMUTABLE: no hay editar ni borrar — la corrección es
- * anotar otro de signo contrario, igual que el ajuste de saldo.
- *
  * "Sin registros" y "fallo de consulta" son cosas distintas: decir que no
  * anotaste nada cuando el servidor no contestó sería mentir en una pantalla
  * de dinero. Si la lista no se pudo leer, aquí se dice y se ofrece

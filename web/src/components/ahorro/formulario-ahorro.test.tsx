@@ -143,23 +143,35 @@ describe("FormularioAhorro: con qué cuenta abre", () => {
     expect(registrar.mutate).not.toHaveBeenCalled();
   });
 
-  it("el cero no se aparta: cifra valida distinta de cero", () => {
+  it("el cero no se aparta: se dice al intentar enviar, no mientras se teclea", () => {
     abrirDominio([vacaciones]);
-    expect(screen.getByRole("button", { name: "Sí, anotar" })).toBeDisabled();
 
+    // Mientras se escribe, nada regaña: "0" apenas deja el botón a la
+    // espera, sin mensajes rojos a mitad del gesto.
     fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "0" } });
-    expect(screen.getByRole("button", { name: "Sí, anotar" })).toBeDisabled();
+    expect(screen.queryByText("El monto tiene que ser mayor que cero.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sí, anotar" })).toBeEnabled();
+
+    // El clic pidió guardar: ahora sí se dice qué corregir.
+    fireEvent.click(screen.getByRole("button", { name: "Sí, anotar" }));
+    expect(registrar.mutate).not.toHaveBeenCalled();
     expect(screen.getByText("El monto tiene que ser mayor que cero.")).toBeInTheDocument();
   });
 
-  it("abrir no empieza regañando: el campo vacío no lleva error ni aria-invalid", () => {
-    abrirDominio([vacaciones]);
+  it("abrir no empieza regañando ni teclear a media cifra", () => {
+    abrirDominio([cuenta({ id: "cta-usd", name: "Ahorro dólares", currency: "USD" })]);
 
-    // Vacío no es "mal escrito": cada quien todavía no escribió nada. El
-    // botón apagado ya espera una cifra; un mensaje rojo al abrir explicaría
-    // algo que no pasó.
+    // Vacío: cada quien todavía no escribió nada; el texto rojo solo llega
+    // tras un intento de envío.
     expect(screen.queryByText("Escribe el monto.")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Monto")).toHaveAttribute("aria-invalid", "false");
+    // En dólares, "25." está a mitad de cifra: tampoco regaña ahí.
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "25." } });
+    expect(screen.queryByText(/Usa punto para los miles/)).not.toBeInTheDocument();
+
+    // El intento ya lo dice todo.
+    fireEvent.click(screen.getByRole("button", { name: "Sí, anotar" }));
+    expect(registrar.mutate).not.toHaveBeenCalled();
+    expect(screen.getByText(/Usa punto para los miles/)).toBeInTheDocument();
   });
 
   it("sin cuentas de ahorro no muestra un formulario muerto", () => {

@@ -76,18 +76,30 @@ export function textoDeExito(registro: RegistroDeAhorro, nombreDeCuenta: string)
 }
 
 /**
- * Lo que una cifra escrita falla para anotarse — o `null` si sirve.
+ * Lo que una cifra escrita produce para anotarse.
  *
- * Vacío NO es un error: es "todavía no escribieron nada", y regañar al abrir
- * el formulario explicaría algo que no pasó. El resto de las fallas son las
- * de siempre, y viven aquí (una sola vez) para que el texto de ojos y la
- * decisión de guardar no puedan divergir: lo mal escrito se lee como lo lee
- * money.ts, y el cero no se aparta.
+ * El VACÍO también ayuda si el mensaje se muestra tras un intento de envío
+ * ("Escribe el monto."; el clic pidió guardar, así que sí se le dice cómo
+ * seguir) — la pantalla decide MOSTRARLO al abrir o después de intentar:
+ * abrir no debe empezar regañando, y teclear "25." a mitad de cifra
+ * tampoco. Lo mal escrito se lee como lo lee money.ts, y el cero no se
+ * aparta. Una sola verdad para el texto de ojos y la decisión de guardar.
  */
-export function errorDeMontoDeAhorro(texto: string, moneda: string): string | null {
-  if (texto.trim() === "") return null;
+export interface LecturaDeMontoDeAhorro {
+  /** La frase qué corregir; `null` solo si la cifra sirve. */
+  error: string | null;
+  /** La cifra positiva lista para el servidor; `null` si no sirve. */
+  monto: string | null;
+  /** Si el monto se puede anotar ya: la que espera encender al botón. */
+  valida: boolean;
+}
+
+export function leerMontoDeAhorro(texto: string, moneda: string): LecturaDeMontoDeAhorro {
+  if (texto.trim() === "") return { error: "Escribe el monto.", monto: null, valida: false };
   const lectura = normalizarMontoIngresado(texto, moneda);
-  if ("error" in lectura) return lectura.error;
-  if (aUnidadesMinimas(lectura.monto) <= 0n) return "El monto tiene que ser mayor que cero.";
-  return null;
+  if ("error" in lectura) return { error: lectura.error, monto: null, valida: false };
+  if (aUnidadesMinimas(lectura.monto) <= 0n) {
+    return { error: "El monto tiene que ser mayor que cero.", monto: null, valida: false };
+  }
+  return { error: null, monto: lectura.monto, valida: true };
 }

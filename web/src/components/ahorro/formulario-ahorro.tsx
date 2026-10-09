@@ -33,10 +33,9 @@ import {
   montoConSigno,
   textoDeExito,
   textoDeVistaPrevia,
-  errorDeMontoDeAhorro,
+  leerMontoDeAhorro,
   type TipoRegistroAhorro,
 } from "@/lib/ahorros";
-import { normalizarMontoIngresado } from "@/lib/money";
 
 /**
  * El diálogo de "Registrar ahorro": anota que apartaste (o retiraste) plata
@@ -86,6 +85,10 @@ export function FormularioAhorro({
   const [descripcion, setDescripcion] = useState("");
   const [cuentaAMano, setCuentaAMano] = useState<string | null>(cuentaIdPorDefecto ?? null);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
+  // El error del monto SOLO se muestra tras intentar enviar: abrir no
+  // regaña, y teclear "25." a mitad de cifra tampoco. Es la misma regla que
+  // el formulario de movimientos.
+  const [intentoEnviado, setIntentoEnviado] = useState(false);
 
   // La cuenta: la elegida a mano si sigue existiendo; si no, la preselección
   // (que puede llegar tarde, cuando las cuentas acaban de cargar); si no, la
@@ -101,26 +104,15 @@ export function FormularioAhorro({
           : "";
   const cuentaElegida = cuentas.find((cuenta) => cuenta.id === cuentaId);
 
-  // El texto de error del monto (o null si la cifra sirve). Vacío no es
-  // error: el formulario abre con el campo vacío y no empieza regañando; el
-  // botón espera una cifra Wrapped válida. El error DEL SERVIDOR va aparte:
-  // la cifra puede estar bien redactada y aun así el servidor rechazarla por
-  // lo que significa, no por cómo quedó escrita.
-  const errorDelMonto = cuentaElegida
-    ? errorDeMontoDeAhorro(monto, cuentaElegida.currency)
-    : null;
-  const montoValido =
-    cuentaElegida !== undefined && errorDelMonto === null && monto.trim() !== "";
-
-  // La cifra ya leída, lista para mandársela al toast y al servidor. Solo
-  // existe si el monto vale; el signo lo pone montoConSigno, no esto.
-  const lecturaDeCifra = cuentaElegida
-    ? normalizarMontoIngresado(monto, cuentaElegida.currency)
-    : null;
-  const cifra =
-    montoValido && lecturaDeCifra !== null && !("error" in lecturaDeCifra)
-      ? lecturaDeCifra.monto
-      : null;
+  // Una sola lectura del monto decide todo: qué se dice (si ya se intentó
+  // enviar), si el botón se enciende y qué cifra viaja. El error DEL
+  // SERVIDOR va aparte: la cifra puede estar bien redactada y aun así el
+  // servidor rechazarla por lo que significa, no por cómo quedó escrita.
+  const lectura = cuentaElegida ? leerMontoDeAhorro(monto, cuentaElegida.currency) : null;
+  const errorDelMonto =
+    intentoEnviado && lectura !== null && lectura.error !== null ? lectura.error : null;
+  const montoValido = lectura !== null && lectura.valida;
+  const cifra = lectura !== null ? lectura.monto : null;
 
   const registrar = useCrearRegistroAhorro();
   const procesando = registrar.isPending;
@@ -132,6 +124,7 @@ export function FormularioAhorro({
     setDescripcion("");
     setCuentaAMano(cuentaIdPorDefecto ?? null);
     setErrorServidor(null);
+    setIntentoEnviado(false);
   }
 
   function manejarCambioAbierto(valor: boolean) {
@@ -143,9 +136,11 @@ export function FormularioAhorro({
   }
 
   function anotar() {
-    // El botón ya espera cuenta y cifra; estas guardias son por si algo
-    // cambia entre renders y el botón se abriera por accidente.
-    if (!cuentaElegida || cifra === null) return;
+    // Se intentó enviar: lo que la cifra tenga malo, ahora sí se dice.
+    setIntentoEnviado(true);
+    // Sin cuenta no hay nada que anotar: el botón no debía estar encendido.
+    if (!cuentaElegida) return;
+    if (cifra === null) return;
 
     setErrorServidor(null);
     registrar.mutate(
@@ -264,8 +259,11 @@ export function FormularioAhorro({
                 value={monto}
                 onChange={(valor) => {
                   setMonto(valor);
-                  // El rechazo del servidor hablaba de lo que ya no está
-                  // escrito: en cuanto se toca el monto, queda de más.
+                  // Editar es reintentar: lo que se dijo del intento
+                  // anterior ya no aplica (ni el error del campo ni el
+                  // rechazo del servidor), y teclear a media cifra no
+                  // merece regaños.
+                  setIntentoEnviado(false);
                   setErrorServidor(null);
                 }}
                 // Siempre positivo en pantalla: el signo lo pone el tipo,
@@ -340,10 +338,10 @@ export function FormularioAhorro({
               <Button
                 className="min-h-11"
                 onClick={anotar}
-                // El "Sí, anotar" espera una cuenta y una cifra bien
-                // escrita y mayor que cero: nada que el servidor tenga que
-                // corregir de mitad de camino.
-                disabled={procesando || !cuentaElegida || !montoValido}
+                // El botón solo espera una cuenta: la cifra se revisa al
+                // enviar, con su explicación visible, como en el formulario
+                // de movimientos.
+                disabled={procesando || !cuentaElegida}
               >
                 {procesando ? "Anotando…" : "Sí, anotar"}
               </Button>

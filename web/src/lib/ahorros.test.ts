@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup } from "@testing-library/react";
 
 import {
-  errorDeMontoDeAhorro,
+  leerMontoDeAhorro,
   montoConSigno,
   textoDeExito,
   textoDeRegistro,
@@ -81,25 +81,33 @@ describe("textoDeVistaPrevia", () => {
   });
 });
 
-describe("errorDeMontoDeAhorro", () => {
-  it("vacío no es error: abrir el formulario no empieza regañando", () => {
-    expect(errorDeMontoDeAhorro("", "COP")).toBeNull();
-    expect(errorDeMontoDeAhorro("   ", "COP")).toBeNull();
+describe("leerMontoDeAhorro", () => {
+  it("vacío falla con 'Escribe el monto.': el clic pidió guardar", () => {
+    expect(leerMontoDeAhorro("", "COP")).toEqual({
+      error: "Escribe el monto.",
+      monto: null,
+      valida: false,
+    });
+    expect(leerMontoDeAhorro("   ", "COP").error).toBe("Escribe el monto.");
   });
 
   it("el cero se avisa antes de que vaya al servidor", () => {
-    expect(errorDeMontoDeAhorro("0", "COP")).toBe("El monto tiene que ser mayor que cero.");
-    expect(errorDeMontoDeAhorro("0", "USD")).toBe("El monto tiene que ser mayor que cero.");
+    expect(leerMontoDeAhorro("0", "COP").error).toBe("El monto tiene que ser mayor que cero.");
+    expect(leerMontoDeAhorro("0", "USD").error).toBe("El monto tiene que ser mayor que cero.");
   });
 
   it("lo mal escrito se lee como lo lee money.ts, con su frase de costumbre", () => {
-    expect(errorDeMontoDeAhorro("25.000,50", "COP")).toBe(
+    expect(leerMontoDeAhorro("25.000,50", "COP").error).toBe(
       "Los pesos no llevan decimales: escribe el monto completo, por ejemplo 25.000."
     );
   });
 
-  it("una cifra válida no falla", () => {
-    expect(errorDeMontoDeAhorro("500.000", "COP")).toBeNull();
+  it("una cifra válida no falla y sale lista, positiva", () => {
+    expect(leerMontoDeAhorro("500.000", "COP")).toEqual({
+      error: null,
+      monto: "500000",
+      valida: true,
+    });
   });
 });
 
