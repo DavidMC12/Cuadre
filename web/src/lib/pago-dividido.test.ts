@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { Cuenta } from "./api/types";
 import {
   completarLaOtraParte,
+  cuentasDelRepartoValidas,
   cuentasParaLaParte,
+  esCuentaValidaParaLaParte,
   leerReparto,
   repartirALaMitad,
   repartoInicial,
@@ -116,5 +118,41 @@ describe("cuentasParaLaParte", () => {
 
   it("sin moneda definida ofrece todas las activas menos la de la otra parte", () => {
     expect(cuentasParaLaParte(cuentas, undefined, "a").map((c) => c.id)).toEqual(["b", "c"]);
+  });
+});
+
+describe("cuentasDelRepartoValidas", () => {
+  function cuenta(id: string, extras: Partial<Cuenta> = {}): Cuenta {
+    return { id, currency: "COP", archivedAt: null, ...extras } as Cuenta;
+  }
+  const cuentas = [
+    cuenta("a"),
+    cuenta("b"),
+    cuenta("c", { currency: "USD" }),
+    cuenta("d", { archivedAt: "2026-01-01T00:00:00Z" }),
+  ];
+
+  it("las dos cuentas existen, están activas, son distintas y de la moneda", () => {
+    expect(cuentasDelRepartoValidas(cuentas, "COP", "a", "b")).toBe(true);
+  });
+
+  it("una cuenta archivada la invalida: el servidor la rechazaría", () => {
+    expect(cuentasDelRepartoValidas(cuentas, "COP", "a", "d")).toBe(false);
+  });
+
+  it("la misma cuenta dos veces no vale", () => {
+    expect(cuentasDelRepartoValidas(cuentas, "COP", "a", "a")).toBe(false);
+  });
+
+  it("otra moneda o un vacío no valen", () => {
+    expect(cuentasDelRepartoValidas(cuentas, "COP", "a", "c")).toBe(false);
+    expect(cuentasDelRepartoValidas(cuentas, "COP", "a", "")).toBe(false);
+    expect(cuentasDelRepartoValidas(cuentas, "COP", "", "b")).toBe(false);
+  });
+
+  it("esCuentaValidaParaLaParte distingue activa, archivada y de otra moneda", () => {
+    expect(esCuentaValidaParaLaParte(cuentas, "COP", "a")).toBe(true);
+    expect(esCuentaValidaParaLaParte(cuentas, "COP", "d")).toBe(false);
+    expect(esCuentaValidaParaLaParte(cuentas, "COP", "c")).toBe(false);
   });
 });

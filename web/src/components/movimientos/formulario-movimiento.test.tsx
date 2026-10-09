@@ -1398,4 +1398,52 @@ describe("FormularioMovimiento: pagar con dos cuentas", () => {
     );
     expect(screen.queryByRole("button", { name: "Pagar con dos cuentas" })).toBeNull();
   });
+
+  it("si una cuenta del reparto se archiva después de elegirla, no deja enviar y avisa", () => {
+    const { rerender } = render(
+      <FormularioMovimiento
+        cuentas={cuentasDos}
+        abierto
+        valoresIniciales={{ monto: "200.000", cuentaId: "a-1", fecha: "2026-10-01", tipo: "gasto" }}
+        pagoDivididoInicial={{
+          cuenta1Id: "a-1",
+          cuenta2Id: "a-2",
+          texto1: "100.000",
+          texto2: "100.000",
+        }}
+      />
+    );
+
+    // Un cambio habilita Registrar: sin esto, el apagado de abajo no probaría
+    // que la cuenta archivada es lo que lo frena.
+    fireEvent.change(screen.getByLabelText("Descripción (opcional)"), {
+      target: { value: "Mercado corregido" },
+    });
+    expect(screen.getByRole("button", { name: "Registrar" })).toBeEnabled();
+
+    // La lista se refresca y la cuenta 2 aparece archivada.
+    rerender(
+      <FormularioMovimiento
+        cuentas={[
+          bancolombia,
+          { ...tarjeta, archivedAt: "2026-10-09T00:00:00Z" },
+          dolares,
+          vieja,
+        ]}
+        abierto
+        valoresIniciales={{ monto: "200.000", cuentaId: "a-1", fecha: "2026-10-01", tipo: "gasto" }}
+        pagoDivididoInicial={{
+          cuenta1Id: "a-1",
+          cuenta2Id: "a-2",
+          texto1: "100.000",
+          texto2: "100.000",
+        }}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Registrar" })).toBeDisabled();
+    expect(
+      screen.getByText("Una de las cuentas elegidas ya no está disponible: elígela de nuevo.")
+    ).toBeInTheDocument();
+  });
 });

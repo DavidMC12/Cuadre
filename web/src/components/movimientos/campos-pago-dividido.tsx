@@ -11,7 +11,12 @@ import {
 import { CampoMonto } from "@/components/campo-monto";
 import type { Cuenta } from "@/lib/api/types";
 import { textoMonto } from "@/lib/money";
-import { completarLaOtraParte, cuentasParaLaParte, leerReparto } from "@/lib/pago-dividido";
+import {
+  completarLaOtraParte,
+  cuentasParaLaParte,
+  esCuentaValidaParaLaParte,
+  leerReparto,
+} from "@/lib/pago-dividido";
 
 /** Lo que el formulario guarda del modo "Pagar con dos cuentas". */
 export interface PagoDivididoEnEdicion {
@@ -53,9 +58,17 @@ export function CamposPagoDividido({
 }) {
   const reparto = leerReparto(total, valor.texto1, valor.texto2, moneda);
 
+  const cuenta1Valida = esCuentaValidaParaLaParte(cuentas, moneda, valor.cuenta1Id);
+  const cuenta2Valida = esCuentaValidaParaLaParte(cuentas, moneda, valor.cuenta2Id);
+
   // Los montos pueden cuadrar sin que esté elegida la segunda cuenta: ahí no
   // hay nada que celebrar (Registrar sigue apagado) y hay que decir qué falta.
-  const faltaCuenta = !valor.cuenta1Id || !valor.cuenta2Id;
+  // Una cuenta elegida que después se archivó (la lista se refresca sola) se
+  // trata como no elegida: no se manda una cuenta fantasma al servidor.
+  const faltaCuenta = !cuenta1Valida || !cuenta2Valida;
+  const cuentaDesaparecida =
+    (valor.cuenta1Id !== "" && !cuenta1Valida) ||
+    (valor.cuenta2Id !== "" && !cuenta2Valida);
   const textoDeEstado = !reparto.cuadra
     ? (reparto.motivo ?? "")
     : faltaCuenta
@@ -81,6 +94,7 @@ export function CamposPagoDividido({
 
   function fila(cual: 1 | 2) {
     const cuentaId = cual === 1 ? valor.cuenta1Id : valor.cuenta2Id;
+    const cuentaValida = cual === 1 ? cuenta1Valida : cuenta2Valida;
     const texto = cual === 1 ? valor.texto1 : valor.texto2;
     const opciones = cual === 1 ? opcionesDeLa1 : opcionesDeLa2;
 
@@ -89,7 +103,9 @@ export function CamposPagoDividido({
         <div className="flex flex-col gap-1.5 sm:flex-1">
           <Label htmlFor={`cuenta-pago-${cual}`}>Cuenta {cual}</Label>
           <Select
-            value={cuentaId || undefined}
+            // Una cuenta que ya no es válida no se muestra como elegida: su
+            // opción tampoco está en el menú.
+            value={cuentaValida ? cuentaId || undefined : undefined}
             onValueChange={(nueva) =>
               onChange(
                 cual === 1
@@ -162,6 +178,12 @@ export function CamposPagoDividido({
       >
         {textoDeEstado}
       </p>
+
+      {cuentaDesaparecida && (
+        <p className="text-xs text-destructive">
+          Una de las cuentas elegidas ya no está disponible: elígela de nuevo.
+        </p>
+      )}
     </div>
   );
 }

@@ -61,7 +61,12 @@ import {
 import { agruparItemsDePago, SIN_ITEM, textoDeOpcion } from "@/lib/item-presupuesto";
 import { cn } from "@/lib/utils";
 import { esCero, normalizarMontoIngresado, textoMonto } from "@/lib/money";
-import { cuentasParaLaParte, leerReparto, repartoInicial } from "@/lib/pago-dividido";
+import {
+  cuentasDelRepartoValidas,
+  cuentasParaLaParte,
+  leerReparto,
+  repartoInicial,
+} from "@/lib/pago-dividido";
 import { cuentasDeDestino } from "@/lib/transferencias";
 
 type TipoMonto = "gasto" | "ingreso" | "transferencia";
@@ -422,8 +427,19 @@ export function FormularioMovimiento({
     pagoDividido && cuentaElegida
       ? leerReparto(totalLeido, pagoDividido.texto1, pagoDividido.texto2, cuentaElegida.currency)
       : null;
+  // Las cuentas tienen que seguir siendo válidas AHORA, no solo al elegirlas:
+  // si una se archiva y la lista se refresca, deja de contar y "Registrar" se
+  // apaga, en vez de mandar una cuenta que el servidor rechazaría.
   const pagoDivididoListo = Boolean(
-    pagoDividido?.cuenta1Id && pagoDividido.cuenta2Id && repartoDelPago?.cuadra
+    pagoDividido &&
+      cuentaElegida &&
+      cuentasDelRepartoValidas(
+        cuentas,
+        cuentaElegida.currency,
+        pagoDividido.cuenta1Id,
+        pagoDividido.cuenta2Id
+      ) &&
+      repartoDelPago?.cuadra
   );
 
   function activarPagoDividido() {

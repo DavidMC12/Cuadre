@@ -145,3 +145,44 @@ export function cuentasParaLaParte(
       cuenta.id !== cuentaDeLaOtraParte
   );
 }
+
+/**
+ * ¿La cuenta elegida para una parte sigue sirviendo? Existe, no está archivada
+ * y es de la moneda de la compra. La lista de cuentas se refresca sola: una
+ * cuenta elegida puede archivarse DESPUÉS de elegirla, y entonces deja de ser
+ * una opción válida. Tratarla como no elegida evita mandar al servidor una
+ * cuenta fantasma (que rechazaría con 422).
+ */
+export function esCuentaValidaParaLaParte(
+  cuentas: readonly Cuenta[],
+  moneda: string | undefined,
+  cuentaId: string
+): boolean {
+  return cuentas.some(
+    (cuenta) =>
+      cuenta.id === cuentaId &&
+      cuenta.archivedAt === null &&
+      (moneda === undefined || cuenta.currency === moneda)
+  );
+}
+
+/**
+ * Las dos cuentas del reparto siguen siendo válidas: las dos existen, están
+ * activas, son distintas entre sí y de la moneda de la compra. Es la misma
+ * condición que habilita "Registrar": sin esto, una cuenta archivada después
+ * de elegirla dejaría enviar y el servidor lo rechazaría.
+ */
+export function cuentasDelRepartoValidas(
+  cuentas: readonly Cuenta[],
+  moneda: string,
+  cuenta1Id: string,
+  cuenta2Id: string
+): boolean {
+  return (
+    cuenta1Id !== "" &&
+    cuenta2Id !== "" &&
+    cuenta1Id !== cuenta2Id &&
+    esCuentaValidaParaLaParte(cuentas, moneda, cuenta1Id) &&
+    esCuentaValidaParaLaParte(cuentas, moneda, cuenta2Id)
+  );
+}
