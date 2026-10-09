@@ -480,6 +480,66 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   en segundo plano puede estar esperando un permiso que solo el dueño ve
   (ver memoria "permisos pendientes en subagentes").
 
+- **Cada movimiento cuenta para un solo ítem del presupuesto** (2026-10-08).
+  El dueño vio, con captura, un gasto de $267.530 en "Deudas" repetido en los
+  siete ítems de esa categoría: el presupuesto medía por categoría. Ahora un
+  movimiento apunta a UN ítem (`transactions.budget_item_id`, nulo = "sin
+  asignar" dentro de su categoría) y cada ítem suma solo lo suyo. Migración
+  `0012`: la base exige que el ítem sea del mismo dueño y, si el movimiento
+  lleva categoría, de esa categoría y esa moneda (llaves foráneas compuestas);
+  un saldo inicial o un ajuste nunca llevan ítem; el disparador de
+  inmutabilidad deja corregir, además de `category_id`, el `budget_item_id`
+  (monto, fecha y cuenta siguen intocables). Cambiar la categoría de un
+  movimiento lo deja sin ítem. Los movimientos de siempre se asignan solos al
+  ítem único de su categoría (si la categoría tiene varios, como Deudas,
+  quedan "Sin asignar"; en producción son 57 movimientos en 6 categorías y 5
+  categorías con varios ítems). **El pago de una tarjeta** (transferencia banco
+  → tarjeta, que no es gasto ni ingreso) puede llevar un ítem de gasto, en su
+  pata de salida: el ítem de la deuda ("Deuda TC Nu") se ve pagado sin que el
+  gasto del mes suba; anular la transferencia lo deshace. API: `budgetItemId`
+  en `POST /transactions` y `POST /transfers`, y `PATCH /transactions/:id/budget-item`
+  para asignar o corregir; el checklist trae por ítem `categoryId`,
+  `categoryName` y `status` (`none|pending|partial|paid|exceeded`) y, aparte,
+  `unassigned` por categoría. Pantalla: el formulario ofrece los ítems de la
+  categoría con lo que falta (un solo ítem viene preseleccionado; con varios,
+  "Sin asignar"), el detalle muestra y cambia a qué ítem cuenta, y el panel dice
+  Pendiente / Parcial / Pagado / "Te pasaste" con una fila "Sin asignar: $X".
+  Recortes a propósito: sin dividir un movimiento entre ítems (se registran dos)
+  y sin sugerir ítem por nombre o monto. Deuda anotada: el CSV de respaldo ya
+  trae la columna del ítem, pero el cambio de ítem de un movimiento no deja
+  más huella que la fila; la validación del ítem dentro de la transacción lee
+  con la conexión general (las llaves compuestas cubren la integridad); el
+  ciclo de imports transacciones → presupuesto → cuentas → transacciones
+  funciona y está comentado; `gastadoEnCategoria` quedó sin uso en producción.
+
+- **El ahorro es lo que la persona aparta, no el saldo** (2026-10-08). "Ahorrado"
+  salía igual a "Tienes": sumaba el saldo de las cuentas marcadas "de ahorro", y
+  un ingreso que caía ahí ya contaba como ahorro. Regla nueva del dueño: saldo y
+  ahorro son cosas distintas; solo cuenta como ahorro (1) una transferencia hacia
+  o desde una cuenta de ahorro o (2) un registro manual de ahorro ("aparté
+  $500.000", sin mover plata). Un ingreso, un gasto, el saldo inicial y un ajuste
+  ya NO cuentan. Sin metas nuevas: se usan las cuentas de ahorro que ya existen.
+  Migración `0013`: tabla `savings_entries` (con signo: + apartaste, − retiraste;
+  inmutable por disparador; se corrige con otro registro de signo contrario; no es
+  un movimiento y no cambia ningún saldo). Cada cuenta devuelve `saved`
+  calculado (transferencias + registros; 0 si no es de ahorro); la gráfica
+  mensual, el ahorro del ítem de presupuesto y la tarjeta "Ahorrado" usan la
+  misma regla. API: `POST /api/v1/savings-entries` y
+  `GET /api/v1/savings-entries?accountId=`. Pantalla: la tarjeta "Ahorrado" suma
+  `saved` y trae "Registrar ahorro" (Aparte / Retire, vista previa en palabras);
+  el cajón de la cuenta separa "Ahorrado en esta cuenta" del saldo y lista sus
+  registros. **Efecto que el dueño debe saber:** al migrar, "Ahorrado" baja de lo
+  que sumaban los saldos a solo lo que se pasó por transferencia (en producción,
+  de unos $2,06 M a $123.228 en pesos) hasta que anote lo ahorrado con "Registrar
+  ahorro"; y si su cuenta principal sigue marcada "de ahorro", cada pago que
+  salga de ella por transferencia (por ejemplo a una tarjeta) cuenta como retiro:
+  conviene desmarcarla. Sin hacer: ningún traspaso automático del saldo viejo a
+  registros, y los registros de ahorro no van en el CSV de respaldo.
+  Aprendizaje de proceso: la revisión independiente volvió a atrapar fallos
+  reales en la rama de dinero (meta 0 marcada como exceso en ingreso y ahorro) y
+  en la de pantallas (la elección de ítem sobrevivía al cambiar de mes; el error
+  de la lista de ahorros se disfrazaba de "no anotaste nada").
+
 Pendiente, sin fecha: otra ronda de `impeccable critique` para medir el
 puntaje tras estos cierres.
 
