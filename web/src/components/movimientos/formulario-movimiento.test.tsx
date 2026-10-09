@@ -5,7 +5,7 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { FormularioMovimiento } from "./formulario-movimiento";
 import * as useCategoriasModule from "@/hooks/use-categorias";
 import * as usePresupuestoModule from "@/hooks/use-presupuesto";
-import type { ChecklistDelMes, Cuenta, ItemDelChecklist, ItemPresupuesto } from "@/lib/api/types";
+import type { ChecklistDelMes, Cuenta, ItemDelChecklist } from "@/lib/api/types";
 
 // Las mutaciones se guardan fuera para poder mirar qué recibió el servidor.
 const mutaciones = vi.hoisted(() => ({
