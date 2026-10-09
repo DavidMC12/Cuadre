@@ -2,7 +2,7 @@
 
 import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CheckIcon, ChevronDown, ListTodo, Plus, TriangleAlert } from "lucide-react";
+import { CheckIcon, ChevronDown, ListTodo, Plus } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import { Button } from "@/components/ui/button";
@@ -426,13 +426,13 @@ export function PanelPresupuesto({
             {grupo.titulo}
           </span>
           <span className="tabular-nums">{cantidad}</span>
+          {/* Replegado con excedidos: un puntito rojo discreto al lado del
+              conteo, no un triángulo con círculo que gritara. El aviso
+              audible ya vive en el aria-label del botón ("con un tope
+              excedido" / "con topes excedidos") y el detalle se ve al
+              desplegar el grupo. */}
           {colapsado && excedidos > 0 && (
-            <span
-              aria-hidden
-              className="flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive"
-            >
-              <TriangleAlert className="size-3.5" />
-            </span>
+            <span aria-hidden className="size-2 shrink-0 rounded-full bg-destructive" />
           )}
           <ChevronDown
             aria-hidden
@@ -788,19 +788,17 @@ function ContenidoRenglon({
           </span>
         )}
         {/* Los estados no se pisan: `checked` (logro verde) se enciende al
-            alcanzar una meta de ahorro o un ingreso esperado; `exceeded` (aviso
-            rojo) SOLO al pasarse de un tope de gasto. Recibir más de lo
-            presupuestado es bueno: nunca sale en rojo. */}
+            alcanzar una meta de ahorro o un ingreso esperado; el aviso de
+            exceso SOLO sucede en un tope de gasto. Recibir más de lo
+            presupuestado es bueno: nunca sale en rojo. El aviso vive en la
+            barra roja y el texto "Te pasaste por X" de abajo; un ícono más
+            con círculo rojo era un tercer aviso para lo mismo y se sentía
+            alarmista ("muy warning"). El texto visible habla por sí solo
+            para lector de pantalla, y la barra lleva su aria-label. */}
         {renglon.checked && (
           <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-600/15 text-emerald-600 dark:text-emerald-400">
             <CheckIcon className="size-3.5" aria-hidden />
             <span className="sr-only">Meta alcanzada</span>
-          </span>
-        )}
-        {excedeGasto && (
-          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-            <TriangleAlert className="size-3.5" aria-hidden />
-            <span className="sr-only">Tope excedido</span>
           </span>
         )}
       </div>

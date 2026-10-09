@@ -540,6 +540,35 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   en la de pantallas (la elección de ítem sobrevivía al cambiar de mes; el error
   de la lista de ahorros se disfrazaba de "no anotaste nada").
 
+- **Registrar con un solo desplegable, asignar desde el panel y aviso más
+  calmo** (2026-10-09). El dueño no veía el sentido de las fichas de categoría
+  del formulario (eran solo las 3 primeras del catálogo en orden alfabético, y
+  además la categoría salía repetida en "Más detalles" y el ítem era un tercer
+  campo), y le pareció engorroso ir a Movimientos para asignar cada gasto a su
+  ítem. (1) **Un solo desplegable "¿En qué fue?"** (en ingresos, "¿De dónde
+  viene?"), siempre visible, con los ítems del presupuesto del mes de la fecha y
+  la moneda de la cuenta agrupados por su categoría ("Deudas › Deuda TC Nu —
+  faltan $X"), un renglón "Otro de <categoría>" por grupo y al final "Otras
+  categorías" (las que no tienen ítems); elegir un ítem fija categoría e ítem a
+  la vez, y si el ítem deja de ofrecerse (otro mes u otra moneda) la elección
+  cae a "Otro de <su categoría>", nunca se manda un ítem que la lista no ofrece.
+  "Más detalles" quedó solo con fecha y descripción. Es lo mismo que hacen YNAB y
+  Goodbudget (se elige la línea del presupuesto, no una categoría general más un
+  paso aparte). (2) **"Sin asignar: $X" del panel es un botón** que abre un
+  cajón con esos movimientos del mes (de esa categoría y moneda); cada uno trae
+  un desplegable de los ítems de la categoría y guarda al instante (PATCH
+  budget-item), la fila se va y el total baja; no se cierra solo al asignar el
+  último ("Todo asignado"), y "Cargar más" no se esconde si una página no trae
+  pendientes. (3) **El aviso "Te pasaste por $X" ya no lleva el triángulo rojo**
+  (se sentía "muy warning" junto a la barra roja y al texto): quedan la barra y
+  el texto, y en un grupo replegado con topes excedidos, un puntito rojo (el
+  `aria-label` del grupo sigue diciéndolo). Ingresos y ahorro no tienen "te
+  pasaste" (recibir o ahorrar de más es bueno). Los workers quedaron con la
+  variante `high` de su modelo por decisión del dueño (iban lentos en `default`).
+  Pendiente, anotado para otro día: la fila de una transferencia no abre nada
+  (no hay forma de anularla desde la pantalla aunque el servidor lo permite);
+  una categoría archivada precargada al corregir no se ve elegida en el menú.
+
 Pendiente, sin fecha: otra ronda de `impeccable critique` para medir el
 puntaje tras estos cierres.
 
