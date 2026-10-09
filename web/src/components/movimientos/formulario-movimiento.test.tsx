@@ -1270,4 +1270,90 @@ describe("FormularioMovimiento: pagar con dos cuentas", () => {
 
     expect(alCambiar).toHaveBeenCalledWith(false);
   });
+
+  it("al corregir una compra dividida abre YA en dos cuentas con lo que había, y cambiar el reparto habilita", () => {
+    render(
+      <FormularioMovimiento
+        cuentas={cuentasDos}
+        abierto
+        valoresIniciales={{
+          monto: "200.000",
+          cuentaId: "a-1",
+          fecha: "2026-10-01",
+          descripcion: "Mercado",
+          tipo: "gasto",
+        }}
+        pagoDivididoInicial={{
+          cuenta1Id: "a-1",
+          cuenta2Id: "a-2",
+          texto1: "150.000",
+          texto2: "50.000",
+        }}
+        tituloCabecera="Corregir compra"
+        descripcionCabecera="Registra la compra correcta: el original ya quedó anulado."
+      />
+    );
+
+    // Abre repartido, con las dos cuentas y sus montos: no hay selector único.
+    expect(screen.getByText("Pagar con dos cuentas")).toBeInTheDocument();
+    expect(screen.getByText("Corregir compra")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Cuenta")).toBeNull();
+    expect(screen.getByLabelText("Cuenta 1")).toHaveTextContent("Bancolombia");
+    expect(screen.getByLabelText("Cuenta 2")).toHaveTextContent("Tarjeta Nu");
+    expect(screen.getByLabelText("Monto en la cuenta 1")).toHaveValue("150.000");
+    expect(screen.getByLabelText("Monto en la cuenta 2")).toHaveValue("50.000");
+
+    // Sin cambios, registrar recrearía la compra recién anulada.
+    const botonRegistrar = screen.getByRole("button", { name: "Registrar" });
+    expect(botonRegistrar).toBeDisabled();
+
+    // Cambiar SOLO el reparto (mismo total) ya es una corrección válida; la
+    // otra parte se completa sola para que la suma siga exacta.
+    fireEvent.change(screen.getByLabelText("Monto en la cuenta 1"), {
+      target: { value: "100.000" },
+    });
+    expect(screen.getByLabelText("Monto en la cuenta 2")).toHaveValue("100.000");
+    expect(botonRegistrar).toBeEnabled();
+
+    registrar();
+    expect(mutaciones.pagoDividido.mock.calls[0]![0].payments).toEqual([
+      { accountId: "a-1", amount: "-100000" },
+      { accountId: "a-2", amount: "-100000" },
+    ]);
+    expect(mutaciones.movimiento).not.toHaveBeenCalled();
+  });
+
+  it("al corregir una compra dividida se puede volver a una cuenta, pero no en un movimiento simple", () => {
+    const { unmount } = render(
+      <FormularioMovimiento
+        cuentas={cuentasDos}
+        abierto
+        valoresIniciales={{ monto: "200.000", cuentaId: "a-1", tipo: "gasto" }}
+        pagoDivididoInicial={{
+          cuenta1Id: "a-1",
+          cuenta2Id: "a-2",
+          texto1: "100.000",
+          texto2: "100.000",
+        }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Volver a una cuenta" }));
+    // De vuelta al selector único, la pregunta de repartir sigue disponible
+    // porque lo corregido era, de verdad, una compra dividida.
+    expect(screen.getByLabelText("Cuenta")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pagar con dos cuentas" })).toBeInTheDocument();
+    unmount();
+
+    // Un movimiento simple en corrección no ofrece repartir: no era una compra
+    // dividida y no se puede convertir en una al corregir.
+    render(
+      <FormularioMovimiento
+        cuentas={cuentasDos}
+        abierto
+        valoresIniciales={{ monto: "200.000", cuentaId: "a-1", tipo: "gasto" }}
+      />
+    );
+    expect(screen.queryByRole("button", { name: "Pagar con dos cuentas" })).toBeNull();
+  });
 });

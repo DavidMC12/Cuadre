@@ -126,6 +126,22 @@ function cuentaPorDefecto(cuentaIdPorDefecto: string | undefined, cuentas: Cuent
   return cuentas[0]?.id ?? "";
 }
 
+/** ¿El reparto de dos cuentas es el mismo que traía la precarga? Se comparan
+ * las dos cuentas y los dos textos de monto: cambiar el reparto (no solo el
+ * total) tiene que habilitar "Registrar" al corregir una compra dividida. */
+function mismoReparto(
+  actual: PagoDivididoEnEdicion | null,
+  inicial: PagoDivididoEnEdicion | null
+): boolean {
+  if (actual === null || inicial === null) return actual === inicial;
+  return (
+    actual.cuenta1Id === inicial.cuenta1Id &&
+    actual.cuenta2Id === inicial.cuenta2Id &&
+    actual.texto1 === inicial.texto1 &&
+    actual.texto2 === inicial.texto2
+  );
+}
+
 export function FormularioMovimiento({
   cuentas,
   cargandoCuentas = false,
@@ -133,6 +149,7 @@ export function FormularioMovimiento({
   tipoInicial,
   transferenciaInicial,
   valoresIniciales,
+  pagoDivididoInicial,
   abierto,
   onAbiertoChange,
   children,
@@ -154,6 +171,14 @@ export function FormularioMovimiento({
   /** Valores con los que abre el formulario cuando lo invoca otra pantalla
    * (corregir un movimiento). Se leen al montar. */
   valoresIniciales?: ValoresInicialesMovimiento;
+  /**
+   * Si la corrección es de una compra pagada con dos cuentas: abre YA en modo
+   * "Pagar con dos cuentas" con las dos cuentas y sus dos montos. `null` (lo
+   * de siempre) abre corregiendo un movimiento de una sola cuenta. Solo la
+   * corrección de una compra dividida lo trae: un registro nuevo o un
+   * movimiento simple no.
+   */
+  pagoDivididoInicial?: PagoDivididoEnEdicion;
   /** Abre el formulario desde afuera, sin disparador visible. Si se pasa, el
    * componente deja de manejar su propio estado de abierto y obedece a quien
    * lo invoca. */
@@ -331,7 +356,9 @@ export function FormularioMovimiento({
   // "Pagar con dos cuentas": la compra se reparte entre dos cuentas de la misma
   // moneda (la mitad con la tarjeta, la mitad con plata disponible). `null` =
   // modo de una sola cuenta, el de siempre.
-  const [pagoDividido, setPagoDividido] = useState<PagoDivididoEnEdicion | null>(null);
+  const [pagoDividido, setPagoDividido] = useState<PagoDivididoEnEdicion | null>(
+    pagoDivididoInicial ?? null
+  );
   const hayCuentas = cuentas.length > 0;
   // "Entre cuentas" no tiene sentido con una sola cuenta: no habría hacia
   // dónde transferir, y ofrecer una opción que nunca puede completarse es
@@ -362,7 +389,10 @@ export function FormularioMovimiento({
     categoryId !== valoresIniciales?.categoriaId ||
     (itemDelMovimiento ?? null) !== (valoresIniciales?.itemDelPresupuesto ?? null) ||
     fecha !== (valoresIniciales?.fecha ?? hoyInput()) ||
-    descripcion !== (valoresIniciales?.descripcion ?? "");
+    descripcion !== (valoresIniciales?.descripcion ?? "") ||
+    // El reparto entre las dos cuentas también es un cambio: dos compras que
+    // suman lo mismo pero se reparten distinto son correcciones distintas.
+    !mismoReparto(pagoDividido, pagoDivididoInicial ?? null);
 
   const { data: categorias } = useCategorias(false);
 
@@ -374,11 +404,13 @@ export function FormularioMovimiento({
     return "monto" in lectura && !esCero(lectura.monto) ? lectura.monto : null;
   })();
 
-  // ¿Se puede ofrecer pagar con dos cuentas? Solo en un registro nuevo de
-  // gasto o ingreso (no en una corrección ni en "Entre cuentas") y si hay al
-  // menos otra cuenta activa de la misma moneda con quién repartir.
+  // ¿Se puede ofrecer pagar con dos cuentas? En un registro nuevo de gasto o
+  // ingreso; y al corregir, SOLO cuando lo corregido era una compra pagada con
+  // dos cuentas (así se puede volver a repartir si se salió del modo). Nunca
+  // en "Entre cuentas" ni al corregir un movimiento simple. Hace falta, además,
+  // otra cuenta activa de la misma moneda con quién repartir.
   const puedeDividirElPago =
-    !enCorreccion &&
+    (!enCorreccion || pagoDivididoInicial !== undefined) &&
     tipoMonto !== "transferencia" &&
     cuentaElegida !== undefined &&
     cuentasParaLaParte(cuentas, cuentaElegida.currency, cuentaId).length > 0;
@@ -475,7 +507,7 @@ export function FormularioMovimiento({
     setCategoryId(valoresIniciales?.categoriaId);
     setItemElegido(valoresIniciales?.itemDelPresupuesto ?? null);
     setItemDePagoAMano(null);
-    setPagoDividido(null);
+    setPagoDividido(pagoDivididoInicial ?? null);
     setErrores({});
   }
 

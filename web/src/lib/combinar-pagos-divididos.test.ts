@@ -5,6 +5,8 @@ import {
   combinarPagosDivididos,
   COMPRA_SIN_DESCRIPCION,
   compraAnulada,
+  compraDesdeSusAnulaciones,
+  descripcionBaseDeLaCompra,
   descripcionDeLaCompra,
   esAnulacionDeCompra,
   esCompraDividida,
@@ -134,6 +136,62 @@ describe("descripcionDeLaCompra", () => {
     expect(
       descripcionDeLaCompra([movimiento({ description: "Anulación de: Pago 1 de 2" })]),
     ).toBe(`Anulación de: ${COMPRA_SIN_DESCRIPCION}`);
+  });
+});
+
+describe("descripcionBaseDeLaCompra", () => {
+  it("quita la marca '(n de 2)' y deja lo que escribió la persona", () => {
+    expect(descripcionBaseDeLaCompra([parte1, parte2])).toBe("Mercado");
+  });
+
+  it("sin descripción propia (servidor puso 'Pago n de 2') queda vacío, no un texto inventado", () => {
+    expect(
+      descripcionBaseDeLaCompra([
+        movimiento({ description: "Pago 1 de 2" }),
+        movimiento({ description: "Pago 2 de 2" }),
+      ])
+    ).toBe("");
+    expect(descripcionBaseDeLaCompra([movimiento({ description: null })])).toBe("");
+  });
+});
+
+describe("compraDesdeSusAnulaciones", () => {
+  function anulacion(original: Movimiento, id: string): Movimiento {
+    return {
+      ...original,
+      id,
+      // Una anulación es su original con el monto negado y el prefijo.
+      amount: original.amount.startsWith("-")
+        ? original.amount.slice(1)
+        : `-${original.amount}`,
+      description: original.description
+        ? `Anulación de: ${original.description}`
+        : "Anulación",
+      paymentGroupId: "g-anulacion",
+      reversesTransactionId: original.id,
+      reversedByTransactionId: null,
+    };
+  }
+
+  it("reconstruye las dos partes originales desde las anulaciones del servidor", () => {
+    const original1 = { ...parte1, categoryId: "c-mer", budgetItemId: "i-1" };
+    const original2 = { ...parte2, categoryId: "c-mer", budgetItemId: "i-1" };
+    const compra = compraDesdeSusAnulaciones("g1", [
+      anulacion(original2, "r2"),
+      anulacion(original1, "r1"),
+    ]);
+
+    expect(compra).not.toBeNull();
+    expect(compra!.partes.map((p) => p.id)).toEqual(["p1", "p2"]);
+    expect(compra!.partes.map((p) => p.accountId)).toEqual(["tarjeta", "banco"]);
+    expect(compra!.partes.map((p) => p.amount)).toEqual(["-100000.0000", "-100000.5000"]);
+    expect(compra!.partes[0]!.categoryId).toBe("c-mer");
+    expect(compra!.partes[0]!.budgetItemId).toBe("i-1");
+    expect(descripcionBaseDeLaCompra(compra!.partes)).toBe("Mercado");
+  });
+
+  it("con una sola anulación no inventa una compra a medias", () => {
+    expect(compraDesdeSusAnulaciones("g1", [anulacion(parte1, "r1")])).toBeNull();
   });
 });
 
