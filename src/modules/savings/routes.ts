@@ -36,4 +36,19 @@ export const rutasDeAhorro: FastifyPluginAsyncZod = async (app) => {
     },
     async (peticion) => servicio.listarAhorros(peticion.usuarioId, peticion.query),
   );
+
+  /**
+   * Lo anotado, de todas las cuentas, en un archivo para guardarlo aparte. Va
+   * antes de cualquier ruta con `:id` que este módulo llegue a tener, para que
+   * "export" siga leyéndose como ruta y no como un id (igual que en
+   * movimientos).
+   */
+  app.get('/savings-entries/export', async (peticion, respuesta) => {
+    const { nombreDeArchivo, contenido } = await servicio.exportarAhorros(peticion.usuarioId);
+
+    return respuesta
+      .type('text/csv; charset=utf-8')
+      .header('content-disposition', `attachment; filename="${nombreDeArchivo}"`)
+      .send(contenido);
+  });
 };

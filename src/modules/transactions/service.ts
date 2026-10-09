@@ -12,14 +12,14 @@ import type { Ejecutor } from '../../db/client.js';
 import { db } from '../../db/client.js';
 import { conflicto, ErrorDeApp, noEncontrado, reglaViolada } from '../../http/errores.js';
 import { isNegative, negate } from '../../shared/money.js';
-import { ZONA_HORARIA } from '../../shared/zona-horaria.js';
+import { hoyEnBogota } from '../../shared/zona-horaria.js';
 // Ojo: este import cierra un ciclo (transacciones -> presupuesto -> cuentas ->
 // transacciones). Funciona mientras nada de `presupuestoService` se use al
 // evaluar el módulo: ESM resuelve el binding en vivo. Si algún día se llamara
 // algo de presupuesto a nivel de módulo (fuera de una función), aparecería
 // `undefined` al cargar.
 import * as presupuestoService from '../budgets/service.js';
-import { armarCsv } from './csv.js';
+import { armarCsv } from '../../shared/csv.js';
 import * as repositorio from './repository.js';
 import type { FilaParaExportar } from './repository.js';
 import type {
@@ -537,10 +537,6 @@ function estadoEnPalabras(fila: FilaParaExportar): string {
   if (fila.anula) return 'Anula otro movimiento';
   if (fila.anuladoPor) return 'Anulado';
   return '';
-}
-
-function hoyEnBogota(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_HORARIA }).format(new Date());
 }
 
 export async function exportarMovimientos(
