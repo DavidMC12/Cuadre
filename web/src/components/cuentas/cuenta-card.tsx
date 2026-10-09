@@ -123,6 +123,16 @@ export function CuentaCard({ cuenta }: { cuenta: Cuenta }) {
                 </div>
               </div>
             )}
+
+            {/* En una cuenta de ahorro va también lo APARTADO, corto y aparte
+                del saldo: no es lo mismo, ni dice de dónde viene. Solo con
+                algo anotado — el cero no se anuncia; y una cuenta que no es
+                de ahorro ni la lleva, aunque el servidor le mande "0.0000". */}
+            {cuenta.isSavings && !esCero(cuenta.saved) && (
+              <span className="text-xs text-muted-foreground">
+                Ahorrado {textoMonto(cuenta.saved, cuenta.currency)}
+              </span>
+            )}
           </CardContent>
         </Card>
       </button>

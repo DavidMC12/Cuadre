@@ -27,6 +27,14 @@ const holders = vi.hoisted(() => ({
   archivar: vi.fn(),
   ajustar: vi.fn(),
   soloMirar: false,
+  // Lo de ahorro: qué registros llegan y con qué cuenta el cajón pide (o no
+  // pide) la lista.
+  registros: [] as unknown[],
+  registrosCargando: false,
+  cuentaPedida: null as string | null,
+  formularioAhorro: undefined as
+    | { cuentas?: unknown[]; cuentaIdPorDefecto?: string; children?: ReactNode }
+    | undefined,
 }));
 
 // El Drawer de Base UI no hace falta para probar la lógica del cajón: con
@@ -72,6 +80,38 @@ vi.mock("@/hooks/use-perfil", () => ({
   useSoloMirar: () => holders.soloMirar,
 }));
 
+// La forma del formulario de ahorro: la prueba mira con qué lo preselecciona
+// el cajón (la cuenta misma), no el diálogo entero.
+vi.mock("@/components/ahorro/formulario-ahorro", () => ({
+  FormularioAhorro: (props: { cuenta?: { id: string }; cuentas: unknown[]; cuentaIdPorDefecto?: string; children?: ReactNode }) => {
+    holders.formularioAhorro = props;
+    return props.children ?? null;
+  },
+}));
+
+// La lista de registros como testigo: visible solo con el cajón abierto y
+// con lo que el hook le ofrece.
+vi.mock("@/components/ahorro/registros-ahorro", () => ({
+  RegistrosAhorro: ({
+    registros,
+    cargando,
+  }: {
+    registros?: unknown[];
+    cargando?: boolean;
+  }) => (
+    <div data-testid="registros-ahorro" data-cargando={String(Boolean(cargando))}>
+      {(registros ?? []).map((registro) => JSON.stringify(registro)).join("|")}
+    </div>
+  ),
+}));
+
+vi.mock("@/hooks/use-ahorros", () => ({
+  useSavingsEntries: (params: { accountId: string | null }) => {
+    holders.cuentaPedida = params.accountId;
+    return { data: holders.registros, isLoading: holders.registrosCargando };
+  },
+}));
+
 import { DetalleCuenta, MontoSaldo } from "./detalle-cuenta";
 
 afterEach(() => {
@@ -83,6 +123,10 @@ afterEach(() => {
   holders.soloMirar = false;
   holders.drawerAbierto = false;
   holders.drawerOnOpenChange = undefined;
+  holders.registros = [];
+  holders.registrosCargando = false;
+  holders.cuentaPedida = null;
+  holders.formularioAhorro = undefined;
   vi.mocked(toast.success).mockClear();
   vi.mocked(toast.error).mockClear();
 });
@@ -644,3 +688,114 @@ describe("MontoSaldo", () => {
     expect(screen.queryByText(`${MENOS}$50.000`)).not.toBeInTheDocument();
   });
 });
+
+// Una cuenta de ahorro de verdad: banca, activa, con algo apartado.
+const vacaciones: Cuenta = {
+  ...banco,
+  id: "cta-ahorro",
+  name: "Vacaciones",
+  isSavings: true,
+  saved: "500000.0000",
+};
+
+const registroAhorro = {
+  id: "reg-1",
+  accountId: "cta-ahorro",
+  currency: "COP",
+  amount: "500000.0000",
+  occurredAt: "2026-10-08T15:00:00.000Z",
+  description: "Prima",
+};
+
+describe("DetalleCuenta: la cuenta de ahorro dice apartado, no saldo", () => {
+  it("bajo el saldo dice 'Ahorrado en esta cuenta', con la regla y el botón", () => {
+    renderDetalle(vacaciones);
+
+    expect(screen.getByText("Ahorrado en esta cuenta")).toBeInTheDocument();
+    expect(screen.getByText("$500.000")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Marcar una cuenta como de ahorro no cuenta su saldo: solo cuenta lo que le pases o anotes."
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Registrar ahorro" })).toBeInTheDocument();
+  });
+
+  it("una cuenta que no es de ahorro no lleva la línea ni el botón", () => {
+    renderDetalle(banco);
+
+    expect(screen.queryByText("Ahorrado en esta cuenta")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Registrar ahorro" })).not.toBeInTheDocument();
+  });
+
+  it("una tarjeta nunca lleva la línea, aunque un dato torcido la marque", () => {
+    renderDetalle({ ...visa, isSavings: true, saved: "100000.0000" });
+
+    expect(screen.queryByText("Ahorrado en esta cuenta")).not.toBeInTheDocument();
+  });
+
+  it("el botón abre el formulario ya apuntando a esta cuenta", () => {
+    renderDetalle(vacaciones);
+
+    const props = holders.formularioAhorro as {
+      cuentaIdPorDefecto?: string;
+      cuentas: { id: string }[];
+    };
+    expect(props.cuentaIdPorDefecto).toBe("cta-ahorro");
+    // Solo se le pasa esta cuenta: dentro del cajón no se pregunta cuál usar.
+    expect(props.cuentas.map((c) => c.id)).toEqual(["cta-ahorro"]);
+  });
+
+  it("en solo mirar la cifra se ve pero el botón no está: quien mira no escribe", () => {
+    holders.soloMirar = true;
+    renderDetalle(vacaciones);
+
+    expect(screen.getByText("Ahorrado en esta cuenta")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Registrar ahorro" })).not.toBeInTheDocument();
+  });
+
+  it("en una archivada termina el registro: la línea queda, el resto se calla", () => {
+    renderDetalle({
+      ...vacaciones,
+      archivedAt: "2026-10-01T00:00:00.000Z",
+    });
+
+    expect(screen.getByText("Ahorrado en esta cuenta")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Registrar ahorro" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("registros-ahorro")).not.toBeInTheDocument();
+  });
+
+  it("con el cajón abierto pide y muestra los registros de esta cuenta", () => {
+    holders.registros = [registroAhorro];
+    renderDetalle(vacaciones);
+
+    // Cerrado: no se pidieron registros de nadie.
+    expect(holders.cuentaPedida).toBeNull();
+
+    abrirCajon();
+
+    expect(holders.cuentaPedida).toBe("cta-ahorro");
+    const lista = screen.getByTestId("registros-ahorro");
+    // El registro llega completo al componente: id, monto, fecha y descripción.
+    expect(lista.textContent).toContain('"amount":"500000.0000"');
+    expect(lista.textContent).toContain('"description":"Prima"');
+  });
+
+  it("mientras carga la lista, el componente de registros sabe que va cargando", () => {
+    holders.registrosCargando = true;
+    renderDetalle(vacaciones);
+    abrirCajon();
+
+    expect(screen.getByTestId("registros-ahorro")).toHaveAttribute("data-cargando", "true");
+  });
+
+  it("sin registros el pide es igual: el componente de abajo dice el vacío", () => {
+    renderDetalle(vacaciones);
+    abrirCajon();
+
+    // La lista siempre se monta con el cajón abierto; el vacío lo dice
+    // RegistrosAhorro, y aquí solo importa que no se esconda.
+    expect(screen.getByTestId("registros-ahorro")).toBeInTheDocument();
+  });
+});
+

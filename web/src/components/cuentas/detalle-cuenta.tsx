@@ -28,6 +28,8 @@ import { CampoMonto } from "@/components/campo-monto";
 import { AjustarSaldo } from "@/components/cuentas/ajustar-saldo";
 import { ConfirmarArchivar } from "@/components/cuentas/confirmar-archivar";
 import { FormularioMovimiento } from "@/components/movimientos/formulario-movimiento";
+import { FormularioAhorro } from "@/components/ahorro/formulario-ahorro";
+import { RegistrosAhorro } from "@/components/ahorro/registros-ahorro";
 import {
   useActualizarCuenta,
   useAjustarSaldo,
@@ -35,6 +37,7 @@ import {
   useCuentas,
   useMarcarAhorro,
 } from "@/hooks/use-cuentas";
+import { useSavingsEntries } from "@/hooks/use-ahorros";
 import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { Cuenta } from "@/lib/api/types";
@@ -125,6 +128,15 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
 
   const esTarjeta = cuenta.type === "card";
   const guardando = actualizar.isPending || marcarAhorro.isPending;
+
+  // La sección de ahorro solo existe en una cuenta de ahorro; una tarjeta
+  // nunca es de ahorro. Los registros se piden solo con el cajón abierto —
+  // cada tarjeta de la lista monta su propia copia: preguntarle 50 registros
+  // a todas por solo mirar la lista sería n pedidos que nadie leyó.
+  const esDeAhorro = cuenta.isSavings && !esTarjeta;
+  const registros = useSavingsEntries({
+    accountId: abierto && esDeAhorro && !cuenta.archivedAt ? cuenta.id : null,
+  });
 
   // Disponible, usado y porcentaje NUNCA se piden al servidor: se derivan del
   // cupo y del saldo, con la aritmética exacta de money.ts.
@@ -418,6 +430,45 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
             <MontoSaldo cuenta={cuenta} />
           </div>
 
+          {/* La línea de ahorro: DISTINTA del saldo a propósito. El saldo de
+              una cuenta de ahorro no es ahorro — solo cuenta lo que le
+              pasaron o lo que se anotó —, y así se dice una vez, en su
+              sitio, antes de que nadie lean el saldo como "lo que hay
+              ahorrado". El texto y la cifra quedan en el flujo normal, así
+              que un lector de pantalla los lee en orden y no hace falta un
+              aria-label suelto. */}
+          {esDeAhorro && (
+            <div className="flex flex-col gap-1 rounded-lg bg-muted/60 px-3 py-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground">Ahorrado en esta cuenta</span>
+                <Monto
+                  valor={cuenta.saved}
+                  moneda={cuenta.currency}
+                  signo="negativo"
+                  className="text-sm"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">{AYUDA_CUENTA_AHORRO}</p>
+              {!soloMirar && !cuenta.archivedAt && (
+                <FormularioAhorro cuentas={[cuenta]} cuentaIdPorDefecto={cuenta.id}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11 self-start"
+                  >
+                    Registrar ahorro
+                  </Button>
+                </FormularioAhorro>
+              )}
+              {abierto && !cuenta.archivedAt && (
+                <RegistrosAhorro
+                  registros={registros.data}
+                  cargando={registros.isLoading}
+                />
+              )}
+            </div>
+          )}
+
           {/* El cupo dice cuánto de la deuda cabe: sin él, "te queda" no
               significa nada y mejor no fingir que sí. */}
           {esTarjeta && estadoDeCupo && (
@@ -579,7 +630,9 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
           )}
 
           {/* El interruptor de ahorro solo existe para lo que no es tarjeta:
-              en una la pregunta no tiene sentido y la base lo rechaza. */}
+              en una la pregunta no tiene sentido y la base lo rechaza. En
+              una cuenta YA de ahorro su propia caja dice la regla: no la
+              repetir dos veces en el mismo cajón. */}
           {!esTarjeta && (
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between gap-3">
@@ -594,7 +647,9 @@ export function DetalleCuenta({ cuenta, children }: { cuenta: Cuenta; children: 
                   className="after:-inset-y-[13px]"
                 />
               </div>
-              <p className="text-xs text-muted-foreground">{AYUDA_CUENTA_AHORRO}</p>
+              {!esDeAhorro && (
+                <p className="text-xs text-muted-foreground">{AYUDA_CUENTA_AHORRO}</p>
+              )}
             </div>
           )}
 

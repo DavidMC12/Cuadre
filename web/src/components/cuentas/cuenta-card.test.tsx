@@ -146,3 +146,75 @@ describe("CuentaCard: las cuentas que no son tarjeta se quedan igual", () => {
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 });
+
+describe("CuentaCard: la línea de ahorro es del ahorro, no del saldo", () => {
+  it("una cuenta de ahorro con algo apartado muestra 'Ahorrado $X' bajo el saldo", () => {
+    render(
+      <CuentaCard
+        cuenta={cuenta({
+          id: "cta-1",
+          name: "Vacaciones",
+          currency: "COP",
+          isSavings: true,
+          balance: "2000000.0000",
+          saved: "500000.0000",
+        })}
+      />
+    );
+
+    // Los dos datos conviven, y se leen como lo que son: el saldo de la
+    // cuenta y lo apartado en ella.
+    expect(screen.getByText("$2.000.000")).toBeInTheDocument();
+    expect(screen.getByText("Ahorrado $500.000")).toBeInTheDocument();
+  });
+
+  it("con nada apartado no pinta un 'Ahorrado $0'", () => {
+    render(
+      <CuentaCard
+        cuenta={cuenta({
+          id: "cta-1",
+          name: "Vacaciones",
+          currency: "COP",
+          isSavings: true,
+          balance: "2000000.0000",
+          saved: "0.0000",
+        })}
+      />
+    );
+
+    expect(screen.getByText("$2.000.000")).toBeInTheDocument();
+    expect(screen.queryByText(/Ahorrado/)).not.toBeInTheDocument();
+  });
+
+  it("una cuenta que no es de ahorro no la muestra, aunque el servidor le mande una cifra", () => {
+    render(
+      <CuentaCard
+        cuenta={cuenta({
+          id: "cta-2",
+          name: "Bancolombia",
+          currency: "COP",
+          balance: "3000000.0000",
+          saved: "150000.0000",
+        })}
+      />
+    );
+
+    expect(screen.queryByText(/Ahorrado/)).not.toBeInTheDocument();
+  });
+
+  it("una cuenta de ahorro con retiros de más muestra el menos también", () => {
+    render(
+      <CuentaCard
+        cuenta={cuenta({
+          id: "cta-1",
+          name: "Vacaciones",
+          currency: "COP",
+          isSavings: true,
+          saved: "-25000.0000",
+        })}
+      />
+    );
+
+    expect(screen.getByText("Ahorrado −$25.000")).toBeInTheDocument();
+  });
+});
