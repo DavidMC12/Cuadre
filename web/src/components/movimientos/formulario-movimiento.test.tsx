@@ -836,6 +836,48 @@ describe("FormularioMovimiento: el desplegable '¿En qué fue?'", () => {
     expect(screen.getByRole("button", { name: "Registrar" })).toBeDisabled();
   });
 
+  it("al corregir con una categoría archivada, la muestra elegida y marcada, sin ofrecerla en un registro nuevo", () => {
+    const VIEJA = {
+      id: "c-vieja",
+      name: "Vieja",
+      kind: "expense",
+      archivedAt: "2026-01-01T00:00:00Z",
+    } as const;
+    // El formulario pide las archivadas al corregir (y solo al corregir): el
+    // catálogo activo no trae "Vieja".
+    vi.mocked(useCategoriasModule.useCategorias).mockImplementation(
+      (incluirArchivadas = false) =>
+        ({ data: incluirArchivadas ? [...CATEGORIAS, VIEJA] : [...CATEGORIAS] }) as never
+    );
+
+    const { unmount } = render(
+      <FormularioMovimiento
+        cuentas={cuentas}
+        abierto
+        valoresIniciales={{
+          monto: "12.500",
+          cuentaId: "a-1",
+          categoriaId: "c-vieja",
+          itemDelPresupuesto: null,
+          fecha: "2026-09-10",
+          tipo: "gasto",
+        }}
+      />
+    );
+
+    // Se ve elegida con su nombre y la marca sobria de archivada; y el menú
+    // tiene una opción que representa ese valor.
+    const campo = screen.getByLabelText("¿En qué fue?");
+    expect(campo).toHaveTextContent("Vieja");
+    expect(campo).toHaveTextContent("archivada");
+    expect(screen.getByRole("button", { name: /Vieja/ })).toBeInTheDocument();
+    unmount();
+
+    // Un registro nuevo no la ofrece: una archivada no se elige de nuevo.
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+    expect(screen.queryByRole("button", { name: /Vieja/ })).toBeNull();
+  });
+
   it("sin una selección todavía, Registrar sigue funcionando desde el primer toque", () => {
     catalogo();
     render(<FormularioMovimiento cuentas={cuentas} abierto />);
@@ -1269,5 +1311,139 @@ describe("FormularioMovimiento: pagar con dos cuentas", () => {
     registrar();
 
     expect(alCambiar).toHaveBeenCalledWith(false);
+  });
+
+  it("al corregir una compra dividida abre YA en dos cuentas con lo que había, y cambiar el reparto habilita", () => {
+    render(
+      <FormularioMovimiento
+        cuentas={cuentasDos}
+        abierto
+        valoresIniciales={{
+          monto: "200.000",
+          cuentaId: "a-1",
+          fecha: "2026-10-01",
+          descripcion: "Mercado",
+          tipo: "gasto",
+        }}
+        pagoDivididoInicial={{
+          cuenta1Id: "a-1",
+          cuenta2Id: "a-2",
+          texto1: "150.000",
+          texto2: "50.000",
+        }}
+        tituloCabecera="Corregir compra"
+        descripcionCabecera="Registra la compra correcta: el original ya quedó anulado."
+      />
+    );
+
+    // Abre repartido, con las dos cuentas y sus montos: no hay selector único.
+    expect(screen.getByText("Pagar con dos cuentas")).toBeInTheDocument();
+    expect(screen.getByText("Corregir compra")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Cuenta")).toBeNull();
+    expect(screen.getByLabelText("Cuenta 1")).toHaveTextContent("Bancolombia");
+    expect(screen.getByLabelText("Cuenta 2")).toHaveTextContent("Tarjeta Nu");
+    expect(screen.getByLabelText("Monto en la cuenta 1")).toHaveValue("150.000");
+    expect(screen.getByLabelText("Monto en la cuenta 2")).toHaveValue("50.000");
+
+    // Sin cambios, registrar recrearía la compra recién anulada.
+    const botonRegistrar = screen.getByRole("button", { name: "Registrar" });
+    expect(botonRegistrar).toBeDisabled();
+
+    // Cambiar SOLO el reparto (mismo total) ya es una corrección válida; la
+    // otra parte se completa sola para que la suma siga exacta.
+    fireEvent.change(screen.getByLabelText("Monto en la cuenta 1"), {
+      target: { value: "100.000" },
+    });
+    expect(screen.getByLabelText("Monto en la cuenta 2")).toHaveValue("100.000");
+    expect(botonRegistrar).toBeEnabled();
+
+    registrar();
+    expect(mutaciones.pagoDividido.mock.calls[0]![0].payments).toEqual([
+      { accountId: "a-1", amount: "-100000" },
+      { accountId: "a-2", amount: "-100000" },
+    ]);
+    expect(mutaciones.movimiento).not.toHaveBeenCalled();
+  });
+
+  it("al corregir una compra dividida se puede volver a una cuenta, pero no en un movimiento simple", () => {
+    const { unmount } = render(
+      <FormularioMovimiento
+        cuentas={cuentasDos}
+        abierto
+        valoresIniciales={{ monto: "200.000", cuentaId: "a-1", tipo: "gasto" }}
+        pagoDivididoInicial={{
+          cuenta1Id: "a-1",
+          cuenta2Id: "a-2",
+          texto1: "100.000",
+          texto2: "100.000",
+        }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Volver a una cuenta" }));
+    // De vuelta al selector único, la pregunta de repartir sigue disponible
+    // porque lo corregido era, de verdad, una compra dividida.
+    expect(screen.getByLabelText("Cuenta")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pagar con dos cuentas" })).toBeInTheDocument();
+    unmount();
+
+    // Un movimiento simple en corrección no ofrece repartir: no era una compra
+    // dividida y no se puede convertir en una al corregir.
+    render(
+      <FormularioMovimiento
+        cuentas={cuentasDos}
+        abierto
+        valoresIniciales={{ monto: "200.000", cuentaId: "a-1", tipo: "gasto" }}
+      />
+    );
+    expect(screen.queryByRole("button", { name: "Pagar con dos cuentas" })).toBeNull();
+  });
+
+  it("si una cuenta del reparto se archiva después de elegirla, no deja enviar y avisa", () => {
+    const { rerender } = render(
+      <FormularioMovimiento
+        cuentas={cuentasDos}
+        abierto
+        valoresIniciales={{ monto: "200.000", cuentaId: "a-1", fecha: "2026-10-01", tipo: "gasto" }}
+        pagoDivididoInicial={{
+          cuenta1Id: "a-1",
+          cuenta2Id: "a-2",
+          texto1: "100.000",
+          texto2: "100.000",
+        }}
+      />
+    );
+
+    // Un cambio habilita Registrar: sin esto, el apagado de abajo no probaría
+    // que la cuenta archivada es lo que lo frena.
+    fireEvent.change(screen.getByLabelText("Descripción (opcional)"), {
+      target: { value: "Mercado corregido" },
+    });
+    expect(screen.getByRole("button", { name: "Registrar" })).toBeEnabled();
+
+    // La lista se refresca y la cuenta 2 aparece archivada.
+    rerender(
+      <FormularioMovimiento
+        cuentas={[
+          bancolombia,
+          { ...tarjeta, archivedAt: "2026-10-09T00:00:00Z" },
+          dolares,
+          vieja,
+        ]}
+        abierto
+        valoresIniciales={{ monto: "200.000", cuentaId: "a-1", fecha: "2026-10-01", tipo: "gasto" }}
+        pagoDivididoInicial={{
+          cuenta1Id: "a-1",
+          cuenta2Id: "a-2",
+          texto1: "100.000",
+          texto2: "100.000",
+        }}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Registrar" })).toBeDisabled();
+    expect(
+      screen.getByText("Una de las cuentas elegidas ya no está disponible: elígela de nuevo.")
+    ).toBeInTheDocument();
   });
 });

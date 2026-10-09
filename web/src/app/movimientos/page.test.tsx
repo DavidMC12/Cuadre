@@ -6,7 +6,11 @@ import PaginaMovimientos from "./page";
 import * as useMovimientosModule from "@/hooks/use-movimientos";
 import * as useCuentasModule from "@/hooks/use-cuentas";
 import * as useCategoriasModule from "@/hooks/use-categorias";
+import { ApiError } from "@/lib/api/client";
 import type { Cuenta, Movimiento } from "@/lib/api/types";
+
+const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: toastError } }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn() }),
@@ -42,12 +46,14 @@ vi.mock("@/components/movimientos/formulario-movimiento", () => ({
     children,
     cuentas,
     valoresIniciales,
+    pagoDivididoInicial,
     tituloCabecera,
     descripcionCabecera,
   }: {
     children?: React.ReactNode;
     cuentas?: Cuenta[];
     valoresIniciales?: Record<string, unknown>;
+    pagoDivididoInicial?: Record<string, unknown>;
     tituloCabecera?: string;
     descripcionCabecera?: string;
   }) => (
@@ -66,6 +72,10 @@ vi.mock("@/components/movimientos/formulario-movimiento", () => ({
         <pre data-testid="cuentas-correccion">
           {JSON.stringify((cuentas ?? []).map((cuenta) => cuenta.id))}
         </pre>
+      ) : null}
+      {/* El reparto con el que abre una compra dividida al corregirse. */}
+      {pagoDivididoInicial ? (
+        <pre data-testid="pago-dividido-inicial">{JSON.stringify(pagoDivididoInicial)}</pre>
       ) : null}
       {children}
     </div>
@@ -106,13 +116,20 @@ vi.mock("@/components/movimientos/transferencia-item", () => ({
 vi.mock("@/components/movimientos/compra-dividida-item", () => ({
   CompraDivididaItem: ({
     compra,
+    cuentasPorId,
     onSolicitarAnular,
   }: {
     compra: { partes: [Movimiento, Movimiento] };
+    cuentasPorId?: ReadonlyMap<string, Cuenta>;
     onSolicitarAnular: (parte: Movimiento) => void;
   }) => (
     <li>
       <span>compra-dividida</span>
+      {/* Qué cuentas conoce la fila: una archivada también tiene que llegar
+          para que su nombre no salga "…". */}
+      <span data-testid="cuentas-de-la-fila">
+        {[...(cuentasPorId?.keys() ?? [])].join(",")}
+      </span>
       <button type="button" onClick={() => onSolicitarAnular(compra.partes[0])}>
         anular-compra
       </button>
@@ -340,6 +357,46 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       };
     }
 
+    /** Una anulación como la que responde el servidor al anular la compra:
+     * monto negado, prefijo "Anulación de: " y a quién anula. */
+    function anulacion(
+      id: string,
+      anula: string,
+      cuenta: string,
+      descripcion: string
+    ): Movimiento {
+      return {
+        id,
+        accountId: cuenta,
+        categoryId: "c-3",
+        budgetItemId: null,
+        paymentGroupId: "g-anul",
+        kind: "standard",
+        amount: "100000.0000",
+        currency: "COP",
+        occurredAt: "2026-09-10T12:00:00Z",
+        description: descripcion,
+        transferGroupId: null,
+        reversesTransactionId: anula,
+        reversedByTransactionId: null,
+      };
+    }
+
+    function responderAnulacion() {
+      anularPagoMutate.mockImplementation(
+        (_grupo: string, opciones: { onSuccess?: (r: unknown) => void }) =>
+          opciones.onSuccess?.({
+            data: {
+              paymentGroupId: "g-anul",
+              legs: [
+                anulacion("r1", "p1", "a-1", "Anulación de: Mercado (1 de 2)"),
+                anulacion("r2", "p2", "a-2", "Anulación de: Mercado (2 de 2)"),
+              ],
+            },
+          })
+      );
+    }
+
     it("las dos partes salen en UNA sola fila, no en dos gastos sueltos", () => {
       ajustar({ data: [parte("p1", "a-1", "Mercado (1 de 2)"), parte("p2", "a-2", "Mercado (2 de 2)")] });
 
@@ -349,10 +406,30 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       expect(screen.queryByText("movimiento")).not.toBeInTheDocument();
     });
 
-    it("anularla manda anular la compra COMPLETA (el grupo), nunca una parte, y no abre 'corregir'", () => {
-      anularPagoMutate.mockImplementation(
-        (_grupo: string, opciones: { onSuccess?: () => void }) => opciones.onSuccess?.()
+    it("la fila conoce las cuentas archivadas, para que su nombre no salga '…'", () => {
+      // `useCuentas(true)` trae activas y archivadas: la fila combinada tiene
+      // que recibirlas todas, no solo las activas, o el nombre de una cuenta
+      // retirada quedaría en "…".
+      ajustar(
+        {
+          data: [
+            parte("p1", "a-1", "Mercado (1 de 2)"),
+            parte("p2", "a-vieja", "Mercado (2 de 2)"),
+          ],
+        },
+        [
+          { id: "a-1", name: "Activa", archivedAt: null } as Cuenta,
+          { id: "a-vieja", name: "Cuenta vieja", archivedAt: "2026-01-01T00:00:00Z" } as Cuenta,
+        ]
       );
+
+      render(<PaginaMovimientos />);
+
+      expect(screen.getByTestId("cuentas-de-la-fila")).toHaveTextContent("a-vieja");
+    });
+
+    it("anularla manda anular la compra COMPLETA (el grupo), nunca una parte, y abre 'corregir' ya en dos cuentas", () => {
+      responderAnulacion();
       ajustar({ data: [parte("p1", "a-1", "Mercado (1 de 2)"), parte("p2", "a-2", "Mercado (2 de 2)")] });
 
       render(<PaginaMovimientos />);
@@ -361,7 +438,58 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
 
       expect(anularPagoMutate).toHaveBeenCalledWith("g-1", expect.anything());
       expect(anularMutate).not.toHaveBeenCalled();
+
+      // Corregir una compra es anularla y volver a registrarla bien: el
+      // formulario abre con el total, la categoría, la fecha y la descripción
+      // base SIN la marca "(1 de 2)"/"(2 de 2)".
+      const valores = JSON.parse(screen.getByTestId("valores-iniciales").textContent ?? "{}");
+      expect(valores).toEqual({
+        monto: "200.000",
+        cuentaId: "a-1",
+        categoriaId: "c-3",
+        itemDelPresupuesto: null,
+        fecha: "2026-09-10",
+        descripcion: "Mercado",
+        tipo: "gasto",
+      });
+
+      // Y ya repartido entre las dos cuentas, con lo que tenía cada una.
+      const reparto = JSON.parse(
+        screen.getByTestId("pago-dividido-inicial").textContent ?? "{}"
+      );
+      expect(reparto).toEqual({
+        cuenta1Id: "a-1",
+        cuenta2Id: "a-2",
+        texto1: "100.000",
+        texto2: "100.000",
+      });
+
+      const cabecera = JSON.parse(
+        screen.getByTestId("cabecera-correccion").textContent ?? "{}"
+      );
+      expect(cabecera.tituloCabecera).toBe("Corregir compra");
+      expect(cabecera.descripcionCabecera).not.toContain("movimiento");
+    });
+
+    it("si la anulación falla (422 cuenta archivada), muestra el error y NO abre el formulario", () => {
+      const mensaje =
+        "Alguna de las cuentas de esa compra está archivada. Desarchívala para poder corregir su historial.";
+      anularPagoMutate.mockImplementation(
+        (_grupo: string, opciones: { onError?: (error: unknown) => void }) =>
+          opciones.onError?.(new ApiError({ code: "RULE_VIOLATION", message: mensaje }))
+      );
+      ajustar({ data: [parte("p1", "a-1", "Mercado (1 de 2)"), parte("p2", "a-2", "Mercado (2 de 2)")] });
+
+      render(<PaginaMovimientos />);
+      fireEvent.click(screen.getByRole("button", { name: "anular-compra" }));
+      fireEvent.click(screen.getByRole("button", { name: "confirmar-anulacion" }));
+
+      // El error se muestra tal cual (lo manda el servidor)…
+      expect(toastError).toHaveBeenCalledWith(mensaje);
+      // …y no se abre ningún formulario de corrección: la compra no quedó
+      // anulada, así que no hay nada que corregir.
       expect(screen.queryByTestId("valores-iniciales")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("pago-dividido-inicial")).not.toBeInTheDocument();
     });
 
     it("el diálogo recibe las dos partes cuando la lista las trae, y una sola cuando solo llega una", () => {

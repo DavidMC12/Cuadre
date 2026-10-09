@@ -61,7 +61,12 @@ import {
 import { agruparItemsDePago, SIN_ITEM, textoDeOpcion } from "@/lib/item-presupuesto";
 import { cn } from "@/lib/utils";
 import { esCero, normalizarMontoIngresado, textoMonto } from "@/lib/money";
-import { cuentasParaLaParte, leerReparto, repartoInicial } from "@/lib/pago-dividido";
+import {
+  cuentasDelRepartoValidas,
+  cuentasParaLaParte,
+  leerReparto,
+  repartoInicial,
+} from "@/lib/pago-dividido";
 import { cuentasDeDestino } from "@/lib/transferencias";
 
 type TipoMonto = "gasto" | "ingreso" | "transferencia";
@@ -126,6 +131,22 @@ function cuentaPorDefecto(cuentaIdPorDefecto: string | undefined, cuentas: Cuent
   return cuentas[0]?.id ?? "";
 }
 
+/** ¿El reparto de dos cuentas es el mismo que traía la precarga? Se comparan
+ * las dos cuentas y los dos textos de monto: cambiar el reparto (no solo el
+ * total) tiene que habilitar "Registrar" al corregir una compra dividida. */
+function mismoReparto(
+  actual: PagoDivididoEnEdicion | null,
+  inicial: PagoDivididoEnEdicion | null
+): boolean {
+  if (actual === null || inicial === null) return actual === inicial;
+  return (
+    actual.cuenta1Id === inicial.cuenta1Id &&
+    actual.cuenta2Id === inicial.cuenta2Id &&
+    actual.texto1 === inicial.texto1 &&
+    actual.texto2 === inicial.texto2
+  );
+}
+
 export function FormularioMovimiento({
   cuentas,
   cargandoCuentas = false,
@@ -133,6 +154,7 @@ export function FormularioMovimiento({
   tipoInicial,
   transferenciaInicial,
   valoresIniciales,
+  pagoDivididoInicial,
   abierto,
   onAbiertoChange,
   children,
@@ -154,6 +176,14 @@ export function FormularioMovimiento({
   /** Valores con los que abre el formulario cuando lo invoca otra pantalla
    * (corregir un movimiento). Se leen al montar. */
   valoresIniciales?: ValoresInicialesMovimiento;
+  /**
+   * Si la corrección es de una compra pagada con dos cuentas: abre YA en modo
+   * "Pagar con dos cuentas" con las dos cuentas y sus dos montos. No pasarlo
+   * (lo de siempre) abre corrigiendo un movimiento de una sola cuenta. Solo
+   * la corrección de una compra dividida lo trae: un registro nuevo o un
+   * movimiento simple no.
+   */
+  pagoDivididoInicial?: PagoDivididoEnEdicion;
   /** Abre el formulario desde afuera, sin disparador visible. Si se pasa, el
    * componente deja de manejar su propio estado de abierto y obedece a quien
    * lo invoca. */
@@ -331,7 +361,9 @@ export function FormularioMovimiento({
   // "Pagar con dos cuentas": la compra se reparte entre dos cuentas de la misma
   // moneda (la mitad con la tarjeta, la mitad con plata disponible). `null` =
   // modo de una sola cuenta, el de siempre.
-  const [pagoDividido, setPagoDividido] = useState<PagoDivididoEnEdicion | null>(null);
+  const [pagoDividido, setPagoDividido] = useState<PagoDivididoEnEdicion | null>(
+    pagoDivididoInicial ?? null
+  );
   const hayCuentas = cuentas.length > 0;
   // "Entre cuentas" no tiene sentido con una sola cuenta: no habría hacia
   // dónde transferir, y ofrecer una opción que nunca puede completarse es
@@ -362,9 +394,15 @@ export function FormularioMovimiento({
     categoryId !== valoresIniciales?.categoriaId ||
     (itemDelMovimiento ?? null) !== (valoresIniciales?.itemDelPresupuesto ?? null) ||
     fecha !== (valoresIniciales?.fecha ?? hoyInput()) ||
-    descripcion !== (valoresIniciales?.descripcion ?? "");
+    descripcion !== (valoresIniciales?.descripcion ?? "") ||
+    // El reparto entre las dos cuentas también es un cambio: dos compras que
+    // suman lo mismo pero se reparten distinto son correcciones distintas.
+    !mismoReparto(pagoDividido, pagoDivididoInicial ?? null);
 
-  const { data: categorias } = useCategorias(false);
+  // Al corregir se piden también las archivadas: una categoría retirada puede
+  // ser la que traía el movimiento y hay que poder verla con su nombre. En un
+  // registro nuevo solo se piden las activas (una archivada no se elige).
+  const { data: categorias } = useCategorias(enCorreccion);
 
   // El monto grande, leído y positivo, o `null` si aún no es un monto válido:
   // es el TOTAL de la compra que se reparte.
@@ -374,11 +412,13 @@ export function FormularioMovimiento({
     return "monto" in lectura && !esCero(lectura.monto) ? lectura.monto : null;
   })();
 
-  // ¿Se puede ofrecer pagar con dos cuentas? Solo en un registro nuevo de
-  // gasto o ingreso (no en una corrección ni en "Entre cuentas") y si hay al
-  // menos otra cuenta activa de la misma moneda con quién repartir.
+  // ¿Se puede ofrecer pagar con dos cuentas? En un registro nuevo de gasto o
+  // ingreso; y al corregir, SOLO cuando lo corregido era una compra pagada con
+  // dos cuentas (así se puede volver a repartir si se salió del modo). Nunca
+  // en "Entre cuentas" ni al corregir un movimiento simple. Hace falta, además,
+  // otra cuenta activa de la misma moneda con quién repartir.
   const puedeDividirElPago =
-    !enCorreccion &&
+    (!enCorreccion || pagoDivididoInicial !== undefined) &&
     tipoMonto !== "transferencia" &&
     cuentaElegida !== undefined &&
     cuentasParaLaParte(cuentas, cuentaElegida.currency, cuentaId).length > 0;
@@ -387,8 +427,19 @@ export function FormularioMovimiento({
     pagoDividido && cuentaElegida
       ? leerReparto(totalLeido, pagoDividido.texto1, pagoDividido.texto2, cuentaElegida.currency)
       : null;
+  // Las cuentas tienen que seguir siendo válidas AHORA, no solo al elegirlas:
+  // si una se archiva y la lista se refresca, deja de contar y "Registrar" se
+  // apaga, en vez de mandar una cuenta que el servidor rechazaría.
   const pagoDivididoListo = Boolean(
-    pagoDividido?.cuenta1Id && pagoDividido.cuenta2Id && repartoDelPago?.cuadra
+    pagoDividido &&
+      cuentaElegida &&
+      cuentasDelRepartoValidas(
+        cuentas,
+        cuentaElegida.currency,
+        pagoDividido.cuenta1Id,
+        pagoDividido.cuenta2Id
+      ) &&
+      repartoDelPago?.cuadra
   );
 
   function activarPagoDividido() {
@@ -438,6 +489,32 @@ export function FormularioMovimiento({
     categorias: categorias ?? [],
   });
 
+  // La categoría archivada que quedó precargada al corregir no la ofrece el
+  // menú (las archivadas no se eligen al registrar), pero su valor tiene que
+  // existir: sin una opción que lo represente, el desplegable se vería como
+  // "Sin categoría" aunque la categoría sí esté elegida. Se agrega UNA opción,
+  // marcada, solo para representar lo que ya estaba. En un registro nuevo no
+  // aparece: `categorias` no trae archivadas.
+  const categoriaArchivadaElegida = (categorias ?? []).find(
+    (categoria) => categoria.id === categoryId && categoria.archivedAt
+  );
+  const yaEstaEnElMenu = gruposDesplegable.some((grupo) =>
+    grupo.opciones.some((opcion) => opcion.value === valorDesplegable)
+  );
+  const grupoArchivada =
+    categoriaArchivadaElegida && !yaEstaEnElMenu
+      ? [
+          {
+            etiqueta: "Archivadas",
+            opciones: [{ value: valorDesplegable, texto: `${textoCerrado} (archivada)` }],
+          },
+        ]
+      : [];
+  const gruposDelDesplegable = [...gruposDesplegable, ...grupoArchivada];
+  const textoCerradoMostrado = categoriaArchivadaElegida
+    ? `${textoCerrado} (archivada)`
+    : textoCerrado;
+
   function elegirDelDesplegable(valor: string | null) {
     if (!valor || valor === SIN_CATEGORIA_EN_QUE_FUE) {
       setCategoryId(undefined);
@@ -475,7 +552,7 @@ export function FormularioMovimiento({
     setCategoryId(valoresIniciales?.categoriaId);
     setItemElegido(valoresIniciales?.itemDelPresupuesto ?? null);
     setItemDePagoAMano(null);
-    setPagoDividido(null);
+    setPagoDividido(pagoDivididoInicial ?? null);
     setErrores({});
   }
 
@@ -1000,10 +1077,10 @@ export function FormularioMovimiento({
                   {/* El popup vive en un portal que no está montado mientras el
                       selector está cerrado: el texto del renglón cerrado se
                       resuelve a mano, como en los demás selectores. */}
-                  <SelectValue placeholder="Sin categoría">{() => textoCerrado}</SelectValue>
+                  <SelectValue placeholder="Sin categoría">{() => textoCerradoMostrado}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {gruposDesplegable.map((grupo) =>
+                  {gruposDelDesplegable.map((grupo) =>
                     grupo.etiqueta === null ? (
                       grupo.opciones.map((opcion) => (
                         <SelectItem key={opcion.value} value={opcion.value}>

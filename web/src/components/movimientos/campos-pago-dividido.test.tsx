@@ -210,4 +210,31 @@ describe("CamposPagoDividido", () => {
       "Escribe primero el monto de la compra."
     );
   });
+
+  it("si una cuenta elegida se archivó, la trata como no elegida y lo avisa", () => {
+    // "Cuenta vieja" quedó archivada después de elegirla: la lista se refrescó
+    // y ya no es una opción válida. No se manda una cuenta fantasma.
+    montar({ ...inicial, cuenta2Id: "vieja" });
+
+    const estado = document.getElementById("estado-pago-dividido")!;
+    expect(estado).toHaveTextContent("Elige la cuenta 2 para registrar.");
+    expect(estado).not.toHaveTextContent("✓");
+    expect(
+      screen.getByText("Una de las cuentas elegidas ya no está disponible: elígela de nuevo.")
+    ).toBeInTheDocument();
+
+    const [, cuenta2] = screen.getAllByTestId("select");
+    expect(cuenta2).toHaveValue("");
+  });
+
+  it("si la cuenta 1 elegida se archivó, el estado nombra la 1 y no la 2", () => {
+    montar({ ...inicial, cuenta1Id: "vieja" });
+
+    expect(document.getElementById("estado-pago-dividido")).toHaveTextContent(
+      "Elige la cuenta 1 para registrar."
+    );
+
+    const [cuenta1] = screen.getAllByTestId("select");
+    expect(cuenta1).toHaveValue("");
+  });
 });

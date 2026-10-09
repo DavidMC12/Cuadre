@@ -1,6 +1,6 @@
 import type { Movimiento } from "./api/types";
 import type { ItemDeLista } from "./combinar-transferencias";
-import { sumarMontos } from "./money";
+import { negar, sumarMontos } from "./money";
 
 /**
  * Una compra pagada con dos cuentas: las dos partes (un gasto por cuenta) que
@@ -41,6 +41,54 @@ export function descripcionDeLaCompra(partes: readonly Movimiento[]): string {
   }
 
   return texto.replace(MARCA_DE_PARTE, "").trim() || COMPRA_SIN_DESCRIPCION;
+}
+
+/**
+ * La descripción BASE de una compra, sin la marca "(1 de 2)" que el servidor
+ * agrega a cada parte y sin el relleno "Pago 1 de 2" (que el servidor pone
+ * cuando no hubo descripción). Es lo que precarga el formulario al corregir:
+ * lo que la persona escribió, tal cual, para que el servidor le vuelva a
+ * agregar la marca al guardar. A diferencia de `descripcionDeLaCompra`, aquí
+ * "sin descripción" es texto vacío, no "Compra pagada con dos cuentas".
+ */
+export function descripcionBaseDeLaCompra(partes: readonly Movimiento[]): string {
+  const texto = partes[0]?.description?.trim() ?? "";
+  if (!texto || PARTE_SIN_DESCRIPCION.test(texto)) return "";
+  return texto.replace(MARCA_DE_PARTE, "").trim();
+}
+
+/**
+ * Reconstruye una compra pagada con dos cuentas a partir de las anulaciones
+ * que devuelve el servidor al anularla: cada anulación es su original con el
+ * monto negado y el prefijo "Anulación de: ". Sirve para precargar la
+ * corrección aunque la lista filtrada haya traído UNA sola parte.
+ *
+ * Devuelve `null` si no llegan exactamente dos anulaciones: sin las dos partes
+ * no hay compra dividida que corregir.
+ */
+export function compraDesdeSusAnulaciones(
+  paymentGroupId: string,
+  anulaciones: readonly Movimiento[]
+): CompraDividida | null {
+  const partes = anulaciones
+    .filter((anulacion) => anulacion.reversesTransactionId !== null)
+    .map((anulacion) => ({
+      ...anulacion,
+      id: anulacion.reversesTransactionId!,
+      amount: negar(anulacion.amount),
+      description: anulacion.description?.replace(/^Anulación de: /, "") ?? null,
+      paymentGroupId,
+      reversesTransactionId: null,
+      reversedByTransactionId: anulacion.id,
+    }));
+
+  if (partes.length !== 2) return null;
+
+  const [a, b] = partes as [Movimiento, Movimiento];
+  const ordenadas: [Movimiento, Movimiento] =
+    (a.description ?? "") <= (b.description ?? "") ? [a, b] : [b, a];
+
+  return { tipo: "compra-dividida", paymentGroupId, partes: ordenadas };
 }
 
 /** El total de la compra: la suma exacta de sus dos partes (con el signo de cada una). */

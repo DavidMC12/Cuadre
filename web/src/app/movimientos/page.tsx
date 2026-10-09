@@ -33,7 +33,14 @@ import {
   useMovimientos,
 } from "@/hooks/use-movimientos";
 import { agruparMovimientosPorDia } from "@/lib/agrupar-movimientos";
-import { combinarPagosDivididos, esCompraDividida } from "@/lib/combinar-pagos-divididos";
+import {
+  type CompraDividida,
+  combinarPagosDivididos,
+  compraDesdeSusAnulaciones,
+  descripcionBaseDeLaCompra,
+  esCompraDividida,
+  totalDeLaCompra,
+} from "@/lib/combinar-pagos-divididos";
 import { combinarTransferencias, esTransferencia } from "@/lib/combinar-transferencias";
 import { ApiError } from "@/lib/api/client";
 import { textoEditable } from "@/lib/money";
@@ -94,6 +101,9 @@ function ContenidoMovimientos() {
   // El movimiento anulado que se está corrigiendo: dispara el formulario
   // precargado. Se limpia al cerrarlo, y así se desmonta.
   const [movimientoACorregir, setMovimientoACorregir] = useState<Movimiento | null>(null);
+  // La compra pagada con dos cuentas anulada que se está corrigiendo: su
+  // formulario abre YA repartido entre las dos cuentas. Se limpia al cerrarlo.
+  const [compraACorregir, setCompraACorregir] = useState<CompraDividida | null>(null);
 
   // Con archivadas incluidas: al corregir un movimiento hay que poder mostrar
   // la cuenta original aunque esté archivada, en vez de caer en silencio a
@@ -140,26 +150,33 @@ function ContenidoMovimientos() {
   const estado = estadoDeConsulta({ data: movimientos, isError, isPaused, isLoading });
   const pausada = estado === "pausada";
 
+  // Con las archivadas incluidas: una compra pagada con dos cuentas puede
+  // tener una cuenta ya retirada, y su nombre debe verse igual en la fila
+  // combinada y en el detalle (nunca un "…").
   const cuentasPorId = useMemo(
-    () => new Map((cuentas ?? []).map((cuenta) => [cuenta.id, cuenta])),
-    [cuentas]
+    () => new Map((todasLasCuentas ?? []).map((cuenta) => [cuenta.id, cuenta])),
+    [todasLasCuentas]
   );
 
   // Lo que ve el formulario de corrección: las activas, más la cuenta original
-  // si está archivada. Es la que hay que conservar seleccionada; sin meterla
-  // en la lista, el formulario cae solo a otra cuenta y la corrección aterriza
-  // donde nadie pidió. Hoy el servidor rechaza anular un movimiento de una
-  // cuenta archivada, así que el camino normal no llega aquí; esto sigue
-  // cubriendo que la archiven justo mientras se corrige (o si esa regla
-  // cambia), que es cuando el fallback silencioso haría daño.
+  // (o las dos de una compra dividida) si quedaron archivadas. Sin meterlas en
+  // la lista, el formulario cae solo a otra cuenta y la corrección aterriza
+  // donde nadie pidió. Hoy el servidor rechaza anular en una cuenta archivada,
+  // así que el camino normal no llega aquí; esto sigue cubriendo que la
+  // archiven justo mientras se corrige (o si esa regla cambia).
   const cuentasParaCorregir = useMemo(() => {
-    if (!movimientoACorregir) return cuentas;
-    const original = (todasLasCuentas ?? []).find(
-      (cuenta) => cuenta.id === movimientoACorregir.accountId
+    const idsNecesarios = new Set<string>();
+    if (movimientoACorregir) idsNecesarios.add(movimientoACorregir.accountId);
+    if (compraACorregir) {
+      for (const parte of compraACorregir.partes) idsNecesarios.add(parte.accountId);
+    }
+    if (idsNecesarios.size === 0) return cuentas;
+    const archivadasNecesarias = (todasLasCuentas ?? []).filter(
+      (cuenta) =>
+        idsNecesarios.has(cuenta.id) && !cuentas.some((activa) => activa.id === cuenta.id)
     );
-    if (!original || cuentas.some((cuenta) => cuenta.id === original.id)) return cuentas;
-    return [...cuentas, original];
-  }, [cuentas, todasLasCuentas, movimientoACorregir]);
+    return archivadasNecesarias.length > 0 ? [...cuentas, ...archivadasNecesarias] : cuentas;
+  }, [cuentas, todasLasCuentas, movimientoACorregir, compraACorregir]);
 
   const categoriasPorId = useMemo(
     () => new Map((categorias ?? []).map((categoria) => [categoria.id, categoria])),
@@ -246,13 +263,18 @@ function ContenidoMovimientos() {
     }
 
     // Una parte de una compra pagada con dos cuentas nunca se anula sola: se
-    // anula la compra completa. Y no hay "corregir": corregir una compra es
-    // anularla y registrarla de nuevo a mano.
+    // anula la compra completa. Y también se corrige, igual que un movimiento
+    // simple: anulada, se abre el formulario ya repartido entre las dos cuentas
+    // con lo que había. Las anulaciones que responde el servidor traen las dos
+    // partes (aunque la lista filtrada solo mostrara una).
     if (movimientoAConfirmar.paymentGroupId) {
-      anularPagoDividido.mutate(movimientoAConfirmar.paymentGroupId, {
-        onSuccess: () => {
+      const grupo = movimientoAConfirmar.paymentGroupId;
+      anularPagoDividido.mutate(grupo, {
+        onSuccess: (respuesta) => {
           toast.success("Compra anulada.");
+          const compra = compraDesdeSusAnulaciones(grupo, respuesta?.data?.legs ?? []);
           setMovimientoAConfirmar(null);
+          if (compra) setCompraACorregir(compra);
         },
         onError: (error) => {
           toast.error(
@@ -562,6 +584,52 @@ function ContenidoMovimientos() {
           }}
           tituloCabecera="Corregir movimiento"
           descripcionCabecera="Registra el movimiento correcto: el original ya quedó anulado."
+        />
+      )}
+
+      {/* Corregir una compra pagada con dos cuentas: el mismo paso, pero el
+          formulario abre YA en "Pagar con dos cuentas", con las dos cuentas y
+          sus dos montos, y con la descripción base sin la marca "(1 de 2)" (la
+          vuelve a poner el servidor al guardar). Si se cierra sin registrar,
+          queda la anulación, que es una acción válida por sí sola. */}
+      {compraACorregir && (
+        <FormularioMovimiento
+          key={compraACorregir.paymentGroupId}
+          cuentas={cuentasParaCorregir}
+          cargandoCuentas={cargandoCuentas}
+          abierto
+          onAbiertoChange={(estaAbierto) => {
+            if (!estaAbierto) setCompraACorregir(null);
+          }}
+          valoresIniciales={{
+            // El signo lo pone el tipo; el total es la suma exacta de las dos
+            // partes, sin su signo. `textoEditable` lo deja como lo escribe un
+            // CampoMonto.
+            monto: textoEditable(
+              totalDeLaCompra(compraACorregir.partes).replace(/^-/, ""),
+              compraACorregir.partes[0].currency
+            ),
+            cuentaId: compraACorregir.partes[0].accountId,
+            categoriaId: compraACorregir.partes[0].categoryId ?? undefined,
+            itemDelPresupuesto: compraACorregir.partes[0].budgetItemId ?? null,
+            fecha: fechaParaInput(compraACorregir.partes[0].occurredAt),
+            descripcion: descripcionBaseDeLaCompra(compraACorregir.partes),
+            tipo: compraACorregir.partes[0].amount.startsWith("-") ? "gasto" : "ingreso",
+          }}
+          pagoDivididoInicial={{
+            cuenta1Id: compraACorregir.partes[0].accountId,
+            cuenta2Id: compraACorregir.partes[1].accountId,
+            texto1: textoEditable(
+              compraACorregir.partes[0].amount.replace(/^-/, ""),
+              compraACorregir.partes[0].currency
+            ),
+            texto2: textoEditable(
+              compraACorregir.partes[1].amount.replace(/^-/, ""),
+              compraACorregir.partes[1].currency
+            ),
+          }}
+          tituloCabecera="Corregir compra"
+          descripcionCabecera="Registra la compra correcta: el original ya quedó anulado."
         />
       )}
     </div>
