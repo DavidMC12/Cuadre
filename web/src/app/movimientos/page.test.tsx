@@ -175,6 +175,7 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       occurredAt: "2026-09-10T12:00:00Z",
       description: null,
       transferGroupId: null,
+      budgetItemId: null,
       reversesTransactionId: null,
       reversedByTransactionId: null,
     };
@@ -236,6 +237,7 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       occurredAt: "2026-09-10T12:00:00Z",
       description: "Mercado",
       transferGroupId: null,
+      budgetItemId: null,
       reversesTransactionId: null,
       reversedByTransactionId: null,
     };
@@ -260,6 +262,7 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       monto: "12.500",
       cuentaId: "a-7",
       categoriaId: "c-3",
+      itemDelPresupuesto: null,
       fecha: "2026-09-10",
       descripcion: "Mercado",
       tipo: "gasto",
@@ -308,6 +311,7 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
       occurredAt: "2026-09-10T12:00:00Z",
       description: null,
       transferGroupId: null,
+      budgetItemId: null,
       reversesTransactionId: null,
       reversedByTransactionId: null,
     };
@@ -450,6 +454,7 @@ describe("Movimientos: piso de toque de 44px", () => {
       occurredAt: "2026-09-10T12:00:00Z",
       description: null,
       transferGroupId: null,
+      budgetItemId: null,
       reversesTransactionId: null,
       reversedByTransactionId: null,
     };

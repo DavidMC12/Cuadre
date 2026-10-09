@@ -4,14 +4,23 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 
 import { FormularioMovimiento } from "./formulario-movimiento";
 import * as useCategoriasModule from "@/hooks/use-categorias";
-import type { Cuenta } from "@/lib/api/types";
+import * as usePresupuestoModule from "@/hooks/use-presupuesto";
+import type { ChecklistDelMes, Cuenta, ItemDelChecklist } from "@/lib/api/types";
+
+// Las mutaciones se guardan fuera para poder mirar qué recibió el servidor.
+const mutaciones = vi.hoisted(() => ({
+  movimiento: vi.fn(),
+  transferencia: vi.fn(),
+}));
 
 vi.mock("@/hooks/use-movimientos", () => ({
-  useCrearMovimiento: () => ({ isPending: false, mutate: vi.fn() }),
-  useCrearTransferencia: () => ({ isPending: false, mutate: vi.fn() }),
+  useCrearMovimiento: () => ({ isPending: false, mutate: mutaciones.movimiento }),
+  useCrearTransferencia: () => ({ isPending: false, mutate: mutaciones.transferencia }),
 }));
 
 vi.mock("@/hooks/use-categorias", () => ({ useCategorias: vi.fn(() => ({ data: [] })) }));
+
+vi.mock("@/hooks/use-presupuesto", () => ({ useChecklistDelMes: vi.fn(() => ({ data: undefined })) }));
 
 vi.mock("@/hooks/use-perfil", () => ({ useSoloMirar: () => false }));
 vi.mock("@/hooks/use-pantalla-grande", () => ({ usePantallaGrande: () => false }));
@@ -22,7 +31,12 @@ vi.mock("@/components/movimientos/selector-categoria", () => ({
   ),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  // Los mocks de hoisted mutaciones y del checklist no deben arrastrar
+  // llamadas ni valores de una prueba a la siguiente.
+  vi.clearAllMocks();
+});
 
 const cuentas: Cuenta[] = [
   {
@@ -334,5 +348,561 @@ describe("FormularioMovimiento: piso de toque de 44px", () => {
     render(<FormularioMovimiento cuentas={cuentas} abierto />);
 
     expect(screen.getByLabelText("Monto").className).toContain("min-h-11");
+  });
+});
+
+// -------------------------------------------------------------------------
+// El item del presupuesto: cada movimiento cuenta para uno solo
+// -------------------------------------------------------------------------
+
+const CATEGORIAS = [
+  { id: "c-deu", name: "Deudas", kind: "expense", archivedAt: null },
+  { id: "c-mer", name: "Mercado", kind: "expense", archivedAt: null },
+  { id: "c-str", name: "Transporte", kind: "expense", archivedAt: null },
+  { id: "c-sue", name: "Sueldo", kind: "income", archivedAt: null },
+] as const;
+
+function itemChecklist(over: Partial<ItemDelChecklist> & { id: string }): ItemDelChecklist {
+  return {
+    kind: "category",
+    currency: "COP",
+    label: "Deuda TC Nu",
+    categoryKind: "expense",
+    categoryId: "c-deu",
+    categoryName: "Deudas",
+    target: "250000",
+    progress: "0",
+    checked: false,
+    exceeded: false,
+    status: "pending",
+    ...over,
+  };
+}
+
+function checklistCon(items: ItemDelChecklist[]) {
+  const data: ChecklistDelMes = { month: "2026-09", currency: "COP", items, unassigned: [] };
+  vi.mocked(usePresupuestoModule.useChecklistDelMes).mockImplementation(
+    () => ({ data }) as never
+  );
+}
+
+function categoriasRapidas() {
+  vi.mocked(useCategoriasModule.useCategorias).mockImplementation(
+    () => ({ data: [...CATEGORIAS] }) as never
+  );
+}
+
+/** Abre "Más detalles" y elige la categoría con el chip rápido. */
+function elegirCategoria(nombre: string) {
+  fireEvent.click(screen.getByRole("button", { name: /Más detalles/ }));
+  fireEvent.click(screen.getByRole("button", { name: nombre }));
+}
+
+describe("FormularioMovimiento: el item del presupuesto del movimiento", () => {
+  it("con exactamente un ítem de la categoría, viene preseleccionado con lo que falta", () => {
+    categoriasRapidas();
+    checklistCon([
+      // target 250.000 − progress 147.500 = faltan $102.500, texto exacto.
+      itemChecklist({ id: "i-nu", progress: "147500", status: "partial", checked: true }),
+    ]);
+
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+    elegirCategoria("Deudas");
+
+    const campo = screen.getByLabelText("Ítem del presupuesto (opcional)");
+    expect(campo).toHaveTextContent("Deuda TC Nu — faltan $102.500");
+  });
+
+  it("un item ya pagado dice pagado, no le inventa un faltante de $0", () => {
+    categoriasRapidas();
+    checklistCon([
+      itemChecklist({ id: "i-nu", progress: "250000", status: "paid", checked: true }),
+    ]);
+
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+    elegirCategoria("Deudas");
+
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
+      "Deuda TC Nu — pagado"
+    );
+  });
+
+  it("un item de ingreso dice recibido, no pagado", () => {
+    categoriasRapidas();
+    checklistCon([
+      itemChecklist({
+        id: "i-sue",
+        label: "Sueldo septiembre",
+        categoryId: "c-sue",
+        categoryKind: "income",
+        progress: "1200000",
+        status: "paid",
+        checked: true,
+      }),
+    ]);
+
+    render(<FormularioMovimiento cuentas={cuentas} abierto tipoInicial="ingreso" />);
+    elegirCategoria("Sueldo");
+
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
+      "Sueldo septiembre — recibido"
+    );
+  });
+
+  it("con varios ítems de la categoría abre en Sin asignar: la persona elige", () => {
+    categoriasRapidas();
+    checklistCon([
+      itemChecklist({ id: "i-nu", target: "147000" }),
+      itemChecklist({ id: "i-dav", label: "Deuda Davivienda", target: "267530" }),
+    ]);
+
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+    elegirCategoria("Deudas");
+
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
+      "Sin asignar"
+    );
+  });
+
+  it("cambiar de categoría reinicia la selección: la propuesta de la nueva manda", () => {
+    categoriasRapidas();
+    checklistCon([
+      itemChecklist({ id: "i-nu", target: "250000", progress: "147500" }),
+      itemChecklist({
+        id: "i-jp",
+        label: "John Perez",
+        categoryId: "c-mer",
+        categoryName: "Mercado",
+        target: "60000",
+        progress: "0",
+      }),
+    ]);
+
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+    elegirCategoria("Deudas");
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
+      "Deuda TC Nu"
+    );
+
+    // Mercado tiene un solo item: el reinicio lo propone, no trae "Deuda TC Nu".
+    fireEvent.click(screen.getByRole("button", { name: "Mercado" }));
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
+      "John Perez — faltan $60.000"
+    );
+  });
+
+  it("cambiar de tipo (Gasto a Ingreso) también reinicia: sin categoría no hay campo", () => {
+    categoriasRapidas();
+    checklistCon([itemChecklist({ id: "i-nu" })]);
+
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+    elegirCategoria("Deudas");
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
+      "Deuda TC Nu"
+    );
+
+    // Ahora es un ingreso: la categoría se limpia y con ella la selección.
+    fireEvent.click(screen.getByRole("button", { name: "Ingreso" }));
+    expect(screen.queryByLabelText("Ítem del presupuesto (opcional)")).not.toBeInTheDocument();
+  });
+
+  it("si el checklist del mes no llegó todavía, el campo no aparece hasta cargar (no inventa nombres)", () => {
+    categoriasRapidas();
+    // El checklist no llegó: data undefined, como en un cargue lento.
+    vi.mocked(usePresupuestoModule.useChecklistDelMes).mockImplementation(
+      () => ({ data: undefined }) as never
+    );
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+    elegirCategoria("Deudas");
+
+    // Sin datos no hay qué proponer: el campo espera a que cargue, igual que
+    // hace el formulario con el resto de listas (cuentas, categorías).
+    expect(screen.queryByLabelText("Ítem del presupuesto (opcional)")).not.toBeInTheDocument();
+  });
+
+  it("si la categoría no tiene items, el campo no aparece (nada nuevo que explicar)", () => {
+    categoriasRapidas();
+    checklistCon([]);
+
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+    elegirCategoria("Transporte");
+
+    expect(screen.queryByLabelText("Ítem del presupuesto (opcional)")).not.toBeInTheDocument();
+  });
+
+  it("si la categoría no tiene items y no está elegida, el campo tampoco aparece", () => {
+    categoriasRapidas();
+    checklistCon([itemChecklist({ id: "i-nu" })]);
+
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+    fireEvent.click(screen.getByRole("button", { name: /Más detalles/ }));
+
+    expect(screen.queryByLabelText("Ítem del presupuesto (opcional)")).not.toBeInTheDocument();
+  });
+
+  it("envía al servidor el item preseleccionado cuando hay exactamente uno", () => {
+    categoriasRapidas();
+    checklistCon([itemChecklist({ id: "i-nu", progress: "147500" })]);
+
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+    elegirCategoria("Deudas");
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "12.500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+
+    expect(mutaciones.movimiento).toHaveBeenCalledTimes(1);
+    const envio = mutaciones.movimiento.mock.calls[0][0];
+    expect(envio).toEqual({
+      accountId: "a-1",
+      amount: "-12500",
+      occurredAt: expect.any(String),
+      categoryId: "c-deu",
+      budgetItemId: "i-nu",
+    });
+  });
+
+  it("con varios ítems y 'Sin asignar', envía null: queda sin item, no con el último tocado", () => {
+    categoriasRapidas();
+    checklistCon([
+      itemChecklist({ id: "i-nu", target: "147000" }),
+      itemChecklist({ id: "i-dav", label: "Deuda Davivienda" }),
+    ]);
+
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+    elegirCategoria("Deudas");
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "12.500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+
+    expect(mutaciones.movimiento.mock.calls[0][0].budgetItemId).toBeNull();
+  });
+
+  it("sin categoría elegida, el envío no lleva item", () => {
+    categoriasRapidas();
+    checklistCon([itemChecklist({ id: "i-nu" })]);
+
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "12.500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+
+    const envio = mutaciones.movimiento.mock.calls[0][0];
+    expect(envio.budgetItemId).toBeUndefined();
+  });
+
+  it("la corrección trae el item que contaba y Registrar queda apagado hasta un cambio", () => {
+    categoriasRapidas();
+    checklistCon([itemChecklist({ id: "i-nu" })]);
+
+    render(
+      <FormularioMovimiento
+        cuentas={cuentas}
+        abierto
+        valoresIniciales={{
+          monto: "12.500",
+          cuentaId: "a-1",
+          categoriaId: "c-deu",
+          itemDelPresupuesto: "i-nu",
+          fecha: "2026-09-10",
+          descripcion: "Mercado",
+          tipo: "gasto",
+        }}
+      />
+    );
+
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
+      "Deuda TC Nu"
+    );
+    const registrar = screen.getByRole("button", { name: "Registrar" });
+    expect(registrar).toBeDisabled();
+
+    // Un cambio en otro campo lo enciende… y volver atrás lo apaga otra vez:
+    // el item es un campo como cualquier otro en la comparación con la precarga.
+    const descripcion = screen.getByLabelText("Descripción (opcional)");
+    fireEvent.change(descripcion, { target: { value: "Pago de la semana" } });
+    expect(registrar).toBeEnabled();
+    fireEvent.change(descripcion, { target: { value: "Mercado" } });
+    expect(registrar).toBeDisabled();
+  });
+
+  it("el selector de item lleva el piso de toque de 44px", () => {
+    categoriasRapidas();
+    checklistCon([itemChecklist({ id: "i-nu" })]);
+
+    render(<FormularioMovimiento cuentas={cuentas} abierto />);
+    elegirCategoria("Deudas");
+
+    expect(
+      screen.getByLabelText("Ítem del presupuesto (opcional)").className
+    ).toContain("min-h-11");
+  });
+});
+
+// -------------------------------------------------------------------------
+// Pagar una tarjeta: puede apagar una deuda del presupuesto
+// -------------------------------------------------------------------------
+
+const banco: Cuenta = {
+  id: "a-banco",
+  name: "Bancolombia",
+  type: "bank",
+  currency: "COP",
+  balance: "5000000",
+  movementCount: 0,
+  lastMovementAt: null,
+  archivedAt: null,
+  isSavings: false,
+  creditLimit: null,
+  linkedAccountId: null,
+} as Cuenta;
+
+const tarjetaNu: Cuenta = {
+  ...banco,
+  id: "a-nu",
+  name: "Nu",
+  type: "card",
+  creditLimit: "500000",
+  linkedAccountId: "a-banco",
+} as Cuenta;
+
+const otroBanco: Cuenta = {
+  ...banco,
+  id: "a-davi",
+  name: "Davivienda",
+} as Cuenta;
+
+describe("FormularioMovimiento: pagar una tarjeta y su pago del presupuesto", () => {
+  it("con destino tarjeta y items de gasto, pregunta el pago y no viene preseleccionado", () => {
+    checklistCon([
+      itemChecklist({ id: "i-nu", target: "147000" }),
+      itemChecklist({ id: "i-dav", label: "Deuda Davivienda", target: "267530" }),
+    ]);
+
+    render(
+      <FormularioMovimiento
+        cuentas={[banco, tarjetaNu]}
+        abierto
+        tipoInicial="transferencia"
+        transferenciaInicial={{ origen: "a-banco", destino: "a-nu" }}
+      />
+    );
+
+    const campo = screen.getByLabelText("¿Qué pago del presupuesto es? (opcional)");
+    expect(campo).toHaveTextContent("Sin asignar");
+  });
+
+  it("con destino a otra cuenta (no tarjeta), ni pregunta", () => {
+    checklistCon([itemChecklist({ id: "i-nu", target: "147000" })]);
+
+    render(
+      <FormularioMovimiento
+        cuentas={[banco, otroBanco, tarjetaNu]}
+        abierto
+        tipoInicial="transferencia"
+        transferenciaInicial={{ origen: "a-banco", destino: "a-davi" }}
+      />
+    );
+
+    expect(
+      screen.queryByLabelText("¿Qué pago del presupuesto es? (opcional)")
+    ).not.toBeInTheDocument();
+  });
+
+  it("con destino tarjeta pero sin items de gasto este mes, tampoco pregunta", () => {
+    checklistCon([]);
+
+    render(
+      <FormularioMovimiento
+        cuentas={[banco, tarjetaNu]}
+        abierto
+        tipoInicial="transferencia"
+        transferenciaInicial={{ origen: "a-banco", destino: "a-nu" }}
+      />
+    );
+
+    expect(
+      screen.queryByLabelText("¿Qué pago del presupuesto es? (opcional)")
+    ).not.toBeInTheDocument();
+  });
+
+  it("solo las categorías de gasto son opciones de pago: un item de ingreso no aparece", () => {
+    checklistCon([
+      itemChecklist({
+        id: "i-sue",
+        label: "Sueldo",
+        categoryId: "c-sue",
+        categoryKind: "income",
+        categoryName: "Sueldo",
+      }),
+      itemChecklist({ id: "i-nu", target: "147000" }),
+    ]);
+
+    render(
+      <FormularioMovimiento
+        cuentas={[banco, tarjetaNu]}
+        abierto
+        tipoInicial="transferencia"
+        transferenciaInicial={{ origen: "a-banco", destino: "a-nu" }}
+      />
+    );
+
+    const campo = screen.getByLabelText("¿Qué pago del presupuesto es? (opcional)");
+    expect(campo).toHaveTextContent("Sin asignar");
+  });
+
+  it("envía el pago tal cual queda: sin asignar va null, y así alcanza el cuadre igual", () => {
+    checklistCon([itemChecklist({ id: "i-nu", target: "147000" })]);
+
+    render(
+      <FormularioMovimiento
+        cuentas={[banco, tarjetaNu]}
+        abierto
+        tipoInicial="transferencia"
+        transferenciaInicial={{ origen: "a-banco", destino: "a-nu" }}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "102.500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+
+    expect(mutaciones.transferencia).toHaveBeenCalledTimes(1);
+    expect(mutaciones.transferencia.mock.calls[0][0].budgetItemId).toBeNull();
+  });
+
+  it("un pago enviado por una cuenta a cuenta no lleva item (no pregunta, no manda)", () => {
+    checklistCon([itemChecklist({ id: "i-nu", target: "147000" })]);
+
+    render(
+      <FormularioMovimiento
+        cuentas={[banco, otroBanco]}
+        abierto
+        tipoInicial="transferencia"
+        transferenciaInicial={{ origen: "a-banco", destino: "a-davi" }}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "102.500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+
+    expect(mutaciones.transferencia.mock.calls[0][0].budgetItemId).toBeUndefined();
+  });
+
+  it("el selector de pago lleva el piso de toque de 44px", () => {
+    checklistCon([itemChecklist({ id: "i-nu", target: "147000" })]);
+
+    render(
+      <FormularioMovimiento
+        cuentas={[banco, tarjetaNu]}
+        abierto
+        tipoInicial="transferencia"
+        transferenciaInicial={{ origen: "a-banco", destino: "a-nu" }}
+      />
+    );
+
+    expect(
+      screen.getByLabelText("¿Qué pago del presupuesto es? (opcional)").className
+    ).toContain("min-h-11");
+  });
+});
+
+describe("FormularioMovimiento: cambiar el mes de la fecha reinicia la elección del ítem", () => {
+  function checklistPorMes(septiembre: ItemDelChecklist[], octubre: ItemDelChecklist[]) {
+    vi.mocked(usePresupuestoModule.useChecklistDelMes).mockImplementation(
+      ({ month }: { month: string }) =>
+        ({
+          data:
+            month === "2026-08"
+              ? {
+                  month: "2026-08",
+                  currency: "COP",
+                  items: septiembre,
+                  unassigned: [],
+                }
+              : {
+                  month: "2026-09",
+                  currency: "COP",
+                  items: octubre,
+                  unassigned: [],
+                },
+        }) as never
+    );
+  }
+
+  const iAgosto = itemChecklist({ id: "i-ago", label: "Cuota 8", target: "150000" });
+  const iSeptiembre = itemChecklist({ id: "i-sep", label: "Cuota 9", target: "250000" });
+
+  it("el item precargado no viaja a la lista del otro mes: la propuesta de la fecha manda", () => {
+    categoriasRapidas();
+    // Septiembre tiene un mismo renglón con cifras de septiembre; octubre
+    // otro con las suyas. El checklist responde por mes, como el servidor.
+    checklistPorMes(
+      [itemChecklist({ ...iAgosto, progress: "0" })],
+      [{ ...iSeptiembre, progress: "0" }]
+    );
+
+    render(
+      <FormularioMovimiento
+        cuentas={cuentas}
+        abierto
+        valoresIniciales={{
+          monto: "12.500",
+          cuentaId: "a-1",
+          categoriaId: "c-deu",
+          itemDelPresupuesto: "i-ago",
+          fecha: "2026-08-10",
+          descripcion: "Mercado",
+          tipo: "gasto",
+        }}
+      />
+    );
+
+    // Precarga de agosto: muestra la cifra de ese mes ("faltan $150.000").
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
+      "Cuota 8 — faltan $150.000"
+    );
+
+    // Suena la fecha a septiembre: la lista cambia de mes y la selección vuelve
+    // a calcularse con la de septiembre ("faltan $250.000"), no queda pegada a
+    // la decisión que se tomó mirando agosto.
+    fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2026-09-10" } });
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
+      "Cuota 9 — faltan $250.000"
+    );
+
+    // Y el envío lleva la decisión del MES DE LA FECHA, no la precargada.
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+    expect(mutaciones.movimiento.mock.calls[0][0]).toMatchObject({
+      budgetItemId: "i-sep",
+      occurredAt: expect.stringContaining("2026-09"),
+    });
+  });
+
+  it("si el nuevo mes tiene varios ítems, la fecha los deja en Sin asignar", () => {
+    categoriasRapidas();
+    checklistPorMes(
+      [iAgosto],
+      [iSeptiembre, itemChecklist({ id: "i-dav-sep", label: "Deuda Davivienda", target: "60000" })]
+    );
+
+    render(
+      <FormularioMovimiento
+        cuentas={cuentas}
+        abierto
+        valoresIniciales={{
+          monto: "12.500",
+          cuentaId: "a-1",
+          categoriaId: "c-deu",
+          itemDelPresupuesto: "i-ago",
+          fecha: "2026-08-10",
+          descripcion: "Mercado",
+          tipo: "gasto",
+        }}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2026-09-10" } });
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
+      "Sin asignar"
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+    expect(mutaciones.movimiento.mock.calls[0][0].budgetItemId).toBeNull();
   });
 });

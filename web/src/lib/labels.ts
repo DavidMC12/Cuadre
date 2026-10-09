@@ -21,6 +21,9 @@ export const ETIQUETA_TIPO_CATEGORIA: Record<TipoCategoria, string> = {
 /** "Sin categoría": el balde que usan los reportes cuando `categoryId` es null. */
 export const SIN_CATEGORIA = "Sin categoría";
 
+/** "Sin asignar": un movimiento que no cuenta para ningún ítem del presupuesto. */
+export const SIN_ASIGNAR = "Sin asignar";
+
 /**
  * El mismo texto de ayuda donde quiera que se marque una cuenta como de
  * ahorro, para que el formulario y el detalle no digan cosas distintas.

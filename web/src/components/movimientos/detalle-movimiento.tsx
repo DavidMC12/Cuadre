@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, Tag } from "lucide-react";
+import { Ban, ListTodo, Tag } from "lucide-react";
 
 import {
   Drawer,
@@ -15,10 +15,12 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Monto } from "@/components/monto";
 import { EditarCategoriaMovimiento } from "@/components/movimientos/editar-categoria-movimiento";
+import { EditarItemMovimiento } from "@/components/movimientos/editar-item-movimiento";
 import { useSoloMirar } from "@/hooks/use-perfil";
+import { usePresupuestoItems } from "@/hooks/use-presupuesto";
 import type { Categoria, Cuenta, Movimiento } from "@/lib/api/types";
 import { etiquetaFecha, horaCorta } from "@/lib/fecha";
-import { ETIQUETA_TIPO_MOVIMIENTO, SIN_CATEGORIA } from "@/lib/labels";
+import { ETIQUETA_TIPO_MOVIMIENTO, SIN_ASIGNAR, SIN_CATEGORIA } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
 /**
@@ -44,6 +46,20 @@ export function DetalleMovimiento({
 }) {
   const soloMirar = useSoloMirar();
 
+  // A qué nombre corresponde el ítem del presupuesto del movimiento: sale del
+  // catálogo de ítems (la misma consulta que usa el resto de la app), con la
+  // etiqueta si la tiene, o el nombre de la categoría/de la cuenta. Si el
+  // catálogo no llegó todavía, el renglón queda anónimo de forma honesta.
+  const { data: itemsDelPresupuesto } = usePresupuestoItems(true);
+  const nombreDelItem = (() => {
+    if (!movimiento.budgetItemId) return null;
+    const item = (itemsDelPresupuesto ?? []).find(
+      (item) => item.id === movimiento.budgetItemId
+    );
+    if (!item) return movimiento.budgetItemId;
+    return item.label ?? item.categoryName ?? item.accountName ?? SIN_ASIGNAR;
+  })();
+
   const anulado = movimiento.reversedByTransactionId !== null;
   const esAnulacion = movimiento.reversesTransactionId !== null;
 
@@ -67,6 +83,15 @@ export function DetalleMovimiento({
   // solo lectura ahí, como el resto de la app.
   const puedeCategorizarse = !soloMirar && movimiento.kind === "standard";
   const muestraCategoria = movimiento.kind === "standard";
+
+  // El item del presupuesto se lee y se cambia en los mismos casos donde el
+  // servidor lo acepta: un movimiento con categoría (gasto o ingreso) o una
+  // pata de transferencia. Un saldo inicial y un ajuste no pueden (el
+  // servidor lo rechaza), así que el renglón ni aparece.
+  const aplicaItem =
+    (movimiento.kind === "standard" && movimiento.categoryId !== null) ||
+    movimiento.kind === "transfer";
+  const puedeReasignarse = aplicaItem && !soloMirar;
 
   const descripcion = movimiento.description?.trim() || ETIQUETA_TIPO_MOVIMIENTO[movimiento.kind];
 
@@ -111,6 +136,18 @@ export function DetalleMovimiento({
             </>
           )}
 
+          {aplicaItem && (
+            <>
+              <Separator />
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-muted-foreground">Cuenta para</span>
+                <span className={nombreDelItem ? "text-sm" : "text-sm text-muted-foreground"}>
+                  {nombreDelItem ?? SIN_ASIGNAR}
+                </span>
+              </div>
+            </>
+          )}
+
           {movimiento.kind === "adjustment" && (
             /* La explicación en palabras: un ajuste es la fila que empareja el saldo con la realidad del banco. */
             <p className="text-center text-xs text-muted-foreground">
@@ -120,8 +157,16 @@ export function DetalleMovimiento({
           )}
         </div>
 
-        {(puedeCategorizarse || puedeAnularse) && (
+        {(puedeCategorizarse || puedeReasignarse || puedeAnularse) && (
           <DrawerFooter>
+            {puedeReasignarse && (
+              <EditarItemMovimiento movimiento={movimiento}>
+                <Button variant="outline" className="min-h-11">
+                  <ListTodo data-icon="inline-start" />
+                  Cambiar ítem
+                </Button>
+              </EditarItemMovimiento>
+            )}
             {puedeCategorizarse && (
               <EditarCategoriaMovimiento movimiento={movimiento}>
                 <Button variant="outline" className="min-h-11">

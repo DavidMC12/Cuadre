@@ -65,6 +65,13 @@ export interface Movimiento {
   id: string;
   accountId: string;
   categoryId: string | null;
+  /**
+   * El item del presupuesto al que cuenta este movimiento (`null` = no cuenta
+   * para ninguno: quedó "sin asignar" dentro de su categoria). Solo lo llevan
+   * los movimientos con categoria y las transferencias; un saldo inicial y un
+   * ajuste nunca tienen item.
+   */
+  budgetItemId: string | null;
   kind: TipoMovimiento;
   /** Con signo. Texto exacto, ej. "-1250.7500". Nunca number. */
   amount: string;
@@ -85,6 +92,11 @@ export interface NuevoMovimiento {
   occurredAt: string;
   description?: string;
   categoryId?: string;
+  /**
+   * El item del presupuesto al que cuenta (opcional). Solo vale si lleva
+   * categoria y el item es de esa categoria y de la moneda de la cuenta.
+   */
+  budgetItemId?: string | null;
 }
 
 /**
@@ -99,6 +111,13 @@ export interface NuevaTransferencia {
   amount: string;
   occurredAt: string;
   description?: string;
+  /**
+   * El pago del presupuesto que representa (opcional). Solo vale si la cuenta
+   * destino es una tarjeta y el item es de una categoria de gasto. El item
+   * queda en la pata de salida; el id de cualquiera de las dos patas sirve
+   * para cambiarlo después.
+   */
+  budgetItemId?: string | null;
 }
 
 /** Las dos patas que deja una transferencia, recién registrada. */
@@ -269,6 +288,14 @@ export interface NuevoItemDeAhorro {
 /** Un ítem nuevo, discriminado por `kind` igual que en el backend. */
 export type NuevoItemPresupuesto = NuevoItemDeCategoria | NuevoItemDeAhorro;
 
+/** Los estados en los que puede estar un item del checklist de un mes. */
+export type EstadoItemChecklist =
+  | "none" // no aplica ese mes: monto nulo o cero
+  | "pending" // nada todavía
+  | "partial" // algo, pero menos del objetivo
+  | "paid" // objetivo alcanzado (en gasto, exacto; en ingreso/ahorro, ya)
+  | "exceeded"; // en un gasto, se pasó del tope
+
 /** Una fila del checklist de un mes. */
 export interface ItemDelChecklist {
   id: string;
@@ -278,6 +305,9 @@ export interface ItemDelChecklist {
   label: string;
   /** 'income' = se espera recibir; 'expense' = tope de gasto; nulo en ahorro. */
   categoryKind: TipoCategoriaItem | null;
+  /** La categoria detrás del item; `null` en ahorro (no se asignan movimientos). */
+  categoryId: string | null;
+  categoryName: string | null;
   /** Nulo si el ítem se creó después de ese mes: no aplica todavía. */
   target: string | null;
   /** Texto exacto, nunca number. */
@@ -298,6 +328,17 @@ export interface ItemDelChecklist {
    * es nulo.
    */
   exceeded: boolean;
+  /** El estado del item en el mes, en una sola palabra de datos. */
+  status: EstadoItemChecklist;
+}
+
+/** Lo movido SIN item dentro de una categoria que tiene items: fruta sin repartir. */
+export interface SinAsignar {
+  categoryId: string;
+  categoryName: string | null;
+  categoryKind: TipoCategoriaItem;
+  /** Texto exacto, siempre positivo. */
+  amount: string;
 }
 
 /** El checklist completo de un mes, en una sola moneda. */
@@ -305,4 +346,6 @@ export interface ChecklistDelMes {
   month: string;
   currency: string;
   items: ItemDelChecklist[];
+  /** Lo gastado o recibido sin item en cada categoria con items (solo si no es cero). */
+  unassigned: SinAsignar[];
 }

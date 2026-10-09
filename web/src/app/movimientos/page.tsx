@@ -480,6 +480,7 @@ function ContenidoMovimientos() {
             ),
             cuentaId: movimientoACorregir.accountId,
             categoriaId: movimientoACorregir.categoryId ?? undefined,
+            itemDelPresupuesto: movimientoACorregir.budgetItemId ?? null,
             fecha: fechaParaInput(movimientoACorregir.occurredAt),
             descripcion: movimientoACorregir.description ?? "",
             tipo: movimientoACorregir.amount.startsWith("-") ? "gasto" : "ingreso",
