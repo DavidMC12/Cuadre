@@ -9,12 +9,23 @@
  */
 import { conflicto, noEncontrado, reglaViolada } from '../../http/errores.js';
 import { compare } from '../../shared/money.js';
-import { MesSchema, MontoNoNegativoSchema, MontoPositivoSchema } from '../../shared/schemas.js';
+import {
+  esCero,
+  MesSchema,
+  MontoNoNegativoSchema,
+  MontoPositivoSchema,
+} from '../../shared/schemas.js';
 import * as cuentasService from '../accounts/service.js';
 import * as categoriasService from '../categories/service.js';
 import * as reportsService from '../reports/service.js';
 import * as repositorio from './repository.js';
-import { type CrearItem, type ItemDePresupuesto, type ItemDelChecklist } from './schemas.js';
+import {
+  type CrearItem,
+  type EstadoDelItem,
+  type ItemDePresupuesto,
+  type ItemDelChecklist,
+  type SinAsignar,
+} from './schemas.js';
 
 /**
  * La única puerta por la que un mes y un monto entran a este service: un
@@ -186,55 +197,130 @@ export async function desarchivarItem(
 }
 
 /**
+ * Cómo va un renglón del checklist, a partir de su meta y su progreso. Es una
+ * función pura (sin base ni HTTP) para poder probarla como una tabla de casos.
+ *
+ * La comparación es exacta y en enteros: comparar los strings con `<`/`>` de
+ * JavaScript ordenaría como texto, y "100000" < "20000" sería verdad leído así
+ * — de ahí el `compare` de `shared/money.ts`.
+ */
+export function estadoDelItem(
+  item: { kind: 'category' | 'savings'; categoryKind: 'expense' | 'income' | null },
+  target: string | null,
+  progress: string,
+): EstadoDelItem {
+  // Sin meta no hay estado que dar: el ítem no existía ese mes.
+  if (target === null) return 'none';
+
+  // Un objetivo de cero es "este mes no aplica". Si aun así se movió algo, es
+  // un exceso; si no, no hay nada que reportar.
+  if (esCero(target)) {
+    return compare(progress, '0') > 0 ? 'exceeded' : 'none';
+  }
+
+  const esTopeDeGasto = item.kind === 'category' && item.categoryKind === 'expense';
+
+  if (esTopeDeGasto) {
+    const contraLaMeta = compare(progress, target);
+    if (contraLaMeta > 0) return 'exceeded';
+    if (contraLaMeta === 0) return 'paid';
+    return compare(progress, '0') > 0 ? 'partial' : 'pending';
+  }
+
+  // Ingreso o ahorro: llegar o pasar es el logro, y recibir/ahorrar de más
+  // nunca es un exceso.
+  if (compare(progress, target) >= 0) return 'paid';
+  return compare(progress, '0') > 0 ? 'partial' : 'pending';
+}
+
+/**
+ * Las categorías del checklist que tienen plata sin ítem asignado, con el
+ * nombre y la clase de categoría. Solo aparecen las categorías que tienen al
+ * menos un ítem en el checklist de ese mes y moneda, y solo si el monto no es
+ * cero: lo que no se gastó no hay que asignarlo.
+ */
+async function sinAsignarDelChecklist(
+  usuarioId: string,
+  mes: string,
+  moneda: string,
+  objetivos: repositorio.ObjetivoDelMes[],
+): Promise<SinAsignar[]> {
+  const categorias = new Map<
+    string,
+    { categoryName: string | null; categoryKind: 'expense' | 'income' }
+  >();
+
+  for (const objetivo of objetivos) {
+    if (objetivo.kind !== 'category' || objetivo.categoryId === null) continue;
+    if (categorias.has(objetivo.categoryId)) continue;
+
+    categorias.set(objetivo.categoryId, {
+      categoryName: objetivo.categoryName,
+      categoryKind: objetivo.categoryKind === 'income' ? 'income' : 'expense',
+    });
+  }
+
+  const filas = await reportsService.sinAsignarPorCategoria(usuarioId, mes, moneda);
+  const porCategoria = new Map(filas.map((fila) => [fila.categoryId, fila]));
+
+  const resultado: SinAsignar[] = [];
+  for (const [categoryId, categoria] of categorias) {
+    const fila = porCategoria.get(categoryId);
+    if (!fila) continue;
+
+    const amount = categoria.categoryKind === 'income' ? fila.recibido : fila.gastado;
+    if (compare(amount, '0') === 0) continue;
+
+    resultado.push({
+      categoryId,
+      categoryName: categoria.categoryName,
+      categoryKind: categoria.categoryKind,
+      amount,
+    });
+  }
+
+  return resultado;
+}
+
+/**
  * El checklist de un mes: qué había que revisar y cómo va cada renglón.
  *
- * El progreso se pregunta renglón por renglón al service de reportes; son
- * tantas consultas como ítems tenga el checklist, que hoy son unos pocos por
- * persona. Si algún día esa lista creciera, se pensaría en una consulta que
- * las junte — pero no antes de que el uso lo pida.
+ * El progreso de TODOS los ítems se pide en una sola consulta
+ * (`progresoPorItem`): un movimiento cuenta solo para el ítem al que apunta, y
+ * lo que no apunta a ninguno sale aparte, en `unassigned`, dentro de su
+ * categoría. Un ítem sin movimientos vale cero. El ahorro sigue midiéndose por
+ * la cuenta, no por un ítem de movimiento.
+ *
+ * El estado (`status`) es la lectura de la pantalla —pendiente, parcial,
+ * pagado, excedido— y `checked`/`exceeded` se conservan tal como estaban.
  */
 export async function checklistDelMes(
   usuarioId: string,
   filtros: { month: string; currency: string },
-): Promise<{ data: { month: string; currency: string; items: ItemDelChecklist[] } }> {
+): Promise<{
+  data: {
+    month: string;
+    currency: string;
+    items: ItemDelChecklist[];
+    unassigned: SinAsignar[];
+  };
+}> {
   const objetivos = await repositorio.objetivosDelMes(usuarioId, filtros.month, filtros.currency);
 
-  // El total de ingresos del mes se pide UNA vez para toda la tanda, y cada
-  // renglón de ingreso busca su propia fila: pedirlo renglón por renglón
-  // repetiría el mismo agregado completo tan pronto el checklist tuviera más
-  // de un renglón de ingresos. Solo se pide si alguien lo va a usar.
-  const hayRenglonDeIngresos = objetivos.some(
-    (objetivo) => objetivo.kind === 'category' && objetivo.categoryKind === 'income',
-  );
-  const ingresos = hayRenglonDeIngresos
-    ? (
-        await reportsService.totalesPorCategoria(usuarioId, {
-          month: filtros.month,
-          currency: filtros.currency,
-          kind: 'income',
-        })
-      ).data
-    : [];
+  const progreso = await reportsService.progresoPorItem(usuarioId, filtros.month, filtros.currency);
+  const progresoPorItemId = new Map(progreso.map((fila) => [fila.itemId, fila]));
 
   const items: ItemDelChecklist[] = await Promise.all(
     objetivos.map(async (objetivo) => {
       let progress: string;
       if (objetivo.kind === 'category') {
-        if (objetivo.categoryKind === 'income') {
-          // Un renglón de ingresos se mide por lo RECIBIDO en la categoría, no
-          // por lo gastado. El agregado ya se pidió una vez para toda la
-          // tanda: solo se busca la categoría puntual. Reutiliza el service de
-          // reportes, nunca su repository ni SQL propio.
-          progress =
-            ingresos.find((total) => total.categoryId === objetivo.categoryId)?.total ?? '0.0000';
-        } else {
-          progress = await reportsService.gastadoEnCategoria(
-            usuarioId,
-            filtros.month,
-            filtros.currency,
-            objetivo.categoryId as string,
-          );
-        }
+        const suyo = progresoPorItemId.get(objetivo.id);
+        // Un renglón de ingresos se mide por lo RECIBIDO en su ítem; uno de
+        // gastos, por lo gastado. Sin fila no se movió nada: cero.
+        progress =
+          objetivo.categoryKind === 'income'
+            ? (suyo?.recibido ?? '0.0000')
+            : (suyo?.gastado ?? '0.0000');
       } else {
         progress = await reportsService.ahorroDeUnaCuentaEnElMes(
           usuarioId,
@@ -258,10 +344,6 @@ export async function checklistDelMes(
       //
       // Nulo significa que el ítem todavía no existía ese mes: no aplica, y
       // un "no aplica" no es ni logro ni exceso.
-      //
-      // La comparación es exacta y en enteros: comparar los strings con
-      // `<`/`>` de JavaScript ordenaría como texto, y "100000" < "20000" sería
-      // verdad leído así — de ahí el `compare` de `shared/money.ts`.
       //
       // Un objetivo de cero es "este mes no aplica": no hay meta que llegar,
       // así que nunca marca logro. Si aun así se gasta en un tope de cero, sí
@@ -287,15 +369,25 @@ export async function checklistDelMes(
         id: objetivo.id,
         kind: objetivo.kind,
         currency: objetivo.currency,
-        categoryKind: objetivo.categoryKind,
+        categoryId: objetivo.categoryId,
+        categoryName: objetivo.categoryName,
         label,
+        categoryKind: objetivo.categoryKind,
         target: objetivo.target,
         progress,
+        status: estadoDelItem(objetivo, objetivo.target, progress),
         checked,
         exceeded,
       };
     }),
   );
 
-  return { data: { month: filtros.month, currency: filtros.currency, items } };
+  const unassigned = await sinAsignarDelChecklist(
+    usuarioId,
+    filtros.month,
+    filtros.currency,
+    objetivos,
+  );
+
+  return { data: { month: filtros.month, currency: filtros.currency, items, unassigned } };
 }

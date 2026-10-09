@@ -90,6 +90,7 @@ async function registrarIngreso(
   cuentaId: string,
   monto: string,
   categoriaId: string,
+  itemId?: string,
 ): Promise<void> {
   const respuesta = await app.inject({
     method: 'POST',
@@ -98,6 +99,7 @@ async function registrarIngreso(
       accountId: cuentaId,
       amount: monto,
       categoryId: categoriaId,
+      ...(itemId === undefined ? {} : { budgetItemId: itemId }),
       occurredAt: DIA_15,
     },
   });
@@ -307,7 +309,7 @@ describe('un mes sin monto: cero = "este mes no aplica" (service)', () => {
     });
 
     // Aunque llegue plata de esa categoría, un cero no es una meta que cumplir.
-    await registrarIngreso(await cuentaNueva(), '100000', categoriaId);
+    await registrarIngreso(await cuentaNueva(), '100000', categoriaId, item.id);
     const despues = await servicio.checklistDelMes(usuarioId, { month: MES, currency: 'COP' });
     expect(despues.data.items.find((i) => i.id === item.id)).toMatchObject({
       checked: false,
@@ -339,6 +341,7 @@ describe('un mes sin monto: cero = "este mes no aplica" (service)', () => {
         accountId: await cuentaNueva(),
         amount: '-30000',
         categoryId: categoriaId,
+        budgetItemId: item.id,
         occurredAt: DIA_15,
       },
     });
@@ -374,8 +377,9 @@ describe('checklist de ingresos (service)', () => {
     expect(estado).toBe(201);
 
     // Recibió más de lo esperado: el logro se enciende y JAMÁS hay 'exceeded',
-    // porque ganar de más no es algo que avisar en rojo.
-    await registrarIngreso(cuerpo.data.id, '500000', categoriaId);
+    // porque ganar de más no es algo que avisar en rojo. El ingreso se asigna
+    // a su ítem: sin ítem no sumaría a ningún renglón.
+    await registrarIngreso(cuerpo.data.id, '500000', categoriaId, itemId);
 
     const { data } = await servicio.checklistDelMes(usuarioId, { month: MES, currency: 'COP' });
     const renglon = data.items.find((i) => i.id === itemId);
@@ -405,7 +409,7 @@ describe('checklist de ingresos (service)', () => {
       payload: { name: `Cuenta ${(contador += 1)}`, type: 'bank', currency: 'COP' },
     });
     const cuenta = respuesta.json().data;
-    await registrarIngreso(cuenta.id, '100000', categoriaId);
+    await registrarIngreso(cuenta.id, '100000', categoriaId, itemId);
 
     const { data } = await servicio.checklistDelMes(usuarioId, { month: MES, currency: 'COP' });
     const renglon = data.items.find((i) => i.id === itemId);
@@ -417,7 +421,6 @@ describe('checklist de ingresos (service)', () => {
   });
 
   it('un renglón de ingresos no se contaminó con lo gastado en categorías de gasto', async () => {
-    const gastoId = await crearCategoriaDeGasto();
     const ingresoId = await crearCategoriaDeIngreso();
 
     const banco = await app
@@ -428,7 +431,15 @@ describe('checklist de ingresos (service)', () => {
       })
       .then((r) => r.json().data);
 
-    await registrarIngreso(banco.id, '800000', ingresoId);
+    // El ítem de ingresos se crea primero para poder asignarle lo recibido.
+    const item = await servicio.crearItem(usuarioId, {
+      kind: 'category',
+      categoryId: ingresoId,
+      currency: 'COP',
+      amount: '600000',
+    });
+
+    await registrarIngreso(banco.id, '800000', ingresoId, item.id);
     const gasto = await app
       .inject({
         method: 'POST',
@@ -438,16 +449,47 @@ describe('checklist de ingresos (service)', () => {
       .then((r) => r.json().data);
     expect(gasto.id).toBeDefined();
 
-    const item = await servicio.crearItem(usuarioId, {
-      kind: 'category',
-      categoryId: ingresoId,
-      currency: 'COP',
-      amount: '600000',
-    });
-    const itemId = item.id;
-
     const { data } = await servicio.checklistDelMes(usuarioId, { month: MES, currency: 'COP' });
-    const renglon = data.items.find((i) => i.id === itemId);
+    const renglon = data.items.find((i) => i.id === item.id);
     expect(renglon!.progress).toBe('800000.0000');
+  });
+});
+
+describe('estadoDelItem (función pura)', () => {
+  const gasto = { kind: 'category' as const, categoryKind: 'expense' as const };
+  const ingreso = { kind: 'category' as const, categoryKind: 'income' as const };
+  const ahorro = { kind: 'savings' as const, categoryKind: null };
+
+  it('sin meta (el ítem no existía ese mes) no hay estado', () => {
+    expect(servicio.estadoDelItem(gasto, null, '0.0000')).toBe('none');
+    expect(servicio.estadoDelItem(ingreso, null, '500000.0000')).toBe('none');
+    expect(servicio.estadoDelItem(ahorro, null, '0.0000')).toBe('none');
+  });
+
+  it('meta de cero ("este mes no aplica"): con movimiento es exceso, sin movimiento es "none"', () => {
+    expect(servicio.estadoDelItem(gasto, '0', '0.0000')).toBe('none');
+    expect(servicio.estadoDelItem(gasto, '0.0000', '30000.0000')).toBe('exceeded');
+    expect(servicio.estadoDelItem(ingreso, '0', '0.0000')).toBe('none');
+    expect(servicio.estadoDelItem(ingreso, '00', '1000.0000')).toBe('exceeded');
+    expect(servicio.estadoDelItem(ahorro, '0', '0.0000')).toBe('none');
+  });
+
+  it('tabla de casos: tope de gasto', () => {
+    expect(servicio.estadoDelItem(gasto, '100000', '0.0000')).toBe('pending');
+    expect(servicio.estadoDelItem(gasto, '100000', '40000.0000')).toBe('partial');
+    expect(servicio.estadoDelItem(gasto, '100000', '100000.0000')).toBe('paid');
+    expect(servicio.estadoDelItem(gasto, '100000', '100000.0001')).toBe('exceeded');
+    // Un monto negativo (una devolución) no es "algo": sigue pendiente.
+    expect(servicio.estadoDelItem(gasto, '100000', '-5000.0000')).toBe('pending');
+  });
+
+  it('tabla de casos: ingreso y ahorro (recibir o ahorrar de más nunca es exceso)', () => {
+    for (const item of [ingreso, ahorro]) {
+      expect(servicio.estadoDelItem(item, '100000', '0.0000')).toBe('pending');
+      expect(servicio.estadoDelItem(item, '100000', '40000.0000')).toBe('partial');
+      expect(servicio.estadoDelItem(item, '100000', '100000.0000')).toBe('paid');
+      expect(servicio.estadoDelItem(item, '100000', '250000.0000')).toBe('paid');
+      expect(servicio.estadoDelItem(item, '100000', '-1000.0000')).toBe('pending');
+    }
   });
 });

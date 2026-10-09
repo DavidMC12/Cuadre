@@ -84,6 +84,31 @@ export async function gastadoEnCategoria(
   return repositorio.gastadoEnCategoria(usuarioId, mes, moneda, categoriaId);
 }
 
+/**
+ * Lo que cuenta para cada ítem del presupuesto en un mes y una moneda, en una
+ * sola consulta. Reemplaza al conteo por categoría en el checklist: ahora cada
+ * ítem suma solo lo suyo.
+ */
+export async function progresoPorItem(
+  usuarioId: string,
+  mes: string,
+  moneda: string,
+): Promise<repositorio.ProgresoDeUnItem[]> {
+  return repositorio.progresoPorItemEnElMes(usuarioId, mes, moneda);
+}
+
+/**
+ * Lo que se movió en cada categoría SIN ítem asignado: lo que le falta decidir
+ * a quien registró. Alimenta el "sin asignar" del checklist.
+ */
+export async function sinAsignarPorCategoria(
+  usuarioId: string,
+  mes: string,
+  moneda: string,
+): Promise<repositorio.SinAsignarDeUnaCategoria[]> {
+  return repositorio.sinAsignarPorCategoria(usuarioId, mes, moneda);
+}
+
 export async function ahorroDeUnaCuentaEnElMes(
   usuarioId: string,
   mes: string,

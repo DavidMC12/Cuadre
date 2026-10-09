@@ -15,6 +15,18 @@ export const TIPOS_DE_ITEM = ['category', 'savings'] as const;
 export const TipoDeItemSchema = z.enum(TIPOS_DE_ITEM);
 export type BudgetItemKind = z.infer<typeof TipoDeItemSchema>;
 
+/**
+ * Cómo va un renglón del checklist, en palabras:
+ * - `none`     : no había meta (el ítem no existía ese mes, o el mes era "no aplica").
+ * - `pending`  : hay meta y todavía no se movió nada hacia ella.
+ * - `partial`  : ya se movió algo, pero no se llegó.
+ * - `paid`     : se llegó (o se superó, en ingreso y ahorro).
+ * - `exceeded` : solo un tope de gasto: se gastó más de lo previsto.
+ */
+export const ESTADOS_DE_ITEM = ['none', 'pending', 'partial', 'paid', 'exceeded'] as const;
+export const EstadoDelItemSchema = z.enum(ESTADOS_DE_ITEM);
+export type EstadoDelItem = z.infer<typeof EstadoDelItemSchema>;
+
 const EtiquetaSchema = z.string().trim().min(1, 'la etiqueta no puede quedar vacía').max(120);
 
 // -----------------------------------------------------------------------------
@@ -105,6 +117,9 @@ export const ItemDelChecklistSchema = z.object({
   id: z.uuid(),
   kind: TipoDeItemSchema,
   currency: z.string(),
+  /** La categoría del ítem, para poder cruzarlo con "sin asignar". Nulo en ahorro. */
+  categoryId: z.uuid().nullable(),
+  categoryName: z.string().nullable(),
   /** El nombre a mostrar: la etiqueta si hay una, si no el de la categoría o cuenta. */
   label: z.string(),
   /** 'income' = se espera recibir; 'expense' = tope de gasto; nulo en ahorro. */
@@ -113,6 +128,8 @@ export const ItemDelChecklistSchema = z.object({
   target: z.string().nullable(),
   /** Cuánto se ha gastado (categoría) o ahorrado (cuenta) este mes. */
   progress: z.string(),
+  /** Cómo va el renglón: pendiente, a medias, cumplido, excedido o sin meta. */
+  status: EstadoDelItemSchema,
   /**
    * La meta se alcanzó: `progress` llegó o pasó de `target`. Tiene sentido
    * en una meta de ahorro y en un renglón de ingresos (recibir lo
@@ -130,14 +147,30 @@ export const ItemDelChecklistSchema = z.object({
   exceeded: z.boolean(),
 });
 
+/** Lo que se movió en una categoría sin ítem asignado, dentro del checklist. */
+export const SinAsignarSchema = z.object({
+  categoryId: z.uuid(),
+  categoryName: z.string().nullable(),
+  categoryKind: z.enum(['expense', 'income']),
+  /** Gastado (categoría de gasto) o recibido (categoría de ingreso), en texto. */
+  amount: z.string(),
+});
+
 export const ChecklistSchema = z.object({
   data: z.object({
     month: z.string(),
     currency: z.string(),
     items: z.array(ItemDelChecklistSchema),
+    /**
+     * Lo que quedó sin ítem en las categorías que sí tienen renglón: lo que
+     * falta por asignar. Nunca incluye transferencias (el pago a una tarjeta
+     * no es gasto ni ingreso).
+     */
+    unassigned: z.array(SinAsignarSchema),
   }),
 });
 
 export type CrearItem = z.infer<typeof CrearItemSchema>;
 export type ItemDePresupuesto = z.infer<typeof ItemDePresupuestoSchema>;
 export type ItemDelChecklist = z.infer<typeof ItemDelChecklistSchema>;
+export type SinAsignar = z.infer<typeof SinAsignarSchema>;
