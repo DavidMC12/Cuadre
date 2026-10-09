@@ -163,7 +163,7 @@ export function DetalleMovimiento({
               <EditarItemMovimiento movimiento={movimiento}>
                 <Button variant="outline" className="min-h-11">
                   <ListTodo data-icon="inline-start" />
-                  Cambiar item
+                  Cambiar ítem
                 </Button>
               </EditarItemMovimiento>
             )}

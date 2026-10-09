@@ -23,7 +23,8 @@ import {
   CLAVE_AHORRO,
   CLAVE_SIN_CATEGORIA,
   type GrupoPresupuesto,
-} from "@/lib/agrupar-presupuesto";import {
+} from "@/lib/agrupar-presupuesto";
+import {
   CLASES_BLOQUE_ASIDE,
   CLASES_CARD_PANEL_VENTANA,
   CLASES_ENCABEZADO_GRUPO,

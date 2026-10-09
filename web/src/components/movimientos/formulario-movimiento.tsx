@@ -40,10 +40,11 @@ import { useCrearMovimiento, useCrearTransferencia } from "@/hooks/use-movimient
 import { usePantallaGrande } from "@/hooks/use-pantalla-grande";
 import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
-import type { Cuenta, ItemDelChecklist } from "@/lib/api/types";
+import type { Cuenta } from "@/lib/api/types";
 import { fechaParaInput, inputAIso } from "@/lib/fecha";
+import { agruparItemsDePago, SIN_ITEM, textoDeOpcion } from "@/lib/item-presupuesto";
 import { cn } from "@/lib/utils";
-import { aUnidadesMinimas, normalizarMontoIngresado, restar, textoMonto } from "@/lib/money";
+import { normalizarMontoIngresado, textoMonto } from "@/lib/money";
 import { cuentasDeDestino } from "@/lib/transferencias";
 
 type TipoMonto = "gasto" | "ingreso" | "transferencia";
@@ -74,30 +75,9 @@ interface ValoresInicialesMovimiento {
   tipo?: TipoMonto;
 }
 
-/** El valor del selector que marca "no cuenta para ningún item". */
-const SIN_ITEM = "__sin_item__";
-
-/**
- * La opción del selector de item, con lo que falta por pagar o recibir:
- * "Deuda TC Nu — faltan $102.500" (aritmética exacta, nada en número). Con el
- * objetivo alcanzado o pasado dice "pagado" (o "recibido" en un ingreso), y
- * sin objetivo ese mes solo queda el nombre.
- */
-function textoDeOpcion(renglon: ItemDelChecklist): string {
-  if (renglon.target === null) return renglon.label;
-  const alcanzado = aUnidadesMinimas(renglon.progress);
-  const objetivo = aUnidadesMinimas(renglon.target);
-  if (alcanzado >= objetivo) {
-    return renglon.categoryKind === "income"
-      ? `${renglon.label} — recibido`
-      : `${renglon.label} — pagado`;
-  }
-  return `${renglon.label} — faltan ${textoMonto(
-    restar(renglon.target, renglon.progress),
-    renglon.currency
-  )}`;
-}
-
+/** El valor del selector que marca "no cuenta para ningún ítem" y la opción
+ * con su texto (lo que falta, o el logro) viven en `lib/item-presupuesto.ts`,
+ * para que el formulario y el cajón del detalle digan lo mismo. */
 
 /**
  * Cuántas categorías se ofrecen como chip antes de "Más detalles".
@@ -331,28 +311,7 @@ export function FormularioMovimiento({
   // Los items de pago agrupados por categoría (alfabético), para que a la
   // hora de elegir una deuda frente a otra se lean juntas. Con un solo
   // grupo no hay rótulo: el grupo entero se muestra plano.
-  const gruposDePago = (() => {
-    const porCategoria = new Map<
-      string,
-      { categoryId: string; categoryName: string; items: ItemDelChecklist[] }
-    >();
-    for (const renglon of itemsDePago) {
-      const clave = renglon.categoryId as string;
-      let grupo = porCategoria.get(clave);
-      if (!grupo) {
-        grupo = {
-          categoryId: clave,
-          categoryName: renglon.categoryName ?? "Categoría",
-          items: [],
-        };
-        porCategoria.set(clave, grupo);
-      }
-      grupo.items.push(renglon);
-    }
-    return [...porCategoria.values()].sort((a, b) =>
-      a.categoryName.localeCompare(b.categoryName, "es")
-    );
-  })();
+  const gruposDePago = agruparItemsDePago(itemsDePago);
 
   // La cuenta que decide cómo se lee el monto escrito: la única elegida, o la
   // de origen cuando es una transferencia.
@@ -718,7 +677,12 @@ export function FormularioMovimiento({
               <Label htmlFor="origen-transferencia">Desde</Label>
               <Select
                 value={cuentaOrigenId}
-                onValueChange={(valor) => setOrigenElegidoAMano(valor ?? null)}
+                onValueChange={(valor) => {
+                  setOrigenElegidoAMano(valor ?? null);
+                  // Otra cuenta puede ser otra moneda: los items que se
+                  // ofrecían (o el que estaba a mano) son de otra lista.
+                  setItemDePagoAMano(null);
+                }}
               >
                 <SelectTrigger
                   id="origen-transferencia"
@@ -750,7 +714,10 @@ export function FormularioMovimiento({
               {hayDestinoPosible ? (
                 <Select
                   value={cuentaDestinoId}
-                  onValueChange={(valor) => setDestinoElegidoAMano(valor ?? null)}
+                  onValueChange={(valor) => {
+                    setDestinoElegidoAMano(valor ?? null);
+                    setItemDePagoAMano(null);
+                  }}
                 >
                   <SelectTrigger
                     id="destino-transferencia"
@@ -846,7 +813,13 @@ export function FormularioMovimiento({
             <Label htmlFor="cuenta-movimiento">Cuenta</Label>
             <Select
               value={cuentaId}
-              onValueChange={(valor) => setCuentaElegidaAMano(valor ?? null)}
+              onValueChange={(valor) => {
+                setCuentaElegidaAMano(valor ?? null);
+                // Igual que al cambiar de categoría: otra cuenta puede ser
+                // otra moneda (y otro mes si la fecha cambia después, que ya
+                // lo cubre el campo de fecha).
+                setItemAMano(undefined);
+              }}
             >
               <SelectTrigger
                 id="cuenta-movimiento"
@@ -910,7 +883,17 @@ export function FormularioMovimiento({
                 type="date"
                 value={fecha}
                 max={hoyInput()}
-                onChange={(evento) => setFecha(evento.target.value)}
+                onChange={(evento) => {
+                  const nueva = evento.target.value;
+                  setFecha(nueva);
+                  // Los items del presupuesto son los del mes de la fecha:
+                  // con otro mes, la propuesta y lo elegido a mano cuentan
+                  // la historia de un mes que ya no es este.
+                  if (nueva.slice(0, 7) !== fecha.slice(0, 7)) {
+                    setItemAMano(undefined);
+                    setItemDePagoAMano(null);
+                  }
+                }}
                 className="min-h-11"
               />
             </div>
@@ -951,7 +934,7 @@ export function FormularioMovimiento({
             {categoryId && itemsDeCategoria.length > 0 && (
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="item-presupuesto-movimiento">
-                  Item del presupuesto (opcional)
+                  Ítem del presupuesto (opcional)
                 </Label>
                 <Select
                   value={itemDelMovimiento ?? SIN_ITEM}

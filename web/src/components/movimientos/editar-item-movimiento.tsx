@@ -27,33 +27,13 @@ import { useActualizarItemMovimiento } from "@/hooks/use-movimientos";
 import { useChecklistDelMes } from "@/hooks/use-presupuesto";
 import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
-import type { ItemDelChecklist, Movimiento } from "@/lib/api/types";
+import type { Movimiento } from "@/lib/api/types";
 import { fechaParaInput } from "@/lib/fecha";
-import { aUnidadesMinimas, restar, textoMonto } from "@/lib/money";
+import { agruparItemsDePago, SIN_ITEM, textoDeOpcion } from "@/lib/item-presupuesto";
 
-/** El valor del selector que marca "no cuenta para ningún item". */
-const SIN_ITEM = "__sin_item__";
-
-/**
- * La opción del selector de item, con lo que falta por pagar o recibir, igual
- * que en el formulario de registrar: "Deuda TC Nu — faltan $102.500" (texto
- * exacto), o "pagado" cuando el objetivo ya se cumplió o se pasó. Sin
- * objetivo ese mes, solo queda el nombre.
- */
-function textoDeOpcion(renglon: ItemDelChecklist): string {
-  if (renglon.target === null) return renglon.label;
-  const alcanzado = aUnidadesMinimas(renglon.progress);
-  const objetivo = aUnidadesMinimas(renglon.target);
-  if (alcanzado >= objetivo) {
-    return renglon.categoryKind === "income"
-      ? `${renglon.label} — recibido`
-      : `${renglon.label} — pagado`;
-  }
-  return `${renglon.label} — faltan ${textoMonto(
-    restar(renglon.target, renglon.progress),
-    renglon.currency
-  )}`;
-}
+/** El valor del selector que marca "no cuenta para ningún ítem" y la opción
+ * con su texto (lo que falta, o el logro) viven en `lib/item-presupuesto.ts`,
+ * para que el formulario y el cajón del detalle digan lo mismo. */
 
 /**
  * Cambiar a qué item del presupuesto cuenta un movimiento ya registrado
@@ -94,36 +74,15 @@ export function EditarItemMovimiento({
       ? (checklist?.items ?? []).filter((renglon) => renglon.categoryId === categoryId)
       : [];
 
-  // En una transferencia: los items de gasto agrupados por categoría. Con
-  // un solo grupo no hay rótulo: el grupo entero se muestra plano.
+  // En una transferencia: los items de gasto, que van agrupados por
+  // categoría (con un solo grupo no hay rótulo: el grupo entero plano).
   const itemsDePago =
     esTransferencia && categoryId === null
       ? (checklist?.items ?? []).filter(
           (renglon) => renglon.categoryId !== null && renglon.categoryKind === "expense"
         )
       : [];
-  const gruposDePago = (() => {
-    const porCategoria = new Map<
-      string,
-      { categoryId: string; categoryName: string; items: ItemDelChecklist[] }
-    >();
-    for (const renglon of itemsDePago) {
-      const clave = renglon.categoryId as string;
-      let grupo = porCategoria.get(clave);
-      if (!grupo) {
-        grupo = {
-          categoryId: clave,
-          categoryName: renglon.categoryName ?? "Categoría",
-          items: [],
-        };
-        porCategoria.set(clave, grupo);
-      }
-      grupo.items.push(renglon);
-    }
-    return [...porCategoria.values()].sort((a, b) =>
-      a.categoryName.localeCompare(b.categoryName, "es")
-    );
-  })();
+  const gruposDePago = agruparItemsDePago(itemsDePago);
 
   const items = esTransferencia ? itemsDePago : itemsDeCategoria;
   const textoPorItem = new Map(items.map((renglon) => [renglon.id, textoDeOpcion(renglon)]));
@@ -134,7 +93,7 @@ export function EditarItemMovimiento({
       {
         onSuccess: () => {
           toast.success(
-            item ? "Item del presupuesto actualizado." : "El movimiento ya no cuenta para ningún item."
+            item ? "Ítem del presupuesto actualizado." : "El movimiento ya no cuenta para ningún item."
           );
           setAbierto(false);
         },
@@ -142,7 +101,7 @@ export function EditarItemMovimiento({
           toast.error(
             error instanceof ApiError
               ? error.message
-              : "No se pudo cambiar el item del presupuesto."
+              : "No se pudo cambiar el ítem del presupuesto."
           );
         },
       }
@@ -171,7 +130,7 @@ export function EditarItemMovimiento({
           className="flex min-h-0 flex-1 flex-col"
         >
           <DrawerHeader>
-            <DrawerTitle>Item del presupuesto</DrawerTitle>
+            <DrawerTitle>Ítem del presupuesto</DrawerTitle>
             <DrawerDescription>
               {movimiento.description?.trim() || "Este movimiento"}
             </DrawerDescription>
@@ -179,55 +138,57 @@ export function EditarItemMovimiento({
 
           <div className="flex flex-col gap-1.5 px-4 py-4">
             <Label htmlFor="item-movimiento-existente">Cuenta para</Label>
-            {items.length > 0 ? (
-              <Select value={eleccion ?? SIN_ITEM} onValueChange={setEleccion}>
-                <SelectTrigger id="item-movimiento-existente" className="min-h-11 w-full">
-                  {/* El popup de opciones vive en un portal que no está
-                      montado mientras el selector está cerrado: hay que
-                      resolver el texto a mano, como en los demás. */}
-                  <SelectValue>
-                    {(valor: string) =>
-                      valor && valor !== SIN_ITEM
-                        ? (textoPorItem.get(valor) ?? valor)
-                        : "Sin asignar"
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={SIN_ITEM}>Sin asignar</SelectItem>
-                  {esTransferencia
-                    ? gruposDePago.map((grupo) =>
-                        grupo.items.length > 1 ? (
-                          <SelectGroup key={grupo.categoryId}>
-                            <SelectLabel>{grupo.categoryName}</SelectLabel>
-                            {grupo.items.map((renglon) => (
-                              <SelectItem key={renglon.id} value={renglon.id}>
-                                {textoDeOpcion(renglon)}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        ) : (
-                          grupo.items.map((renglon) => (
+            {/* El selector existe siempre: con items este mes muestra sus
+                opciones; sin ellos queda "Sin asignar" con una ayuda que
+                dice por qué — nunca un cajón que no se puede usar ni se
+                puede quitar lo que el movimiento ya tenía. */}
+            <Select
+              value={eleccion ?? SIN_ITEM}
+              onValueChange={setEleccion}
+              aria-describedby={items.length === 0 ? "item-movimiento-sin-eleccion" : undefined}
+            >
+              <SelectTrigger id="item-movimiento-existente" className="min-h-11 w-full">
+                {/* El popup de opciones vive en un portal que no está
+                    montado mientras el selector está cerrado: hay que
+                    resolver el texto a mano, como en los demás. */}
+                <SelectValue>
+                  {(valor: string) =>
+                    valor && valor !== SIN_ITEM ? (textoPorItem.get(valor) ?? valor) : "Sin asignar"
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SIN_ITEM}>Sin asignar</SelectItem>
+                {esTransferencia
+                  ? gruposDePago.map((grupo) =>
+                      grupo.items.length > 1 ? (
+                        <SelectGroup key={grupo.categoryId}>
+                          <SelectLabel>{grupo.categoryName}</SelectLabel>
+                          {grupo.items.map((renglon) => (
                             <SelectItem key={renglon.id} value={renglon.id}>
                               {textoDeOpcion(renglon)}
                             </SelectItem>
-                          ))
-                        )
+                          ))}
+                        </SelectGroup>
+                      ) : (
+                        grupo.items.map((renglon) => (
+                          <SelectItem key={renglon.id} value={renglon.id}>
+                            {textoDeOpcion(renglon)}
+                          </SelectItem>
+                        ))
                       )
-                    : itemsDeCategoria.map((renglon) => (
-                        <SelectItem key={renglon.id} value={renglon.id}>
-                          {textoDeOpcion(renglon)}
-                        </SelectItem>
-                      ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              // Sin items este mes no hay nada que asignar: en vez de un
-              // selector vacío, se dice por qué (única salida razonable: el
-              // movimiento no puede contar para un item que no existe).
-              <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                    )
+                  : itemsDeCategoria.map((renglon) => (
+                      <SelectItem key={renglon.id} value={renglon.id}>
+                        {textoDeOpcion(renglon)}
+                      </SelectItem>
+                    ))}
+              </SelectContent>
+            </Select>
+            {items.length === 0 && (
+              <p id="item-movimiento-sin-eleccion" className="text-xs text-muted-foreground">
                 {esTransferencia
-                  ? "No hay items de gasto este mes en esta moneda."
+                  ? "No hay ítems de gasto este mes en esta moneda."
                   : "Esta categoría no tiene ítems de presupuesto este mes."}
               </p>
             )}

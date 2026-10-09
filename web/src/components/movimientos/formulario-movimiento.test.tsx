@@ -380,7 +380,7 @@ function itemChecklist(over: Partial<ItemDelChecklist> & { id: string }): ItemDe
 }
 
 function checklistCon(items: ItemDelChecklist[]) {
-  const data: ChecklistDelMes = { month: "2026-10", currency: "COP", items, unassigned: [] };
+  const data: ChecklistDelMes = { month: "2026-09", currency: "COP", items, unassigned: [] };
   vi.mocked(usePresupuestoModule.useChecklistDelMes).mockImplementation(
     () => ({ data }) as never
   );
@@ -409,7 +409,7 @@ describe("FormularioMovimiento: el item del presupuesto del movimiento", () => {
     render(<FormularioMovimiento cuentas={cuentas} abierto />);
     elegirCategoria("Deudas");
 
-    const campo = screen.getByLabelText("Item del presupuesto (opcional)");
+    const campo = screen.getByLabelText("Ítem del presupuesto (opcional)");
     expect(campo).toHaveTextContent("Deuda TC Nu — faltan $102.500");
   });
 
@@ -422,7 +422,7 @@ describe("FormularioMovimiento: el item del presupuesto del movimiento", () => {
     render(<FormularioMovimiento cuentas={cuentas} abierto />);
     elegirCategoria("Deudas");
 
-    expect(screen.getByLabelText("Item del presupuesto (opcional)")).toHaveTextContent(
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
       "Deuda TC Nu — pagado"
     );
   });
@@ -444,7 +444,7 @@ describe("FormularioMovimiento: el item del presupuesto del movimiento", () => {
     render(<FormularioMovimiento cuentas={cuentas} abierto tipoInicial="ingreso" />);
     elegirCategoria("Sueldo");
 
-    expect(screen.getByLabelText("Item del presupuesto (opcional)")).toHaveTextContent(
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
       "Sueldo septiembre — recibido"
     );
   });
@@ -459,7 +459,7 @@ describe("FormularioMovimiento: el item del presupuesto del movimiento", () => {
     render(<FormularioMovimiento cuentas={cuentas} abierto />);
     elegirCategoria("Deudas");
 
-    expect(screen.getByLabelText("Item del presupuesto (opcional)")).toHaveTextContent(
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
       "Sin asignar"
     );
   });
@@ -480,30 +480,30 @@ describe("FormularioMovimiento: el item del presupuesto del movimiento", () => {
 
     render(<FormularioMovimiento cuentas={cuentas} abierto />);
     elegirCategoria("Deudas");
-    expect(screen.getByLabelText("Item del presupuesto (opcional)")).toHaveTextContent(
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
       "Deuda TC Nu"
     );
 
     // Mercado tiene un solo item: el reinicio lo propone, no trae "Deuda TC Nu".
     fireEvent.click(screen.getByRole("button", { name: "Mercado" }));
-    expect(screen.getByLabelText("Item del presupuesto (opcional)")).toHaveTextContent(
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
       "John Perez — faltan $60.000"
     );
   });
 
-  it("cambiar a un ingreso también reinicia (sin embargo sale campo nuevo de la categoría ingreso)", () => {
+  it("cambiar de tipo (Gasto a Ingreso) también reinicia: sin categoría no hay campo", () => {
     categoriasRapidas();
     checklistCon([itemChecklist({ id: "i-nu" })]);
 
     render(<FormularioMovimiento cuentas={cuentas} abierto />);
     elegirCategoria("Deudas");
-    expect(screen.getByLabelText("Item del presupuesto (opcional)")).toHaveTextContent(
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
       "Deuda TC Nu"
     );
 
     // Ahora es un ingreso: la categoría se limpia y con ella la selección.
     fireEvent.click(screen.getByRole("button", { name: "Ingreso" }));
-    expect(screen.queryByLabelText("Item del presupuesto (opcional)")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Ítem del presupuesto (opcional)")).not.toBeInTheDocument();
   });
 
   it("si el checklist del mes no llegó todavía, el campo no aparece hasta cargar (no inventa nombres)", () => {
@@ -517,7 +517,7 @@ describe("FormularioMovimiento: el item del presupuesto del movimiento", () => {
 
     // Sin datos no hay qué proponer: el campo espera a que cargue, igual que
     // hace el formulario con el resto de listas (cuentas, categorías).
-    expect(screen.queryByLabelText("Item del presupuesto (opcional)")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Ítem del presupuesto (opcional)")).not.toBeInTheDocument();
   });
 
   it("si la categoría no tiene items, el campo no aparece (nada nuevo que explicar)", () => {
@@ -527,7 +527,7 @@ describe("FormularioMovimiento: el item del presupuesto del movimiento", () => {
     render(<FormularioMovimiento cuentas={cuentas} abierto />);
     elegirCategoria("Transporte");
 
-    expect(screen.queryByLabelText("Item del presupuesto (opcional)")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Ítem del presupuesto (opcional)")).not.toBeInTheDocument();
   });
 
   it("si la categoría no tiene items y no está elegida, el campo tampoco aparece", () => {
@@ -537,7 +537,7 @@ describe("FormularioMovimiento: el item del presupuesto del movimiento", () => {
     render(<FormularioMovimiento cuentas={cuentas} abierto />);
     fireEvent.click(screen.getByRole("button", { name: /Más detalles/ }));
 
-    expect(screen.queryByLabelText("Item del presupuesto (opcional)")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Ítem del presupuesto (opcional)")).not.toBeInTheDocument();
   });
 
   it("envía al servidor el item preseleccionado cuando hay exactamente uno", () => {
@@ -607,7 +607,7 @@ describe("FormularioMovimiento: el item del presupuesto del movimiento", () => {
       />
     );
 
-    expect(screen.getByLabelText("Item del presupuesto (opcional)")).toHaveTextContent(
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
       "Deuda TC Nu"
     );
     const registrar = screen.getByRole("button", { name: "Registrar" });
@@ -630,7 +630,7 @@ describe("FormularioMovimiento: el item del presupuesto del movimiento", () => {
     elegirCategoria("Deudas");
 
     expect(
-      screen.getByLabelText("Item del presupuesto (opcional)").className
+      screen.getByLabelText("Ítem del presupuesto (opcional)").className
     ).toContain("min-h-11");
   });
 });
@@ -799,5 +799,110 @@ describe("FormularioMovimiento: pagar una tarjeta y su pago del presupuesto", ()
     expect(
       screen.getByLabelText("¿Qué pago del presupuesto es? (opcional)").className
     ).toContain("min-h-11");
+  });
+});
+
+describe("FormularioMovimiento: cambiar el mes de la fecha reinicia la elección del ítem", () => {
+  function checklistPorMes(septiembre: ItemDelChecklist[], octubre: ItemDelChecklist[]) {
+    vi.mocked(usePresupuestoModule.useChecklistDelMes).mockImplementation(
+      ({ month }: { month: string }) =>
+        ({
+          data:
+            month === "2026-08"
+              ? {
+                  month: "2026-08",
+                  currency: "COP",
+                  items: septiembre,
+                  unassigned: [],
+                }
+              : {
+                  month: "2026-09",
+                  currency: "COP",
+                  items: octubre,
+                  unassigned: [],
+                },
+        }) as never
+    );
+  }
+
+  const iAgosto = itemChecklist({ id: "i-ago", label: "Cuota 8", target: "150000" });
+  const iSeptiembre = itemChecklist({ id: "i-sep", label: "Cuota 9", target: "250000" });
+
+  it("el item precargado no viaja a la lista del otro mes: la propuesta de la fecha manda", () => {
+    categoriasRapidas();
+    // Septiembre tiene un mismo renglón con cifras de septiembre; octubre
+    // otro con las suyas. El checklist responde por mes, como el servidor.
+    checklistPorMes(
+      [itemChecklist({ ...iAgosto, progress: "0" })],
+      [{ ...iSeptiembre, progress: "0" }]
+    );
+
+    render(
+      <FormularioMovimiento
+        cuentas={cuentas}
+        abierto
+        valoresIniciales={{
+          monto: "12.500",
+          cuentaId: "a-1",
+          categoriaId: "c-deu",
+          itemDelPresupuesto: "i-ago",
+          fecha: "2026-08-10",
+          descripcion: "Mercado",
+          tipo: "gasto",
+        }}
+      />
+    );
+
+    // Precarga de agosto: muestra la cifra de ese mes ("faltan $150.000").
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
+      "Cuota 8 — faltan $150.000"
+    );
+
+    // Suena la fecha a septiembre: la lista cambia de mes y la selección vuelve
+    // a calcularse con la de septiembre ("faltan $250.000"), no queda pegada a
+    // la decisión que se tomó mirando agosto.
+    fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2026-09-10" } });
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
+      "Cuota 9 — faltan $250.000"
+    );
+
+    // Y el envío lleva la decisión del MES DE LA FECHA, no la precargada.
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+    expect(mutaciones.movimiento.mock.calls[0][0]).toMatchObject({
+      budgetItemId: "i-sep",
+      occurredAt: expect.stringContaining("2026-09"),
+    });
+  });
+
+  it("si el nuevo mes tiene varios ítems, la fecha los deja en Sin asignar", () => {
+    categoriasRapidas();
+    checklistPorMes(
+      [iAgosto],
+      [iSeptiembre, itemChecklist({ id: "i-dav-sep", label: "Deuda Davivienda", target: "60000" })]
+    );
+
+    render(
+      <FormularioMovimiento
+        cuentas={cuentas}
+        abierto
+        valoresIniciales={{
+          monto: "12.500",
+          cuentaId: "a-1",
+          categoriaId: "c-deu",
+          itemDelPresupuesto: "i-ago",
+          fecha: "2026-08-10",
+          descripcion: "Mercado",
+          tipo: "gasto",
+        }}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "2026-09-10" } });
+    expect(screen.getByLabelText("Ítem del presupuesto (opcional)")).toHaveTextContent(
+      "Sin asignar"
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+    expect(mutaciones.movimiento.mock.calls[0][0].budgetItemId).toBeNull();
   });
 });

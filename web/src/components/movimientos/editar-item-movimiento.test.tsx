@@ -5,6 +5,8 @@ import type { ReactElement, ReactNode } from "react";
 
 import { EditarItemMovimiento } from "./editar-item-movimiento";
 import { useChecklistDelMes } from "@/hooks/use-presupuesto";
+import { ApiError } from "@/lib/api/client";
+import { toast } from "sonner";
 import type { ChecklistDelMes, ItemDelChecklist, Movimiento } from "@/lib/api/types";
 
 type ConHijos = { children?: ReactNode };
@@ -78,17 +80,17 @@ const movimiento: Movimiento = {
 };
 
 describe("EditarItemMovimiento: el cajón de asignar item", () => {
-  it("Guarda llaga con su piso de 44px junto al selector", () => {
+  it("el botón Guardar lleva su piso de 44px junto al selector", () => {
     dejarChecklist([itemChecklist({ id: "i-nu" })]);
 
     render(
       <EditarItemMovimiento movimiento={movimiento}>
-        <button type="button">Cambiar item</button>
+        <button type="button">Cambiar ítem</button>
       </EditarItemMovimiento>
     );
 
     expect(screen.getByRole("button", { name: "Guardar" }).className).toContain("min-h-11");
-    fireEvent.click(screen.getByRole("button", { name: "Cambiar item" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar ítem" }));
     expect(screen.getByRole("button", { name: "Guardar" }).className).toContain("min-h-11");
   });
 
@@ -97,7 +99,7 @@ describe("EditarItemMovimiento: el cajón de asignar item", () => {
 
     render(
       <EditarItemMovimiento movimiento={movimiento}>
-        <button type="button">Cambiar item</button>
+        <button type="button">Cambiar ítem</button>
       </EditarItemMovimiento>
     );
 
@@ -115,7 +117,7 @@ describe("EditarItemMovimiento: el cajón de asignar item", () => {
 
     render(
       <EditarItemMovimiento movimiento={movimiento}>
-        <button type="button">Cambiar item</button>
+        <button type="button">Cambiar ítem</button>
       </EditarItemMovimiento>
     );
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
@@ -132,7 +134,7 @@ describe("EditarItemMovimiento: el cajón de asignar item", () => {
 
     render(
       <EditarItemMovimiento movimiento={sinItem}>
-        <button type="button">Cambiar item</button>
+        <button type="button">Cambiar ítem</button>
       </EditarItemMovimiento>
     );
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
@@ -148,7 +150,7 @@ describe("EditarItemMovimiento: el cajón de asignar item", () => {
 
     render(
       <EditarItemMovimiento movimiento={movimiento}>
-        <button type="button">Cambiar item</button>
+        <button type="button">Cambiar ítem</button>
       </EditarItemMovimiento>
     );
 
@@ -178,15 +180,64 @@ describe("EditarItemMovimiento: el cajón de asignar item", () => {
 
     render(
       <EditarItemMovimiento movimiento={pata}>
-        <button type="button">Cambiar item</button>
+        <button type="button">Cambiar ítem</button>
       </EditarItemMovimiento>
     );
 
     // Con el selector cerrado no se ven las opciones; basta con que el
-    // cajón no haya caído en el aviso de "sin items".
+    // cajón no haya caído en el aviso de "sin items" — con items de gasto
+    // este mes el aviso no sale.
     expect(
-      screen.queryByText("Esta categoría no tiene ítems de presupuesto este mes.")
+      screen.queryByText("No hay ítems de gasto este mes en esta moneda.")
     ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Guardar" })).toBeInTheDocument();
+  });
+});
+
+// -------------------------------------------------------------------------
+// El 422 del servidor llega con su mensaje, no se disfraza
+// -------------------------------------------------------------------------
+
+describe("EditarItemMovimiento: los errores del servidor llegan a la persona", () => {
+  it("un 422 del servidor muestra el mensaje enviado, sin reescribirlo", () => {
+    dejarChecklist([itemChecklist({ id: "i-nu" })]);
+    actualizarItem.mockImplementation(
+      (_datos: unknown, opciones: { onError?: (e: unknown) => void }) =>
+        opciones.onError?.(
+          // Cuerpo real de un 422 de la API: el mensaje llega en español.
+          new ApiError({
+            code: "RULE_VIOLATION",
+            message: "El ítem no pertenece a la categoría del movimiento.",
+          })
+        )
+    );
+
+    render(
+      <EditarItemMovimiento movimiento={movimiento}>
+        <button type="button">Cambiar ítem</button>
+      </EditarItemMovimiento>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(toast.error).toHaveBeenCalledWith("El ítem no pertenece a la categoría del movimiento.");
+    // Un error no cierra el cajón: la persona corrige y vuelve a intentar.
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("un fallo que no es de la API (red caída) muestra el mensaje genérico", () => {
+    dejarChecklist([itemChecklist({ id: "i-nu" })]);
+    actualizarItem.mockImplementation(
+      (_datos: unknown, opciones: { onError?: (e: unknown) => void }) =>
+        opciones.onError?.(new TypeError("failed to fetch"))
+    );
+
+    render(
+      <EditarItemMovimiento movimiento={movimiento}>
+        <button type="button">Cambiar ítem</button>
+      </EditarItemMovimiento>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(toast.error).toHaveBeenCalledWith("No se pudo cambiar el ítem del presupuesto.");
   });
 });

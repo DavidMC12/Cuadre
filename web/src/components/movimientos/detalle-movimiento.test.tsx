@@ -227,7 +227,7 @@ describe("DetalleMovimiento: el renglón del item del presupuesto", () => {
     );
 
     expect(screen.queryByText("Cuenta para")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Cambiar item/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Cambiar ítem/ })).not.toBeInTheDocument();
   });
 
   it("un saldo inicial no muestra el item ni el botón", () => {
@@ -265,7 +265,7 @@ describe("DetalleMovimiento: el renglón del item del presupuesto", () => {
     );
 
     expect(screen.queryByText("Cuenta para")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Cambiar item/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Cambiar ítem/ })).not.toBeInTheDocument();
   });
 
   it("una pata de transferencia sí puede cambiar el item (el servidor acepta cualquiera de las dos)", () => {
@@ -284,11 +284,11 @@ describe("DetalleMovimiento: el renglón del item del presupuesto", () => {
     expect(screen.getByText("Cuenta para")).toBeInTheDocument();
     // En transferencia no hay categoría que mostrar (no la lleva), pero el
     // cambio de item sí.
-    expect(screen.getByRole("button", { name: /Cambiar item/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Cambiar ítem/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Cambiar categoría/ })).not.toBeInTheDocument();
   });
 
-  it("el botón Cambiar item lleva el piso de toque de 44px", () => {
+  it("el botón Cambiar ítem lleva el piso de toque de 44px", () => {
     conCatalogo([itemDeuda]);
     render(
       <DetalleMovimiento
@@ -302,7 +302,7 @@ describe("DetalleMovimiento: el renglón del item del presupuesto", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: /Cambiar item/ }).className
+      screen.getByRole("button", { name: /Cambiar ítem/ }).className
     ).toContain("min-h-11");
   });
 });
