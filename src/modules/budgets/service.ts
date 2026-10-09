@@ -1,8 +1,8 @@
 /**
  * Reglas de negocio del checklist de presupuesto. No sabe nada de HTTP.
  *
- * El progreso de cada ítem (cuánto se gastó en la categoría, cuánto entró a la
- * cuenta de ahorro) lo calcula el service de `reports`: leer movimientos es su
+ * El progreso de cada ítem (cuánto se gastó en la categoría, cuánto se apartó en
+ * la cuenta de ahorro) lo calcula el service de `reports`: leer movimientos es su
  * trabajo. Aquí solo se compara ese progreso contra el objetivo del mes, y la
  * comparación es con `shared/money.ts` — enteros grandes, nunca `parseFloat`—
  * porque esto decide si un renglón del checklist se marca como cumplido.
