@@ -13,6 +13,7 @@ function movimiento(
     currency: "COP",
     description: null,
     transferGroupId: null,
+    budgetItemId: null,
     reversesTransactionId: null,
     reversedByTransactionId: null,
     ...datos,

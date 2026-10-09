@@ -12,6 +12,7 @@ function movimiento(datos: Partial<Movimiento> & Pick<Movimiento, "id">): Movimi
     occurredAt: "2026-09-05T17:00:00.000Z",
     description: null,
     transferGroupId: null,
+    budgetItemId: null,
     reversesTransactionId: null,
     reversedByTransactionId: null,
     ...datos,

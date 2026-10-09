@@ -38,6 +38,22 @@ export function updateTransactionCategory(
   return pedir(`/transactions/${id}/category`, { metodo: "PATCH", cuerpo: { categoryId } });
 }
 
+/**
+ * A qué item del presupuesto cuenta un movimiento: asignarlo, cambiarlo o
+ * dejarlo "sin asignar" (`null`). Sirve para un movimiento con categoria y
+ * para las dos patas de una transferencia a tarjeta; el servidor rechaza
+ * todo lo demás (saldo inicial, ajuste).
+ */
+export function updateTransactionBudgetItem(
+  id: string,
+  budgetItemId: string | null
+): Promise<{ data: Movimiento }> {
+  return pedir(`/transactions/${id}/budget-item`, {
+    metodo: "PATCH",
+    cuerpo: { budgetItemId },
+  });
+}
+
 /** Todo el historial en un archivo, para abrirlo en Excel o guardarlo aparte. */
 export function exportTransactions(): Promise<{ contenido: Blob; nombre: string }> {
   return descargar("/transactions/export", "cuadre-movimientos.csv");

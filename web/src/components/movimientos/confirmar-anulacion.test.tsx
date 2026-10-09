@@ -17,6 +17,7 @@ const movimiento: Movimiento = {
   occurredAt: "2026-09-10T12:00:00Z",
   description: "Mercado",
   transferGroupId: null,
+  budgetItemId: null,
   reversesTransactionId: null,
   reversedByTransactionId: null,
 };
