@@ -12,7 +12,8 @@ function registro(datos: Partial<RegistroDeAhorro> & Pick<RegistroDeAhorro, "amo
     id: "reg-1",
     accountId: "cta-1",
     currency: "COP",
-    occurredAt: "2026-10-08T15:00:00.000Z",
+    // "Hoy" al mediodía local: así la prueba no caduca al día siguiente.
+    occurredAt: new Date(new Date().setHours(12, 0, 0, 0)).toISOString(),
     description: null,
     ...datos,
   };
