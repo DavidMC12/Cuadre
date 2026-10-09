@@ -23,8 +23,7 @@ import {
   CLAVE_AHORRO,
   CLAVE_SIN_CATEGORIA,
   type GrupoPresupuesto,
-} from "@/lib/agrupar-presupuesto";
-import {
+} from "@/lib/agrupar-presupuesto";import {
   CLASES_BLOQUE_ASIDE,
   CLASES_CARD_PANEL_VENTANA,
   CLASES_ENCABEZADO_GRUPO,
@@ -56,6 +55,33 @@ function porcentajeBarra(progress: string, target: string): number {
 
   // Puntos básicos: (progreso / objetivo) * 10000, con enteros exactos.
   return Number((progreso * 10000n) / objetivo) / 100;
+}
+
+/**
+ * El estado del renglón en PALABRAS, no solo de color: Pendiente / Parcial y
+ * el logro — Pagado (tope de gasto), Recibido (ingreso esperado), Cumplida
+ * (meta de ahorro). Los otros estados ya tienen su propia frase en el
+ * renglón ("Te pasaste por X", "Sin presupuesto este mes", "Sin monto en
+ * X"), así que aquí no se repiten: `null` = el renglón ya habla por sí solo.
+ */
+function palabraDeEstado(renglon: ItemDelChecklist): string | null {
+  if (renglon.target === null) return null;
+  if (esCero(renglon.target)) return null;
+  if (renglon.status === "exceeded" || renglon.status === "none") return null;
+  switch (renglon.status) {
+    case "paid":
+      return renglon.kind === "savings"
+        ? "Cumplida"
+        : renglon.categoryKind === "income"
+          ? "Recibido"
+          : "Pagado";
+    case "pending":
+      return "Pendiente";
+    case "partial":
+      return "Parcial";
+    default:
+      return null;
+  }
 }
 
 /**
@@ -193,6 +219,14 @@ export function PanelPresupuesto({
   // lado solo se pinta si ese lado tiene al menos un renglón con monto
   // (`hayIngresos`/`hayGastos`): nunca un cero inventado.
   const totales = useMemo(() => totalesPrevistos(checklist?.items ?? []), [checklist?.items]);
+
+  // Lo movido SIN item, por categoría: el servidor solo manda los renglones
+  // con monto distinto de cero. Se resuelve una vez para que cada grupo mire
+  // el suyo al pintarse.
+  const sinAsignarDe = useMemo(
+    () => new Map((checklist?.unassigned ?? []).map((renglon) => [renglon.categoryId, renglon])),
+    [checklist?.unassigned]
+  );
 
   // Claves que pueden tener preferencia guardada: las del catálogo completo
   // (archivadas incluidas) más las propias del panel, más las de los grupos de
@@ -408,6 +442,19 @@ export function PanelPresupuesto({
             árbol accesible sin desmontarla. */}
         <ul id={idLista} hidden={colapsado} className="flex flex-col">
           {grupo.items.map((renglon, indice) => renderRenglon(renglon, indice))}
+          {/* Lo movido sin item en ESTA categoría (el servidor solo lo manda
+              cuando no es cero): una fila de texto apagado, sin barra, para
+              que no se pierda plata en el cuadre por cada grupo. Los grupos
+              sin categoría (Clave propia) no tienen dónde caer: su item no
+              existe, así que nada aparece. */}
+          {grupo.categoryId !== null && sinAsignarDe.get(grupo.categoryId) && (
+            <li className="border-t border-border px-2 py-2 text-xs text-muted-foreground">
+              Sin asignar:{" "}
+              <span className="font-mono tabular-nums">
+                {textoMonto(sinAsignarDe.get(grupo.categoryId)!.amount, moneda)}
+              </span>
+            </li>
+          )}
         </ul>
       </div>
     );
@@ -717,6 +764,22 @@ function ContenidoRenglon({
         >
           {renglon.label}
         </span>
+        {/* El estado va en palabras cortas y a la vista: se ve de un vistazo
+            y se lee igual de oído. "Te pasaste por X" y "Sin presupuesto
+            este mes" ya se dicen en el cuerpo del renglón, así que aquí
+            solo aparecen Pendiente / Parcial / y el logro. */}
+        {palabraDeEstado(renglon) && (
+          <span
+            className={cn(
+              "shrink-0 text-xs font-medium",
+              renglon.status === "paid"
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-muted-foreground"
+            )}
+          >
+            {palabraDeEstado(renglon)}
+          </span>
+        )}
         {/* Los estados no se pisan: `checked` (logro verde) se enciende al
             alcanzar una meta de ahorro o un ingreso esperado; `exceeded` (aviso
             rojo) SOLO al pasarse de un tope de gasto. Recibir más de lo

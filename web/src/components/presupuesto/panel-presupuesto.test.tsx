@@ -1544,3 +1544,172 @@ describe("PanelPresupuesto: total de cada sección", () => {
     expect(total.classList.contains("shrink-0")).toBe(true);
   });
 });
+
+// -------------------------------------------------------------------------
+// El estado de cada ítem, en palabras
+// -------------------------------------------------------------------------
+
+describe("PanelPresupuesto: el estado de cada ítem, en palabras", () => {
+  it("un tope de gasto sin movimientos dice Pendiente, no solo barra vacía", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    const checklist = [{ ...renglonDe(items[0]), status: "pending" as const }];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.getByText("Pendiente")).toBeInTheDocument();
+  });
+
+  it("algo pero menos del objetivo dice Parcial, apagado", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    const checklist = [
+      { ...renglonDe(items[0]), progress: "30000", status: "partial" as const },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const parcial = screen.getByText("Parcial");
+    expect(parcial.className).toContain("text-muted-foreground");
+  });
+
+  it("el objetivo alcanzado en un tope de gasto dice Pagado y se pinta de logro", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    const checklist = [
+      { ...renglonDe(items[0]), progress: "100500", target: "100500", status: "paid" as const },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const pagado = screen.getByText("Pagado");
+    expect(pagado.className).toContain("emerald");
+  });
+
+  it("un ingreso alcanzado dice Recibido, y una meta de ahorro Cumplida", () => {
+    const items = [deIngreso("i1", "Salario"), deAhorro("a1", "Viaje")];
+    const checklist = [
+      { ...renglonDe(items[0]), progress: "3000000", target: "3000000", status: "paid" as const, checked: true },
+      { ...renglonDe(items[1]), progress: "500000", target: "500000", status: "paid" as const, checked: true },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.getByText("Recibido")).toBeInTheDocument();
+    expect(screen.getByText("Cumplida")).toBeInTheDocument();
+    expect(screen.queryByText("Pagado")).not.toBeInTheDocument();
+  });
+
+  it("'Te pasaste por X' sigue siendo la voz del exceso: la palabra del estado se calla", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    const checklist = [
+      { ...renglonDe(items[0]), progress: "1500", target: "1000", exceeded: true, status: "exceeded" as const },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.getByText(/Te pasaste por/)).toBeInTheDocument();
+    expect(screen.queryByText("Pendiente")).not.toBeInTheDocument();
+    expect(screen.queryByText("Parcial")).not.toBeInTheDocument();
+    expect(screen.queryByText("Pagado")).not.toBeInTheDocument();
+  });
+
+  it("'Sin presupuesto este mes' y 'Sin monto en X' no añaden otra palabra", () => {
+    const items = [deCategoria("c1", "comida", "Agua")];
+    const checklist = [
+      { ...renglonDe(items[0]), target: "0.0000", status: "none" as const },
+    ];
+    ajustarConsultas({ data: { items: checklist } }, { data: items }, CATALOGO);
+
+    render(<PanelPresupuesto mes="2026-01" moneda="COP" />);
+
+    expect(screen.getByText("Sin presupuesto este mes")).toBeInTheDocument();
+    expect(screen.queryByText("Pendiente")).not.toBeInTheDocument();
+  });
+});
+
+// -------------------------------------------------------------------------
+// La fila "Sin asignar" de cada categoría
+// -------------------------------------------------------------------------
+
+describe("PanelPresupuesto: lo que queda Sin asignar por categoría", () => {
+  it("dentro del grupo de cada categoría, después de sus ítems, dice cuánto quedó sin item", () => {
+    const items = [deCategoria("c1", "comida", "Mercado"), deCategoria("t1", "transporte", "Bus")];
+    const checklist = items.map(renglonDe);
+    ajustarConsultas(
+      { data: { items: checklist, unassigned: [{ categoryId: "cat-comida", categoryName: "Comida", categoryKind: "expense", amount: "267530" }] } },
+      { data: items },
+      CATALOGO
+    );
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const comida = screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true })
+      .closest("div")!;
+    expect(within(comida).getByText(/Sin asignar:/)).toBeInTheDocument();
+    expect(within(comida).getByText("$267.530")).toBeInTheDocument();
+    // El otro grupo no tiene nada sin asignar: ni rastro.
+    const transporte = screen
+      .getByRole("button", { name: etiquetaGrupo("Transporte", 1), expanded: true })
+      .closest("div")!;
+    expect(within(transporte).queryByText(/Sin asignar:/)).not.toBeInTheDocument();
+  });
+
+  it("sin 'unassigned' (todo quedó asignado o no hay nada movido), la fila no aparece", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas(
+      { data: { items: items.map(renglonDe), unassigned: [] } },
+      { data: items },
+      CATALOGO
+    );
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    expect(screen.queryByText(/Sin asignar:/)).not.toBeInTheDocument();
+  });
+
+  it("la fila Sin asignar es texto apagado, sin barra de progreso", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas(
+      { data: { items: items.map(renglonDe), unassigned: [{ categoryId: "cat-comida", categoryName: "Comida", categoryKind: "expense", amount: "267530" }] } },
+      { data: items },
+      CATALOGO
+    );
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    const fila = screen.getByText(/Sin asignar:/).closest("li")!;
+    expect(fila.className).toContain("text-muted-foreground");
+    expect(within(fila).queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("la fila Sin asignar NO entra en los totales de sección (siguen viendo solo los montos presupuestados)", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas(
+      { data: { items: items.map(renglonDe), unassigned: [{ categoryId: "cat-comida", categoryName: "Comida", categoryKind: "expense", amount: "267530" }] } },
+      { data: items },
+      CATALOGO
+    );
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+
+    // target 100 del renglón De: el total no suma los 267.530 sin asignar.
+    expect(screen.getByLabelText("Total de gastos previstos: $100")).toBeInTheDocument();
+  });
+
+  it("si el grupo está replegado, su fila Sin asignar se pliega con él", () => {
+    const items = [deCategoria("c1", "comida", "Mercado")];
+    ajustarConsultas(
+      { data: { items: items.map(renglonDe), unassigned: [{ categoryId: "cat-comida", categoryName: "Comida", categoryKind: "expense", amount: "267530" }] } },
+      { data: items },
+      CATALOGO
+    );
+
+    render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
+    fireEvent.click(screen.getByRole("button", { name: etiquetaGrupo("Comida", 1), expanded: true }));
+
+    expect(screen.getByText(/Sin asignar:/)).not.toBeVisible();
+  });
+});
