@@ -70,6 +70,16 @@ export function createTransfer(input: NuevaTransferencia): Promise<{ data: Trans
 }
 
 /**
+ * Anular una transferencia entre cuentas: las dos patas juntas, con un grupo
+ * nuevo que forma la transferencia en sentido contrario y la plata de vuelta
+ * en su cuenta de origen. `id` es el transferGroupId (nunca el de una pata:
+ * una mitad sola no se anula).
+ */
+export function reverseTransfer(transferGroupId: string): Promise<{ data: Transferencia }> {
+  return pedir(`/transfers/${transferGroupId}/reversal`, { metodo: "POST" });
+}
+
+/**
  * Una compra pagada con dos cuentas: se registra UNA vez y el servidor escribe
  * las dos partes (un gasto por cuenta) juntas o ninguna.
  */
