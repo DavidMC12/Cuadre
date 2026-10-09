@@ -6,6 +6,7 @@
  * antes de llegar a la base.
  */
 import { z } from 'zod';
+import { isNegative } from '../../shared/money.js';
 import { FechaSchema, MontoPositivoSchema, MontoSchema } from '../../shared/schemas.js';
 
 export const TIPOS_DE_MOVIMIENTO = ['opening', 'standard', 'transfer', 'adjustment'] as const;
@@ -56,6 +57,37 @@ export const CrearTransferenciaSchema = z
     path: ['toAccountId'],
   });
 
+/**
+ * Una compra pagada con dos cuentas (la mitad con tarjeta, la mitad con plata
+ * disponible). Cada parte lleva el monto CON SIGNO que le toca a su cuenta,
+ * decidido por la interfaz como en un movimiento normal (gasto = negativo): las
+ * dos del mismo signo, y en cuentas distintas.
+ */
+export const RegistrarPagoDivididoSchema = z
+  .object({
+    payments: z
+      .array(z.object({ accountId: z.uuid(), amount: MontoSchema }))
+      .length(2, 'un pago dividido tiene exactamente dos partes'),
+    occurredAt: FechaSchema,
+    description: z.string().trim().min(1).max(500).nullish(),
+    categoryId: z.uuid().nullish(),
+    budgetItemId: z.uuid().nullish(),
+  })
+  .refine((datos) => datos.payments[0]?.accountId !== datos.payments[1]?.accountId, {
+    message: 'Las dos partes del pago deben salir de cuentas distintas.',
+    path: ['payments'],
+  })
+  .refine(
+    (datos) =>
+      datos.payments[0] === undefined ||
+      datos.payments[1] === undefined ||
+      isNegative(datos.payments[0].amount) === isNegative(datos.payments[1].amount),
+    {
+      message: 'Las dos partes del pago deben ser del mismo tipo: las dos gastos o las dos ingresos.',
+      path: ['payments'],
+    },
+  );
+
 // -----------------------------------------------------------------------------
 // Respuestas
 
@@ -71,6 +103,8 @@ export const MovimientoSchema = z.object({
   occurredAt: z.string(),
   description: z.string().nullable(),
   transferGroupId: z.uuid().nullable(),
+  /** Las patas de una compra pagada con dos cuentas comparten este grupo. */
+  paymentGroupId: z.uuid().nullable(),
   /** Si esta fila anula a otra, aquí va la anulada. */
   reversesTransactionId: z.uuid().nullable(),
   /** Si a esta fila la anularon, aquí va la anulación. */
@@ -84,6 +118,13 @@ export const ListaDeMovimientosSchema = z.object({
 
 export const UnMovimientoSchema = z.object({ data: MovimientoSchema });
 
+export const PagoDivididoSchema = z.object({
+  data: z.object({
+    paymentGroupId: z.uuid(),
+    legs: z.array(MovimientoSchema).length(2),
+  }),
+});
+
 export const TransferenciaSchema = z.object({
   data: z.object({
     transferGroupId: z.uuid(),
@@ -94,6 +135,7 @@ export const TransferenciaSchema = z.object({
 export type RegistrarMovimiento = z.infer<typeof RegistrarMovimientoSchema>;
 export type ListarMovimientos = z.infer<typeof ListarMovimientosSchema>;
 export type CrearTransferencia = z.infer<typeof CrearTransferenciaSchema>;
+export type RegistrarPagoDividido = z.infer<typeof RegistrarPagoDivididoSchema>;
 export type Movimiento = z.infer<typeof MovimientoSchema>;
 export type Recategorizar = z.infer<typeof RecategorizarSchema>;
 export type AsignarItem = z.infer<typeof AsignarItemSchema>;

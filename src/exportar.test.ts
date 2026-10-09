@@ -99,7 +99,7 @@ describe('el archivo', () => {
 
     expect(todas).toHaveLength(1);
     expect(todas[0]).toBe(
-      'Fecha,Cuenta,Moneda,Tipo,Categoría,Item de presupuesto,Descripción,Monto,Estado,Id,Anula a,Transferencia',
+      'Fecha,Cuenta,Moneda,Tipo,Categoría,Item de presupuesto,Descripción,Monto,Estado,Id,Anula a,Transferencia,Pago dividido',
     );
   });
 

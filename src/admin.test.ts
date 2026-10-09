@@ -391,6 +391,25 @@ describe('desde una cuenta ajena solo se mira', () => {
     expect(cuerpo.error.code).toBe('FORBIDDEN');
   });
 
+  it('tampoco deja registrar ni anular una compra pagada con dos cuentas', async () => {
+    const registrar = await pedir(appSuplantando, 'POST', '/api/v1/split-payments', {
+      payments: [
+        { accountId: randomUUID(), amount: '-1000' },
+        { accountId: randomUUID(), amount: '-1000' },
+      ],
+      occurredAt: '2026-10-05T17:00:00Z',
+    });
+    const anular = await pedir(
+      appSuplantando,
+      'POST',
+      `/api/v1/split-payments/${randomUUID()}/reversal`,
+    );
+
+    expect(registrar.estado).toBe(403);
+    expect(anular.estado).toBe(403);
+    expect(registrar.cuerpo.error.code).toBe('FORBIDDEN');
+  });
+
   it('no deja cambiarle las preferencias a esa persona', async () => {
     const { estado } = await pedir(appSuplantando, 'PATCH', '/api/v1/profile', {
       displayName: 'Nombre puesto por otro',
