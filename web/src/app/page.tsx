@@ -88,10 +88,12 @@ export default function PaginaResumen() {
   // Para el layout de las dos tarjetas de totales importa la moneda que se
   // está viendo: una cuenta de ahorro en dólares no pinta nada al lado de un
   // total en pesos. Y la sección de ahorro (total y gráfica) solo existe si
-  // hay una cuenta de ahorro en esa moneda; si no, no se pide nada al servidor
-  // ni se muestra un hueco.
+  // hay una cuenta de ahorro ACTIVA en esa moneda; una archivada ya no
+  // recibe nada que apartar, y si no, no se pide nada al servidor ni se
+  // muestra un hueco.
   const ahorroEnMoneda = (cuentas ?? []).some(
-    (cuenta) => cuenta.isSavings && cuenta.currency === moneda
+    (cuenta) =>
+      cuenta.isSavings && cuenta.currency === moneda && !cuenta.archivedAt
   );
 
   const {

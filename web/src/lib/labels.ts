@@ -26,10 +26,12 @@ export const SIN_ASIGNAR = "Sin asignar";
 
 /**
  * El mismo texto de ayuda donde quiera que se marque una cuenta como de
- * ahorro, para que el formulario y el detalle no digan cosas distintas.
+ * ahorro, para que el formulario, la lista y el detalle no digan cosas
+ * distintas. La regla que explica es la del ahorro explicito: marcar la
+ * cuenta no maquilla el saldo como ahorro.
  */
 export const AYUDA_CUENTA_AHORRO =
-  "Solo para que el Resumen sepa cuánto tienes ahorrado. No cambia nada más.";
+  "Marcar una cuenta como de ahorro no cambia su saldo ni nada más: solo dice dónde anotas lo que apartas.";
 
 /**
  * Las monedas que ofrecen las pantallas. La API acepta cualquier código de tres

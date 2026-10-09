@@ -186,9 +186,10 @@ export interface TendenciaMes {
 }
 
 /**
- * Cuánto entró menos cuánto salió de las cuentas de ahorro en un mes. A
- * diferencia del resumen de ingresos/gastos, este puede ser negativo: si ese
- * mes se sacó más de lo que se metió, el monto viene con signo menos.
+ * Cuánto se apartó para ahorro en un mes (transferencias + lo anotado a
+ * mano), menos cuánto se sacó. A diferencia del resumen de ingresos/gastos,
+ * este puede ser negativo: si ese mes se retiró más de lo que se apartó, el
+ * monto viene con signo menos.
  */
 export interface AhorroMes {
   month: string;

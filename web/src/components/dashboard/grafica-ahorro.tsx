@@ -73,9 +73,10 @@ export function TooltipAhorro({
 }
 
 /**
- * Cuánto entró menos cuánto salió de las cuentas de ahorro, mes a mes. Una
- * sola serie de barras: la pregunta es una —cuánto se apartó— y cada barra se
- * pinta según el signo de su mes, igual que el componente `Monto`.
+ * Cuánto se apartó (transferencias hacia cuentas de ahorro más lo anotado a
+ * mano) menos cuánto se sacó, mes a mes. Una sola serie de barras: la
+ * pregunta es una —cuánto se apartó— y cada barra se pinta según el signo de
+ * su mes, igual que el componente `Monto`.
  */
 export function GraficaAhorro({
   months,
