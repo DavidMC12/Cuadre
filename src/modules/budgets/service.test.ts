@@ -304,6 +304,7 @@ describe('un mes sin monto: cero = "este mes no aplica" (service)', () => {
     expect(data.items.find((i) => i.id === item.id)).toMatchObject({
       target: '0.0000',
       progress: '0.0000',
+      status: 'none',
       checked: false,
       exceeded: false,
     });
@@ -312,6 +313,7 @@ describe('un mes sin monto: cero = "este mes no aplica" (service)', () => {
     await registrarIngreso(await cuentaNueva(), '100000', categoriaId, item.id);
     const despues = await servicio.checklistDelMes(usuarioId, { month: MES, currency: 'COP' });
     expect(despues.data.items.find((i) => i.id === item.id)).toMatchObject({
+      status: 'none',
       checked: false,
       exceeded: false,
     });
@@ -330,6 +332,7 @@ describe('un mes sin monto: cero = "este mes no aplica" (service)', () => {
     const sinGasto = await servicio.checklistDelMes(usuarioId, { month: MES, currency: 'COP' });
     expect(sinGasto.data.items.find((i) => i.id === item.id)).toMatchObject({
       target: '0.0000',
+      status: 'none',
       checked: false,
       exceeded: false,
     });
@@ -350,6 +353,7 @@ describe('un mes sin monto: cero = "este mes no aplica" (service)', () => {
     const conGasto = await servicio.checklistDelMes(usuarioId, { month: MES, currency: 'COP' });
     expect(conGasto.data.items.find((i) => i.id === item.id)).toMatchObject({
       progress: '30000.0000',
+      status: 'exceeded',
       checked: false,
       exceeded: true,
     });
