@@ -19,8 +19,15 @@ import type { ActualizarCuenta, CrearCuenta, Cuenta } from './schemas.js';
 export async function listarCuentas(
   usuarioId: string,
   incluirArchivadas: boolean,
+  mes?: string,
 ): Promise<{ data: Cuenta[] }> {
-  return { data: await repositorio.listar(usuarioId, incluirArchivadas) };
+  // Con `mes` ("YYYY-MM") el saldo y lo ahorrado se cortan al cierre de ese mes;
+  // sin él, se leen como hoy. El repository decide qué SQL corre en cada caso:
+  // aquí solo se elige el camino.
+  const cuentas = mes
+    ? await repositorio.listarAlCierreDelMes(usuarioId, mes, incluirArchivadas)
+    : await repositorio.listar(usuarioId, incluirArchivadas);
+  return { data: cuentas };
 }
 
 export async function obtenerCuenta(usuarioId: string, cuentaId: string): Promise<Cuenta> {

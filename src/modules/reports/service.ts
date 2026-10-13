@@ -59,14 +59,23 @@ export async function tendencia(
   usuarioId: string,
   filtros: Tendencia,
 ): Promise<{ data: repositorio.TotalDeUnMes[] }> {
-  return { data: await repositorio.tendencia(usuarioId, filtros.months, filtros.currency) };
+  return {
+    data: await repositorio.tendencia(usuarioId, filtros.months, filtros.currency, filtros.until),
+  };
 }
 
 export async function ahorroMensual(
   usuarioId: string,
   filtros: AhorroMensual,
 ): Promise<{ data: repositorio.AhorroDeUnMes[] }> {
-  return { data: await repositorio.ahorroMensual(usuarioId, filtros.months, filtros.currency) };
+  return {
+    data: await repositorio.ahorroMensual(
+      usuarioId,
+      filtros.months,
+      filtros.currency,
+      filtros.until,
+    ),
+  };
 }
 
 /**
