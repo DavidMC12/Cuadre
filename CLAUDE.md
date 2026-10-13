@@ -665,6 +665,28 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   falsos, y la parte suelta de una compra dividida bajo filtro de cuenta, que
   se ve como gasto normal.
 
+- **El Resumen sigue al mes que se mira** (2026-10-13). El dueño pidió que el
+  saldo, al ir a otro mes, fuera el de ese mes y no el de hoy. Qué calcula cada
+  cifra: "Balance del mes" = ingresos − gastos del mes (sin transferencias,
+  saldos iniciales ni ajustes; una anulación se clasifica como su original) y ya
+  seguía al mes; "Tienes" = saldo de las cuentas activas que no son tarjeta,
+  donde el saldo es la suma de TODOS los movimientos, por eso no se movía.
+  Ahora, en un mes pasado, "Tienes", "Debes en tarjetas" y "Ahorrado" son los del
+  **cierre de ese mes** (movimientos con fecha hasta el último instante del mes,
+  hora de Bogotá; un registro de ahorro cuenta igual) y dicen "Tenías al cierre
+  de …"; el mes actual queda con la lista de hoy (coincide con la pantalla
+  Cuentas) y sin una palabra distinta. Tendencia y Ahorro terminan en el mes
+  elegido (`until`). En un mes pasado no se ofrece "Registrar ahorro". Una cuenta
+  archivada DESPUÉS del cierre cuenta como abierta en ese mes. API:
+  `GET /api/v1/accounts?month=YYYY-MM` (misma forma, `balance` y `saved` al
+  cierre) y `until=YYYY-MM` en `/reports/trend` y `/reports/savings-trend`; sin
+  esos parámetros todo igual que antes. Sin migraciones. Límite conocido: la
+  marca "de ahorro" de una cuenta es la de hoy, así que desmarcarla vacía su
+  ahorro también en los meses pasados. Anotado: las alturas de los esqueletos de
+  las tarjetas de totales en un mes pasado (la etiqueta parte en dos líneas)
+  quedan por ver en un navegador real; un mes futuro (no alcanzable en el
+  Resumen) pinta el mes actual.
+
 Pendiente, sin fecha: otra ronda de `impeccable critique` para medir el
 puntaje tras los cierres de la décima.
 
