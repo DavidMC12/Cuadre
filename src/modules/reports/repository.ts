@@ -70,6 +70,17 @@ function rangoDelMes(mes: string, columna: SQL = sql`m.occurred_at`): SQL {
  */
 const deLaMoneda = (moneda: string): SQL => sql`m.currency = ${moneda}::text`;
 
+/**
+ * El último mes de una gráfica mensual (la ventana de N meses termina ahí): el
+ * mes que se pide si viene, o el mes de hoy en hora de Bogotá. Ambos son
+ * `timestamp` sin zona, al primer instante de su mes.
+ */
+function ultimoMesDeLaVentana(hastaMes?: string): SQL {
+  return hastaMes === undefined
+    ? sql`date_trunc('month', now() at time zone ${ZONA_HORARIA}::text)`
+    : sql`(${hastaMes}::text || '-01')::timestamp`;
+}
+
 // -----------------------------------------------------------------------------
 
 /** Las monedas en las que esta persona tiene cuentas, archivadas incluidas. */
@@ -317,7 +328,8 @@ export interface AhorroDeUnMes {
 }
 
 /**
- * Los últimos meses, terminando en el mes de hoy.
+ * Los últimos meses, terminando en `hastaMes` ("YYYY-MM") o, si no viene, en
+ * el mes de hoy.
  *
  * Los meses los genera la base con `generate_series`, no la consulta de los
  * movimientos: así un mes sin nada sale en cero en vez de desaparecer. Si se
@@ -328,15 +340,16 @@ export async function tendencia(
   usuarioId: string,
   cantidadDeMeses: number,
   moneda: string,
+  hastaMes?: string,
 ): Promise<TotalDeUnMes[]> {
   const filas = (await db.execute(sql`
     with limites as (
-      select date_trunc('month', now() at time zone ${ZONA_HORARIA}::text) as mes_actual
+      select ${ultimoMesDeLaVentana(hastaMes)} as ultimo_mes
     ),
     meses as (
       select generate_series(
-               mes_actual - make_interval(months => ${cantidadDeMeses - 1}::int),
-               mes_actual,
+               ultimo_mes - make_interval(months => ${cantidadDeMeses - 1}::int),
+               ultimo_mes,
                interval '1 month'
              ) as mes
       from limites
@@ -372,8 +385,9 @@ export async function tendencia(
 /**
  * Ahorro mensual, NO acumulado: cada mes es solo lo que la persona APARTÓ ese
  * mes en las cuentas marcadas como ahorro (`accounts.is_savings`), con signo —
- * igual que `tendencia`, un mes sin movimiento sale en cero en vez de
- * desaparecer, y nunca se mezclan monedas (regla 4).
+ * igual que `tendencia` (termina en `hastaMes` o en el mes de hoy), un mes sin
+ * movimiento sale en cero en vez de desaparecer, y nunca se mezclan monedas
+ * (regla 4).
  *
  * Cuenta SOLO lo que la persona decidió apartar: las transferencias hacia o
  * desde esas cuentas (una anulación es otra transferencia de signo contrario y
@@ -393,15 +407,16 @@ export async function ahorroMensual(
   usuarioId: string,
   cantidadDeMeses: number,
   moneda: string,
+  hastaMes?: string,
 ): Promise<AhorroDeUnMes[]> {
   const filas = (await db.execute(sql`
     with limites as (
-      select date_trunc('month', now() at time zone ${ZONA_HORARIA}::text) as mes_actual
+      select ${ultimoMesDeLaVentana(hastaMes)} as ultimo_mes
     ),
     meses as (
       select generate_series(
-               mes_actual - make_interval(months => ${cantidadDeMeses - 1}::int),
-               mes_actual,
+               ultimo_mes - make_interval(months => ${cantidadDeMeses - 1}::int),
+               ultimo_mes,
                interval '1 month'
              ) as mes
       from limites
