@@ -13,6 +13,7 @@ import { construirApp } from './aplicacion.js';
 import { closeDb, db } from './db/client.js';
 import { users } from './db/schema/index.js';
 import * as cuentasRepo from './modules/accounts/repository.js';
+import type { Cuenta } from './modules/accounts/schemas.js';
 import * as reportesRepo from './modules/reports/repository.js';
 
 let app: FastifyInstance;
@@ -98,7 +99,8 @@ async function apartar(cuentaId: string, monto: string, mes: string): Promise<vo
   expect(estado, JSON.stringify(cuerpo)).toBe(201);
 }
 
-const porId = (cuentas: { id: string }[], id: string) => cuentas.find((cuenta) => cuenta.id === id);
+const porId = (cuentas: Cuenta[], id: string): Cuenta | undefined =>
+  cuentas.find((cuenta) => cuenta.id === id);
 
 // -----------------------------------------------------------------------------
 
