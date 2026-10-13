@@ -53,8 +53,13 @@ export function usePorCategoria(params: { month: string; currency: string; kind:
 
 /**
  * La ventana termina en `until` ("YYYY-MM") cuando viene; sin él, en el mes
- * de hoy. Cada mes elegido es una consulta distinta: la tendencia de otro mes
- * no sirve de dato provisional del mes que se está mirando.
+ * de hoy. Cada mes elegido es una consulta distinta: la tendencia de otro
+ * mes no sirve de dato provisional del mes que se está mirando.
+ *
+ * El `until` queda tal cual — sin `?? null`: react-query descarta
+ * `undefined` al armar la llave y el cliente de API omite el parámetro,
+ * así que "sin until" y `until: undefined` son LA MISMA consulta, y una
+ * llamada sin `until` comparte caché con la del mes actual.
  */
 export function useTendencia(params: { months?: number; currency: string; until?: string }) {
   const months = params.months ?? 6;

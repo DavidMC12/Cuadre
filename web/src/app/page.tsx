@@ -41,7 +41,7 @@ import { usePantallaAncha } from "@/hooks/use-pantalla-ancha";
 import { useMonedas, useResumenMes, useTendencia } from "@/hooks/use-reportes";
 import type { TipoCategoria } from "@/lib/api/types";
 import { CLASES_ASIDE } from "@/lib/aside-resumen";
-import { etiquetaMes, mesActual } from "@/lib/fecha";
+import { etiquetaMes, mesActual, tramoDelMes } from "@/lib/fecha";
 import { cn } from "@/lib/utils";
 
 export default function PaginaResumen() {
@@ -49,9 +49,11 @@ export default function PaginaResumen() {
   // La lista de cuentas que alimenta "Tienes", "Debes en tarjetas" y
   // "Ahorrado" sigue al mes que se está mirando: en el mes actual es la lista
   // de hoy SIN parámetro —la misma consulta (y la misma caché) de las demás
-  // pantallas, con las mismas cifras que la pantalla Cuentas— y en cualquier
-  // otro mes es la lista cortada al cierre de ese mes.
-  const mesDeCierre = mes === mesActual() ? undefined : mes;
+  // pantallas, con las mismas cifras que la pantalla Cuentas— y solo un mes
+  // pasado es la lista cortada a su cierre (con `tramoDelMes`, no por
+  // desigualdad: si el selector ganara meses adelante, un mes futuro no es
+  // "Tenías al cierre de...").
+  const mesDeCierre = tramoDelMes(mes) === "pasado" ? mes : undefined;
   const [monedaElegida, setMonedaElegida] = useState<string | undefined>(undefined);
   const [tipoCategoria, setTipoCategoria] = useState<TipoCategoria>("expense");
   const [mesesTendencia, setMesesTendencia] = useState<6 | 12>(6);

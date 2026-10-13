@@ -622,6 +622,30 @@ describe("Resumen: el saldo que se ve sigue al mes que se está mirando", () => 
     });
   });
 
+  it("en un mes pasado sin cuenta de ahorro al cierre, la tarjeta y la gráfica de ahorro desaparecen", () => {
+    // Hoy sí hay una cuenta de ahorro; el CIERRE de agosto no la tiene
+    // todavía (el servidor responde la lista del cierre sin ella). El mock
+    // le responde a cada consulta con SU lista.
+    vi.mocked(ordenCuentas.useCuentas).mockImplementation(
+      (...args: unknown[]) =>
+        refetchable(args[1] ? { data: cuantas } : { data: conAhorro }) as never
+    );
+    render(<PaginaResumen />);
+
+    // Con la lista de hoy, la tarjeta y la gráfica de ahorro están.
+    expect(vi.mocked(TotalAhorrado).mock.calls).not.toHaveLength(0);
+    const sinAhorro = vi.mocked(TotalAhorrado).mock.calls.length;
+    expect(vi.mocked(GraficaAhorro).mock.calls).not.toHaveLength(0);
+    const sinGrafica = vi.mocked(GraficaAhorro).mock.calls.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "Mes anterior" }));
+
+    // La condición de presencia sale de la MISMA lista que las cifras: sin
+    // cuenta de ahorro al cierre, no se montan (ni un hueco vacío).
+    expect(vi.mocked(TotalAhorrado).mock.calls.length).toBe(sinAhorro);
+    expect(vi.mocked(GraficaAhorro).mock.calls.length).toBe(sinGrafica);
+  });
+
   it("mientras el pedido del mes pasado sigue en vuelo, el saldo de hoy no pinta: esqueleto", () => {
     // La lista del mes elegido no llegó todavía (otra llave de caché): el
     // mock se comporta como react-query sin datos ni placeholder.
