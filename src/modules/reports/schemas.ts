@@ -30,11 +30,18 @@ export const TendenciaSchema = z.object({
   /** Hasta dos años hacia atrás; más que eso no cabe en una gráfica. */
   months: z.coerce.number().int().min(1).max(24).default(6),
   currency: MonedaSchema,
+  /**
+   * El mes en que TERMINA la ventana ("YYYY-MM"). Sin él, termina en el mes de
+   * hoy, como siempre. Así el Resumen puede seguir al mes que se está mirando.
+   */
+  until: MesSchema.optional(),
 });
 
 export const AhorroMensualSchema = z.object({
   months: z.coerce.number().int().min(1).max(24).default(6),
   currency: MonedaSchema,
+  /** El mes en que TERMINA la ventana; sin él, el mes de hoy. */
+  until: MesSchema.optional(),
 });
 
 // -----------------------------------------------------------------------------
