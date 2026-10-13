@@ -190,3 +190,46 @@ describe("TotalAhorrado: la tarjeta dice lo que es y cómo empezar", () => {
     expect(container.firstChild).toHaveClass("animate-pulse");
   });
 });
+
+describe("TotalAhorrado: en un mes pasado habla del cierre y calla el botón", () => {
+  it("la etiqueta dice hasta cuándo ahorrabas: 'Ahorrado al cierre de...'", () => {
+    render(
+      <TotalAhorrado
+        moneda="COP"
+        cargando={false}
+        mesDeCierre="2026-09"
+        cuentas={[cuenta({ id: "cta-1", name: "Vacaciones", currency: "COP", isSavings: true, saved: "500000.0000" })]}
+      />
+    );
+
+    expect(screen.getByText("Ahorrado al cierre de Septiembre de 2026")).toBeInTheDocument();
+    expect(screen.queryByText("Ahorrado")).not.toBeInTheDocument();
+  });
+
+  it("sin 'Registrar ahorro': anotar HOY no cambia el cierre de un mes pasado", () => {
+    render(
+      <TotalAhorrado
+        moneda="COP"
+        cargando={false}
+        mesDeCierre="2026-09"
+        cuentas={[cuenta({ id: "cta-1", name: "Vacaciones", currency: "COP", isSavings: true, saved: "500000.0000" })]}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: "Registrar ahorro" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("formulario-ahorro")).not.toBeInTheDocument();
+  });
+
+  it("la frase de lo apartado se queda, también en un mes pasado", () => {
+    render(
+      <TotalAhorrado
+        moneda="COP"
+        cargando={false}
+        mesDeCierre="2026-09"
+        cuentas={[cuenta({ id: "cta-1", name: "Vacaciones", currency: "COP", isSavings: true, saved: "500000.0000" })]}
+      />
+    );
+
+    expect(screen.getByText("Lo que apartaste, no el saldo de tus cuentas.")).toBeInTheDocument();
+  });
+});

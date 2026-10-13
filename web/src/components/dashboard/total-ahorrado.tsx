@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Monto } from "@/components/monto";
 import { FormularioAhorro } from "@/components/ahorro/formulario-ahorro";
 import type { Cuenta } from "@/lib/api/types";
+import { etiquetaMes } from "@/lib/fecha";
 import { sumarMontos } from "@/lib/money";
 
 /**
@@ -18,15 +19,24 @@ import { sumarMontos } from "@/lib/money";
  * activa: el ahorro es una decisión de quien usa la app, no un dato que se
  * le imponga. Y con cuentas de ahorro pero cero apartado igual se muestra el
  * $0, porque la tarjeta trae el botón para empezar.
+ *
+ * Con `mesDeCierre` ("YYYY-MM") la lista llega cortada al cierre de ese mes y
+ * la tarjeta dice "Ahorrado al cierre de...". El botón de registrar se va:
+ * registrar HOY no cambia el cierre de un mes pasado, y un botón que no
+ * haría nada visible (ni debería) solo confundiría. La frase de lo apartado
+ * se queda: explica la cifra que se ve.
  */
 export function TotalAhorrado({
   cuentas,
   moneda,
   cargando,
+  mesDeCierre,
 }: {
   cuentas: Cuenta[] | undefined;
   moneda: string;
   cargando: boolean;
+  /** Definido solo cuando se mira un mes pasado: la tarjeta habla del cierre. */
+  mesDeCierre?: string;
 }) {
   if (cargando) return <Skeleton className="h-28 w-full rounded-xl" />;
 
@@ -46,20 +56,28 @@ export function TotalAhorrado({
   return (
     <Card>
       <CardContent className="flex flex-col gap-0.5">
-        <span className="text-xs text-muted-foreground uppercase tracking-wide">Ahorrado</span>
+        {/* La etiqueta larga parte en dos líneas sola; el renglón de abajo
+            (no es un botón) completa la tarjeta sin desbordar a 320px. */}
+        <span className="text-xs text-muted-foreground uppercase tracking-wide">
+          {mesDeCierre
+            ? `Ahorrado al cierre de ${etiquetaMes(mesDeCierre)}`
+            : "Ahorrado"}
+        </span>
         <Monto valor={total} moneda={moneda} signo="negativo" className="text-2xl" />
         <p className="text-xs text-muted-foreground">
           Lo que apartaste, no el saldo de tus cuentas.
         </p>
-        <FormularioAhorro cuentas={deAhorro}>
-          <Button
-            type="button"
-            variant="outline"
-            className="mt-2 min-h-11 self-start"
-          >
-            Registrar ahorro
-          </Button>
-        </FormularioAhorro>
+        {!mesDeCierre && (
+          <FormularioAhorro cuentas={deAhorro}>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-2 min-h-11 self-start"
+            >
+              Registrar ahorro
+            </Button>
+          </FormularioAhorro>
+        )}
       </CardContent>
     </Card>
   );
