@@ -7,10 +7,14 @@ import * as reportes from "@/hooks/use-reportes";
 import * as ordenCuentas from "@/hooks/use-cuentas";
 import * as presupuesto from "@/hooks/use-presupuesto";
 import { GraficaTendencia } from "@/components/dashboard/grafica-tendencia";
+import { GraficaAhorro } from "@/components/dashboard/grafica-ahorro";
 import { GraficaPorCategoria } from "@/components/dashboard/grafica-por-categoria";
 import { PanelPresupuesto } from "@/components/presupuesto/panel-presupuesto";
 import { CuantoMeSobra } from "@/components/dashboard/cuanto-me-sobra";
+import { TotalCuentas } from "@/components/dashboard/total-cuentas";
+import { TotalAhorrado } from "@/components/dashboard/total-ahorrado";
 import { ApiError } from "@/lib/api/client";
+import { mesActual, sumarMeses } from "@/lib/fecha";
 import type { Cuenta, ResumenMes } from "@/lib/api/types";
 
 vi.mock("next/link", () => ({
@@ -53,14 +57,28 @@ window.matchMedia = ((consulta: string) =>
     removeEventListener: () => {},
     dispatchEvent: () => false,
   }) as MediaQueryList) as typeof window.matchMedia;
-vi.mock("@/components/dashboard/selector-mes", () => ({ SelectorMes: () => null }));
-vi.mock("@/components/dashboard/total-cuentas", () => ({ TotalCuentas: () => null }));
-vi.mock("@/components/dashboard/total-ahorrado", () => ({ TotalAhorrado: () => null }));
+vi.mock("@/components/dashboard/selector-mes", () => ({
+  // Un botón plano que hace lo que la flecha real: retrocede un mes. Sin
+  // montar el selector de verdad (no es lo que se prueba aquí).
+  SelectorMes: ({
+    mes,
+    onCambiar,
+  }: {
+    mes: string;
+    onCambiar: (mes: string) => void;
+  }) => (
+    <button type="button" onClick={() => onCambiar(sumarMeses(mes, -1))}>
+      Mes anterior
+    </button>
+  ),
+}));
+vi.mock("@/components/dashboard/total-cuentas", () => ({ TotalCuentas: vi.fn(() => null) }));
+vi.mock("@/components/dashboard/total-ahorrado", () => ({ TotalAhorrado: vi.fn(() => null) }));
 vi.mock("@/components/dashboard/grafica-por-categoria", () => ({
   GraficaPorCategoria: vi.fn(() => null),
 }));
 vi.mock("@/components/dashboard/grafica-tendencia", () => ({ GraficaTendencia: vi.fn(() => null) }));
-vi.mock("@/components/dashboard/grafica-ahorro", () => ({ GraficaAhorro: () => null }));
+vi.mock("@/components/dashboard/grafica-ahorro", () => ({ GraficaAhorro: vi.fn(() => null) }));
 vi.mock("@/components/dashboard/cuanto-me-sobra", () => ({
   CuantoMeSobra: vi.fn(() => <div data-testid="me-sobra" />),
 }));
@@ -102,6 +120,18 @@ const cuantas: Cuenta[] = [
 ];
 
 const resumen: ResumenMes = { income: "500000", expense: "200000", net: "300000" } as ResumenMes;
+
+const conAhorro: Cuenta[] = [
+  {
+    id: "ahorro-1",
+    name: "Vacaciones",
+    currency: "COP",
+    balance: "100000",
+    saved: "25000",
+    isSavings: true,
+    archivedAt: null,
+  } as Cuenta,
+];
 
 function ajustar(
   overrides: {
@@ -545,5 +575,98 @@ describe("Resumen: piso de toque de 44px", () => {
 
     const disparador = screen.getByRole("combobox");
     expect(disparador.classList.contains("min-h-11")).toBe(true);
+  });
+});
+
+describe("Resumen: el saldo que se ve sigue al mes que se está mirando", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ventanaAncha = false;
+    ajustar({});
+  });
+
+  it("en el mes actual la consulta de cuentas es la de hoy (sin month) y ninguna palabra cambia", () => {
+    // Con una cuenta de ahorro entran las DOS tarjetas: la condición del
+    // bloque también sale de esta lista.
+    ajustar({ deCuentas: { data: conAhorro } });
+    render(<PaginaResumen />);
+
+    const args = vi.mocked(ordenCuentas.useCuentas).mock.calls.at(-1)!;
+    expect(args[0]).toBe(false);
+    expect(args[1]).toBeUndefined();
+
+    // Sin mes de cierre esa prop ni siquiera vale algo: las tarjetas hablan
+    // del ahora ("Tienes" / "Ahorrado", con su botón de registrar).
+    expect(vi.mocked(TotalCuentas).mock.calls.at(-1)?.[0]).toMatchObject({
+      mesDeCierre: undefined,
+    });
+    expect(vi.mocked(TotalAhorrado).mock.calls.at(-1)?.[0]).toMatchObject({
+      mesDeCierre: undefined,
+    });
+  });
+
+  it("al ir a un mes pasado, la consulta de cuentas lleva el mes y las tarjetas hablan del cierre", () => {
+    ajustar({ deCuentas: { data: conAhorro } });
+    const mesPasado = sumarMeses(mesActual(), -1);
+    render(<PaginaResumen />);
+    fireEvent.click(screen.getByRole("button", { name: "Mes anterior" }));
+
+    expect(vi.mocked(ordenCuentas.useCuentas).mock.calls.at(-1)).toEqual([false, mesPasado]);
+    expect(vi.mocked(TotalCuentas).mock.calls.at(-1)?.[0]).toMatchObject({
+      mesDeCierre: mesPasado,
+      // La MISMA lista alimenta el total: ninguna cifra de "ahora" se cuela.
+      cuentas: conAhorro,
+    });
+    expect(vi.mocked(TotalAhorrado).mock.calls.at(-1)?.[0]).toMatchObject({
+      mesDeCierre: mesPasado,
+    });
+  });
+
+  it("mientras el pedido del mes pasado sigue en vuelo, el saldo de hoy no pinta: esqueleto", () => {
+    // La lista del mes elegido no llegó todavía (otra llave de caché): el
+    // mock se comporta como react-query sin datos ni placeholder.
+    vi.mocked(ordenCuentas.useCuentas).mockImplementation((...args: unknown[]) =>
+      refetchable(
+        args[1] ? { data: undefined, isLoading: true } : { data: cuantas }
+      ) as never
+    );
+    render(<PaginaResumen />);
+    fireEvent.click(screen.getByRole("button", { name: "Mes anterior" }));
+
+    // `cargando=true` + el esqueleto que TotalCuentas/TotalAhorrado pintan
+    // mientras cargan (probar propio): la cadena garantiza que NO se ve el
+    // saldo del mes anterior.
+    const propsCuentas = vi.mocked(TotalCuentas).mock.calls.at(-1)?.[0] as unknown as {
+      cargando: boolean;
+      mesDeCierre: string;
+    };
+    expect(propsCuentas.cargando).toBe(true);
+    expect(propsCuentas.mesDeCierre).toBe(sumarMeses(mesActual(), -1));
+  });
+
+  it("tendencia y gráfica de ahorro terminan la ventana en el mes elegido, también en el actual", () => {
+    // Con una cuenta de ahorro la gráfica de ahorro entra en pantalla.
+    ajustar({ deCuentas: { data: conAhorro } });
+    render(<PaginaResumen />);
+
+    const mesHoy = mesActual();
+    expect(vi.mocked(reportes.useTendencia).mock.calls.at(-1)?.[0]).toMatchObject({
+      months: 6,
+      currency: "COP",
+      until: mesHoy,
+    });
+    expect(vi.mocked(GraficaAhorro).mock.calls.at(-1)?.[0]).toMatchObject({
+      until: mesHoy,
+    });
+
+    // Retroceder un mes cambia la ventana completa, incluido su final.
+    fireEvent.click(screen.getByRole("button", { name: "Mes anterior" }));
+    const mesPasado = sumarMeses(mesHoy, -1);
+    expect(vi.mocked(reportes.useTendencia).mock.calls.at(-1)?.[0]).toMatchObject({
+      until: mesPasado,
+    });
+    expect(vi.mocked(GraficaAhorro).mock.calls.at(-1)?.[0]).toMatchObject({
+      until: mesPasado,
+    });
   });
 });

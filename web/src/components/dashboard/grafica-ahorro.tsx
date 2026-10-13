@@ -81,11 +81,15 @@ export function TooltipAhorro({
 export function GraficaAhorro({
   months,
   currency,
+  until,
   compartePantalla,
   onNoLeible,
 }: {
   months: number;
   currency: string;
+  /** Último mes de la ventana ("YYYY-MM"): la gráfica termina en el mes que
+   * se está mirando, no en el de hoy. */
+  until?: string;
   /** `true` cuando otros fallos conviven en la misma pantalla: el bloque
    * deja de anunciar solo: la pantalla compone el anuncio único (role="status") o queda un solo alert hablando por todos. */
   compartePantalla?: boolean;
@@ -104,7 +108,7 @@ export function GraficaAhorro({
     isPaused,
     isFetching,
     refetch,
-  } = useAhorroMensual({ months, currency });
+  } = useAhorroMensual({ months, currency, until });
 
   const estado = estadoDeConsulta({ data: ahorro, isError, isPaused, isLoading });
   const noLeible = estado === "fallo" || estado === "pausada";
