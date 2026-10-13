@@ -18,13 +18,25 @@ import { clavesReportes } from "@/hooks/use-reportes";
 
 export const clavesCuentas = {
   todas: () => ["cuentas"] as const,
-  lista: (includeArchived: boolean) => [...clavesCuentas.todas(), { includeArchived }] as const,
+  /**
+   * La llave incluye el mes: las invalidaciones por prefijo
+   * (`clavesCuentas.todas()`) alcanzan a todas las listas — la de hoy y las
+   * de cualquier cierre — porque todas cuelgan de ["cuentas"].
+   */
+  lista: (includeArchived: boolean, mes?: string) =>
+    [...clavesCuentas.todas(), { includeArchived, mes: mes ?? null }] as const,
 };
 
-export function useCuentas(includeArchived = false) {
+/**
+ * Sin `mes`: la lista de hoy, la misma consulta que comparten las demás
+ * pantallas. Con `mes` ("YYYY-MM"): la lista cortada al cierre de ese mes —
+ * una consulta aparte con su propia caché, porque el saldo de otro mes NO
+ * sirve de sustituto del de este.
+ */
+export function useCuentas(includeArchived = false, mes?: string) {
   return useQuery({
-    queryKey: clavesCuentas.lista(includeArchived),
-    queryFn: () => fetchAccounts(includeArchived),
+    queryKey: clavesCuentas.lista(includeArchived, mes),
+    queryFn: () => fetchAccounts(includeArchived, mes),
     select: (respuesta) => respuesta.data,
   });
 }

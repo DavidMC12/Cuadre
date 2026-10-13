@@ -41,11 +41,19 @@ import { usePantallaAncha } from "@/hooks/use-pantalla-ancha";
 import { useMonedas, useResumenMes, useTendencia } from "@/hooks/use-reportes";
 import type { TipoCategoria } from "@/lib/api/types";
 import { CLASES_ASIDE } from "@/lib/aside-resumen";
-import { etiquetaMes, mesActual } from "@/lib/fecha";
+import { etiquetaMes, mesActual, tramoDelMes } from "@/lib/fecha";
 import { cn } from "@/lib/utils";
 
 export default function PaginaResumen() {
   const [mes, setMes] = useState(mesActual);
+  // La lista de cuentas que alimenta "Tienes", "Debes en tarjetas" y
+  // "Ahorrado" sigue al mes que se está mirando: en el mes actual es la lista
+  // de hoy SIN parámetro —la misma consulta (y la misma caché) de las demás
+  // pantallas, con las mismas cifras que la pantalla Cuentas— y solo un mes
+  // pasado es la lista cortada a su cierre (con `tramoDelMes`, no por
+  // desigualdad: si el selector ganara meses adelante, un mes futuro no es
+  // "Tenías al cierre de...").
+  const mesDeCierre = tramoDelMes(mes) === "pasado" ? mes : undefined;
   const [monedaElegida, setMonedaElegida] = useState<string | undefined>(undefined);
   const [tipoCategoria, setTipoCategoria] = useState<TipoCategoria>("expense");
   const [mesesTendencia, setMesesTendencia] = useState<6 | 12>(6);
@@ -75,6 +83,11 @@ export default function PaginaResumen() {
   } = useMonedas();
   const moneda = monedaElegida ?? monedas?.[0];
 
+  // En el mes actual la llamada es la de siempre; con `mesDeCierre`, el
+  // servidor responde con balance y saved al cierre (misma forma) y una cuenta
+  // archivada DESPUÉS de ese cierre llega abierta, así que sigue contando
+  // aquí — la misma lista alimenta "Tienes", "Debes en tarjetas", "Ahorrado"
+  // y la condición del bloque de ahorro de abajo.
   const {
     data: cuentas,
     isLoading: cargandoCuentas,
@@ -83,14 +96,14 @@ export default function PaginaResumen() {
     error: porqueFalloCuentas,
     isFetching: recargandoCuentas,
     refetch: recargarCuentas,
-  } = useCuentas();
+  } = useCuentas(false, mesDeCierre);
 
   // Para el layout de las dos tarjetas de totales importa la moneda que se
   // está viendo: una cuenta de ahorro en dólares no pinta nada al lado de un
   // total en pesos. Y la sección de ahorro (total y gráfica) solo existe si
-  // hay una cuenta de ahorro ACTIVA en esa moneda; una archivada ya no
-  // recibe nada que apartar, y si no, no se pide nada al servidor ni se
-  // muestra un hueco.
+  // hay una cuenta de ahorro ACTIVA en esa moneda AL CIERRE del mes que se
+  // mira; una archivada después de ese cierre llega abierta y sigue contando,
+  // pero una que ya no recibe nada hoy no pide al servidor un hueco.
   const ahorroEnMoneda = (cuentas ?? []).some(
     (cuenta) =>
       cuenta.isSavings && cuenta.currency === moneda && !cuenta.archivedAt
@@ -127,6 +140,10 @@ export default function PaginaResumen() {
   } = useTendencia({
     months: mesesTendencia,
     currency: moneda ?? "",
+    // La ventana SIEMPRE termina en el mes que se está mirando — también en
+    // el actual, donde `until` pide exactamente el default del servidor. Así
+    // retroceder nunca deja la última barra plantada en el mes de hoy.
+    until: mes,
   });
 
   // La política única de cada consulta: un fallo sin datos o una consulta
@@ -331,9 +348,19 @@ export default function PaginaResumen() {
           />
         ) : (
           <>
-            <TotalCuentas cuentas={cuentas} moneda={moneda ?? ""} cargando={cargandoCuentas} />
+            <TotalCuentas
+              cuentas={cuentas}
+              moneda={moneda ?? ""}
+              cargando={cargandoCuentas}
+              mesDeCierre={mesDeCierre}
+            />
             {ahorroEnMoneda && (
-              <TotalAhorrado cuentas={cuentas} moneda={moneda ?? ""} cargando={cargandoCuentas} />
+              <TotalAhorrado
+                cuentas={cuentas}
+                moneda={moneda ?? ""}
+                cargando={cargandoCuentas}
+                mesDeCierre={mesDeCierre}
+              />
             )}
           </>
         )}
@@ -477,6 +504,9 @@ export default function PaginaResumen() {
             <GraficaAhorro
               months={mesesTendencia}
               currency={moneda ?? ""}
+              // Tanto la tendencia como la gráfica de ahorro terminan en el
+              // mes que se está mirando (también en el actual).
+              until={mes}
               compartePantalla={componenFallosConPresupuesto}
               onNoLeible={setAhorroNoLeible}
             />

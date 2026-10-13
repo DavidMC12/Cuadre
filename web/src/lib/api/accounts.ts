@@ -3,8 +3,20 @@
 import { pedir } from "./client";
 import type { CambiosDeCuenta, Cuenta, Movimiento, NuevaCuenta } from "./types";
 
-export function fetchAccounts(includeArchived = false): Promise<{ data: Cuenta[] }> {
-  return pedir("/accounts", { parametros: { includeArchived: String(includeArchived) } });
+/**
+ * Sin `month`: la lista de siempre, con el saldo de AHORA.
+ * Con `month` ("YYYY-MM"): la misma forma, pero `balance` y `saved` son los
+ * del CIERRE de ese mes (los movimientos cuentan hasta el último instante del
+ * mes) y una cuenta archivada después de ese cierre llega abierta
+ * (`archivedAt` en `null`): sigue contando donde estaba ese día.
+ */
+export function fetchAccounts(
+  includeArchived = false,
+  month?: string
+): Promise<{ data: Cuenta[] }> {
+  return pedir("/accounts", {
+    parametros: { includeArchived: String(includeArchived), month },
+  });
 }
 
 export function fetchAccount(id: string): Promise<{ data: Cuenta }> {

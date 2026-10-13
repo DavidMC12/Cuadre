@@ -124,3 +124,32 @@ describe("TotalCuentas", () => {
     expect(document.querySelector(".animate-pulse")).not.toBeNull();
   });
 });
+
+describe("TotalCuentas: en un mes pasado habla del cierre, no del ahora", () => {
+  it("cambia el tiempo verbal: 'Tenías al cierre de...' y 'Debías en tarjetas'", () => {
+    render(
+      <TotalCuentas
+        cuentas={[banco, efectivo, visa, master]}
+        moneda="COP"
+        cargando={false}
+        mesDeCierre="2026-09"
+      />
+    );
+
+    expect(screen.getByText("Tenías al cierre de Septiembre de 2026")).toBeInTheDocument();
+    expect(screen.queryByText("Tienes")).not.toBeInTheDocument();
+    expect(screen.getByText(/Debías en tarjetas/)).toHaveTextContent(
+      "Debías en tarjetas: $1.000.000"
+    );
+    expect(screen.queryByText(/Debes en tarjetas/)).not.toBeInTheDocument();
+  });
+
+  it("sin tarjetas que deban, no aparece el renglón aunque el mes sea pasado", () => {
+    render(
+      <TotalCuentas cuentas={[banco, efectivo]} moneda="COP" cargando={false} mesDeCierre="2026-09" />
+    );
+
+    expect(screen.getByText("Tenías al cierre de Septiembre de 2026")).toBeInTheDocument();
+    expect(screen.queryByText(/Debías en tarjetas/)).not.toBeInTheDocument();
+  });
+});

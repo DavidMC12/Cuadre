@@ -22,14 +22,29 @@ export function fetchByCategory(input: {
   return pedir("/reports/by-category", { parametros: input });
 }
 
-export function fetchTrend(input: { months?: number; currency: string }): Promise<{
+/**
+ * La ventana de `months` meses termina en `until` ("YYYY-MM") cuando viene:
+ * sin él, en el mes de hoy, como siempre.
+ */
+export function fetchTrend(input: {
+  months?: number;
+  currency: string;
+  until?: string;
+}): Promise<{
   data: TendenciaMes[];
 }> {
   return pedir("/reports/trend", { parametros: input });
 }
 
-/** Cuánto se apartó para ahorro menos cuánto se retiró, mes a mes (transferencias más anotaciones). */
-export function fetchSavingsTrend(input: { months?: number; currency: string }): Promise<{
+/**
+ * Cuánto se apartó para ahorro menos cuánto se retiró, mes a mes (transferencias más anotaciones).
+ * La ventana termina en `until` ("YYYY-MM") cuando viene; sin él, en el mes de hoy.
+ */
+export function fetchSavingsTrend(input: {
+  months?: number;
+  currency: string;
+  until?: string;
+}): Promise<{
   data: AhorroMes[];
 }> {
   return pedir("/reports/savings-trend", { parametros: input });
