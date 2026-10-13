@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { MonedaSchema, MontoConCeroSchema, MontoPositivoSchema } from '../../shared/schemas.js';
+import {
+  MesSchema,
+  MonedaSchema,
+  MontoConCeroSchema,
+  MontoPositivoSchema,
+} from '../../shared/schemas.js';
 
 export const TIPOS_DE_CUENTA = ['bank', 'card', 'cash'] as const;
 export const TipoDeCuentaSchema = z.enum(TIPOS_DE_CUENTA);
@@ -50,6 +55,14 @@ export const ListarCuentasSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((valor) => valor === 'true'),
+  /**
+   * Si viene ("YYYY-MM"), `balance` y `saved` son los del CIERRE de ese mes:
+   * solo cuentan los movimientos (y registros de ahorro) con fecha anterior al
+   * primer instante del mes siguiente, en hora de Bogotá. Una cuenta archivada
+   * DESPUÉS de ese cierre sale abierta (`archivedAt` en null), porque entonces
+   * lo estaba. Sin `month`, es el saldo de hoy, como siempre.
+   */
+  month: MesSchema.optional(),
 });
 
 export const IdEnRutaSchema = z.object({ id: z.uuid() });

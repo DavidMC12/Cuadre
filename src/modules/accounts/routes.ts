@@ -18,7 +18,12 @@ export const rutasDeCuentas: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/accounts',
     { schema: { querystring: ListarCuentasSchema, response: { 200: ListaDeCuentasSchema } } },
-    async (peticion) => servicio.listarCuentas(peticion.usuarioId, peticion.query.includeArchived),
+    async (peticion) =>
+      servicio.listarCuentas(
+        peticion.usuarioId,
+        peticion.query.includeArchived,
+        peticion.query.month,
+      ),
   );
 
   app.get(
