@@ -18,9 +18,9 @@ export const clavesReportes = {
     [...clavesReportes.todas(), "resumen", params] as const,
   porCategoria: (params: { month: string; currency: string; kind: TipoCategoria }) =>
     [...clavesReportes.todas(), "por-categoria", params] as const,
-  tendencia: (params: { months: number; currency: string }) =>
+  tendencia: (params: { months: number; currency: string; until?: string }) =>
     [...clavesReportes.todas(), "tendencia", params] as const,
-  ahorro: (params: { months: number; currency: string }) =>
+  ahorro: (params: { months: number; currency: string; until?: string }) =>
     [...clavesReportes.todas(), "ahorro", params] as const,
 };
 
@@ -51,21 +51,41 @@ export function usePorCategoria(params: { month: string; currency: string; kind:
   });
 }
 
-export function useTendencia(params: { months?: number; currency: string }) {
+/**
+ * La ventana termina en `until` ("YYYY-MM") cuando viene; sin él, en el mes
+ * de hoy. Cada mes elegido es una consulta distinta: la tendencia de otro mes
+ * no sirve de dato provisional del mes que se está mirando.
+ */
+export function useTendencia(params: { months?: number; currency: string; until?: string }) {
   const months = params.months ?? 6;
   return useQuery({
-    queryKey: clavesReportes.tendencia({ months, currency: params.currency }),
-    queryFn: () => fetchTrend({ months, currency: params.currency }),
+    queryKey: clavesReportes.tendencia({
+      months,
+      currency: params.currency,
+      until: params.until,
+    }),
+    queryFn: () =>
+      fetchTrend({ months, currency: params.currency, until: params.until }),
     select: (respuesta) => respuesta.data,
     enabled: Boolean(params.currency),
   });
 }
 
-export function useAhorroMensual(params: { months?: number; currency: string }) {
+/** La ventana de ahorro termina en `until` ("YYYY-MM") cuando viene. */
+export function useAhorroMensual(params: {
+  months?: number;
+  currency: string;
+  until?: string;
+}) {
   const months = params.months ?? 6;
   return useQuery({
-    queryKey: clavesReportes.ahorro({ months, currency: params.currency }),
-    queryFn: () => fetchSavingsTrend({ months, currency: params.currency }),
+    queryKey: clavesReportes.ahorro({
+      months,
+      currency: params.currency,
+      until: params.until,
+    }),
+    queryFn: () =>
+      fetchSavingsTrend({ months, currency: params.currency, until: params.until }),
     select: (respuesta) => respuesta.data,
     enabled: Boolean(params.currency),
   });
