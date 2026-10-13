@@ -6,6 +6,7 @@ import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import type { Ejecutor } from '../../db/client.js';
 import { db } from '../../db/client.js';
 import { accountBalances, accounts } from '../../db/schema/index.js';
+import { ZONA_HORARIA } from '../../shared/zona-horaria.js';
 import type { Cuenta } from './schemas.js';
 
 const CAMPOS = {
@@ -95,6 +96,96 @@ export async function listar(usuarioId: string, incluirArchivadas: boolean): Pro
     .orderBy(asc(accounts.name));
 
   return filas.map(aCuenta);
+}
+
+/**
+ * Las cuentas tal como estaban al CIERRE de un mes ("YYYY-MM", en hora de
+ * Bogotá): el saldo y lo ahorrado suman solo los movimientos (y registros de
+ * ahorro) con fecha anterior al primer instante del mes siguiente. Es la misma
+ * cuenta que la vista `account_balances`, cortada en una fecha: el saldo sigue
+ * siendo la suma del libro, nunca una columna.
+ *
+ * Una cuenta archivada DESPUÉS de ese cierre cuenta como abierta (entonces lo
+ * estaba, y su saldo entra en lo que tenías): `archivedAt` solo se informa si
+ * el archivo fue antes del cierre. `movementCount` y `lastMovementAt` también
+ * miran solo hasta el cierre.
+ */
+export async function listarAlCierreDelMes(
+  usuarioId: string,
+  mes: string,
+  incluirArchivadas: boolean,
+): Promise<Cuenta[]> {
+  const cierre = sql`(((${mes}::text || '-01')::timestamp + interval '1 month') at time zone ${ZONA_HORARIA}::text)`;
+
+  const filas = (await db.execute(sql`
+    select
+      a.id,
+      a.name,
+      a.type,
+      a.currency,
+      a.is_savings as "isSavings",
+      a.credit_limit::text as "creditLimit",
+      a.linked_account_id as "linkedAccountId",
+      case when a.archived_at < ${cierre} then a.archived_at end as "archivedAt",
+      coalesce(mov.saldo, 0)::numeric(19,4)::text as balance,
+      coalesce(mov.cantidad, 0)::int as "movementCount",
+      mov.ultimo as "lastMovementAt",
+      case when a.is_savings then (
+        coalesce((
+          select sum(t.amount) from transactions t
+          where t.user_id = a.user_id
+            and t.account_id = a.id
+            and t.kind = 'transfer'
+            and t.occurred_at < ${cierre}
+        ), 0)
+        +
+        coalesce((
+          select sum(e.amount) from savings_entries e
+          where e.user_id = a.user_id
+            and e.account_id = a.id
+            and e.occurred_at < ${cierre}
+        ), 0)
+      )::numeric(19,4)::text else '0.0000' end as saved
+    from accounts a
+    left join lateral (
+      select sum(t.amount) as saldo, count(*) as cantidad, max(t.occurred_at) as ultimo
+      from transactions t
+      where t.user_id = a.user_id
+        and t.account_id = a.id
+        and t.occurred_at < ${cierre}
+    ) mov on true
+    where a.user_id = ${usuarioId}::uuid
+      and (${incluirArchivadas}::boolean or a.archived_at is null or a.archived_at >= ${cierre})
+    order by a.name asc
+  `)) as unknown as {
+    id: string;
+    name: string;
+    type: string;
+    currency: string;
+    isSavings: boolean;
+    creditLimit: string | null;
+    linkedAccountId: string | null;
+    archivedAt: Date | string | null;
+    balance: string;
+    movementCount: number;
+    lastMovementAt: Date | string | null;
+    saved: string;
+  }[];
+
+  return filas.map((fila) => ({
+    id: fila.id,
+    name: fila.name,
+    type: fila.type as Cuenta['type'],
+    currency: fila.currency.trim(),
+    balance: fila.balance,
+    saved: fila.saved,
+    movementCount: fila.movementCount,
+    lastMovementAt: fila.lastMovementAt ? new Date(fila.lastMovementAt).toISOString() : null,
+    archivedAt: fila.archivedAt ? new Date(fila.archivedAt).toISOString() : null,
+    isSavings: fila.isSavings,
+    creditLimit: fila.creditLimit,
+    linkedAccountId: fila.linkedAccountId,
+  }));
 }
 
 export async function obtener(
