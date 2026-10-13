@@ -161,23 +161,41 @@ describe('cuentas al cierre por HTTP', () => {
     await transferir(banco.id, ahorro.id, '300000', '2026-08');
     await apartar(ahorro.id, '50000', '2026-08');
     await transferir(banco.id, ahorro.id, '200000', '2026-09');
+    // Un traslado DESPUÉS del cierre: así lo ahorrado de hoy difiere del de
+    // septiembre y la prueba distinguiría un corte que no se aplicara.
+    await transferir(banco.id, ahorro.id, '90000', '2026-10');
 
     const cierre = await listar({ month: '2026-09' });
     expect(porId(cierre, cuenta.id).balance).toBe('650000.0000');
     expect(porId(cierre, ahorro.id).saved).toBe('550000.0000');
 
-    // Sin `month` sigue siendo el saldo de hoy: el movimiento de octubre entra.
+    // Sin `month` sigue siendo el saldo de hoy: el movimiento y el traslado de
+    // octubre entran.
     const hoy = await listar();
     expect(porId(hoy, cuenta.id).balance).toBe('250000.0000');
-    expect(porId(hoy, ahorro.id).saved).toBe('550000.0000');
+    expect(porId(hoy, ahorro.id).saved).toBe('640000.0000');
   });
 
   it('un mes inválido responde 400, no 500', async () => {
-    for (const mes of ['2026-13', '1999-12', 'septiembre']) {
+    for (const mes of ['2026-13', '1999-12', 'septiembre', '2101-01', '0000-01']) {
       const { estado, cuerpo } = await pedir('GET', `/api/v1/accounts?month=${mes}`);
       expect(estado, `mes ${mes}`).toBe(400);
       expect(cuerpo.error.code, `mes ${mes}`).toBe('VALIDATION_ERROR');
     }
+  });
+
+  it('un mes del rango sano pero futuro responde 200', async () => {
+    await crearCuenta();
+
+    const cuentas = await pedir('GET', '/api/v1/accounts?month=2100-12');
+    expect(cuentas.estado, JSON.stringify(cuentas.cuerpo)).toBe(200);
+
+    const tendencia = await pedir(
+      'GET',
+      '/api/v1/reports/trend?months=2&currency=COP&until=2100-12',
+    );
+    expect(tendencia.estado, JSON.stringify(tendencia.cuerpo)).toBe(200);
+    expect(tendencia.cuerpo.data).toHaveLength(2);
   });
 
   it('el borde del mes se corta en hora de Bogotá', async () => {
@@ -193,17 +211,20 @@ describe('cuentas al cierre por HTTP', () => {
   });
 
   it('una cuenta archivada después del cierre sale abierta, y hoy ya no', async () => {
+    // El cierre se deriva del mes de hoy para que la prueba no dependa del
+    // calendario: siempre queda antes de "ahora", que es cuando se archiva.
+    const mesDelCierre = mesRelativo(-4);
     const vieja = await crearCuenta();
-    await registrar(vieja.id, '500000', '2026-06');
+    await registrar(vieja.id, '500000', mesDelCierre);
     await archivar(vieja.id);
 
-    // El cierre de junio es anterior a que la archiváramos: entonces estaba abierta.
-    const enJunio = await listar({ month: '2026-06' });
-    expect(porId(enJunio, vieja.id).balance).toBe('500000.0000');
-    expect(porId(enJunio, vieja.id).archivedAt).toBeNull();
+    // El cierre es anterior a que la archiváramos: entonces estaba abierta.
+    const alCierre = await listar({ month: mesDelCierre });
+    expect(porId(alCierre, vieja.id).balance).toBe('500000.0000');
+    expect(porId(alCierre, vieja.id).archivedAt).toBeNull();
 
-    const enJunioConArchivadas = await listar({ month: '2026-06', includeArchived: true });
-    expect(porId(enJunioConArchivadas, vieja.id).archivedAt).toBeNull();
+    const alCierreConArchivadas = await listar({ month: mesDelCierre, includeArchived: true });
+    expect(porId(alCierreConArchivadas, vieja.id).archivedAt).toBeNull();
 
     // Hoy sí está archivada: sin incluir archivadas no sale; incluyéndolas, sí y marcada.
     expect(porId(await listar(), vieja.id)).toBeUndefined();
@@ -277,7 +298,7 @@ describe('gráficas que terminan en until por HTTP', () => {
   });
 
   it('un until inválido responde 400 en las dos gráficas', async () => {
-    for (const until of ['2026-13', '1999-12', 'septiembre']) {
+    for (const until of ['2026-13', '1999-12', 'septiembre', '2101-01', '0000-01']) {
       const tendencia = await pedir(
         'GET',
         `/api/v1/reports/trend?currency=COP&until=${until}`,
