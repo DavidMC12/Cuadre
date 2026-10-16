@@ -785,7 +785,7 @@ function ContenidoRenglon({
             className={cn(
               "shrink-0 text-xs font-medium",
               renglon.status === "paid"
-                ? "text-emerald-600 dark:text-emerald-400"
+                ? "text-emerald-700 dark:text-emerald-400"
                 : "text-muted-foreground"
             )}
           >
@@ -801,7 +801,7 @@ function ContenidoRenglon({
             alarmista ("muy warning"). El texto visible habla por sí solo
             para lector de pantalla, y la barra lleva su aria-label. */}
         {renglon.checked && (
-          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-600/15 text-emerald-600 dark:text-emerald-400">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-600/15 text-emerald-800 dark:text-emerald-400">
             <CheckIcon className="size-3.5" aria-hidden />
             <span className="sr-only">Meta alcanzada</span>
           </span>

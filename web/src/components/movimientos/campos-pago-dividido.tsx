@@ -185,7 +185,7 @@ export function CamposPagoDividido({
         aria-live="polite"
         className={
           reparto.cuadra && !faltaCuenta
-            ? "text-xs text-emerald-600 dark:text-emerald-400"
+            ? "text-xs text-emerald-700 dark:text-emerald-400"
             : "text-xs text-muted-foreground"
         }
       >
