@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { TransferenciaItem } from "./transferencia-item";
 import type { Cuenta, Movimiento } from "@/lib/api/types";
 import type { ParDeTransferencia } from "@/lib/combinar-transferencias";
+import { type CatalogoDeItems, resolverCatalogoDeItems } from "@/lib/item-en-la-fila";
 
 type ConHijos = { children?: ReactNode };
 
@@ -65,12 +66,34 @@ const cuentas = new Map<string, Cuenta>([
   ["efectivo", { id: "efectivo", name: "Efectivo" } as Cuenta],
 ]);
 
-function montar(p: ParDeTransferencia = par, alAnular = vi.fn()) {
+/** El catálogo ya resuelto que la lista le pasa a la fila. */
+const catalogoConItem: CatalogoDeItems = resolverCatalogoDeItems([
+  {
+    id: "i-nu",
+    kind: "category",
+    currency: "COP",
+    categoryId: "c-deu",
+    categoryName: "Deudas",
+    categoryKind: "expense",
+    accountId: null,
+    accountName: null,
+    label: "Deuda TC Nu",
+    currentAmount: null,
+    archivedAt: null,
+  },
+])!;
+
+function montar(
+  p: ParDeTransferencia = par,
+  alAnular = vi.fn(),
+  catalogo: CatalogoDeItems | null = null
+) {
   render(
     <TransferenciaItem
       par={p}
       cuentaOrigen={cuentas.get(p.salida.accountId)}
       cuentaDestino={cuentas.get(p.entrada.accountId)}
+      catalogo={catalogo}
       onSolicitarAnular={alAnular}
     />
   );
@@ -116,6 +139,43 @@ describe("TransferenciaItem: la fila", () => {
       salida: pata({ id: "salida", reversesTransactionId: "x-1" }),
     });
     expect(screen.getByRole("button", { name: /Pago tarjeta/ })).toHaveTextContent("Anulación");
+  });
+
+  it("con ítem, la fila muestra su nombre (en la pata que lo traiga)", () => {
+    montar(
+      { ...par, salida: pata({ id: "salida", budgetItemId: "i-nu" }) },
+      vi.fn(),
+      catalogoConItem
+    );
+    expect(screen.getByRole("button", { name: /Pago tarjeta/ })).toHaveTextContent("Deuda TC Nu");
+
+    // El ítem puede venir en cualquiera de las dos patas: en el detalle se lee
+    // igual, y la fila no puede decir menos.
+    cleanup();
+    montar(
+      { ...par, entrada: pata({ id: "entrada", budgetItemId: "i-nu" }) },
+      vi.fn(),
+      catalogoConItem
+    );
+    expect(screen.getByRole("button", { name: /Pago tarjeta/ })).toHaveTextContent("Deuda TC Nu");
+  });
+
+  it("sin ítem la fila nunca dice 'Sin asignar' (asignarlo es opcional)", () => {
+    montar(par, vi.fn(), catalogoConItem);
+    expect(screen.getByRole("button", { name: /Pago tarjeta/ })).not.toHaveTextContent(
+      "Sin asignar"
+    );
+  });
+
+  it("con el catálogo cargando (null), la fila queda como hoy", () => {
+    montar(
+      { ...par, salida: pata({ id: "salida", budgetItemId: "i-nu" }) },
+      vi.fn(),
+      null
+    );
+    const fila = screen.getByRole("button", { name: /Pago tarjeta/ });
+    expect(fila).not.toHaveTextContent("Deuda TC Nu");
+    expect(fila).not.toHaveTextContent("Sin asignar");
   });
 });
 

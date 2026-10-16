@@ -7,6 +7,7 @@ import { Monto } from "@/components/monto";
 import { DetalleMovimiento } from "@/components/movimientos/detalle-movimiento";
 import type { Categoria, Cuenta, Movimiento } from "@/lib/api/types";
 import { horaCorta } from "@/lib/fecha";
+import { type CatalogoDeItems, segmentosDeItemEnLaFila } from "@/lib/item-en-la-fila";
 import { ETIQUETA_TIPO_MOVIMIENTO } from "@/lib/labels";
 
 /**
@@ -18,12 +19,16 @@ export function MovimientoItem({
   movimiento,
   cuenta,
   categoria,
+  catalogo,
   mostrarCuenta,
   onSolicitarAnular,
 }: {
   movimiento: Movimiento;
   cuenta: Cuenta | undefined;
   categoria: Categoria | undefined;
+  /** El catálogo de ítems resuelto una vez por la lista; `null` mientras
+   *  carga o si falló (la fila queda como hoy: solo la categoría). */
+  catalogo: CatalogoDeItems | null;
   mostrarCuenta: boolean;
   onSolicitarAnular: (movimiento: Movimiento) => void;
 }) {
@@ -34,10 +39,17 @@ export function MovimientoItem({
 
   const descripcion = movimiento.description?.trim() || ETIQUETA_TIPO_MOVIMIENTO[movimiento.kind];
 
-  // La categoría como texto tranquilo: solo aparece cuando la tiene; un
-  // movimiento sin categoría no pide nada a gritos en cada fila.
+  // La categoría y su ítem como texto tranquilo: la fila dice a qué línea del
+  // presupuesto cuenta el movimiento (o que quedó "Sin asignar"), sin pedir
+  // nada a gritos. El "Sin asignar" solo aparece con el catálogo en mano.
   const detalle = [
-    categoria?.name,
+    ...segmentosDeItemEnLaFila({
+      movimiento,
+      categoria: categoria?.name,
+      catalogo,
+    }),
+    // `undefined` (no `false`) para que el filtro deje fuera la cuenta cuando
+    // no se muestra, como el resto de la línea.
     mostrarCuenta ? cuenta?.name : undefined,
     horaCorta(movimiento.occurredAt),
   ]

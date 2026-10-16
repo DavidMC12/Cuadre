@@ -26,6 +26,7 @@ import { FormularioMovimiento } from "@/components/movimientos/formulario-movimi
 import { ConfirmarAnulacion } from "@/components/movimientos/confirmar-anulacion";
 import { useCuentas } from "@/hooks/use-cuentas";
 import { useCategorias } from "@/hooks/use-categorias";
+import { usePresupuestoItems } from "@/hooks/use-presupuesto";
 import {
   useAnularMovimiento,
   useAnularPagoDividido,
@@ -42,6 +43,7 @@ import {
   totalDeLaCompra,
 } from "@/lib/combinar-pagos-divididos";
 import { combinarTransferencias, esTransferencia } from "@/lib/combinar-transferencias";
+import { resolverCatalogoDeItems } from "@/lib/item-en-la-fila";
 import { ApiError } from "@/lib/api/client";
 import { textoEditable } from "@/lib/money";
 import type { FiltrosMovimientos, Movimiento } from "@/lib/api/types";
@@ -117,6 +119,16 @@ function ContenidoMovimientos() {
   // Con archivadas incluidas: la lista puede estar filtrada por una categoría
   // que ya se archivó, y sus movimientos deben seguir mostrando el nombre.
   const { data: categorias } = useCategorias(true);
+
+  // El catálogo de ítems del presupuesto, resuelto UNA vez para toda la lista:
+  // cada fila recibe el mismo mapa (nunca una consulta por fila). Mientras
+  // carga o si falla queda en `null` y las filas se ven como hoy, sin marcar
+  // "Sin asignar" a ciegas. Es la misma consulta en caché que usan los detalles.
+  const { data: itemsDelPresupuesto } = usePresupuestoItems(true);
+  const catalogoDeItems = useMemo(
+    () => resolverCatalogoDeItems(itemsDelPresupuesto),
+    [itemsDelPresupuesto]
+  );
 
   const rango = useMemo(() => rangoDelMes(mes), [mes]);
   const filtros = useMemo<FiltrosMovimientos>(
@@ -494,6 +506,7 @@ function ContenidoMovimientos() {
                           ? categoriasPorId.get(item.partes[0].categoryId)
                           : undefined
                       }
+                      catalogo={catalogoDeItems}
                       onSolicitarAnular={setMovimientoAConfirmar}
                     />
                   ) : esTransferencia(item) ? (
@@ -502,6 +515,7 @@ function ContenidoMovimientos() {
                       par={item}
                       cuentaOrigen={cuentasPorId.get(item.salida.accountId)}
                       cuentaDestino={cuentasPorId.get(item.entrada.accountId)}
+                      catalogo={catalogoDeItems}
                       onSolicitarAnular={(par) => setMovimientoAConfirmar(par.salida)}
                     />
                   ) : (
@@ -510,6 +524,7 @@ function ContenidoMovimientos() {
                       movimiento={item}
                       cuenta={cuentasPorId.get(item.accountId)}
                       categoria={item.categoryId ? categoriasPorId.get(item.categoryId) : undefined}
+                      catalogo={catalogoDeItems}
                       mostrarCuenta={cuentaFiltro === TODAS_LAS_CUENTAS}
                       onSolicitarAnular={setMovimientoAConfirmar}
                     />
