@@ -465,6 +465,7 @@ export function PanelPresupuesto({
               mes={mes}
               items={grupo.items}
               idEncabezado={`${idLista}-encabezado`}
+              idRegion={`${idBase}-region`}
             />
           )}
         </ul>
@@ -517,6 +518,7 @@ export function PanelPresupuesto({
             role="region"
             aria-label="Ítems del presupuesto"
             tabIndex={0}
+            id={`${idBase}-region`}
             className={cn(
               CLASES_REGION_PANEL,
               enVentana
