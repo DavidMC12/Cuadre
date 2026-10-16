@@ -22,7 +22,7 @@ import { movimientosSinAsignar } from "@/lib/sin-asignar";
  * `objetivosDelMes` en el servidor para el cajón "Sin asignar" del panel.
  */
 interface ItemsDeUnaCategoria {
-  readonly archivados: readonly (string | null)[];
+  readonly archivados: (string | null)[];
 }
 
 /**
@@ -68,7 +68,7 @@ export function resolverCatalogoDeItems(
       const clave = claveDeLaCategoria(item.categoryId, item.currency);
       const previos = itemsPorCategoria.get(clave);
       if (previos) {
-        (previos.archivados as (string | null)[]).push(item.archivedAt);
+        previos.archivados.push(item.archivedAt);
       } else {
         itemsPorCategoria.set(clave, { archivados: [item.archivedAt] });
       }
