@@ -753,8 +753,50 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   en `emerald`), lo que choca con "solo el ingreso lleva color". Reporte en
   `.impeccable/critique/2026-10-16T00-38-37Z__web-src.md`.
 
+- **Parche de seguridad de dependencias y pulidos menores** (2026-10-16, a
+  pedido del dueño de "qué más hay para hacer" sin sus decisiones). (1)
+  **Dependencias**: `npm audit --omit=dev` en `web/` marcaba 2 críticas, 10
+  altas y 2 moderadas; la única directa que corre en producción era `next`
+  (16.3.4, con avisos críticos como RCE en `next/og`, que la app no usa). Ahora
+  `next` y `eslint-config-next` van en 16.4.2 y `npm audit fix` sin `--force`
+  limpió lo transitivo menor: **0 críticas, 7 altas**, todas colgando de
+  `shadcn` (herramienta de UI/CSS que `globals.css` importa en el build; su
+  arreglo exige el salto mayor a `shadcn@1.0.0`, que NO se hizo a propósito).
+  En la raíz quedan 4 moderadas de `drizzle-kit`/`esbuild` (devDependency; el
+  arreglo es un salto mayor inverso). Verificado: compila (`next build` con
+  variables de mentira solo en la línea de comando, sin `.env.local`), 963 +
+  518 pruebas, y la vista previa de Vercel de la rama en verde antes de
+  integrar. (2) **Nunca un id en pantalla**: si el catálogo no conoce el ítem,
+  el detalle dice "Ítem del presupuesto" (`ITEM_SIN_NOMBRE`) y, si falta una
+  categoría, "Categoría sin nombre"; la revisión atrapó una fuga real que la
+  barrida pasó: la cuenta vinculada ARCHIVADA de una tarjeta llegaba como
+  `cuentaIdPorDefecto` sin validar y pintaba el UUID en "Desde" (guardia en
+  `cuentaPorDefecto`). (3) **Encabezados reales** sin cambio visual: `CardTitle`
+  gana la prop opt-in `as` y `EmptyState` la prop `tituloComo` (el default no
+  cambia para quien no la pase); las tarjetas del Resumen, "Cuánto me sobra",
+  el panel y los vacíos de Movimientos/Cuentas/Categorías/Presupuesto/Admin
+  son h2. Se dejaron como `<p>` a propósito las frases de estado de bloques que
+  ya tienen título y las `h3` del panel en variante "suelta" (cuelgan de h1/h2
+  según el contenedor: salto de nivel preexistente en `/presupuesto`). (4)
+  **Foco del cajón "Sin asignar"**: si la categoría entera desaparece con el
+  cajón abierto (un refetch tras archivar sus ítems en otra pestaña), el foco
+  cae en la región de la lista del panel (trigger → encabezado → región), no
+  en el `body`. (5) Aprendizaje de proceso: el `npm audit fix` del worker
+  agregó y quitó paquetes transitivos; el revisor sugirió mover `shadcn` a
+  `devDependencies` y se rechazó tras verificar (`globals.css:3` lo importa en
+  el build). Sin hacer, y anotado: el salto de ~18px de la tarjeta de totales
+  en la carga en frío con deuda de tarjetas (el remedio sería persistir la
+  última lista de cuentas); un "Mes futuro" sigue sin alcanzarse en el Resumen.
+  **Huecos de infraestructura vistos, sin tocar**: no hay respaldo automático
+  de la base (la convención dice "pg_dump semanal fuera de la plataforma" y no
+  existe; solo los CSV a mano de Ajustes), no hay `.github/workflows` (tsc y
+  vitest corren solo en las máquinas de trabajo), y ninguna escritura acepta
+  `Idempotency-Key` (regla de "Integraciones", congelada; el botón se apaga
+  mientras envía).
+
 Pendiente, sin fecha: las tres decisiones del dueño de la undécima (arriba,
-a-c) y, cuando él quiera, una duodécima ronda de critique.
+a-c), el respaldo semanal de la base (necesita un secreto del dueño en
+GitHub) y, cuando él quiera, una duodécima ronda de critique.
 
 ### Pasos adicionales, ya pasado el 100%
 
