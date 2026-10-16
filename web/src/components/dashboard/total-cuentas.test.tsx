@@ -118,10 +118,46 @@ describe("TotalCuentas", () => {
   });
 
   it("mientras carga muestra un esqueleto, no cifras", () => {
-    render(<TotalCuentas cuentas={undefined} moneda="COP" cargando />);
+    const { container } = render(<TotalCuentas cuentas={undefined} moneda="COP" cargando />);
 
-    expect(screen.queryByText("Tienes")).not.toBeInTheDocument();
-    expect(document.querySelector(".animate-pulse")).not.toBeNull();
+    expect(screen.queryByText("$1.000.000")).not.toBeInTheDocument();
+    const hueso = container.querySelector('[data-slot="card"]');
+    expect(hueso).toHaveAttribute("aria-hidden", "true");
+    expect(hueso!.querySelector(".animate-pulse")).not.toBeNull();
+  });
+
+  it("el esqueleto es la MISMA tarjeta: renglones de texto con el texto real, invisible, y una barra donde va el monto", () => {
+    const { container } = render(<TotalCuentas cuentas={undefined} moneda="COP" cargando />);
+
+    const hueso = container.querySelector('[data-slot="card"]');
+    expect(hueso).toHaveAttribute("aria-hidden", "true");
+    // Dos pulsantes: la etiqueta y la barra del monto (h-8, el alto de una
+    // línea text-2xl). Carga fría sin lista anterior: ni renglón de deuda.
+    const barras = hueso!.querySelectorAll(".animate-pulse");
+    expect(barras).toHaveLength(2);
+    // La etiqueta que verá la tarjeta ya está aquí, transparente: mismo texto
+    // y mismas clases de tipografía, así el alto ya es el de la tarjeta.
+    expect(barras[0].textContent).toBe("Tienes");
+    expect(barras[0]).toHaveClass("text-transparent", "uppercase", "tracking-wide");
+    expect(barras[1]).toHaveClass("h-8");
+  });
+
+  it("con la lista anterior a mano (la de hoy), el esqueleto ya reserva el renglón de deuda", () => {
+    const { container } = render(
+      <TotalCuentas
+        cuentas={undefined}
+        moneda="COP"
+        cargando
+        cuentasDeReferencia={[banco, visa]}
+      />
+    );
+
+    const barras = container.querySelectorAll('[data-slot="card"] .animate-pulse');
+    expect(barras).toHaveLength(3);
+    // El monto de la deuda ni se adivina: la referencia es de HOY. Pero el
+    // renglón existe para que el alto no salte cuando llegue la del cierre.
+    expect(barras[2].textContent).toBe("Debes en tarjetas: $800.000");
+    expect(barras[2]).toHaveClass("text-transparent");
   });
 });
 
@@ -151,5 +187,26 @@ describe("TotalCuentas: en un mes pasado habla del cierre, no del ahora", () => 
 
     expect(screen.getByText("Tenías al cierre de Septiembre de 2026")).toBeInTheDocument();
     expect(screen.queryByText(/Debías en tarjetas/)).not.toBeInTheDocument();
+  });
+
+  it("el esqueleto del mes pasado ya habla del cierre (mismo texto, invisible) y cuenta con el renglón de deuda conocida", () => {
+    const { container } = render(
+      <TotalCuentas
+        cuentas={undefined}
+        moneda="COP"
+        cargando
+        mesDeCierre="2026-09"
+        cuentasDeReferencia={[banco, visa]}
+      />
+    );
+
+    // La etiqueta larga está en el hueso, transparente: parte en dos
+    // renglones igual que la tarjeta en un mes pasado.
+    const etiqueta = screen.getByText("Tenías al cierre de Septiembre de 2026");
+    expect(etiqueta).toHaveClass("text-transparent", "uppercase");
+    // Y el renglón que la tarjeta mostrará ("Debías...") ya tiene su barra.
+    const barras = container.querySelectorAll('[data-slot="card"] .animate-pulse');
+    expect(barras).toHaveLength(3);
+    expect(barras[2].textContent).toBe("Debías en tarjetas: $800.000");
   });
 });

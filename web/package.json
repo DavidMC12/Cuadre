@@ -10,7 +10,8 @@
     "test": "vitest run",
     "medir:nav": "node scripts/medir-nav-pestanas.mjs",
     "medir:panel": "node scripts/medir-panel-presupuesto.mjs",
-    "medir:aside": "node scripts/medir-aside-resumen.mjs"
+    "medir:aside": "node scripts/medir-aside-resumen.mjs",
+    "medir:totales": "node scripts/medir-totales-resumen.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

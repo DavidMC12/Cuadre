@@ -6,7 +6,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Monto } from "@/components/monto";
 import { FormularioAhorro } from "@/components/ahorro/formulario-ahorro";
 import type { Cuenta } from "@/lib/api/types";
-import { etiquetaMes } from "@/lib/fecha";
+import {
+  CLASES_BOTON_AHORRADO,
+  CLASES_CONTENIDO_TOTALES,
+  CLASES_ETIQUETA_TOTALES,
+  CLASES_FRASE_AHORRADO,
+  CLASES_TEXTO_ESQUELETO,
+  FRASE_AHORRADO,
+  etiquetaAhorrado,
+} from "@/lib/tarjetas-totales";
 import { sumarMontos } from "@/lib/money";
 
 /**
@@ -25,6 +33,13 @@ import { sumarMontos } from "@/lib/money";
  * registrar HOY no cambia el cierre de un mes pasado, y un botón que no
  * haría nada visible (ni debería) solo confundiría. La frase de lo apartado
  * se queda: explica la cifra que se ve.
+ *
+ * El esqueleto copia la MISMA estructura (mismas cajas, paddings y gaps) con
+ * pulsantes donde van la etiqueta, el monto, la frase y —solo en el mes en
+ * curso— el botón. Los renglones de texto llevan el texto real invisible
+ * (`text-transparent`): su alto ya es el de la tarjeta en cualquier ancho, y
+ * la diferencia de altura entre ambos tramos es solo la que de verdad los
+ * separa (el botón): cargando → cargado no salta.
  */
 export function TotalAhorrado({
   cuentas,
@@ -38,7 +53,27 @@ export function TotalAhorrado({
   /** Definido solo cuando se mira un mes pasado: la tarjeta habla del cierre. */
   mesDeCierre?: string;
 }) {
-  if (cargando) return <Skeleton className="h-28 w-full rounded-xl" />;
+  if (cargando) {
+    return (
+      <Card aria-hidden="true">
+        <CardContent className={CLASES_CONTENIDO_TOTALES}>
+          {/* La barra de la etiqueta lleva el MISMO texto que verá la tarjeta:
+              parte en dos renglones igual que ella, en cualquier ancho. */}
+          <Skeleton className={CLASES_ETIQUETA_TOTALES + " " + CLASES_TEXTO_ESQUELETO}>
+            {etiquetaAhorrado(mesDeCierre)}
+          </Skeleton>
+          {/* La cifra va en text-2xl: line-height 2rem, una barra h-8. */}
+          <Skeleton className="h-8 w-44" />
+          <Skeleton className={CLASES_FRASE_AHORRADO + " " + CLASES_TEXTO_ESQUELETO}>
+            {FRASE_AHORRADO}
+          </Skeleton>
+          {/* El piso del botón (min-h-11) y su margen, solo en el mes en
+              curso: en un mes pasado el botón no existe. */}
+          {!mesDeCierre && <Skeleton className={CLASES_BOTON_AHORRADO + " h-11 w-36"} />}
+        </CardContent>
+      </Card>
+    );
+  }
 
   const deAhorro = (cuentas ?? []).filter(
     (cuenta) =>
@@ -55,24 +90,18 @@ export function TotalAhorrado({
 
   return (
     <Card>
-      <CardContent className="flex flex-col gap-0.5">
+      <CardContent className={CLASES_CONTENIDO_TOTALES}>
         {/* La etiqueta larga parte en dos líneas sola; el renglón de abajo
             (no es un botón) completa la tarjeta sin desbordar a 320px. */}
-        <span className="text-xs text-muted-foreground uppercase tracking-wide">
-          {mesDeCierre
-            ? `Ahorrado al cierre de ${etiquetaMes(mesDeCierre)}`
-            : "Ahorrado"}
-        </span>
+        <span className={CLASES_ETIQUETA_TOTALES}>{etiquetaAhorrado(mesDeCierre)}</span>
         <Monto valor={total} moneda={moneda} signo="negativo" className="text-2xl" />
-        <p className="text-xs text-muted-foreground">
-          Lo que apartaste, no el saldo de tus cuentas.
-        </p>
+        <p className={CLASES_FRASE_AHORRADO}>{FRASE_AHORRADO}</p>
         {!mesDeCierre && (
           <FormularioAhorro cuentas={deAhorro}>
             <Button
               type="button"
               variant="outline"
-              className="mt-2 min-h-11 self-start"
+              className={CLASES_BOTON_AHORRADO}
             >
               Registrar ahorro
             </Button>
