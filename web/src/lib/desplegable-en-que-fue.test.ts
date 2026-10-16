@@ -158,14 +158,14 @@ describe("leerEleccion", () => {
 });
 
 describe("textoCerradoDeEnQueFue", () => {
-  it("con item elegido muestra '<Categoría> - <nombre>', sin el 'faltan'", () => {
+  it("con item elegido muestra '<Categoría> › <nombre>', sin el 'faltan'", () => {
     const texto = textoCerradoDeEnQueFue({
       categoriaId: "c-deu",
       itemId: "i-nu",
       items,
       categorias: [...CATEGORIAS],
     });
-    expect(texto).toBe("Deudas - Deuda TC Nu");
+    expect(texto).toBe("Deudas › Deuda TC Nu");
   });
 
   it("categoría con items sin item elegido (u 'Otro de ...') muestra '<Categoría> (sin item)'", () => {

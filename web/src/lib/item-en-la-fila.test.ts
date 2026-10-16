@@ -82,8 +82,8 @@ describe("resolverCatalogoDeItems", () => {
 });
 
 describe("segmentosDeItemEnLaFila: con ítem asignado", () => {
-  it("muestra 'Categoria - Item' con el mismo formato del desplegable", () => {
-    expect(segmentos(movimiento({ budgetItemId: "i-nu" }))).toEqual(["Deudas - Deuda TC Nu"]);
+  it("muestra 'Categoria › Item' con el mismo formato del desplegable", () => {
+    expect(segmentos(movimiento({ budgetItemId: "i-nu" }))).toEqual(["Deudas › Deuda TC Nu"]);
   });
 
   it("si el ítem se llama como la categoría, lo muestra UNA sola vez (sin mayúsculas ni espacios)", () => {

@@ -99,10 +99,17 @@ function montar({
   return screen.getByRole("button", { name: /Cuota/ });
 }
 
+describe("MovimientoItem: la fila", () => {
+  it("blinda el piso táctil de 44px con min-h-11", () => {
+    const fila = montar();
+    expect(fila.className).toContain("min-h-11");
+  });
+});
+
 describe("MovimientoItem: el ítem en la línea de detalle", () => {
-  it("con ítem dice 'Categoría - Ítem · Cuenta · Hora'", () => {
+  it("con ítem dice 'Categoría › Ítem · Cuenta · Hora'", () => {
     const fila = montar({ movimiento: movimiento({ budgetItemId: "i-nu" }), catalogo: catalogoConItem });
-    expect(fila).toHaveTextContent("Deudas - Deuda TC Nu · Bancolombia");
+    expect(fila).toHaveTextContent("Deudas › Deuda TC Nu · Bancolombia");
   });
 
   it("sin ítem y con una categoría que tiene ítems, marca 'Sin asignar'", () => {

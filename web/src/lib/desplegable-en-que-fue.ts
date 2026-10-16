@@ -146,7 +146,7 @@ export function opcionesDeEnQueFue({
  * Lo que muestra el campo del desplegable CERRADO (el popup vive en un portal
  * que no está montado, así que el texto no se resuelve solo):
  *
- * - Item elegido: "<Categoría> - <nombre del item>", sin el "faltan".
+ * - Item elegido: "<Categoría> › <nombre del item>", sin el "faltan".
  * - Solo la categoría de un grupo con items: "<Categoría> (sin item)" — es el
  *   "Otro de ..." cerrado.
  * - Categoría sin items: su nombre.
@@ -171,7 +171,7 @@ export function textoCerradoDeEnQueFue({
   if (conItem) {
     const categoria =
       conItem.categoryName ?? categorias.find((c) => c.id === conItem.categoryId)?.name;
-    return categoria ? `${categoria} - ${conItem.label}` : conItem.label;
+    return categoria ? `${categoria} › ${conItem.label}` : conItem.label;
   }
 
   if (categoriaId) {

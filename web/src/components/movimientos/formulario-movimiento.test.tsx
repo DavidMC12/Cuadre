@@ -577,8 +577,8 @@ describe("FormularioMovimiento: el desplegable '¿En qué fue?'", () => {
     render(<FormularioMovimiento cuentas={cuentas} abierto />);
 
     elegirDelMenu("Deuda TC Nu — faltan $102.500");
-    // Cerrado muestra "<Categoría> - <nombre>", sin el "faltan".
-    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas - Deuda TC Nu");
+    // Cerrado muestra "<Categoría> › <nombre>", sin el "faltan".
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas › Deuda TC Nu");
 
     fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "12.500" } });
     fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
@@ -643,7 +643,7 @@ describe("FormularioMovimiento: el desplegable '¿En qué fue?'", () => {
     // …y el de ingreso sí, con su logro.
     elegirDelMenu("Sueldo septiembre — recibido");
     expect(screen.getByLabelText("¿De dónde viene?")).toHaveTextContent(
-      "Sueldo - Sueldo septiembre"
+      "Sueldo › Sueldo septiembre"
     );
 
     fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "12.500" } });
@@ -685,7 +685,7 @@ describe("FormularioMovimiento: el desplegable '¿En qué fue?'", () => {
     render(<FormularioMovimiento cuentas={cuentas} abierto />);
 
     elegirDelMenu("Deuda TC Nu");
-    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas - Deuda TC Nu");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas › Deuda TC Nu");
 
     fireEvent.click(screen.getByRole("button", { name: "Ingreso" }));
     // El desplegable del ingreso arranca de nuevo en "Sin categoría": la
@@ -718,7 +718,7 @@ describe("FormularioMovimiento: el desplegable '¿En qué fue?'", () => {
     render(<FormularioMovimiento cuentas={cuentas} abierto />);
 
     elegirDelMenu("Cuota 8 — faltan $150.000");
-    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas - Cuota 8");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas › Cuota 8");
 
     // Suena la fecha a septiembre: i-ago ya no está en la lista. La categoría
     // sigue siendo válida ("Otro de Deudas" se sigue ofreciendo), pero nunca
@@ -745,7 +745,7 @@ describe("FormularioMovimiento: el desplegable '¿En qué fue?'", () => {
     // Pasar a la cuenta en USD: moneda distinta, pero el mock del checklist
     // sigue sirviendo la misma lista (el id sigue ofrecido).
     elegirDelMenu("Cuenta USD");
-    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas - Deuda TC Nu");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas › Deuda TC Nu");
   });
 
   it("si cambia la moneda y el item ya no se ofrece, la elección cae a 'Otro de <su categoría>'", () => {
@@ -765,7 +765,7 @@ describe("FormularioMovimiento: el desplegable '¿En qué fue?'", () => {
     render(<FormularioMovimiento cuentas={[cuentaActiva, otraMoneda]} abierto />);
 
     elegirDelMenu("Deuda TC Nu");
-    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas - Deuda TC Nu");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas › Deuda TC Nu");
 
     // Suenan los dólares: la lista se vacía y el item deja de ofrecerse. La
     // categoría sigue siendo válida y se lee a secas (ya no tiene items ese
@@ -801,7 +801,7 @@ describe("FormularioMovimiento: el desplegable '¿En qué fue?'", () => {
     );
 
     // Item de la precarga: elegido y legible sin "faltan".
-    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas - Deuda TC Nu");
+    expect(screen.getByLabelText("¿En qué fue?")).toHaveTextContent("Deudas › Deuda TC Nu");
     const registrar = screen.getByRole("button", { name: "Registrar" });
     expect(registrar).toBeDisabled();
 

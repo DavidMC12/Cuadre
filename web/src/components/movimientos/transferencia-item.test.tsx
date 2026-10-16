@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { TransferenciaItem } from "./transferencia-item";
 import type { Cuenta, Movimiento } from "@/lib/api/types";
 import type { ParDeTransferencia } from "@/lib/combinar-transferencias";
+import { horaCorta } from "@/lib/fecha";
 import { type CatalogoDeItems, resolverCatalogoDeItems } from "@/lib/item-en-la-fila";
 
 type ConHijos = { children?: ReactNode };
@@ -113,8 +114,10 @@ describe("TransferenciaItem: la fila", () => {
     const fila = screen.getByRole("button", { name: /Pago tarjeta/ });
     expect(fila).toHaveAttribute("aria-haspopup", "dialog");
     // jsdom no mide píxeles: se anclan las clases que dan el piso de toque de
-    // 44px, las mismas de MovimientoItem/CompraDivididaItem (py-3 + foco
+    // 44px, las mismas de MovimientoItem/CompraDivididaItem (min-h-11 + py-3,
+    // así el piso no depende de cuántas líneas tenga el contenido, más foco
     // visible con anillo).
+    expect(fila.className).toContain("min-h-11");
     expect(fila.className).toContain("py-3");
     expect(fila.className).toContain("focus-visible:ring-3");
     expect(fila).toHaveTextContent("Bancolombia");
@@ -124,6 +127,48 @@ describe("TransferenciaItem: la fila", () => {
     expect(fila).not.toHaveTextContent("−");
     // Nada dentro dispara la anulación por accidente: el detalle la decide.
     expect(alAnular).not.toHaveBeenCalled();
+  });
+
+  it("la línea de cuentas parte en renglones: flex-wrap y sin truncate en los nombres", () => {
+    montar();
+
+    const origen = screen.getByText("Bancolombia");
+    const destino = screen.getByText("Efectivo");
+    // A 320px un nombre de cuenta largo (el destino de un pago de tarjeta) ya
+    // no se recorta con "…".
+    expect(origen.className).not.toContain("truncate");
+    expect(destino.className).not.toContain("truncate");
+
+    // La línea envuelve en vez de cortar…
+    const linea = origen.closest(".flex-wrap");
+    expect(linea).not.toBeNull();
+    expect(linea).toHaveClass("text-xs", "text-muted-foreground");
+
+    // …y origen y destino comparten bloque con la flecha en medio: si la línea
+    // parte, no queda una flecha sola al final ni un nombre sin su flecha.
+    const bloqueCuentas = origen.parentElement as HTMLElement;
+    expect(bloqueCuentas).toContainElement(destino);
+    expect(bloqueCuentas.querySelector("svg")).not.toBeNull();
+
+    // La hora viaja pegada a su punto medio.
+    const hora = screen.getByText(horaCorta(par.salida.occurredAt));
+    expect(hora.parentElement).toContainElement(screen.getByText("·"));
+  });
+
+  it("con ítem, cada punto separador viaja con su bloque (no abre el renglón siguiente)", () => {
+    montar(
+      { ...par, salida: pata({ id: "salida", budgetItemId: "i-nu" }) },
+      vi.fn(),
+      catalogoConItem
+    );
+
+    // El punto del ítem vive en su bloque…
+    const item = screen.getByText("Deuda TC Nu");
+    expect(item.parentElement?.textContent).toBe("Deuda TC Nu·");
+
+    // …y el de la hora, en el suyo, no mezclados.
+    const hora = screen.getByText(horaCorta(par.salida.occurredAt));
+    expect(hora.parentElement?.textContent).toBe(`·${horaCorta(par.salida.occurredAt)}`);
   });
 
   it("una transferencia anulada se marca 'Anulada' y la anulación se marca 'Anulación'", () => {
