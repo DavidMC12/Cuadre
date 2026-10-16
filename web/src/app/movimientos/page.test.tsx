@@ -37,6 +37,7 @@ vi.mock("@/hooks/use-movimientos", () => ({
 
 vi.mock("@/hooks/use-cuentas", () => ({ useCuentas: vi.fn() }));
 vi.mock("@/hooks/use-categorias", () => ({ useCategorias: vi.fn() }));
+vi.mock("@/hooks/use-presupuesto", () => ({ usePresupuestoItems: () => ({ data: [] }) }));
 
 vi.mock("@/components/dashboard/selector-mes", () => ({ SelectorMes: () => null }));
 vi.mock("@/components/movimientos/formulario-movimiento", () => ({

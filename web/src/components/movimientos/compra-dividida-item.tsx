@@ -14,6 +14,7 @@ import {
   totalDeLaCompra,
 } from "@/lib/combinar-pagos-divididos";
 import { horaCorta } from "@/lib/fecha";
+import { type CatalogoDeItems, segmentosDeItemEnLaFila } from "@/lib/item-en-la-fila";
 import { textoMonto } from "@/lib/money";
 
 /**
@@ -29,11 +30,15 @@ export function CompraDivididaItem({
   compra,
   cuentasPorId,
   categoria,
+  catalogo,
   onSolicitarAnular,
 }: {
   compra: CompraDividida;
   cuentasPorId: ReadonlyMap<string, Cuenta>;
   categoria: Categoria | undefined;
+  /** El catálogo de ítems resuelto una vez por la lista; `null` mientras
+   *  carga o si falló (la fila queda como hoy: solo la categoría). */
+  catalogo: CatalogoDeItems | null;
   onSolicitarAnular: (parte: Movimiento) => void;
 }) {
   const [detalleAbierto, setDetalleAbierto] = useState(false);
@@ -51,7 +56,17 @@ export function CompraDivididaItem({
     })
     .join(" + ");
 
-  const detalle = [categoria?.name, horaCorta(compra.partes[0].occurredAt)]
+  // Las dos partes comparten categoría e ítem: se lee de la primera. La línea
+  // dice a qué línea del presupuesto cuenta la compra (o que quedó "Sin
+  // asignar"), con el mismo formato del desplegable del formulario.
+  const detalle = [
+    ...segmentosDeItemEnLaFila({
+      movimiento: compra.partes[0],
+      categoria: categoria?.name,
+      catalogo,
+    }),
+    horaCorta(compra.partes[0].occurredAt),
+  ]
     .filter(Boolean)
     .join(" · ");
 

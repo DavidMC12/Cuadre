@@ -65,6 +65,7 @@ function Shell({ parDeLaFila }: { parDeLaFila: ParDeTransferencia }) {
         par={parDeLaFila}
         cuentaOrigen={cuentas.get(parDeLaFila.salida.accountId)}
         cuentaDestino={cuentas.get(parDeLaFila.entrada.accountId)}
+        catalogo={null}
         onSolicitarAnular={(parRecibido) => setAConfirmar(parRecibido.salida)}
       />
       <ConfirmarAnulacion

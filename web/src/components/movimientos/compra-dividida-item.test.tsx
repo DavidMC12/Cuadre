@@ -6,6 +6,7 @@ import type { ReactElement, ReactNode } from "react";
 import { CompraDivididaItem } from "./compra-dividida-item";
 import type { Categoria, Cuenta, Movimiento } from "@/lib/api/types";
 import type { CompraDividida } from "@/lib/combinar-pagos-divididos";
+import { type CatalogoDeItems, resolverCatalogoDeItems } from "@/lib/item-en-la-fila";
 
 type ConHijos = { children?: ReactNode };
 
@@ -65,6 +66,23 @@ const cuentas = new Map<string, Cuenta>([
 ]);
 const comida = { id: "c-1", name: "Comida" } as Categoria;
 
+/** El catálogo ya resuelto que la lista le pasa a la fila. */
+const catalogoConItem: CatalogoDeItems = resolverCatalogoDeItems([
+  {
+    id: "i-1",
+    kind: "category",
+    currency: "COP",
+    categoryId: "c-1",
+    categoryName: "Comida",
+    categoryKind: "expense",
+    accountId: null,
+    accountName: null,
+    label: "Mercado",
+    currentAmount: null,
+    archivedAt: null,
+  },
+])!;
+
 function compra(extras: { a?: Partial<Movimiento>; b?: Partial<Movimiento> } = {}): CompraDividida {
   return {
     tipo: "compra-dividida",
@@ -82,12 +100,13 @@ function compra(extras: { a?: Partial<Movimiento>; b?: Partial<Movimiento> } = {
   };
 }
 
-function montar(c: CompraDividida, alAnular = vi.fn()) {
+function montar(c: CompraDividida, alAnular = vi.fn(), catalogo: CatalogoDeItems | null = null) {
   render(
     <CompraDivididaItem
       compra={c}
       cuentasPorId={cuentas}
       categoria={comida}
+      catalogo={catalogo}
       onSolicitarAnular={alAnular}
     />
   );
@@ -103,6 +122,33 @@ describe("CompraDivididaItem: la fila", () => {
     expect(fila).not.toHaveTextContent("1 de 2");
     expect(fila).toHaveTextContent("$200.000");
     expect(fila).toHaveTextContent("Tarjeta Nu $100.000 + Nu Bank $100.000");
+    expect(fila).toHaveTextContent("Comida");
+  });
+
+  it("con ítem, la fila dice 'Categoría - Ítem' (las dos partes comparten el ítem)", () => {
+    montar(compra(), vi.fn(), catalogoConItem);
+    expect(screen.getByRole("button", { name: /Mercado/ })).toHaveTextContent("Comida - Mercado");
+  });
+
+  it("sin ítem y con una categoría que tiene ítems, marca 'Sin asignar'", () => {
+    montar(
+      compra({
+        a: { budgetItemId: null },
+        b: { budgetItemId: null },
+      }),
+      vi.fn(),
+      catalogoConItem
+    );
+    expect(screen.getByRole("button", { name: /Mercado/ })).toHaveTextContent(
+      "Comida · Sin asignar"
+    );
+  });
+
+  it("con el catálogo cargando (null), la fila queda como hoy", () => {
+    montar(compra(), vi.fn(), null);
+    const fila = screen.getByRole("button", { name: /Mercado/ });
+    expect(fila).not.toHaveTextContent("Comida - Mercado");
+    expect(fila).not.toHaveTextContent("Sin asignar");
     expect(fila).toHaveTextContent("Comida");
   });
 

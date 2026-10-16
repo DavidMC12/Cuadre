@@ -9,6 +9,7 @@ import { DetalleTransferencia } from "@/components/movimientos/detalle-transfere
 import type { ParDeTransferencia } from "@/lib/combinar-transferencias";
 import type { Cuenta } from "@/lib/api/types";
 import { horaCorta } from "@/lib/fecha";
+import { type CatalogoDeItems, segmentosDeItemEnLaFila } from "@/lib/item-en-la-fila";
 import { ETIQUETA_TIPO_MOVIMIENTO } from "@/lib/labels";
 
 /**
@@ -24,11 +25,15 @@ export function TransferenciaItem({
   par,
   cuentaOrigen,
   cuentaDestino,
+  catalogo,
   onSolicitarAnular,
 }: {
   par: ParDeTransferencia;
   cuentaOrigen: Cuenta | undefined;
   cuentaDestino: Cuenta | undefined;
+  /** El catálogo de ítems resuelto una vez por la lista; `null` mientras
+   *  carga o si falló (la fila queda como hoy, sin ítem). */
+  catalogo: CatalogoDeItems | null;
   onSolicitarAnular: (par: ParDeTransferencia) => void;
 }) {
   const [detalleAbierto, setDetalleAbierto] = useState(false);
@@ -38,6 +43,19 @@ export function TransferenciaItem({
   const esAnulacion = salida.reversesTransactionId !== null;
 
   const descripcion = salida.description?.trim() || ETIQUETA_TIPO_MOVIMIENTO.transfer;
+
+  // Una transferencia nunca queda "Sin asignar": asignarle un ítem a un pago
+  // de tarjeta es opcional. Solo se muestra el ítem cuando de verdad lo trae
+  // (viaja en la pata de salida, igual que en el detalle). Sin categoría, la
+  // función devuelve el nombre del ítem o nada.
+  const segmentosItem = segmentosDeItemEnLaFila({
+    movimiento: {
+      ...salida,
+      budgetItemId: salida.budgetItemId ?? entrada.budgetItemId,
+    },
+    categoria: undefined,
+    catalogo,
+  });
 
   return (
     <>
@@ -65,6 +83,16 @@ export function TransferenciaItem({
           </div>
 
           <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+            {/* Solo cuando la transferencia trae ítem: un pago de tarjeta sin
+                ítem no dice "Sin asignar", no agrega nada a la línea. */}
+            {segmentosItem.length > 0 && (
+              <>
+                <span className="min-w-0 truncate">{segmentosItem.join(" · ")}</span>
+                <span aria-hidden className="shrink-0">
+                  ·
+                </span>
+              </>
+            )}
             <span className="min-w-0 truncate">{cuentaOrigen?.name ?? "…"}</span>
             <ArrowRight aria-hidden className="size-3 shrink-0" />
             <span className="min-w-0 truncate">{cuentaDestino?.name ?? "…"}</span>
