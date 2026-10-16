@@ -465,7 +465,10 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   dentro del cajón (Escape/foco, que jsdom no simula) y la X de los cajones.
 
 
-- **Total por sección en el panel de presupuesto** (2026-10-07, a prueba): los
+- **Total por sección en el panel de presupuesto** (2026-10-07; **se queda**,
+  decidido el 2026-10-15 tras medirlo a 320px y 1280px en Chromium con
+  `npm run medir:panel`: el total no desborda ni se recorta, el encabezado
+  queda en una línea de 40px): los
   encabezados INGRESOS y GASTOS del panel muestran su total (suma de los
   montos del mes visto; solo si la sección tiene al menos un renglón con
   monto), para que su resta se vea igual a "Te sobran/Te faltan según lo
@@ -687,8 +690,36 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   quedan por ver en un navegador real; un mes futuro (no alcanzable en el
   Resumen) pinta el mes actual.
 
+- **El ítem en la fila de Movimientos y verdes con contraste AA**
+  (2026-10-15). (1) **La fila dice a qué ítem cuenta**: la línea chica pasa de
+  "Categoría · Cuenta · Hora" a "Deudas - Deuda TC Nu · Cuenta · Hora" (el
+  mismo separador que el texto cerrado del desplegable "¿En qué fue?"; si el
+  ítem se llama como su categoría sale una sola vez) y un movimiento sin ítem
+  cuya categoría sí tiene ítems dice "Deudas · Sin asignar", en palabras, sin
+  color ni icono (el dueño ya rechazó el aviso "muy warning"). La regla de
+  "pendiente de asignar" es la misma función del cajón "Sin asignar"
+  (`movimientosSinAsignar`); nunca se marca sin catálogo cargado ni en saldos
+  iniciales, ajustes, anulados, anulaciones o transferencias (estas solo
+  muestran su ítem si lo traen). Las tres filas (movimiento, compra dividida,
+  transferencia) comparten `web/src/lib/item-en-la-fila.ts`, y el catálogo se
+  resuelve una vez en la página (`usePresupuestoItems(true)`), no por fila.
+  Comparado con otras apps: las páginas oficiales casi no documentan la fila y
+  Monarch bloqueó la lectura, así que la decisión descansa en que el ítem es la
+  línea del presupuesto (como la categoría hoja en YNAB) y en que asignar es la
+  tarea diaria del dueño. Deuda anotada: cuando el ítem no se resuelve, la
+  fila cae a la categoría mientras el detalle muestra el id crudo (borde
+  heredado); la regla de "la categoría tenía ítems ese mes" es una copia de la
+  condición de `objetivosDelMes` del servidor y se desfasaría si esta cambia.
+  (2) **Contraste**: el verde de ingresos y logro (`emerald-600`, 3,74:1 sobre
+  blanco) pasa a `emerald-700` (5,45:1) en modo claro; solo el check del círculo
+  de logro, sobre su tintura, sube a `emerald-800` (6,24:1; el 700 daba 4,45:1).
+  Las barras (`bg-emerald-600`) no cambian: son gráficas y piden 3:1. El modo
+  oscuro quedó igual. (3) Aprendizaje de proceso: el worker verificó el código
+  antes de seguir un encargo que decía "›" de memoria cuando el desplegable
+  real usa guion, y preguntó; un encargo debe citar el código, no la bitácora.
+
 Pendiente, sin fecha: otra ronda de `impeccable critique` para medir el
-puntaje tras los cierres de la décima.
+puntaje tras los cierres de la décima (en marcha el 2026-10-15, ronda 11).
 
 ### Pasos adicionales, ya pasado el 100%
 
