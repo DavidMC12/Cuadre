@@ -660,6 +660,40 @@ describe("Resumen: el saldo que se ve sigue al mes que se está mirando", () => 
     });
   });
 
+  it("al pasar de un mes pasado a otro, la referencia del esqueleto sigue siendo la ÚLTIMA lista conocida", () => {
+    // Dos cierres distintos: el primero (agosto) ya trajo SU lista; al caer
+    // al segundo (julio) la consulta nueva empieza sin datos mientras viaja,
+    // y el esqueleto debe cabalgar sobre la lista del cierre que estaba en
+    // pantalla, no sobre nada ni sobre la de hoy.
+    const listaAgosto: Cuenta[] = [
+      {
+        id: "agosto",
+        name: "Al cierre de agosto",
+        balance: "0",
+        isSavings: false,
+        saved: "0.0000",
+        archivedAt: null,
+      } as Cuenta,
+    ];
+    vi.mocked(ordenCuentas.useCuentas).mockImplementation((...args: unknown[]) =>
+      refetchable(
+        args[1] === sumarMeses(mesActual(), -1) ? { data: listaAgosto } : { data: undefined, isLoading: true }
+      ) as never
+    );
+    render(<PaginaResumen />);
+    fireEvent.click(screen.getByRole("button", { name: "Mes anterior" })); // agosto: llega
+    fireEvent.click(screen.getByRole("button", { name: "Mes anterior" })); // julio: viaja
+
+    const props = vi.mocked(TotalCuentas).mock.calls.at(-1)?.[0] as unknown as {
+      mesDeCierre: string;
+      cargando: boolean;
+      cuentasDeReferencia?: Cuenta[];
+    };
+    expect(props.mesDeCierre).toBe(sumarMeses(mesActual(), -2));
+    expect(props.cargando).toBe(true);
+    expect(props.cuentasDeReferencia).toEqual(listaAgosto);
+  });
+
   it("al ir a un mes pasado, la consulta de cuentas lleva el mes y las tarjetas hablan del cierre", () => {
     ajustar({ deCuentas: { data: conAhorro } });
     const mesPasado = sumarMeses(mesActual(), -1);

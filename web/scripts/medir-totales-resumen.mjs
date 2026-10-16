@@ -110,7 +110,7 @@ function tarjetaAhorrado({ mesDeCierre, esqueleto }) {
   const etiqueta = etiquetaAhorrado(mesDeCierre);
   const boton = (esqueleto) =>
     !mesDeCierre
-      ? `<${esqueleto ? "div" : "div"} data-boton class="${esqueleto ? CLASES_PULSANTE + " " : ""}${CLASES_BOTON_AHORRADO} h-11 w-36">${esqueleto ? "" : "Registrar ahorro"}</div>`
+      ? `<div class="${esqueleto ? CLASES_PULSANTE + " " : ""}${CLASES_BOTON_AHORRADO} h-11 w-36">${esqueleto ? "" : "Registrar ahorro"}</div>`
       : "";
   const renglones = esqueleto
     ? `<div class="${CLASES_PULSANTE} ${CLASES_ETIQUETA_TOTALES} ${CLASES_TEXTO_ESQUELETO}">${etiqueta}</div>
@@ -172,7 +172,7 @@ const casosDeTarjetas = ANCHOS.flatMap((ancho) => {
     caso("ahorrado-pasado", "contrato", ancho,
       pagina(tarjetaAhorrado({ mesDeCierre: MES_PASADO, esqueleto: true }) + tarjetaAhorrado({ mesDeCierre: MES_PASADO, esqueleto: false }))),
     caso("controles", "controles", ancho,
-      pagina(filaControles() + filaControles())),
+      pagina(filaControles())),
   ];
 });
 
