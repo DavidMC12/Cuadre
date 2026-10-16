@@ -6,7 +6,7 @@ import { movimientosSinAsignar } from "@/lib/sin-asignar";
  * A qué cuenta un movimiento del libro, resuelto para la LÍNEA de la fila
  * (no para el detalle): la categoría es su grupo y el ítem del presupuesto es
  * la línea. La categoría y el ítem se unen con el mismo formato que ya usa el
- * desplegable "¿En qué fue?" del formulario ("Deudas - Deuda TC Nu"), para que
+ * desplegable "¿En qué fue?" del formulario ("Deudas › Deuda TC Nu"), para que
  * la fila y el desplegable no digan dos cosas distintas.
  *
  * Este módulo es puro y vive aparte para que las tres filas (movimiento,
@@ -128,7 +128,7 @@ function comoHoy(categoria: string | undefined): string[] {
  * Los segmentos que la fila antepone a su cuenta y su hora en la línea de
  * detalle:
  *
- * - Con ítem asignado: `["Deudas - Deuda TC Nu"]` (una sola vez si el nombre
+ * - Con ítem asignado: `["Deudas › Deuda TC Nu"]` (una sola vez si el nombre
  *   del ítem es el de la categoría). Sin categoría, solo el nombre del ítem.
  * - Sin ítem pero su categoría tenía ítems a los que pudo asignarse ese mes:
  *   `["Deudas", "Sin asignar"]` — la misma pregunta que resuelve el cajón
@@ -158,7 +158,7 @@ export function segmentosDeItemEnLaFila({
     // Si el ítem se llama como su categoría (sin importar mayúsculas ni
     // espacios), se muestra una sola vez, con el nombre de la categoría.
     if (normalizar(nombre) === normalizar(categoria)) return [categoria];
-    return [`${categoria} - ${nombre}`];
+    return [`${categoria} › ${nombre}`];
   }
 
   const categoryId = movimiento.categoryId;

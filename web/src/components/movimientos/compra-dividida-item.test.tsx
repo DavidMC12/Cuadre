@@ -125,9 +125,9 @@ describe("CompraDivididaItem: la fila", () => {
     expect(fila).toHaveTextContent("Comida");
   });
 
-  it("con ítem, la fila dice 'Categoría - Ítem' (las dos partes comparten el ítem)", () => {
+  it("con ítem, la fila dice 'Categoría › Ítem' (las dos partes comparten el ítem)", () => {
     montar(compra(), vi.fn(), catalogoConItem);
-    expect(screen.getByRole("button", { name: /Mercado/ })).toHaveTextContent("Comida - Mercado");
+    expect(screen.getByRole("button", { name: /Mercado/ })).toHaveTextContent("Comida › Mercado");
   });
 
   it("sin ítem y con una categoría que tiene ítems, marca 'Sin asignar'", () => {
@@ -147,7 +147,7 @@ describe("CompraDivididaItem: la fila", () => {
   it("con el catálogo cargando (null), la fila queda como hoy", () => {
     montar(compra(), vi.fn(), null);
     const fila = screen.getByRole("button", { name: /Mercado/ });
-    expect(fila).not.toHaveTextContent("Comida - Mercado");
+    expect(fila).not.toHaveTextContent("Comida › Mercado");
     expect(fila).not.toHaveTextContent("Sin asignar");
     expect(fila).toHaveTextContent("Comida");
   });

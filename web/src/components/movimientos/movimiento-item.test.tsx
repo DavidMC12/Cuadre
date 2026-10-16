@@ -100,9 +100,9 @@ function montar({
 }
 
 describe("MovimientoItem: el ítem en la línea de detalle", () => {
-  it("con ítem dice 'Categoría - Ítem · Cuenta · Hora'", () => {
+  it("con ítem dice 'Categoría › Ítem · Cuenta · Hora'", () => {
     const fila = montar({ movimiento: movimiento({ budgetItemId: "i-nu" }), catalogo: catalogoConItem });
-    expect(fila).toHaveTextContent("Deudas - Deuda TC Nu · Bancolombia");
+    expect(fila).toHaveTextContent("Deudas › Deuda TC Nu · Bancolombia");
   });
 
   it("sin ítem y con una categoría que tiene ítems, marca 'Sin asignar'", () => {
