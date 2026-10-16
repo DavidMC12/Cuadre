@@ -178,6 +178,7 @@ export default function PaginaAdmin() {
           Icono={Users}
           titulo="No hay nadie registrado"
           descripcion="Cuando alguien cree su cuenta va a aparecer aquí."
+          tituloComo="h2"
         />
       )}
 

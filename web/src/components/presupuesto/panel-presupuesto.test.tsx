@@ -125,6 +125,11 @@ describe("PanelPresupuesto: una variante por contenedor", () => {
     render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
 
     expect(screen.getByText("Presupuesto del mes")).toBeInTheDocument();
+    // El título de la tarjeta es un encabezado REAL (h2): las secciones
+    // Ingresos/Gastos que siguen son h3, sin saltar niveles.
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Presupuesto del mes" })
+    ).toBeInTheDocument();
     expect(screen.getByText("Mercado")).toBeInTheDocument();
   });
 

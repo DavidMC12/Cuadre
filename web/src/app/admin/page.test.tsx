@@ -150,6 +150,21 @@ describe("Admin: la lista de personas se cae con el mismo vocabulario del resto"
     ).toBeInTheDocument();
     expect(document.querySelector(".animate-pulse")).toBeNull();
   });
+
+  it("sin nadie registrado, el vacío es el encabezado del listado", () => {
+    ajustarPerfil();
+    ajustarPersonas({ data: [] });
+
+    render(<PaginaAdmin />);
+
+    expect(screen.getByText("No hay nadie registrado")).toBeInTheDocument();
+    // El título del vacío encabeza la lista que no tiene filas: h2 real bajo
+    // el h1 de la pestaña. También cabe que quede listo el registro: el lector
+    // esquematiza la pantalla como Administración > No hay nadie registrado.
+    expect(
+      screen.getByRole("heading", { level: 2, name: "No hay nadie registrado" })
+    ).toBeInTheDocument();
+  });
 });
 
 describe("Admin: el registro de suplantaciones no se cae en silencio (novena critique, P2)", () => {

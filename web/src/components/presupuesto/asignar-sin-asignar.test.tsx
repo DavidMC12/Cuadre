@@ -360,6 +360,9 @@ describe("AsignarSinAsignar: vacío, fallo y paginación", () => {
     abrir();
 
     expect(screen.getByText("Todo asignado")).toBeInTheDocument();
+    // Quedó en <p> a mano: es una frase de estado dentro del cajón, no el
+    // encabezado de una sección — no lo hagan encabezado por accidente.
+    expect(screen.queryByRole("heading", { name: "Todo asignado" })).not.toBeInTheDocument();
   });
 
   it("si la consulta falla, ofrece Reintentar y lo llama", () => {

@@ -270,6 +270,7 @@ export default function PaginaResumen() {
           Icono={Wallet}
           titulo="Todavía no hay nada que resumir"
           descripcion="Crea una cuenta y registra tu primer movimiento para ver el resumen del mes."
+          tituloComo="h2"
         />
       </div>
     );
@@ -455,7 +456,7 @@ export default function PaginaResumen() {
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="min-w-0">
           <CardHeader>
-            <CardTitle>Por categoría</CardTitle>
+            <CardTitle as="h2">Por categoría</CardTitle>
           </CardHeader>
           <CardContent>
             <GraficaPorCategoria
@@ -473,7 +474,7 @@ export default function PaginaResumen() {
 
         <Card className="min-w-0">
           <CardHeader>
-            <CardTitle>Tendencia</CardTitle>
+            <CardTitle as="h2">Tendencia</CardTitle>
             <CardAction>
               <ToggleGroup
                 value={[String(mesesTendencia)]}
@@ -522,7 +523,7 @@ export default function PaginaResumen() {
       {ahorroEnMoneda && (
         <Card className="min-w-0">
           <CardHeader>
-            <CardTitle>Ahorro</CardTitle>
+            <CardTitle as="h2">Ahorro</CardTitle>
           </CardHeader>
           <CardContent>
             <GraficaAhorro

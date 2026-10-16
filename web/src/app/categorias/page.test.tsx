@@ -81,6 +81,9 @@ describe("Categorías: un fallo de red no es 'no tienes categorías'", () => {
     render(<PaginaCategorias />);
 
     expect(screen.getByText("Todavía no tienes categorías")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Todavía no tienes categorías" })
+    ).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText("Reintentar")).not.toBeInTheDocument();
   });

@@ -108,6 +108,7 @@ export default function PaginaCuentas() {
           Icono={Wallet}
           titulo="Todavía no tienes cuentas"
           descripcion="Crea la primera para empezar a registrar tus movimientos."
+          tituloComo="h2"
         >
           <FormularioCuenta>
             <Button size="sm" className="mt-1 min-h-11">

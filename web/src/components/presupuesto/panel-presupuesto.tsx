@@ -660,7 +660,7 @@ export function PanelPresupuesto({
       <CardHeader className={cn(enVentana && "shrink-0")}>
         {/* El título en su fila, con solo "Agregar" a la derecha: a 320px el
             alternar ya no cabe en esa fila y pasa a la suya (abajo). */}
-        <CardTitle className="min-w-0 truncate">Presupuesto del mes</CardTitle>
+        <CardTitle as="h2" className="min-w-0 truncate">Presupuesto del mes</CardTitle>
         {accionAgregar && <CardAction>{accionAgregar}</CardAction>}
       </CardHeader>
       <CardContent className={cn(enVentana && "flex min-h-0 flex-1 flex-col")}>
