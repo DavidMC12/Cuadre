@@ -114,8 +114,10 @@ describe("TransferenciaItem: la fila", () => {
     const fila = screen.getByRole("button", { name: /Pago tarjeta/ });
     expect(fila).toHaveAttribute("aria-haspopup", "dialog");
     // jsdom no mide píxeles: se anclan las clases que dan el piso de toque de
-    // 44px, las mismas de MovimientoItem/CompraDivididaItem (py-3 + foco
+    // 44px, las mismas de MovimientoItem/CompraDivididaItem (min-h-11 + py-3,
+    // así el piso no depende de cuántas líneas tenga el contenido, más foco
     // visible con anillo).
+    expect(fila.className).toContain("min-h-11");
     expect(fila.className).toContain("py-3");
     expect(fila.className).toContain("focus-visible:ring-3");
     expect(fila).toHaveTextContent("Bancolombia");

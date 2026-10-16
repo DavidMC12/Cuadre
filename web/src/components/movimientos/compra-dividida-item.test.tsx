@@ -123,6 +123,8 @@ describe("CompraDivididaItem: la fila", () => {
     expect(fila).toHaveTextContent("$200.000");
     expect(fila).toHaveTextContent("Tarjeta Nu $100.000 + Nu Bank $100.000");
     expect(fila).toHaveTextContent("Comida");
+    // El piso táctil de 44px no depende de cuántas líneas tenga el contenido.
+    expect(fila.className).toContain("min-h-11");
   });
 
   it("con ítem, la fila dice 'Categoría › Ítem' (las dos partes comparten el ítem)", () => {
