@@ -82,24 +82,30 @@ export function TransferenciaItem({
             {esAnulacion && <Badge variant="secondary">Anulación</Badge>}
           </div>
 
-          <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+          {/* La línea parte en renglones cuando no cabe: a 320px un nombre de
+              cuenta largo (el destino de un pago de tarjeta) ya no se corta con
+              "…". Origen y destino viajan con su flecha, y la hora con su punto
+              medio, para que ninguno quede huérfano al partir la línea. */}
+          <span className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted-foreground">
             {/* Solo cuando la transferencia trae ítem: un pago de tarjeta sin
                 ítem no dice "Sin asignar", no agrega nada a la línea. */}
             {segmentosItem.length > 0 && (
               <>
-                <span className="min-w-0 truncate">{segmentosItem.join(" · ")}</span>
+                <span className="min-w-0 break-words">{segmentosItem.join(" · ")}</span>
                 <span aria-hidden className="shrink-0">
                   ·
                 </span>
               </>
             )}
-            <span className="min-w-0 truncate">{cuentaOrigen?.name ?? "…"}</span>
-            <ArrowRight aria-hidden className="size-3 shrink-0" />
-            <span className="min-w-0 truncate">{cuentaDestino?.name ?? "…"}</span>
-            <span aria-hidden className="shrink-0">
-              ·
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <span className="min-w-0 break-words">{cuentaOrigen?.name ?? "…"}</span>
+              <ArrowRight aria-hidden className="size-3 shrink-0" />
+              <span className="min-w-0 break-words">{cuentaDestino?.name ?? "…"}</span>
             </span>
-            <span className="shrink-0">{horaCorta(salida.occurredAt)}</span>
+            <span className="inline-flex shrink-0 items-center gap-1">
+              <span aria-hidden>·</span>
+              <span>{horaCorta(salida.occurredAt)}</span>
+            </span>
           </span>
         </div>
 

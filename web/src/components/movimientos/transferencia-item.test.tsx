@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { TransferenciaItem } from "./transferencia-item";
 import type { Cuenta, Movimiento } from "@/lib/api/types";
 import type { ParDeTransferencia } from "@/lib/combinar-transferencias";
+import { horaCorta } from "@/lib/fecha";
 import { type CatalogoDeItems, resolverCatalogoDeItems } from "@/lib/item-en-la-fila";
 
 type ConHijos = { children?: ReactNode };
@@ -124,6 +125,32 @@ describe("TransferenciaItem: la fila", () => {
     expect(fila).not.toHaveTextContent("−");
     // Nada dentro dispara la anulación por accidente: el detalle la decide.
     expect(alAnular).not.toHaveBeenCalled();
+  });
+
+  it("la línea de cuentas parte en renglones: flex-wrap y sin truncate en los nombres", () => {
+    montar();
+
+    const origen = screen.getByText("Bancolombia");
+    const destino = screen.getByText("Efectivo");
+    // A 320px un nombre de cuenta largo (el destino de un pago de tarjeta) ya
+    // no se recorta con "…".
+    expect(origen.className).not.toContain("truncate");
+    expect(destino.className).not.toContain("truncate");
+
+    // La línea envuelve en vez de cortar…
+    const linea = origen.closest(".flex-wrap");
+    expect(linea).not.toBeNull();
+    expect(linea).toHaveClass("text-xs", "text-muted-foreground");
+
+    // …y origen y destino comparten bloque con la flecha en medio: si la línea
+    // parte, no queda una flecha sola al final ni un nombre sin su flecha.
+    const bloqueCuentas = origen.parentElement as HTMLElement;
+    expect(bloqueCuentas).toContainElement(destino);
+    expect(bloqueCuentas.querySelector("svg")).not.toBeNull();
+
+    // La hora viaja pegada a su punto medio.
+    const hora = screen.getByText(horaCorta(par.salida.occurredAt));
+    expect(hora.parentElement).toContainElement(screen.getByText("·"));
   });
 
   it("una transferencia anulada se marca 'Anulada' y la anulación se marca 'Anulación'", () => {
