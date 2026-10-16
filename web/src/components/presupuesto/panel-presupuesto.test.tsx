@@ -131,6 +131,10 @@ describe("PanelPresupuesto: una variante por contenedor", () => {
       screen.getByRole("heading", { level: 2, name: "Presupuesto del mes" })
     ).toBeInTheDocument();
     expect(screen.getByText("Mercado")).toBeInTheDocument();
+    // La región que recibe el foco cuando una categoría entera desaparece
+    // lleva el id que el panel pasa como idRegion al cajón "Sin asignar":
+    // ambos salen del mismo idBase, y este lazo no puede divergir.
+    expect(screen.getByRole("region", { name: "Ítems del presupuesto" }).id).toMatch(/-region$/);
   });
 
   it("la variante suelta (dentro de un cajón o de una pantalla) no agrega un segundo encabezado", () => {

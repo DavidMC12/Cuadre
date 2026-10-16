@@ -110,7 +110,8 @@ describe("EditarItemMovimiento: el cajón de asignar item", () => {
     });
   });
 
-  it("guardar sin tocar manda el item que el movimiento ya contaba", () => {    dejarChecklist([itemChecklist({ id: "i-nu" })]);
+  it("guardar sin tocar manda el item que el movimiento ya contaba", () => {
+    dejarChecklist([itemChecklist({ id: "i-nu" })]);
     actualizarItem.mockImplementation(
       (_datos: unknown, opciones: { onSuccess?: () => void }) => opciones.onSuccess?.()
     );

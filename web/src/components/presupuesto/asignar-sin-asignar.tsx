@@ -157,7 +157,10 @@ export function AsignarSinAsignar({
             // refetch la barrió) — la fila y su encabezado ya no existen y este
             // cajón se desmonta con ellas. La limpieza de Base UI alcanza a
             // preguntarle a esta función una última vez: el foco termina en la
-            // región estable de la lista del panel.
+            // región estable de la lista del panel. (Si LO QUE SE VACIÓ es el
+            // checklist entero, la región también se desmonta y ya no queda
+            // ningún lugar estable del panel adonde caer; el vacío total no
+            // puede servir de foco y el último recurso devuelve null.)
             return idRegion ? document.getElementById(idRegion) : null;
           }}
         >
