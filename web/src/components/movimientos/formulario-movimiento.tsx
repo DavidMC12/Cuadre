@@ -789,7 +789,7 @@ export function FormularioMovimiento({
           <div
             className={cn(
               "flex items-center gap-0.5 font-mono text-4xl tabular-nums",
-              tipoMonto === "ingreso" ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"
+              tipoMonto === "ingreso" ? "text-emerald-700 dark:text-emerald-400" : "text-foreground"
             )}
           >
             {/* Una transferencia no lleva signo: no es plata que entra ni que
@@ -841,7 +841,7 @@ export function FormularioMovimiento({
           </ToggleGroupItem>
           <ToggleGroupItem
             value="ingreso"
-            className="flex-1 aria-pressed:bg-emerald-600/10 aria-pressed:font-semibold aria-pressed:text-emerald-600 dark:aria-pressed:text-emerald-400"
+            className="flex-1 aria-pressed:bg-emerald-600/10 aria-pressed:font-semibold aria-pressed:text-emerald-700 dark:aria-pressed:text-emerald-400"
           >
             Ingreso
           </ToggleGroupItem>
