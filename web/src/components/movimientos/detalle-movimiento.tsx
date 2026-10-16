@@ -20,7 +20,7 @@ import { useSoloMirar } from "@/hooks/use-perfil";
 import { usePresupuestoItems } from "@/hooks/use-presupuesto";
 import type { Categoria, Cuenta, Movimiento } from "@/lib/api/types";
 import { etiquetaFecha, horaCorta } from "@/lib/fecha";
-import { ETIQUETA_TIPO_MOVIMIENTO, SIN_ASIGNAR, SIN_CATEGORIA } from "@/lib/labels";
+import { ITEM_SIN_NOMBRE, ETIQUETA_TIPO_MOVIMIENTO, SIN_ASIGNAR, SIN_CATEGORIA } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
 /**
@@ -49,14 +49,15 @@ export function DetalleMovimiento({
   // A qué nombre corresponde el ítem del presupuesto del movimiento: sale del
   // catálogo de ítems (la misma consulta que usa el resto de la app), con la
   // etiqueta si la tiene, o el nombre de la categoría/de la cuenta. Si el
-  // catálogo no llegó todavía, el renglón queda anónimo de forma honesta.
+  // catálogo no llegó todavía o no conoce el ítem, el renglón queda con una
+  // frase neutra: el movimiento SÍ tiene ítem, solo que no se pudo nombrar.
   const { data: itemsDelPresupuesto } = usePresupuestoItems(true);
   const nombreDelItem = (() => {
     if (!movimiento.budgetItemId) return null;
     const item = (itemsDelPresupuesto ?? []).find(
       (item) => item.id === movimiento.budgetItemId
     );
-    if (!item) return movimiento.budgetItemId;
+    if (!item) return ITEM_SIN_NOMBRE;
     return item.label ?? item.categoryName ?? item.accountName ?? SIN_ASIGNAR;
   })();
 

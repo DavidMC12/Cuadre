@@ -368,6 +368,26 @@ describe('CuantoMeSobra', () => {
     expect(card.className).toContain('shrink-0');
   });
 
+  it('el título de la tarjeta es un encabezado real: h2 con el texto de siempre', () => {
+    ajustar(
+      {
+        data: {
+          month: mesActual(),
+          currency: 'COP',
+          items: [renglonDe('income', '3000000'), renglonDe('expense', '2000000')],
+        },
+      },
+      { data: resumenDe('1000000', '500000') },
+    );
+
+    render(<CuantoMeSobra mes={mesActual()} moneda="COP" />);
+
+    // Mismas clases que siempre (nada cambia a la vista): deja de ser un div.
+    const titulo = screen.getByRole('heading', { level: 2, name: 'Cuánto me sobra este mes' });
+    expect(titulo.className).toContain('font-heading');
+    expect(titulo.className).toContain('text-base');
+  });
+
   it('avisa a la pantalla cuando el presupuesto no se pudo leer', () => {
     const avisar = vi.fn();
     ajustar({ isError: true, error: new Error('tan dormido') }, { data: resumenDe('0', '0') });

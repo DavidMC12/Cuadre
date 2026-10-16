@@ -262,7 +262,9 @@ export function CuantoMeSobra({
   return (
     <Card className={CLASES_BLOQUE_ASIDE}>
       <CardHeader>
-        <CardTitle>Cuánto me sobra este mes</CardTitle>
+        {/* Encabezado REAL de la tarjeta (h2): los renglones de la lista no
+            cambian, solo deja de ser un div. En el Resumen cuelga del h1. */}
+        <CardTitle as="h2">Cuánto me sobra este mes</CardTitle>
       </CardHeader>
       <CardContent>{cuerpo}</CardContent>
     </Card>

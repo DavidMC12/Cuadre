@@ -243,3 +243,33 @@ describe("EditarItemMovimiento: los errores del servidor llegan a la persona", (
     expect(toast.error).toHaveBeenCalledWith("No se pudo cambiar el ítem del presupuesto.");
   });
 });
+
+describe("EditarItemMovimiento: nunca el id en el rótulo del selector", () => {
+  it("si el checklist trae el item, dice su nombre", () => {
+    dejarChecklist([itemChecklist({ id: "i-nu" })]);
+
+    render(
+      <EditarItemMovimiento movimiento={movimiento}>
+        <button type="button">Cambiar ítem</button>
+      </EditarItemMovimiento>
+    );
+
+    expect(screen.getByRole("combobox").textContent).toContain("Deuda TC Nu");
+  });
+
+  it("si el item que el movimiento lleva no está en el checklist (se archivó), frase neutra y no el id", () => {
+    // El movimiento sigue contando para i-nu, pero el checklist del mes ya no
+    // lo trae: el rótulo dice "Ítem del presupuesto", jamás el id crudo.
+    dejarChecklist([]);
+
+    render(
+      <EditarItemMovimiento movimiento={movimiento}>
+        <button type="button">Cambiar ítem</button>
+      </EditarItemMovimiento>
+    );
+
+    const trigger = screen.getByRole("combobox");
+    expect(trigger.textContent).not.toContain("i-nu");
+    expect(trigger.textContent).toContain("Ítem del presupuesto");
+  });
+});

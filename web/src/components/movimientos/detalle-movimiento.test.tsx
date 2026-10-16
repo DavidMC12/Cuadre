@@ -197,8 +197,9 @@ describe("DetalleMovimiento: el renglón del item del presupuesto", () => {
     expect(sinAsignar.className).toContain("text-muted-foreground");
   });
 
-  it("si el catálogo no ha cargado, muestra el id deshojado y no un nombre falso", () => {
-    // Sin datos, el renglón sigue siendo honesto: nunca inventa un nombre.
+  it("si el catálogo no conoce el ítem, una frase neutra: nunca el id en pantalla", () => {
+    // El movimiento SÍ tiene ítem, solo que no se pudo nombrar: la frase es
+    // honesta y no inventa un nombre (ni dice "Sin asignar", que mentiría).
     conCatalogo([]);
     render(
       <DetalleMovimiento
@@ -211,7 +212,8 @@ describe("DetalleMovimiento: el renglón del item del presupuesto", () => {
       />
     );
 
-    expect(screen.getByText("i-nu")).toBeInTheDocument();
+    expect(screen.queryByText("i-nu")).not.toBeInTheDocument();
+    expect(screen.getByText("Ítem del presupuesto")).toBeInTheDocument();
     expect(screen.queryByText("Deuda TC Nu")).not.toBeInTheDocument();
   });
 

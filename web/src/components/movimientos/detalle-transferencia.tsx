@@ -19,7 +19,7 @@ import { usePresupuestoItems } from "@/hooks/use-presupuesto";
 import type { Cuenta } from "@/lib/api/types";
 import type { ParDeTransferencia } from "@/lib/combinar-transferencias";
 import { etiquetaFecha, horaCorta } from "@/lib/fecha";
-import { ETIQUETA_TIPO_MOVIMIENTO, SIN_ASIGNAR } from "@/lib/labels";
+import { ETIQUETA_TIPO_MOVIMIENTO, ITEM_SIN_NOMBRE, SIN_ASIGNAR } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
 /**
@@ -57,7 +57,9 @@ export function DetalleTransferencia({
   const nombreDelItem = (() => {
     if (!idDelItem) return null;
     const item = (itemsDelPresupuesto ?? []).find((item) => item.id === idDelItem);
-    if (!item) return idDelItem;
+    // El movimiento SÍ tiene ítem; si el catálogo no lo nombra, frase neutra,
+    // nunca el id crudo.
+    if (!item) return ITEM_SIN_NOMBRE;
     return item.label ?? item.categoryName ?? item.accountName ?? SIN_ASIGNAR;
   })();
 

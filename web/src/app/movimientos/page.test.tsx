@@ -256,6 +256,9 @@ describe("Movimientos: un fallo de red no es un mes en blanco", () => {
     render(<PaginaMovimientos />);
 
     expect(screen.getByText("Todavía no hay movimientos")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Todavía no hay movimientos" })
+    ).toBeInTheDocument();
     expect(screen.queryByText("Reintentar")).not.toBeInTheDocument();
   });
 
@@ -689,6 +692,10 @@ describe("Movimientos: piso de toque de 44px", () => {
     expect(screen.getByRole("button", { name: "Quitar filtro" }).className).toContain(
       "min-h-11"
     );
+    // El título del vacío con filtro es el encabezado del bloque del mes: h2.
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Sin movimientos con ese filtro" })
+    ).toBeInTheDocument();
   });
 
   it('el botón "Registrar movimiento" del pie lleva el piso de toque', () => {

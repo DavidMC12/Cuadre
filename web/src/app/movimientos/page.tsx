@@ -449,6 +449,7 @@ function ContenidoMovimientos() {
           descripcion={`No hay movimientos${
             categoriaActiva ? ` de ${categoriaActiva.name}` : ""
           } en ${etiquetaMes(mes)}.`}
+          tituloComo="h2"
         >
           <Button
             type="button"
@@ -475,6 +476,7 @@ function ContenidoMovimientos() {
                 ? "Registra el primer gasto o ingreso para empezar."
                 : "Ese mes no quedó ningún movimiento registrado."
           }
+          tituloComo="h2"
         >
           {hayCuentas && (
             <FormularioMovimiento cuentas={cuentas!}>

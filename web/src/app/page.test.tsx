@@ -216,7 +216,14 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
 
     render(<PaginaResumen />);
 
-    expect(screen.getByText("Todavía no hay nada que resumir")).toBeInTheDocument();
+    expect(
+      screen.getByText("Todavía no hay nada que resumir")
+    ).toBeInTheDocument();
+    // El título del estado vacío es un encabezado REAL (h2, cuelga del h1):
+    // un lector de pantalla lo encuentra navegando por encabezados.
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Todavía no hay nada que resumir" })
+    ).toBeInTheDocument();
     expect(screen.queryByText("Reintentar")).not.toBeInTheDocument();
   });
 
@@ -299,6 +306,10 @@ describe("Resumen: un fallo de red no es un cero ni un mes vacío", () => {
     render(<PaginaResumen />);
 
     expect(screen.getByRole("heading", { name: "Resumen" })).toBeInTheDocument();
+    // Los títulos de las tarjetas son encabezados REALES (h2): el lector los
+    // navega como el esquema de la pantalla, no como texto suelto.
+    expect(screen.getByRole("heading", { level: 2, name: "Por categoría" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Tendencia" })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText("Reintentar")).not.toBeInTheDocument();
     expect(screen.getByText("Ingresos")).toBeInTheDocument();

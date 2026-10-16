@@ -8,13 +8,21 @@ export function EmptyState({
   descripcion,
   children,
   className,
+  tituloComo,
 }: {
   Icono: LucideIcon;
   titulo: string;
   descripcion: string;
   children?: React.ReactNode;
   className?: string;
+  /** Con qué elemento se pinta el título del estado vacío. Por defecto queda
+   * `<p>` (como siempre); cuando el título es el encabezado real de la sección
+   * o la lista que quedó vacía, se pasa `tituloComo="h2"` (o el nivel que
+   * toque) para que un lector de pantalla lo navegue. Las clases son las
+   * mismas en ambos casos: nada cambia a la vista. */
+  tituloComo?: "h2" | "h3" | "h4";
 }) {
+  const Titulo = tituloComo ?? "p";
   return (
     <div
       className={cn(
@@ -26,7 +34,7 @@ export function EmptyState({
         <Icono className="size-6 text-muted-foreground" />
       </div>
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium">{titulo}</p>
+        <Titulo className="text-sm font-medium">{titulo}</Titulo>
         <p className="text-sm text-muted-foreground">{descripcion}</p>
       </div>
       {children}

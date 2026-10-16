@@ -125,7 +125,16 @@ describe("PanelPresupuesto: una variante por contenedor", () => {
     render(<PanelPresupuesto mes="2026-09" moneda="COP" />);
 
     expect(screen.getByText("Presupuesto del mes")).toBeInTheDocument();
+    // El título de la tarjeta es un encabezado REAL (h2): las secciones
+    // Ingresos/Gastos que siguen son h3, sin saltar niveles.
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Presupuesto del mes" })
+    ).toBeInTheDocument();
     expect(screen.getByText("Mercado")).toBeInTheDocument();
+    // La región que recibe el foco cuando una categoría entera desaparece
+    // lleva el id que el panel pasa como idRegion al cajón "Sin asignar":
+    // ambos salen del mismo idBase, y este lazo no puede divergir.
+    expect(screen.getByRole("region", { name: "Ítems del presupuesto" }).id).toMatch(/-region$/);
   });
 
   it("la variante suelta (dentro de un cajón o de una pantalla) no agrega un segundo encabezado", () => {

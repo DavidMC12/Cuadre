@@ -32,9 +32,20 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+function CardTitle({
+  className,
+  as: Encabezado = "div",
+  ...props
+}: React.HTMLAttributes<HTMLElement> & {
+  /** Con qué elemento se pinta el título. `div` por defecto (como siempre,
+   * nadie cambia sin pasar la prop); quienes usan el título como encabezado
+   * real de la tarjeta pasan `as="h2"` (o el nivel que toque) para que un
+   * lector de pantalla lo navegue como encabezado. Las clases son las mismas
+   * en ambos casos: nada cambia a la vista. */
+  as?: "div" | "h1" | "h2" | "h3" | "h4";
+}) {
   return (
-    <div
+    <Encabezado
       data-slot="card-title"
       className={cn(
         "font-heading text-base leading-snug font-medium group-data-[size=sm]/card:text-sm",

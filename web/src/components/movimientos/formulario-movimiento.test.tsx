@@ -1094,6 +1094,44 @@ describe("FormularioMovimiento: pagar una tarjeta y su pago del presupuesto", ()
     expect(screen.queryByLabelText("¿En qué fue?")).toBeNull();
     expect(screen.queryByLabelText("¿De dónde viene?")).toBeNull();
   });
+
+  it("la cuenta vinculada archivada no se pinta como id en el rótulo 'Desde' (cae al respaldo)", () => {
+    // El detalle de la tarjeta le pasa al formulario el id de su cuenta
+    // vinculada como `cuentaIdPorDefecto`, que puede llegar archivada
+    // mientras la lista trae solo activas. Sin ninguna cuenta de respaldo
+    // distinta de la tarjeta, el "Desde" muestra el hueco ("Elige una
+    // cuenta"), NUNCA el id crudo.
+    sessionStorage.clear();
+    render(
+      <FormularioMovimiento
+        cuentas={[tarjetaNu]}
+        abierto
+        tipoInicial="transferencia"
+        cuentaIdPorDefecto="a-banco"
+        transferenciaInicial={{ origen: "a-banco", destino: "a-nu" }}
+      />
+    );
+
+    const desde = screen.getByLabelText("Desde");
+    expect(desde.textContent).not.toContain("a-banco");
+  });
+
+  it("con otra cuenta activa de la misma moneda, el origen cae a esa cuenta de respaldo, no al id perdido", () => {
+    sessionStorage.clear();
+    render(
+      <FormularioMovimiento
+        cuentas={[tarjetaNu, otroBanco]}
+        abierto
+        tipoInicial="transferencia"
+        cuentaIdPorDefecto="a-banco"
+        transferenciaInicial={{ origen: "a-banco", destino: "a-nu" }}
+      />
+    );
+
+    const desde = screen.getByLabelText("Desde");
+    expect(desde.textContent).not.toContain("a-banco");
+    expect(desde).toHaveTextContent("Davivienda");
+  });
 });
 
 

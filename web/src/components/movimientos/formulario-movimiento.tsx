@@ -123,9 +123,16 @@ function recordarCuenta(cuentaId: string): void {
 }
 
 /** La cuenta con la que abre el formulario: la que pide quien lo invoca, o si
- * no la última que se usó, o si no la primera de la lista. */
+ * no la última que se usó, o si no la primera de la lista. La cuenta pedida
+ * solo vale si está EN la lista: la invitación a pagar una tarjeta pasa el id
+ * de su cuenta vinculada, que puede llegar archivada mientras el formulario
+ * recibe solo activas — un id fuera de la lista se pinta crudo en el rótulo
+ * del selector, como cualquier otra fuga de identidad (mismo control que el
+ * de `cuentaElegidaAMano` y que `origenElegidoAMano`). */
 function cuentaPorDefecto(cuentaIdPorDefecto: string | undefined, cuentas: Cuenta[]): string {
-  if (cuentaIdPorDefecto) return cuentaIdPorDefecto;
+  if (cuentaIdPorDefecto && cuentas.some((cuenta) => cuenta.id === cuentaIdPorDefecto)) {
+    return cuentaIdPorDefecto;
+  }
   const recordada = leerUltimaCuenta();
   if (recordada && cuentas.some((cuenta) => cuenta.id === recordada)) return recordada;
   return cuentas[0]?.id ?? "";

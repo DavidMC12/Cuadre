@@ -110,6 +110,11 @@ describe("Cuentas: un fallo de red no es 'todavía no tienes cuentas'", () => {
     render(<PaginaCuentas />);
 
     expect(screen.getByText("Todavía no tienes cuentas")).toBeInTheDocument();
+    // El título del vacío es el encabezado del bloque: h2 bajo el h1 de la
+    // pestaña, no un párrafo que el lector no puede saltar.
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Todavía no tienes cuentas" })
+    ).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText("Reintentar")).not.toBeInTheDocument();
   });

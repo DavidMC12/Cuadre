@@ -89,6 +89,7 @@ export default function PaginaCategorias() {
               ? "Las que archives van a aparecer aquí."
               : "Crea la primera para clasificar tus gastos e ingresos."
           }
+          tituloComo="h2"
         >
           {!verArchivadas && (
             <FormularioCategoria>

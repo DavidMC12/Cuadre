@@ -8,6 +8,13 @@
  * panel deja de pasar `monto`; el botón "Sin asignar: $X" que abrió el cajón
  * se desmonta (la fila entera se va al cerrar). Si nada recoge el foco, al
  * cerrar cae en `body`, que no es un lugar sensato del panel.
+ *
+ * Caso límite extremo: si la CATEGORÍA entera desaparece del panel con el
+ * cajón abierto (archivaron sus ítems en otra pestaña y el refetch del
+ * checklist ya no la trae), la fila y su encabezado se van a la vez y el
+ * cajón se desmonta con ellas; el foco no puede caer en ninguno de los dos.
+ * La región de la lista del panel (que siempre sobrevive si quedan ítems)
+ * es el último lugar sensato: pasa `idRegion` y el foco cae ahí.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -94,28 +101,41 @@ function dejarConsulta() {
 }
 
 /**
- * La estructura mínima que el panel pone alrededor de la fila: un grupo de
- * categoría con su botón de encabezado (el "lugar sensato" al que el foco
- * debe poder caer) y la fila "Sin asignar" dentro.
+ * La estructura mínima que el panel pone alrededor de la fila: la región de la
+ * lista (el último lugar sensato del foco), un grupo de categoría con su botón
+ * de encabezado (el "lugar sensato" al que el foco debe poder caer) y la fila
+ * "Sin asignar" dentro. El panel puede dejar de mandar el grupo entero
+ * (`conGrupo={false}`): entonces se pierden la fila, el botón que abrió el
+ * cajón y el encabezado de la categoría en la misma pasada.
  */
-function Shell(props: Partial<ComponentProps<typeof AsignarSinAsignar>>) {
+function Shell(
+  props: Partial<ComponentProps<typeof AsignarSinAsignar>> & { conGrupo?: boolean }
+) {
+  const { conGrupo = true, ...resto } = props;
   return (
     <div>
-      <button type="button" id="grupo-c-deu" aria-expanded>
-        Deudas
-      </button>
-      <ul id="lista-c-deu">
-        <AsignarSinAsignar
-          categoryId="c-deu"
-          categoriaNombre="Deudas"
-          monto="267530"
-          moneda="COP"
-          mes="2026-09"
-          items={[itemChecklist({ id: "i-nu" })]}
-          idEncabezado="grupo-c-deu"
-          {...props}
-        />
-      </ul>
+      <div role="region" aria-label="Ítems del presupuesto" tabIndex={0} id="region-panel">
+        {conGrupo ? (
+          <>
+            <button type="button" id="grupo-c-deu" aria-expanded>
+              Deudas
+            </button>
+            <ul id="lista-c-deu">
+              <AsignarSinAsignar
+                categoryId="c-deu"
+                categoriaNombre="Deudas"
+                monto="267530"
+                moneda="COP"
+                mes="2026-09"
+                items={[itemChecklist({ id: "i-nu" })]}
+                idEncabezado="grupo-c-deu"
+                idRegion="region-panel"
+                {...resto}
+              />
+            </ul>
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -153,5 +173,28 @@ describe("AsignarSinAsignar: el foco al cerrar el cajón", () => {
 
     // El foco NO queda en body: cae en un lugar sensato del panel.
     await waitFor(() => expect(document.activeElement).toBe(header));
+  });
+
+  it("si la CATEGORÍA entera desaparece con el cajón abierto, el foco cae en la región estable del panel, no en body", async () => {
+    // El refetch del checklist ya no trae la categoría: el grupo entero se
+    // va — el botón que abrió el cajón, la fila y su encabezado, con el cajón
+    // montado encima. Nadie de los tres puede recibir el foco al cerrar.
+    dejarConsulta();
+    const vista = render(<Shell />);
+    const region = screen.getByRole("region", { name: "Ítems del presupuesto" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Sin asignar:/ }));
+    await waitFor(() => expect(screen.getByText("Sin asignar en Deudas")).toBeInTheDocument());
+
+    vista.rerender(<Shell conGrupo={false} />);
+    await waitFor(() => expect(screen.queryByText("Sin asignar en Deudas")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Deudas" })).not.toBeInTheDocument());
+
+    // Ni el trigger ni el encabezado existen: el último recurso es la región
+    // de la lista del panel. Nunca body.
+    await waitFor(() =>
+      expect(document.activeElement?.id ?? "").toBe("region-panel")
+    );
+    expect(region).toBeInTheDocument();
   });
 });

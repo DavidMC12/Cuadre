@@ -88,6 +88,7 @@ export default function PaginaPresupuesto() {
           Icono={ListTodo}
           titulo="Aún no hay nada por revisar"
           descripcion="Crea una cuenta y registra tu primer movimiento para empezar tu presupuesto del mes."
+          tituloComo="h2"
         />
       </div>
     );

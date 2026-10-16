@@ -29,6 +29,7 @@ import { useSoloMirar } from "@/hooks/use-perfil";
 import { ApiError } from "@/lib/api/client";
 import type { Movimiento } from "@/lib/api/types";
 import { fechaParaInput } from "@/lib/fecha";
+import { ITEM_SIN_NOMBRE } from "@/lib/labels";
 import { agruparItemsDePago, SIN_ITEM, textoDeOpcion } from "@/lib/item-presupuesto";
 
 /** El valor del selector que marca "no cuenta para ningún ítem" y la opción
@@ -162,7 +163,12 @@ export function EditarItemMovimiento({
                     resolver el texto a mano, como en los demás. */}
                 <SelectValue>
                   {(valor: string) =>
-                    valor && valor !== SIN_ITEM ? (textoPorItem.get(valor) ?? valor) : "Sin asignar"
+                    // Guarda: si el movimiento lleva un ítem que el checklist
+                    // de este mes no tiene (archivado, etc.), la frase es
+                    // neutra, nunca el id crudo en el rótulo del selector.
+                    valor && valor !== SIN_ITEM
+                      ? textoPorItem.get(valor) ?? ITEM_SIN_NOMBRE
+                      : "Sin asignar"
                   }
                 </SelectValue>
               </SelectTrigger>

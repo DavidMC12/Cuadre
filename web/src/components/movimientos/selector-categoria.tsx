@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCategorias } from "@/hooks/use-categorias";
+import { CATEGORIA_SIN_NOMBRE } from "@/lib/labels";
 import type { TipoCategoria } from "@/lib/api/types";
 
 /** El componente Select no acepta un value vacío; este valor marca "ninguna". */
@@ -46,7 +47,15 @@ export function SelectorCategoria({
             el nombre: hay que resolverlo a mano en vez de confiar en que el
             componente encuentre solo el texto del item elegido. */}
         <SelectValue placeholder="Sin categoría">
-          {(valor: string) => (valor && valor !== SIN_CATEGORIA ? (nombrePorId.get(valor) ?? valor) : "Sin categoría")}
+          {(valor: string) =>
+            // Si la categoría del movimiento ya no está en la lista (se
+            // archivó y el selector solo ofrece activas), el rótulo es
+            // neutro: el movimiento SÍ tiene categoría, pero no hay nombre
+            // a la mano. Nunca el id crudo.
+            valor && valor !== SIN_CATEGORIA
+              ? nombrePorId.get(valor) ?? CATEGORIA_SIN_NOMBRE
+              : "Sin categoría"
+          }
         </SelectValue>
       </SelectTrigger>
       <SelectContent>

@@ -66,6 +66,9 @@ describe("Página Presupuesto: casa propia del checklist", () => {
     render(<PaginaPresupuesto />);
 
     expect(screen.getByText("Aún no hay nada por revisar")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Aún no hay nada por revisar" })
+    ).toBeInTheDocument();
     // El vacío nombra la sección como el nav ("Presupuesto"), no "checklist".
     expect(
       screen.getByText(

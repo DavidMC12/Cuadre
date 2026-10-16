@@ -70,6 +70,7 @@ export function AsignarSinAsignar({
   mes,
   items,
   idEncabezado,
+  idRegion,
 }: {
   categoryId: string;
   categoriaNombre: string;
@@ -85,6 +86,16 @@ export function AsignarSinAsignar({
    * cae en este lugar sensato del panel en vez de perderse en `body`.
    */
   idEncabezado?: string;
+  /**
+   * El id de la región de la lista del panel (el `<div role="region">` que
+   * contiene a todos los grupos). Último recurso del foco: si la CATEGORÍA
+   * entera desaparece del panel con el cajón abierto (archivaron sus ítems
+   * en otra pestaña y el refetch del checklist la barrió), se pierden la fila
+   * y su encabezado a la vez — y este cajón se desmonta junto a ellas. Aun
+   * así llega a cerrarse el foco por la limpieza de Base UI, y aquí se
+   * responde: que caiga en la región estable del panel, no en `body`.
+   */
+  idRegion?: string;
 }) {
   const soloMirar = useSoloMirar();
   const [abierto, setAbierto] = useState(false);
@@ -140,7 +151,17 @@ export function AsignarSinAsignar({
             // que volver: el foco cae en el encabezado de la categoría y no se
             // pierde en `body`.
             const encabezado = idEncabezado ? document.getElementById(idEncabezado) : null;
-            return encabezado;
+            if (encabezado) return encabezado;
+            // Último recurso: la CATEGORÍA entera desapareció del panel con el
+            // cajón abierto (sus ítems se archivaron en otra pestaña y el
+            // refetch la barrió) — la fila y su encabezado ya no existen y este
+            // cajón se desmonta con ellas. La limpieza de Base UI alcanza a
+            // preguntarle a esta función una última vez: el foco termina en la
+            // región estable de la lista del panel. (Si LO QUE SE VACIÓ es el
+            // checklist entero, la región también se desmonta y ya no queda
+            // ningún lugar estable del panel adonde caer; el vacío total no
+            // puede servir de foco y el último recurso devuelve null.)
+            return idRegion ? document.getElementById(idRegion) : null;
           }}
         >
           {/* Solo se monta con el cajón abierto: la consulta de movimientos no
