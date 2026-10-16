@@ -155,6 +155,22 @@ describe("TransferenciaItem: la fila", () => {
     expect(hora.parentElement).toContainElement(screen.getByText("·"));
   });
 
+  it("con ítem, cada punto separador viaja con su bloque (no abre el renglón siguiente)", () => {
+    montar(
+      { ...par, salida: pata({ id: "salida", budgetItemId: "i-nu" }) },
+      vi.fn(),
+      catalogoConItem
+    );
+
+    // El punto del ítem vive en su bloque…
+    const item = screen.getByText("Deuda TC Nu");
+    expect(item.parentElement?.textContent).toBe("Deuda TC Nu·");
+
+    // …y el de la hora, en el suyo, no mezclados.
+    const hora = screen.getByText(horaCorta(par.salida.occurredAt));
+    expect(hora.parentElement?.textContent).toBe(`·${horaCorta(par.salida.occurredAt)}`);
+  });
+
   it("una transferencia anulada se marca 'Anulada' y la anulación se marca 'Anulación'", () => {
     montar({
       ...par,

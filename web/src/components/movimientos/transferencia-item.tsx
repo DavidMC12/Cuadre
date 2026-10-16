@@ -87,15 +87,15 @@ export function TransferenciaItem({
               "…". Origen y destino viajan con su flecha, y la hora con su punto
               medio, para que ninguno quede huérfano al partir la línea. */}
           <span className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted-foreground">
-            {/* Solo cuando la transferencia trae ítem: un pago de tarjeta sin
-                ítem no dice "Sin asignar", no agrega nada a la línea. */}
+            {/* El ítem viaja con su punto separador, como la hora: si la línea
+                parte, el punto no abre el renglón siguiente. */}
             {segmentosItem.length > 0 && (
-              <>
+              <span className="inline-flex min-w-0 items-center gap-1">
                 <span className="min-w-0 break-words">{segmentosItem.join(" · ")}</span>
                 <span aria-hidden className="shrink-0">
                   ·
                 </span>
-              </>
+              </span>
             )}
             <span className="inline-flex min-w-0 items-center gap-1">
               <span className="min-w-0 break-words">{cuentaOrigen?.name ?? "…"}</span>
