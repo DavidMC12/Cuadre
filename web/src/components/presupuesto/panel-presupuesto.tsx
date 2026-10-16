@@ -801,6 +801,10 @@ function ContenidoRenglon({
             alarmista ("muy warning"). El texto visible habla por sí solo
             para lector de pantalla, y la barra lleva su aria-label. */}
         {renglon.checked && (
+          // El texto sube a 800 en modo claro: sobre esta tintura
+          // (emerald-600/15) el 700 mide ~4,4:1, por debajo del 4,5:1 que
+          // pide AA para texto chico; el 800 llega a ~6,2:1. El oscuro
+          // mantiene el 400.
           <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-600/15 text-emerald-800 dark:text-emerald-400">
             <CheckIcon className="size-3.5" aria-hidden />
             <span className="sr-only">Meta alcanzada</span>
