@@ -186,8 +186,38 @@ describe("TotalAhorrado: la tarjeta dice lo que es y cómo empezar", () => {
 
   it("cargando muestra el hueso de la tarjeta", () => {
     const { container } = render(<TotalAhorrado moneda="COP" cargando cuentas={undefined} />);
-    expect(screen.queryByText("Ahorrado")).not.toBeInTheDocument();
-    expect(container.firstChild).toHaveClass("animate-pulse");
+    const hueso = container.querySelector('[data-slot="card"]');
+    expect(hueso).toHaveAttribute("aria-hidden", "true");
+    expect(screen.queryByText("$500.000")).not.toBeInTheDocument();
+    expect(hueso!.querySelector(".animate-pulse")).not.toBeNull();
+  });
+
+  it("cargando: la misma tarjeta con renglones reales invisibles, marca del botón y barra donde va el monto", () => {
+    const { container } = render(<TotalAhorrado moneda="COP" cargando cuentas={undefined} />);
+
+    const hueso = container.querySelector('[data-slot="card"]');
+    expect(hueso).toHaveAttribute("aria-hidden", "true");
+    // Cuatro pulsantes: etiqueta, monto, frase y el piso del botón — la
+    // estructura exacta de la tarjeta cargada, en el mes en curso.
+    const barras = hueso!.querySelectorAll(".animate-pulse");
+    expect(barras).toHaveLength(4);
+    expect(barras[0].textContent).toBe("Ahorrado");
+    expect(barras[0]).toHaveClass("text-transparent", "uppercase");
+    expect(barras[1]).toHaveClass("h-8");
+    expect(barras[2].textContent).toBe("Lo que apartaste, no el saldo de tus cuentas.");
+    expect(barras[2]).toHaveClass("text-transparent");
+    expect(barras[3]).toHaveClass("min-h-11", "h-11", "self-start", "mt-2");
+  });
+
+  it("en un mes pasado el esqueleto no reserva botón (allí no existe), y la etiqueta va al cierre", () => {
+    const { container } = render(
+      <TotalAhorrado moneda="COP" cargando mesDeCierre="2026-09" cuentas={undefined} />
+    );
+
+    const barras = container.querySelectorAll('[data-slot="card"] .animate-pulse');
+    expect(barras).toHaveLength(3);
+    expect(barras[0].textContent).toBe("Ahorrado al cierre de Septiembre de 2026");
+    expect(barras[0]).toHaveClass("text-transparent");
   });
 });
 

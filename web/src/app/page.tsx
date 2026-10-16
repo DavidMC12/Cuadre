@@ -39,7 +39,7 @@ import { useChecklistDelMes } from "@/hooks/use-presupuesto";
 import { useIrAPantallaDeInicio } from "@/hooks/use-perfil";
 import { usePantallaAncha } from "@/hooks/use-pantalla-ancha";
 import { useMonedas, useResumenMes, useTendencia } from "@/hooks/use-reportes";
-import type { TipoCategoria } from "@/lib/api/types";
+import type { TipoCategoria, Cuenta } from "@/lib/api/types";
 import { CLASES_ASIDE } from "@/lib/aside-resumen";
 import { etiquetaMes, mesActual, tramoDelMes } from "@/lib/fecha";
 import { cn } from "@/lib/utils";
@@ -97,6 +97,23 @@ export default function PaginaResumen() {
     isFetching: recargandoCuentas,
     refetch: recargarCuentas,
   } = useCuentas(false, mesDeCierre);
+
+  // Última lista de cuentas que la pantalla vio (la de hoy mientras la lista
+  // del cierre viaja, la lista del cierre al volver). Al cambiar de mes la
+  // consulta nueva empieza sin datos y las tarjetas de totales muestran su
+  // esqueleto: esa lista le sirve de referencia para adivinar si la tarjeta
+  // que llegará lleva el renglón de deuda de tarjetas y no partir de un alto
+  // equivocado (undécima critique: cargando → cargado no debe saltar).
+  //
+  // Es historia, no estado del dibujo en sí: se guarda con el patrón de la
+  // documentación de React para "información de un render anterior" (ajustar
+  // el estado durante el render, con guard), no en un efecto — la lista que
+  // llega tiene que estar disponible en el MISMO render en que una carga
+  // nueva empieza a pedir esqueleto.
+  const [cuentasConocidas, setCuentasConocidas] = useState<Cuenta[] | undefined>(undefined);
+  if (cuentas !== undefined && cuentas !== cuentasConocidas) {
+    setCuentasConocidas(cuentas);
+  }
 
   // Para el layout de las dos tarjetas de totales importa la moneda que se
   // está viendo: una cuenta de ahorro en dólares no pinta nada al lado de un
@@ -301,6 +318,32 @@ export default function PaginaResumen() {
           )}
         </div>
 
+      {/* El mes —y, si hay varias monedas, la moneda— manda en TODO lo que
+          sigue: cifras de totales, resumen del mes, gráficas. Undécima
+          critique (P2): el control vivía DEBAJO de las cifras que gobierna.
+          Van juntos y arriba, en una fila compacta que a 320px deja que el
+          selector de mes baje de renglón (`flex-wrap`) en vez de desbordar. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        {monedas.length > 1 && (
+          <div className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-sm">
+            <span className="text-muted-foreground">Mostrando</span>
+            <Select value={moneda} onValueChange={(valor) => setMonedaElegida(valor ?? undefined)}>
+              <SelectTrigger size="sm" className="min-h-11 w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {monedas.map((codigo) => (
+                  <SelectItem key={codigo} value={codigo}>
+                    {codigo}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        <SelectorMes mes={mes} onCambiar={setMes} />
+      </div>
+
       {/* El anuncio único de una caída que toca varias partes a la vez. La
           región vive siempre montada, vacía cuando no hace falta: una región
           viva tiene que existir antes de que cambie su contenido para que el
@@ -310,24 +353,6 @@ export default function PaginaResumen() {
         {componenFallosConPresupuesto &&
           "Varias partes del Resumen no cargaron. Revisa abajo: cada parte tiene su Reintentar."}
       </p>
-
-      {monedas.length > 1 && (
-        <div className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-sm">
-          <span className="text-muted-foreground">Mostrando</span>
-          <Select value={moneda} onValueChange={(valor) => setMonedaElegida(valor ?? undefined)}>
-            <SelectTrigger size="sm" className="min-h-11 w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {monedas.map((codigo) => (
-                <SelectItem key={codigo} value={codigo}>
-                  {codigo}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
 
       <div className={cn("grid gap-5", !falloCuentas && ahorroEnMoneda && "sm:grid-cols-2")}>
         {/* Sin datos de cuentas no se suma: el "Tienes" no se inventa un cero;
@@ -353,6 +378,7 @@ export default function PaginaResumen() {
               moneda={moneda ?? ""}
               cargando={cargandoCuentas}
               mesDeCierre={mesDeCierre}
+              cuentasDeReferencia={cuentasConocidas}
             />
             {ahorroEnMoneda && (
               <TotalAhorrado
@@ -365,8 +391,6 @@ export default function PaginaResumen() {
           </>
         )}
       </div>
-
-      <SelectorMes mes={mes} onCambiar={setMes} />
 
       <ResumenCards
         resumen={resumen}

@@ -72,8 +72,14 @@ vi.mock("@/components/dashboard/selector-mes", () => ({
     </button>
   ),
 }));
-vi.mock("@/components/dashboard/total-cuentas", () => ({ TotalCuentas: vi.fn(() => null) }));
-vi.mock("@/components/dashboard/total-ahorrado", () => ({ TotalAhorrado: vi.fn(() => null) }));
+vi.mock("@/components/dashboard/total-cuentas", () => ({
+  // Un marcador con posición en el DOM: la prueba de orden del selector
+  // (control arriba de las cifras que gobierna) necesita saber dónde queda.
+  TotalCuentas: vi.fn(() => <div data-testid="tarjeta-cuentas" />),
+}));
+vi.mock("@/components/dashboard/total-ahorrado", () => ({
+  TotalAhorrado: vi.fn(() => <div data-testid="tarjeta-ahorrado" />),
+}));
 vi.mock("@/components/dashboard/grafica-por-categoria", () => ({
   GraficaPorCategoria: vi.fn(() => null),
 }));
@@ -578,6 +584,55 @@ describe("Resumen: piso de toque de 44px", () => {
   });
 });
 
+describe("Resumen: el mando queda arriba de lo que manda (ronda 11 de critique)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ventanaAncha = false;
+    ajustar({ deMonedas: { data: ["COP", "USD"] }, deCuentas: { data: conAhorro } });
+  });
+  afterEach(cleanup);
+
+  it("el selector de mes y el de moneda quedan ANTES de las tarjetas de totales y del resumen del mes", () => {
+    render(<PaginaResumen />);
+
+    const selectorMes = screen.getByRole("button", { name: "Mes anterior" });
+    const selectorMoneda = screen.getByRole("combobox");
+    const cifras = [
+      screen.getByTestId("tarjeta-cuentas"),
+      screen.getByTestId("tarjeta-ahorrado"),
+      // ResumenCards no está maqueteada: un rótulo suyo sirve de marca.
+      screen.getByText("Ingresos"),
+    ];
+
+    for (const control of [selectorMes, selectorMoneda]) {
+      for (const cifra of cifras) {
+        // `compareDocumentPosition` con PRECEDING: el control antecede a la
+        // cifra en el DOM, que es como el lector y el ojo la encuentran.
+        expect(
+          (cifra.compareDocumentPosition(control) & Node.DOCUMENT_POSITION_PRECEDING) !== 0
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("los dos controles viven en la MISMA fila, arriba", () => {
+    render(<PaginaResumen />);
+
+    const selectorMes = screen.getByRole("button", { name: "Mes anterior" });
+    const chipMoneda = screen.getByRole("combobox").closest(".bg-muted");
+    // La fila es el padre común directo del chip y del selector: la fila
+    // compacta del encabezado, antes de cualquier cifra.
+    expect(chipMoneda!.parentElement).toBe(selectorMes.parentElement);
+  });
+
+  it("la fila deja que el mes y la moneda se compongan (`flex-wrap`) para no desbordar a 320px", () => {
+    render(<PaginaResumen />);
+
+    const fila = screen.getByRole("button", { name: "Mes anterior" }).parentElement;
+    expect(fila).toHaveClass("flex-wrap");
+  });
+});
+
 describe("Resumen: el saldo que se ve sigue al mes que se está mirando", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -616,10 +671,44 @@ describe("Resumen: el saldo que se ve sigue al mes que se está mirando", () => 
       mesDeCierre: mesPasado,
       // La MISMA lista alimenta el total: ninguna cifra de "ahora" se cuela.
       cuentas: conAhorro,
+      // Y la lista que ya se vio (la de hoy) va como referencia del esqueleto,
+      // para que el hueso sepa si la tarjeta que llegará lleva deuda.
+      cuentasDeReferencia: conAhorro,
     });
     expect(vi.mocked(TotalAhorrado).mock.calls.at(-1)?.[0]).toMatchObject({
       mesDeCierre: mesPasado,
     });
+  });
+
+  it("mientras carga el mes pasado, TotalCuentas recibe la última lista conocida como referencia del esqueleto", () => {
+    // La lista del mes elegido no llegó (otra llave de caché): en pantalla la
+    // última conocida sigue siendo la de hoy.
+    vi.mocked(ordenCuentas.useCuentas).mockImplementation((...args: unknown[]) =>
+      refetchable(
+        args[1] ? { data: undefined, isLoading: true } : { data: cuantas }
+      ) as never
+    );
+    render(<PaginaResumen />);
+    fireEvent.click(screen.getByRole("button", { name: "Mes anterior" }));
+
+    const props = vi.mocked(TotalCuentas).mock.calls.at(-1)?.[0] as unknown as {
+      cargando: boolean;
+      cuentasDeReferencia?: Cuenta[];
+    };
+    expect(props.cargando).toBe(true);
+    expect(props.cuentasDeReferencia).toEqual(cuantas);
+  });
+
+  it("en la primera carga fría no hay lista anterior: TotalCuentas no recibe referencia", () => {
+    ajustar({ deCuentas: { data: undefined, isLoading: true } });
+    render(<PaginaResumen />);
+
+    const props = vi.mocked(TotalCuentas).mock.calls.at(-1)?.[0] as unknown as {
+      cargando: boolean;
+      cuentasDeReferencia?: Cuenta[];
+    };
+    expect(props.cargando).toBe(true);
+    expect(props.cuentasDeReferencia).toBeUndefined();
   });
 
   it("en un mes pasado sin cuenta de ahorro al cierre, la tarjeta y la gráfica de ahorro desaparecen", () => {
