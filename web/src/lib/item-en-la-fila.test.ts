@@ -56,6 +56,19 @@ describe("resolverCatalogoDeItems", () => {
     expect(resolverCatalogoDeItems(undefined)).toBeNull();
   });
 
+  it("no cuenta un ítem de ahorro (sin categoría) como categoría con ítems", () => {
+    const resuelto = resolverCatalogoDeItems([
+      item({
+        id: "a-1",
+        kind: "savings",
+        categoryId: null,
+        categoryName: null,
+        accountName: "Meta de ahorro",
+      }),
+    ])!;
+    expect(resuelto.itemsPorCategoria.size).toBe(0);
+  });
+
   it("resuelve el nombre con label, categoryName o accountName", () => {
     const resuelto = resolverCatalogoDeItems([
       item({ id: "i-1" }),

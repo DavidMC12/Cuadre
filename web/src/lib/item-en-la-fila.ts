@@ -22,7 +22,7 @@ import { movimientosSinAsignar } from "@/lib/sin-asignar";
  * `objetivosDelMes` en el servidor para el cajón "Sin asignar" del panel.
  */
 interface ItemsDeUnaCategoria {
-  readonly archivados: (string | null)[];
+  readonly archivados: readonly (string | null)[];
 }
 
 /**
@@ -67,11 +67,9 @@ export function resolverCatalogoDeItems(
     if (item.kind === "category" && item.categoryId !== null) {
       const clave = claveDeLaCategoria(item.categoryId, item.currency);
       const previos = itemsPorCategoria.get(clave);
-      if (previos) {
-        previos.archivados.push(item.archivedAt);
-      } else {
-        itemsPorCategoria.set(clave, { archivados: [item.archivedAt] });
-      }
+      itemsPorCategoria.set(clave, {
+        archivados: previos ? [...previos.archivados, item.archivedAt] : [item.archivedAt],
+      });
     }
   }
 
@@ -94,10 +92,13 @@ function mesEnBogota(iso: string): string {
 }
 
 /**
- * ¿La categoría tenía ítems a los que este movimiento pudo asignarse? La misma
- * condición de `objetivosDelMes` en el servidor: un ítem cuenta si sigue activo
- * o si se archivó ese mes o después. Así un movimiento de un mes pasado no
- * pierde su "Sin asignar" solo porque hoy archivaron el ítem.
+ * ¿La categoría tenía ítems a los que este movimiento pudo asignarse? Replica la
+ * condición de `objetivosDelMes` en el servidor (ver
+ * `src/modules/budgets/repository.ts`, el SQL de `objetivosDelMes`): un ítem
+ * cuenta si sigue activo o si se archivó ese mes o después. Así un movimiento
+ * de un mes pasado no pierde su "Sin asignar" solo porque hoy archivaron el
+ * ítem. Si esa regla del servidor cambia, esta copia queda desfasada: por eso
+ * el comentario nombra la fuente.
  */
 function laCategoriaTieneItems(
   catalogo: CatalogoDeItems,
