@@ -724,25 +724,37 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   worker1). Detector con 0 hallazgos, `medir:nav/panel/aside` en verde con
   Chromium real, `tsc` limpio, 949 pruebas, contraste AA medido (lo más fino:
   `muted-foreground` claro 4,73:1). Sigue sin navegador real (falta
-  `web/.env.local` con `NEON_AUTH_*`). Quedan 3 P2 y 2 P3, **sin aplicar**
-  (se esperó al dueño, que estaba probando en el celular): (1) en el Resumen
-  el selector de mes queda debajo de las tarjetas "Tienes/Ahorrado", que desde
-  el 2026-10-13 ya siguen al mes (`app/page.tsx:332-371`; arreglo: subirlo
-  bajo el título); (2) el botón "Presupuesto" del Resumen duplica la pestaña
-  de la barra por debajo de xl y queda en la esquina difícil del pulgar
-  (decisión de estructura del dueño); (3) la fila de transferencia con ítem
-  recorta nombres de cuenta a 320px (`truncate`; en la fila de movimiento no:
-  ahí parte en renglones) y mezcla "-" del ítem con "·" del resto (la
-  bitácora de 2026-10-09 había diseñado "›", la implementación usó guion), y
-  las tres filas no llevan `min-h-11` propio (hoy rinden >=64px por
-  contenido); P3: el esqueleto de las tarjetas de totales no calza en un mes
-  pasado (sin verificar), y el FAB "Registrar" es solo un "+" en celular.
-  Verificado a mano antes de aceptar: un saldo positivo de "Tienes" sale en
-  verde (`signo="negativo"` + valor positivo cae en `emerald`), lo que choca
-  con "solo el ingreso lleva color"; anotado como menor. Reporte en
+  `web/.env.local` con `NEON_AUTH_*`). Salieron 3 P2 y 2 P3. **Aplicados el
+  mismo día, a pedido del dueño ("trabaja solo, deja las decisiones mías al
+  final")**, en dos ramas ya en `main`: (1) el selector de mes y, si hay varias
+  monedas, el de moneda suben bajo el título del Resumen, antes de las cifras
+  que gobiernan (una fila compacta con `flex-wrap`; con dos monedas envuelve a
+  320–390px porque el chip y el selector no caben sin bajar los 44px); (2) la
+  fila de transferencia parte en renglones en vez de recortar nombres de
+  cuenta (el recorte ocurría solo ahí: la fila de movimiento ya envolvía), el
+  ítem y la hora viajan con su punto; (3) el ítem se une a su categoría con
+  " › " en la fila Y en el texto cerrado del desplegable (era " - " mezclado
+  con " · "; la bitácora de 2026-10-09 ya había diseñado "›"); (4) las tres
+  filas llevan `min-h-11` propio; (5) el esqueleto de las tarjetas de totales
+  tiene la MISMA estructura que la tarjeta (barras donde van etiqueta y monto,
+  el texto real invisible para que parta en renglones igual) y la pantalla
+  guarda la última lista de cuentas vista para adivinar si la tarjeta llevará
+  "Debías en tarjetas"; medido con `npm run medir:totales` (nuevo, Chromium
+  real, espejo con las clases de `web/src/lib/tarjetas-totales.ts`): delta
+  esqueleto vs tarjeta 0px a 320/360/390 en mes actual y pasado. Residual
+  aceptado: una carga fría del mes actual CON deuda salta 18px (el esqueleto
+  no puede saber que vendrá deuda); remedio futuro: persistir la lista. Con
+  esto el lint quedó en 0 warnings (se quitó `vista` sin uso en
+  `formulario-item-presupuesto.test.tsx`). **Quedan para el dueño**: (a) el
+  botón "Presupuesto" del Resumen duplica la pestaña de la barra por debajo de
+  xl y queda en la esquina difícil del pulgar (decisión de estructura); (b) el
+  FAB "Registrar" es solo un "+" en celular, sin rótulo; (c) un saldo
+  positivo de "Tienes" sale en verde (`signo="negativo"` + valor positivo cae
+  en `emerald`), lo que choca con "solo el ingreso lleva color". Reporte en
   `.impeccable/critique/2026-10-16T00-38-37Z__web-src.md`.
 
-Pendiente, sin fecha: aplicar los P2/P3 de la undécima que el dueño apruebe.
+Pendiente, sin fecha: las tres decisiones del dueño de la undécima (arriba,
+a-c) y, cuando él quiera, una duodécima ronda de critique.
 
 ### Pasos adicionales, ya pasado el 100%
 
