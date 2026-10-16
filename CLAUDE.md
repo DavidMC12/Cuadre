@@ -718,8 +718,31 @@ completo de critiques en `.impeccable/critique/`; resumen de lo relevante:
   antes de seguir un encargo que decía "›" de memoria cuando el desplegable
   real usa guion, y preguntó; un encargo debe citar el código, no la bitácora.
 
-Pendiente, sin fecha: otra ronda de `impeccable critique` para medir el
-puntaje tras los cierres de la décima (en marcha el 2026-10-15, ronda 11).
+- **Undécima ronda de `impeccable critique`** (2026-10-15, 29/40 → 32/40,
+  "Bueno", **sin P0 ni P1**): la hicieron los workers en sesiones nuevas (A
+  diseño en worker1, B detector y mediciones en worker2, aislados; síntesis de
+  worker1). Detector con 0 hallazgos, `medir:nav/panel/aside` en verde con
+  Chromium real, `tsc` limpio, 949 pruebas, contraste AA medido (lo más fino:
+  `muted-foreground` claro 4,73:1). Sigue sin navegador real (falta
+  `web/.env.local` con `NEON_AUTH_*`). Quedan 3 P2 y 2 P3, **sin aplicar**
+  (se esperó al dueño, que estaba probando en el celular): (1) en el Resumen
+  el selector de mes queda debajo de las tarjetas "Tienes/Ahorrado", que desde
+  el 2026-10-13 ya siguen al mes (`app/page.tsx:332-371`; arreglo: subirlo
+  bajo el título); (2) el botón "Presupuesto" del Resumen duplica la pestaña
+  de la barra por debajo de xl y queda en la esquina difícil del pulgar
+  (decisión de estructura del dueño); (3) la fila de transferencia con ítem
+  recorta nombres de cuenta a 320px (`truncate`; en la fila de movimiento no:
+  ahí parte en renglones) y mezcla "-" del ítem con "·" del resto (la
+  bitácora de 2026-10-09 había diseñado "›", la implementación usó guion), y
+  las tres filas no llevan `min-h-11` propio (hoy rinden >=64px por
+  contenido); P3: el esqueleto de las tarjetas de totales no calza en un mes
+  pasado (sin verificar), y el FAB "Registrar" es solo un "+" en celular.
+  Verificado a mano antes de aceptar: un saldo positivo de "Tienes" sale en
+  verde (`signo="negativo"` + valor positivo cae en `emerald`), lo que choca
+  con "solo el ingreso lleva color"; anotado como menor. Reporte en
+  `.impeccable/critique/2026-10-16T00-38-37Z__web-src.md`.
+
+Pendiente, sin fecha: aplicar los P2/P3 de la undécima que el dueño apruebe.
 
 ### Pasos adicionales, ya pasado el 100%
 
