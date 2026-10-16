@@ -24,6 +24,18 @@ export const SIN_CATEGORIA = "Sin categoría";
 /** "Sin asignar": un movimiento que no cuenta para ningún ítem del presupuesto. */
 export const SIN_ASIGNAR = "Sin asignar";
 
+/** Un ítem del presupuesto que el catálogo no pudo nombrar: el movimiento SÍ
+ * tiene ítem, solo que no se alcanzó a resolver su nombre. Frase neutra y
+ * honesta para que el detalle nunca pinte el id crudo, ni invente un nombre. */
+export const ITEM_SIN_NOMBRE = "Ítem del presupuesto";
+
+/** Una categoría que la lista no cubre (por ejemplo, ya archivada): el
+ * movimiento SÍ tiene categoría, pero tampoco hay nombre a la mano. Mismo
+ * acuerdo que `ITEM_SIN_NOMBRE`: nada de ids crudos en pantalla. La frase
+ * evita repetir la palabra "Categoría" sola, que ya usa la etiqueta del
+ * control donde aparece. */
+export const CATEGORIA_SIN_NOMBRE = "Categoría sin nombre";
+
 /**
  * El mismo texto de ayuda donde quiera que se toque el ahorro de una cuenta,
  * para que el interruptor, la lista y el detalle no digan cosas distintas: es

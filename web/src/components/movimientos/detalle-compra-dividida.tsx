@@ -27,7 +27,7 @@ import {
   totalDeLaCompra,
 } from "@/lib/combinar-pagos-divididos";
 import { etiquetaFecha, horaCorta } from "@/lib/fecha";
-import { SIN_ASIGNAR, SIN_CATEGORIA } from "@/lib/labels";
+import { ITEM_SIN_NOMBRE, SIN_ASIGNAR, SIN_CATEGORIA } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
 /**
@@ -61,7 +61,9 @@ export function DetalleCompraDividida({
   const nombreDelItem = (() => {
     if (!primera.budgetItemId) return null;
     const item = (itemsDelPresupuesto ?? []).find((item) => item.id === primera.budgetItemId);
-    if (!item) return primera.budgetItemId;
+    // El movimiento SÍ tiene ítem; si el catálogo no lo nombra, frase neutra,
+    // nunca el id crudo.
+    if (!item) return ITEM_SIN_NOMBRE;
     return item.label ?? item.categoryName ?? item.accountName ?? SIN_ASIGNAR;
   })();
 
