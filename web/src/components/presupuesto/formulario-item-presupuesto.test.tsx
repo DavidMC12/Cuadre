@@ -143,7 +143,7 @@ describe('FormularioItemPresupuesto', () => {
       archivedAt: null,
     };
 
-    const vista = render(
+    render(
       <FormularioItemPresupuesto
         item={{
           ...base,
@@ -722,7 +722,7 @@ describe('FormularioItemPresupuesto', () => {
       archivedAt: null,
       categoryKind: 'expense' as const,
     };
-    const vista = render(
+    render(
       <FormularioItemPresupuesto item={item} moneda={monedaCOP} mes="2026-09" montoDelMes="30000.0000">
         <button type="button">Editar</button>
       </FormularioItemPresupuesto>,
